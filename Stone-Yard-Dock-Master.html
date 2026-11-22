@@ -1,0 +1,677 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Stone Yard Dock Master</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen cab console. HUD strip on top, the yard board fit to the middle, touch pedals docked below on phones. */
+:root{
+  --ink:#14120e; --panel:#1f1c16; --panel-2:#2a261e; --line:#3d3629;
+  --text:#efe5cf; --muted:#a5967a; --signal:#f2b705; --cab:#c8372d;
+  --good:#6cc070; --bad:#e5573f; --ghost:#7fd4f0;
+  --display:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--ink);color:var(--text);font-family:var(--mono);overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-user-select:none;user-select:none}
+#app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px;max-width:1100px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+.hud{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.id h1{font-family:var(--display);font-weight:900;font-size:26px;line-height:.9;letter-spacing:.02em;text-transform:uppercase;margin:0}
+.id h1 span{color:var(--signal)}
+.id p{margin:3px 0 0;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.stats{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 9px 5px;min-width:58px}
+.stat span{display:block;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.stat b{font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+.stat i{font-style:normal;color:var(--muted);font-size:12px}
+.stat.warn b{color:var(--bad)}
+.stat.gear b{display:inline-block;min-width:20px;text-align:center;border-radius:3px;padding:0 4px}
+.stat.gear.rev b{background:var(--signal);color:var(--ink)}
+.meter{width:64px;height:7px;margin-top:5px;background:var(--ink);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.meter div{height:100%;width:0;background:var(--good)}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.tools button{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.tools button:hover{border-color:var(--muted)}
+.tools button[aria-pressed="false"]{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(165,150,122,.6)}
+
+#stage{flex:1;min-height:0;position:relative;display:grid;place-items:center}
+#board{position:relative;border-radius:8px;overflow:hidden;box-shadow:0 0 0 4px #2a2419,0 18px 50px rgba(0,0,0,.55);touch-action:none}
+#game{display:block;width:100%;height:100%}
+
+.ov{position:absolute;inset:0;display:grid;place-items:center;padding:14px;background:rgba(16,13,9,.6)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;max-width:400px;width:100%;
+  box-shadow:0 20px 50px rgba(0,0,0,.5);max-height:100%;overflow:auto}
+.eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--signal);margin:0}
+.card h2{font-family:var(--display);font-weight:900;font-size:40px;line-height:.92;text-transform:uppercase;margin:6px 0 10px;text-wrap:balance}
+.tip{font-size:13px;line-height:1.55;color:var(--text);margin:0 0 12px}
+.best{font-size:11px;color:var(--muted);margin:0 0 14px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:11px;color:var(--muted);margin:0 0 16px}
+.keys kbd{font-family:var(--mono);color:var(--text);background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:10px}
+.row{display:flex;gap:8px}
+.btn{flex:1;height:44px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.btn.go{background:var(--signal);border-color:var(--signal);color:var(--ink)}
+.btn:hover{filter:brightness(1.1)}
+
+.starsBig{display:flex;gap:8px;margin:4px 0 12px}
+.starsBig span{font-size:38px;line-height:1;color:#3d3629;transform:scale(.6);opacity:.6;transition:transform .35s cubic-bezier(.3,1.6,.5,1),color .2s,opacity .2s}
+.starsBig span.on{color:var(--signal);transform:scale(1);opacity:1}
+.crit{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:6px;font-size:12px}
+.crit li{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:6px;background:var(--ink);border:1px solid var(--line)}
+.crit li::before{content:"✕";color:var(--bad);margin-right:8px;font-weight:600}
+.crit li.ok::before{content:"✓";color:var(--good)}
+.crit li span{flex:1}
+.crit li b{font-weight:600;font-variant-numeric:tabular-nums;color:var(--muted)}
+.newbest{display:inline-block;margin-left:8px;font-size:10px;letter-spacing:.14em;color:var(--ink);background:var(--good);border-radius:3px;padding:1px 6px;vertical-align:middle}
+
+#menu{position:absolute;inset:0;background:var(--ink);overflow:auto;padding:4px 2px 20px;z-index:5}
+.menuHead{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:10px;margin:6px 0 14px}
+.menuHead h2{font-family:var(--display);font-weight:900;font-size:44px;line-height:.9;text-transform:uppercase;margin:0}
+.menuHead p{margin:4px 0 0;font-size:12px;color:var(--muted)}
+.total{font-family:var(--display);font-weight:800;font-size:28px;color:var(--signal)}
+.total small{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400;margin-left:6px;letter-spacing:.1em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.chap{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-top:8px;border-top:1px solid var(--line);padding-top:12px}
+.chap h3{font-family:var(--display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0;color:var(--signal)}
+.chap p{margin:0;font-size:11px;color:var(--muted)}
+.lv{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
+.lv:hover:not(:disabled){border-color:var(--signal)}
+.lv canvas{width:100%;height:auto;aspect-ratio:4/3;border-radius:4px;display:block;max-width:100%}
+.lv .t{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.lv .n{font-family:var(--display);font-weight:800;font-size:20px;text-transform:uppercase;line-height:1}
+.lv .n em{font-style:normal;color:var(--muted);margin-right:6px}
+.lv .s{color:var(--signal);letter-spacing:2px;font-size:13px}
+.lv .s .off{color:#4a4233}
+.lv .m{font-size:10px;color:var(--muted);letter-spacing:.06em}
+.lv:disabled{opacity:.45;cursor:not-allowed}
+.lv:disabled canvas{filter:grayscale(1) brightness(.6)}
+
+.pad{display:none;gap:12px;align-items:stretch;padding-bottom:4px;touch-action:none}
+@media (pointer:coarse){.pad{display:flex}}
+.wheel{flex:1;position:relative;height:74px;border-radius:12px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.wheel::before{content:"";position:absolute;left:50%;top:10px;bottom:10px;width:1px;background:var(--line)}
+.wheel span{position:absolute;left:10px;top:8px;font-size:9px;letter-spacing:.18em;color:var(--muted)}
+.knob{position:absolute;top:50%;left:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#4a4234,#26221b);border:2px solid var(--muted)}
+.knob::after{content:"";position:absolute;left:50%;top:5px;width:3px;height:14px;margin-left:-1.5px;background:var(--signal);border-radius:2px}
+.pedals{display:flex;gap:8px}
+.pedals button{width:78px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);font-weight:600;font-size:13px;letter-spacing:.14em}
+.pedals #gas{background:var(--text);color:var(--ink)}
+.pedals button.down{filter:brightness(1.35);transform:scale(.97)}
+@media (max-width:600px){
+  .id h1{font-size:21px}
+  .stat{padding:3px 7px;min-width:0}
+  .stat b{font-size:13px}
+  .tools button{padding:6px 8px;font-size:10px}
+  .card h2{font-size:32px}
+  .menuHead h2{font-size:34px}
+}
+@media (prefers-reduced-motion:reduce){.starsBig span{transition:none}}
+</style>
+
+<div id="app">
+  <header class="hud">
+    <div class="id"><h1>Stone <span>Yard</span></h1><p id="lvlLabel">Yard 01 · Back It In</p></div>
+    <div class="stats">
+      <div class="stat" id="sMoves"><span>Moves</span><b id="hMoves">0</b> <i>/ <em id="hPar">3</em></i></div>
+      <div class="stat"><span>Time</span><b id="hTime">0:00.0</b></div>
+      <div class="stat" id="sScr"><span>Scrapes</span><b id="hScr">0</b></div>
+      <div class="stat" id="sCone"><span>Cones</span><b id="hCone">0</b></div>
+      <div class="stat"><span>Drops</span><b id="hDock">0/1</b></div>
+      <div class="stat gear" id="sGear"><span>Gear</span><b id="hGear">D</b></div>
+      <div class="stat"><span>Hitch</span><div class="meter"><div id="hArt"></div></div></div>
+    </div>
+    <nav class="tools">
+      <button id="bYards">Yards</button>
+      <button id="bRetry">Retry</button>
+      <button id="bGuide" aria-pressed="true">Guide</button>
+      <button id="bGhost" aria-pressed="true">Ghost</button>
+      <button id="bSound" aria-pressed="true">Sound</button>
+    </nav>
+  </header>
+
+  <div id="stage">
+    <div id="board">
+      <canvas id="game" width="768" height="576"></canvas>
+      <div class="ov" id="intro" hidden></div>
+      <div class="ov" id="win" hidden></div>
+      <div class="ov" id="fail" hidden></div>
+    </div>
+    <div id="menu" hidden></div>
+  </div>
+
+  <div class="pad" id="pad">
+    <div class="wheel" id="wheel"><span>STEER</span><div class="knob" id="knob"></div></div>
+    <div class="pedals"><button id="rev">REV</button><button id="gas">GAS</button></div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const T=48,COLS=16,ROWS=12,W=T*COLS,H=T*ROWS,D2R=Math.PI/180;
+const RIG={L1:30,L2:56,d:6,maxSteer:27*D2R,cabBack:10,cabFront:36,cabW:22,trFront:8,trBack:66,trW:24,vF:110,vR:48,jack:85*D2R};
+const ANG={E:0,S:Math.PI/2,W:Math.PI,N:-Math.PI/2};
+const UNLOAD=0.9, ALIGN=12*D2R;
+const wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
+
+const OPEN=[
+"################","#..............#","#..............#","#..............#","#..............#",
+"#..............#","#..............#","#..............#","#..............#","#..............#"];
+const LEVELS=[
+{name:"Back It In",par:3,head:"E",docks:{1:"S"},tip:"Pull past the bay, then reverse in. Backing up, the trailer swings the opposite way you steer, so keep inputs small.",
+ map:["################","#......1.......#",...OPEN.slice(2),"#..S...........E","################"]},
+{name:"The Slot",par:3,head:"E",docks:{1:"S"},tip:"Stone on both sides of the bay. Square the trailer up before the slot, and watch the amber guide line.",
+ map:["################","#######1########",...OPEN.slice(2),"#..S...........E","################"]},
+{name:"Cone Alley",par:3,head:"E",docks:{1:"W"},tip:"The bay faces west, so you have to come around. Knocked cones cost you the clean-run star.",
+ map:["################","#..............#","#..............#","#....c....c....#","#.............##","#.............1#","#.............##","#....c....c....#","#..............#","#..............#","#..S...........#","###E############"]},
+{name:"Double Drop",par:5,head:"E",docks:{1:"S",2:"S"},tip:"Two bays, in number order. The exit gate only lifts after the last drop.",
+ map:["################","#...1......2...#","#..............#","#..............#","#......##......#","#......##......#","#..............#","#..............#","#..............#","#..............#","#..S...........#","#######EE#######"]},
+{name:"Chicane",par:5,head:"E",docks:{1:"S"},tip:"Thread the zig-zag. Before you reach the top, decide which way you need to be facing.",
+ map:["################","#.........###1##","#..............#","#..............#","#..............#","#########......#","#..............#","#..............#","#......#########","#..............#","#..S...........#","#############E##"]},
+{name:"Deep Slot",par:3,head:"E",docks:{1:"S"},tip:"Two tiles deep. Get the trailer dead straight before it enters; corrections inside become scrapes.",
+ map:["################","########1#######","########.#######",...OPEN.slice(3),"#...S..........E","################"]},
+{name:"Crate Stacks",par:4,head:"W",docks:{1:"E"},tip:"The bay is on the west wall. Find the loop through the pallets that leaves you facing east.",
+ map:["################","#.....x........#","#.....x....xx..#","##.............#","#1.............#","##.....xx......#","#......xx......#","#..............#","#...xx.....x...#","#..........x...#","#..........x.S.#","##E#############"]},
+{name:"Triple Haul",par:7,head:"E",docks:{1:"S",2:"S",3:"W"},tip:"Three drops. Plan the turn after the next one, not just the next one.",
+ map:["################","#..1.......2...#","#..............#","#..............#","#.....####....##","#.....####....3#","#.............##","#..............#","#..............#","#..............#","#..S...........#","#######E########"]},
+{name:"The Squeeze",par:4,head:"E",docks:{1:"S"},tip:"A two-wide corridor ends in a slot on its left side. Hug the left wall all the way up.",
+ map:["################","#1##############","#..#...........#","#..#...........#","#..#....###....#","#..#....###....#","#..#...........#","#..#...........#","#..............#","#..............#","#.........S....#","############E###"]},
+{name:"Inner Bay",par:3,head:"E",docks:{1:"S"},tip:"The bay sits inside the stone block. Swing wide on the approach so you reverse in straight.",
+ map:["################","#..............#","#...########...#","#...########...#","#...########...#","#...###1.###...#","#...###..###...#","#...###..###...#","#..............#","#..............#","#..S...........#","##############E#"]},
+{name:"Switchback",par:6,head:"E",docks:{1:"W",2:"E"},tip:"Bays on opposite walls with a divider between them. The exit is up top on the left.",
+ map:["###E############","#.......#......#","#.......#.....##","#.......#.....1#","#.......#.....##","#.......#......#","##.............#","#2.............#","##.............#","#..............#","#.......S......#","################"]},
+{name:"Dock Master",par:8,head:"W",docks:{1:"S",2:"S",3:"E"},tip:"Three drops, two slots, cones in the lanes. One clean run earns the title.",
+ map:["################","#1#....c....#2##","#......c.......#","#..............#","#....######....#","#....######....#","#..............#","##.....c.......#","#3.............#","##.............#","#.....c...S....#","###########E####"]},
+{name:"Gatekeeper",par:3,head:"E",docks:{1:"S"},tip:"New: pressure plates. Roll any axle over the plate to lift its matching shutter. The bay is straight above the gate, so think about which way you face before you go through.",
+ map:["################","#......1.......#","#..............#","#..............#","######PP########","#..............#","#..............#","#..........p...#","#..............#","#..............#","#..S...........#","#############E##"]},
+{name:"Back Plate",par:4,head:"E",docks:{1:"S"},tip:"The plate sits in a dead-end slot behind you. The trailer's wheels can press it too.",
+ map:["################","#......1.......#","#..............#","#..............#","######PPP#######","#..............#","#..............#","#..............#","##.............#","#p.............#","##..S..........#","#############E##"]},
+{name:"Island Loop",par:5,head:"E",docks:{1:"W",2:"E"},tip:"Both bays are cut into the stone island, facing opposite ways. Choose the loop direction that sets up both.",
+ map:["################","#..............#","#..............#","#..............#","#.....####.....#","#....1####2....#","#.....####.....#","#.....####.....#","#..............#","#..............#","#..S...........#","#######E########"]},
+{name:"Cone Field",par:3,head:"E",docks:{1:"S"},tip:"Fifteen cones on a grid. The lanes are wide enough, but only if you pick them before you turn.",
+ map:["################","#.c..c..1..c..c#","#..............#","#c..c..c..c..c.#","#..............#","#.c..c....c..c.#","#..............#","#c..c..c..c..c.#","#..............#","#..............#","#..S...........E","################"]},
+{name:"Two Keys",par:6,head:"E",docks:{1:"S",2:"W"},tip:"Two plates on your side of the wall: one lifts the middle shutter, one lifts the exit shutter. The exit counts if the cab or the trailer crosses it.",
+ map:["################","#......1#......#","#.......#......#","#.......#......#","#.......P......#","#.......P......#","#.......#.....##","#..q....#.....2#","#.......#.....##","#.......#......#","#..S...p#..#QQ##","############EE##"]},
+{name:"Shutter Run",par:6,head:"E",docks:{1:"S"},tip:"Plate in the corner slot, then up through two shutters and a band only two tiles tall.",
+ map:["################","#..1...........#","#..............#","#..............#","##########QQ####","#..............#","#...q..........#","####PP##########","#..............#","#.............##","#..S..........p#","##E#############"]},
+{name:"Crossroads",par:7,head:"E",docks:{1:"S",2:"W",3:"E"},tip:"Three bays facing three directions around a stone block. Every drop leaves you pointed somewhere new.",
+ map:["################","#......1.......#","#..............#","#..............#","#.....####.....#","#3....####....2#","#.....####.....#","#..............#","#...c......c...#","#..............#","#..S...........#","#######E########"]},
+{name:"Pallet Maze",par:6,head:"E",docks:{1:"S",2:"S"},tip:"Bays in both top corners, pallets everywhere else. Two exits; either one counts.",
+ map:["################","#1....x....x..2#","#.....x....x...#","#..............#","#..xx....xx....#","#..xx....xx....#","#..............#","#......xx......#","#x.....xx.....x#","#..............#","#......S.......#","#####E####E#####"]},
+{name:"Locked Rooms",par:9,head:"E",docks:{1:"S",2:"S"},tip:"Three rooms, four tiles wide. Each room's plate opens the next shutter. You will need three-point turns.",
+ map:["################","#....#.1..#..2.#","#....#....#....#","#....#....#....#","#.p..#....#....#","#....#....#....#","#....#..q.#....#","#....#....#....#","#....P....Q....#","#....P....Q....#","#..S.#....#....#","############E###"]},
+{name:"The Needle",par:3,head:"E",docks:{1:"S"},tip:"A bay three tiles deep and one tile wide. The whole rig ends up inside it, so it has to go in dead straight.",
+ map:["################","######1#########","######.#########","######.#########","#..............#","#..............#","#...c.....c....#","#..............#","#..............#","#..............#","#..S...........#","###########E####"]},
+{name:"Long Way Back",par:3,head:"E",docks:{1:"E"},tip:"The bay is at the far end of the top lane. The only way in is backwards, around a corner, the whole way.",
+ map:["################","#1.............#","#..............#","#..............#","###########....#","###########....#","###########....#","#..............#","#..............#","#..............#","#..S...........#","#E##############"]},
+{name:"Yard Boss",par:10,head:"W",docks:{1:"S",2:"S",3:"E"},tip:"Three drops, two shutters. The plate for the left shutter is in the top-right room. Plan the whole route before you roll.",
+ map:["################","#1#.....#....2.#","#.......#..q...#","#.......P......#","#.......P......#","###QQ######..###","#..............#","#..............#","##.............#","#3.......p.....#","##...c....S....#","##########E#####"]}
+];
+
+/* ---------- storage ---------- */
+const KEY="stone-yard-dock-master-v1";
+let PROG={},SET={guide:true,ghost:true,sound:true};
+try{const d=JSON.parse(localStorage.getItem(KEY)||"{}");PROG=d.prog||{};Object.assign(SET,d.set||{})}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({prog:PROG,set:SET}))}catch(e){}}
+const unlocked=i=>i===0||((PROG[i-1]||{}).stars||0)>=1||(i===12&&LEVELS.slice(0,12).reduce((s,_,k)=>s+((PROG[k]||{}).stars||0),0)>=15);
+const totalStars=()=>LEVELS.reduce((s,_,i)=>s+((PROG[i]||{}).stars||0),0);
+
+/* ---------- dom ---------- */
+const $=id=>document.getElementById(id);
+const cv=$("game"),ctx=cv.getContext("2d"),board=$("board"),stage=$("stage");
+const bg=document.createElement("canvas");bg.width=W*2;bg.height=H*2;
+const marks=document.createElement("canvas");marks.width=W*2;marks.height=H*2;
+const mctx=marks.getContext("2d");mctx.setTransform(2,0,0,2,0,0);
+let DPR=1,SCALE=1;
+function fit(){
+  const r=stage.getBoundingClientRect();const s=Math.max(.1,Math.min(r.width/W,r.height/H));
+  const cw=Math.floor(W*s),ch=Math.floor(H*s);board.style.width=cw+"px";board.style.height=ch+"px";
+  DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(cw*DPR);cv.height=Math.round(ch*DPR);SCALE=cw/W*DPR;
+}
+new ResizeObserver(fit).observe(stage);
+
+/* ---------- geometry ---------- */
+function rectPoly(cx,cy,a,front,back,hw){
+  const c=Math.cos(a),s=Math.sin(a),px=-s,py=c,fx=cx+c*front,fy=cy+s*front,bx=cx-c*back,by=cy-s*back;
+  return [[fx+px*hw,fy+py*hw],[fx-px*hw,fy-py*hw],[bx-px*hw,by-py*hw],[bx+px*hw,by+py*hw]];
+}
+const hitch=st=>({x:st.x+Math.cos(st.th)*RIG.d,y:st.y+Math.sin(st.th)*RIG.d});
+const rigPolys=st=>{const k=hitch(st);return [rectPoly(st.x,st.y,st.th,RIG.cabFront,RIG.cabBack,RIG.cabW/2),rectPoly(k.x,k.y,st.ph,RIG.trFront,RIG.trBack,RIG.trW/2)]};
+function satBox(p,x0,y0,x1,y1){
+  let a=1e9,b=-1e9,c=1e9,d=-1e9;for(const q of p){a=Math.min(a,q[0]);b=Math.max(b,q[0]);c=Math.min(c,q[1]);d=Math.max(d,q[1])}
+  if(b<=x0||a>=x1||d<=y0||c>=y1)return false;
+  const bc=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+  for(let i=0;i<2;i++){
+    const ax=-(p[i+1][1]-p[i][1]),ay=p[i+1][0]-p[i][0];let p0=1e9,p1=-1e9,q0=1e9,q1=-1e9;
+    for(const q of p){const v=q[0]*ax+q[1]*ay;p0=Math.min(p0,v);p1=Math.max(p1,v)}
+    for(const q of bc){const v=q[0]*ax+q[1]*ay;q0=Math.min(q0,v);q1=Math.max(q1,v)}
+    if(p1<=q0||q1<=p0)return false;
+  }
+  return true;
+}
+const solidAtRaw=(r,c)=>r<0||r>=ROWS||c<0||c>=COLS||L.grid[r][c]==="#"||L.grid[r][c]==="x";
+function solidAt(r,c){
+  if(r<0||r>=ROWS||c<0||c>=COLS)return true;
+  const t=L.grid[r][c];return t==="#"||t==="x"||(t==="E"&&!S.exitOpen)||("PQR".includes(t)&&!S.open[t]);
+}
+function polyHits(p){
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1])}
+  for(let r=Math.floor(y0/T);r<=Math.floor(y1/T);r++)for(let c=Math.floor(x0/T);c<=Math.floor(x1/T);c++)
+    if(solidAt(r,c)&&satBox(p,c*T,r*T,c*T+T,r*T+T))return true;
+  return false;
+}
+const collides=st=>{const ps=rigPolys(st);return polyHits(ps[0])||polyHits(ps[1])};
+function circPoly(cx,cy,r,p){
+  let inside=false;for(let i=0,j=3;i<4;j=i++){const a=p[i],b=p[j];if((a[1]>cy)!==(b[1]>cy)&&cx<(b[0]-a[0])*(cy-a[1])/(b[1]-a[1])+a[0])inside=!inside}
+  if(inside)return true;
+  for(let i=0;i<4;i++){const a=p[i],b=p[(i+1)%4],dx=b[0]-a[0],dy=b[1]-a[1];let t=((cx-a[0])*dx+(cy-a[1])*dy)/(dx*dx+dy*dy);t=Math.max(0,Math.min(1,t));
+    if(Math.hypot(a[0]+dx*t-cx,a[1]+dy*t-cy)<r)return true}
+  return false;
+}
+function integrate(st,v,steer,h){
+  // kinematic tractor-semitrailer, fifth wheel d ahead of the drive axle
+  const w=v/RIG.L1*Math.tan(steer),a=st.th-st.ph;
+  st.x+=v*Math.cos(st.th)*h;st.y+=v*Math.sin(st.th)*h;
+  st.ph+=(v*Math.sin(a)+RIG.d*w*Math.cos(a))/RIG.L2*h;st.th+=w*h;
+}
+const rearPt=st=>{const k=hitch(st);return {x:k.x-Math.cos(st.ph)*RIG.trBack,y:k.y-Math.sin(st.ph)*RIG.trBack}};
+const trAxle=st=>{const k=hitch(st);return {x:k.x-Math.cos(st.ph)*RIG.L2,y:k.y-Math.sin(st.ph)*RIG.L2}};
+const frontPt=st=>({x:st.x+Math.cos(st.th)*RIG.cabFront,y:st.y+Math.sin(st.th)*RIG.cabFront});
+
+/* ---------- audio ---------- */
+const AU={c:null,
+  init(){if(this.c)return;try{const C=window.AudioContext||window.webkitAudioContext;const c=this.c=new C();
+    this.m=c.createGain();this.m.gain.value=SET.sound?1:0;this.m.connect(c.destination);
+    const o=this.eo=c.createOscillator();o.type="sawtooth";o.frequency.value=42;const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=380;
+    this.eg=c.createGain();this.eg.gain.value=0;o.connect(lp);lp.connect(this.eg);this.eg.connect(this.m);o.start();
+    const b=c.createOscillator();b.type="square";b.frequency.value=1040;this.bg=c.createGain();this.bg.gain.value=0;b.connect(this.bg);this.bg.connect(this.m);b.start();
+  }catch(e){this.c=null}},
+  mute(on){if(this.m)this.m.gain.value=on?1:0},
+  tick(dt,v,live){if(!this.c)return;const t=this.c.currentTime;
+    if(this.c.state==="suspended")this.c.resume();
+    this.eo.frequency.setTargetAtTime(38+Math.abs(v)*.45,t,.08);
+    this.eg.gain.setTargetAtTime(live?.05+Math.abs(v)*.0006:0,t,.1);
+    this.bt=(this.bt||0)+dt;const on=live&&v<-2&&(this.bt%0.8)<0.4;this.bg.gain.setTargetAtTime(on?.025:0,t,.005)},
+  blip(f,d,type="sine",vol=.12,f2){if(!this.c)return;const c=this.c,t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+    g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(this.m);o.start(t);o.stop(t+d+.02)},
+  thud(){if(!this.c)return;const c=this.c,n=c.sampleRate*.25|0,buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);const s=c.createBufferSource();s.buffer=buf;
+    const f=c.createBiquadFilter();f.type="lowpass";f.frequency.value=600;const g=c.createGain();g.gain.value=.5;s.connect(f);f.connect(g);g.connect(this.m);s.start();
+    this.blip(90,.25,"sine",.3,40)},
+  ding(){this.blip(880,.35,"sine",.14);setTimeout(()=>this.blip(1320,.5,"sine",.12),110)},
+  win(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>this.blip(f,.4,"triangle",.12),i*110))}
+};
+
+/* ---------- state ---------- */
+let cur=0,L=null;
+const S={};
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function parse(def){
+  const grid=[],cones=[],docks=[],exits=[],pads=[];let start={x:T*3.5,y:T*10.5};
+  for(let r=0;r<ROWS;r++){const row=[];for(let c=0;c<COLS;c++){const ch=def.map[r][c]||"#";let t=".";
+    if(ch==="#"||ch==="x")t=ch;
+    else if(ch==="E"){t="E";exits.push({r,c,out:r===0?"N":r===ROWS-1?"S":c===0?"W":"E"})}
+    else if("PQR".includes(ch))t=ch;
+    else if("pqr".includes(ch))pads.push({r,c,g:ch.toUpperCase(),on:false});
+    else if(ch==="c")cones.push({x:c*T+T/2,y:r*T+T/2,hit:false,vx:0,vy:0,rot:0,spin:0});
+    else if(ch==="S")start={x:c*T+T/2,y:r*T+T/2};
+    else if(/[1-9]/.test(ch))docks.push({n:+ch,r,c,dir:def.docks[ch]});
+    row.push(t)}grid.push(row)}
+  docks.sort((a,b)=>a.n-b.n);return {grid,cones,docks,exits,pads,start,def};
+}
+function load(i,showIntro){
+  cur=i;L=parse(LEVELS[i]);const a=ANG[LEVELS[i].head];
+  Object.assign(S,{t:{x:L.start.x,y:L.start.y,th:a,ph:a,v:0,steer:0},gear:1,moves:0,lastDir:0,time:0,started:false,
+    scrapes:0,cones:0,lastHit:-9,dockIdx:0,unload:0,exitOpen:false,phase:showIntro?"intro":"play",rec:[],recAcc:0,
+    shake:0,parts:[],toasts:[],clock:0,flash:0,open:{}});
+  const pr=PROG[i]||{};S.ghost=pr.ghost||null;
+  mctx.clearRect(0,0,W,H);buildBg();
+  $("lvlLabel").textContent=`Yard ${String(i+1).padStart(2,"0")} · ${LEVELS[i].name}`;$("hPar").textContent=LEVELS[i].par;
+  $("win").hidden=true;$("fail").hidden=true;$("menu").hidden=true;
+  if(showIntro)showIntroCard();else $("intro").hidden=true;
+}
+const retry=()=>load(cur,false);
+function toast(text,col){S.toasts.push({text,col,t:0})}
+const fmt=t=>{const m=Math.floor(t/60),s=t-m*60;return m+":"+(s<10?"0":"")+s.toFixed(1)};
+
+/* ---------- update ---------- */
+const keys={up:0,down:0,left:0,right:0},touch={gas:0,rev:0,steer:0,on:false};
+function update(dt){
+  S.clock+=dt;
+  for(const p of S.parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.92;p.vy*=.92;p.life-=dt*1.4}
+  S.parts=S.parts.filter(p=>p.life>0);
+  for(const q of S.toasts)q.t+=dt;S.toasts=S.toasts.filter(q=>q.t<1.8);
+  if(S.shake>0)S.shake=Math.max(0,S.shake-dt*30);
+  for(const k of L.cones)if(k.hit){k.x+=k.vx*dt;k.y+=k.vy*dt;k.vx*=Math.pow(.05,dt);k.vy*=Math.pow(.05,dt);k.rot+=k.spin*dt;k.spin*=Math.pow(.1,dt)}
+  const t=S.t,live=S.phase==="play";
+  AU.tick(dt,t.v,live);
+  if(!live){t.v*=.85;return}
+
+  const thr=(keys.up||touch.gas?1:0)-(keys.down||touch.rev?1:0);
+  if(thr)S.gear=thr;
+  const target=thr>0?RIG.vF:thr<0?-RIG.vR:0;
+  const brake=target===0||(t.v!==0&&Math.sign(target)!==Math.sign(t.v));
+  const acc=brake?320:170;
+  t.v=t.v<target?Math.min(target,t.v+acc*dt):Math.max(target,t.v-acc*dt);
+  const sIn=touch.on?touch.steer:(keys.right?1:0)-(keys.left?1:0);
+  const revG=t.v<-1||thr<0,sT=sIn*RIG.maxSteer*(revG?.8:1),rate=sIn===0?(revG?1.6:2.4):(revG?.85:1.3);
+  t.steer=t.steer<sT?Math.min(sT,t.steer+rate*dt):Math.max(sT,t.steer-rate*dt);
+
+  let hit=false;const n=4,h=dt/n;
+  for(let i=0;i<n;i++){const p={x:t.x,y:t.y,th:t.th,ph:t.ph};integrate(t,t.v,t.steer,h);if(collides(t)){Object.assign(t,p);hit=true;break}}
+  if(hit){
+    if(S.clock-S.lastHit>.6){S.scrapes++;S.shake=7;AU.thud();toast("Scrape","bad");
+      const fp=t.v>0?frontPt(t):rearPt(t);for(let i=0;i<14;i++)S.parts.push({x:fp.x,y:fp.y,vx:(Math.random()-.5)*160,vy:(Math.random()-.5)*160,life:1,r:2+Math.random()*3})}
+    S.lastHit=S.clock;t.v=0;
+  }
+  t.th=wrap(t.th);t.ph=wrap(t.ph);
+  if(Math.abs(wrap(t.th-t.ph))>RIG.jack){fail();return}
+
+  if(Math.abs(t.v)>8){const d=Math.sign(t.v);if(d!==S.lastDir){S.moves++;S.lastDir=d;S.started=true;if(S.moves>1)AU.blip(220,.08,"square",.05)}}
+  if(S.started){S.time+=dt;S.recAcc+=dt;
+    while(S.recAcc>=1/30){S.recAcc-=1/30;if(S.rec.length<4*5400)S.rec.push(Math.round(t.x*10)/10,Math.round(t.y*10)/10,Math.round(t.th*1000)/1000,Math.round(t.ph*1000)/1000)}}
+
+  // tire marks + dust
+  if(Math.abs(t.v)>15&&Math.abs(t.steer)>.18){
+    mctx.fillStyle="rgba(70,52,30,.07)";const c=Math.cos(t.ph),s=Math.sin(t.ph),ta=trAxle(t),ax=ta.x,ay=ta.y;
+    mctx.fillRect(ax-s*11-1.5,ay+c*11-1.5,3,3);mctx.fillRect(ax+s*11-1.5,ay-c*11-1.5,3,3);
+  }
+  if(Math.abs(t.v)>40&&Math.random()<.25){const r=rearPt(t);S.parts.push({x:r.x,y:r.y,vx:(Math.random()-.5)*30,vy:(Math.random()-.5)*30,life:.7,r:2+Math.random()*2,dust:1})}
+
+  // cones
+  const ps=rigPolys(t);
+  for(const k of L.cones){if(k.hit)continue;
+    if(circPoly(k.x,k.y,7,ps[0])||circPoly(k.x,k.y,7,ps[1])){k.hit=true;S.cones++;
+      const a=Math.atan2(k.y-t.y,k.x-t.x);const sp=60+Math.abs(t.v);k.vx=Math.cos(a)*sp;k.vy=Math.sin(a)*sp;k.spin=(Math.random()-.5)*14;
+      AU.blip(520,.12,"triangle",.12,260);toast("Cone down","bad")}}
+
+  // pressure plates
+  for(const pd of L.pads){if(pd.on)continue;const x0=pd.c*T,y0=pd.r*T;
+    const pts=[{x:t.x,y:t.y},trAxle(t),rearPt(t),frontPt(t),{x:t.x+Math.cos(t.th)*RIG.L1,y:t.y+Math.sin(t.th)*RIG.L1}];
+    if(pts.some(p=>p.x>x0+3&&p.x<x0+T-3&&p.y>y0+3&&p.y<y0+T-3)){pd.on=true;S.open[pd.g]=true;AU.blip(330,.18,"square",.07,660);toast(`Shutter ${pd.g} lifted`,"good")}}
+
+  // docking
+  if(S.dockIdx<L.docks.length){
+    const d=L.docks[S.dockIdx],r=rearPt(t),x0=d.c*T,y0=d.r*T;
+    const inTile=r.x>x0+1&&r.x<x0+T-1&&r.y>y0+1&&r.y<y0+T-1;
+    const err=Math.abs(wrap(t.ph-ANG[d.dir]));
+    S.align={near:Math.hypot(r.x-x0-T/2,r.y-y0-T/2)<T*1.6,inTile,err,ok:inTile&&err<ALIGN};
+    if(inTile&&err<ALIGN&&Math.abs(t.v)<6){S.unload+=dt;
+      if(S.unload>=UNLOAD){S.dockIdx++;S.unload=0;S.flash=1;AU.ding();
+        if(S.dockIdx>=L.docks.length){S.exitOpen=true;toast("All dropped · gate open","good")}else toast(`Drop ${S.dockIdx} done · next bay ${S.dockIdx+1}`,"good")}}
+    else S.unload=Math.max(0,S.unload-dt*2);
+  }else S.align=null;
+  if(S.flash>0)S.flash=Math.max(0,S.flash-dt*1.5);
+
+  // exit
+  if(S.exitOpen){const f=frontPt(t),b=rearPt(t),inE=(p,e)=>p.x>e.c*T&&p.x<e.c*T+T&&p.y>e.r*T&&p.y<e.r*T+T;for(const e of L.exits)if(inE(f,e)||inE(b,e)){win();break}}
+}
+
+/* ---------- outcomes ---------- */
+function fail(){S.phase="fail";AU.thud();
+  $("fail").innerHTML=`<div class="card"><p class="eyebrow">Yard ${cur+1} · run over</p><h2>Jackknifed</h2>
+  <p class="tip">The trailer folded past 85° against the cab. In reverse, catch the swing early with small counter-steer; if the angle keeps growing, pull forward a little to straighten out.</p>
+  <div class="row"><button class="btn go" id="fRetry">Retry · R</button><button class="btn" id="fYards">Yards</button></div></div>`;
+  $("fail").hidden=false;$("fRetry").onclick=retry;$("fYards").onclick=openMenu;$("fRetry").focus();
+}
+function win(){
+  S.phase="won";AU.win();
+  const lv=LEVELS[cur],clean=S.scrapes===0&&S.cones===0,parOk=S.moves<=lv.par;
+  const stars=1+(clean?1:0)+(parOk?1:0);
+  const pr=PROG[cur]||{};
+  const better=!pr.stars||stars>pr.stars||(stars===pr.stars&&(S.moves<pr.moves||(S.moves===pr.moves&&S.time<pr.time)));
+  const newTime=pr.time==null||S.time<pr.time,newMoves=pr.moves==null||S.moves<pr.moves;
+  PROG[cur]={stars:Math.max(stars,pr.stars||0),moves:Math.min(S.moves,pr.moves??1e9),time:Math.min(S.time,pr.time??1e9),ghost:better?S.rec.slice():pr.ghost};
+  save();
+  const rank=["","Yard Hand","Stone Hauler","Dock Master"][stars];
+  const last=cur===LEVELS.length-1;
+  const nb=x=>x&&pr.stars?`<span class="newbest">Best</span>`:"";
+  $("win").innerHTML=`<div class="card"><p class="eyebrow">Delivered · Yard ${String(cur+1).padStart(2,"0")}</p><h2>${rank}</h2>
+  <div class="starsBig"><span>★</span><span>★</span><span>★</span></div>
+  <ul class="crit">
+   <li class="ok"><span>Delivered all ${L.docks.length} drop${L.docks.length>1?"s":""}</span><b>${fmt(S.time)}${nb(newTime)}</b></li>
+   <li class="${clean?"ok":""}"><span>Clean run</span><b>${S.scrapes} scrape${S.scrapes===1?"":"s"} · ${S.cones} cone${S.cones===1?"":"s"}</b></li>
+   <li class="${parOk?"ok":""}"><span>Moves within par</span><b>${S.moves} / ${lv.par}${nb(newMoves)}</b></li>
+  </ul>
+  <p class="best">${parOk?"":"A move is each change between forward and reverse. Fewer shuffles, more stars. "}${better?"Your ghost now replays this run.":"Your best run stays as the ghost."}</p>
+  <div class="row"><button class="btn" id="wRetry">Retry · R</button><button class="btn go" id="wNext">${last?"Yards":"Next yard"} · Enter</button></div></div>`;
+  $("win").hidden=false;
+  const sp=$("win").querySelectorAll(".starsBig span");sp.forEach((s,i)=>{if(i<stars)setTimeout(()=>{s.classList.add("on");AU.blip(700+i*220,.2,"triangle",.1)},250+i*260)});
+  $("wRetry").onclick=retry;$("wNext").onclick=next;$("wNext").focus();
+}
+function next(){if(cur<LEVELS.length-1)load(cur+1,true);else openMenu()}
+function showIntroCard(){
+  const lv=LEVELS[cur],pr=PROG[cur]||{};
+  const best=pr.stars?`Your best: ${"★".repeat(pr.stars)}${"☆".repeat(3-pr.stars)} · ${pr.moves} moves · ${fmt(pr.time)}. ${SET.ghost?"Your ghost drives alongside.":""}`:"No run on record yet.";
+  $("intro").innerHTML=`<div class="card"><p class="eyebrow">Yard ${String(cur+1).padStart(2,"0")} · Par ${lv.par} moves · ${L.docks.length} drop${L.docks.length>1?"s":""}</p>
+  <h2>${lv.name}</h2><p class="tip">${lv.tip}</p><p class="best">${best}</p>
+  <div class="keys"><kbd>W / ↑</kbd><span>Forward</span><kbd>S / ↓</kbd><span>Reverse</span><kbd>A D / ← →</kbd><span>Steer</span>
+  <kbd>Stop</kbd><span>Hold still in the bay to unload</span>${L.pads.length?`<kbd>Plate</kbd><span>Roll an axle over it to lift that shutter</span>`:""}<kbd>R</kbd><span>Instant retry</span></div>
+  <div class="row"><button class="btn go" id="iGo">Start · Enter</button><button class="btn" id="iYards">Yards</button></div></div>`;
+  $("intro").hidden=false;$("iGo").onclick=startPlay;$("iYards").onclick=openMenu;
+}
+function startPlay(){AU.init();if(S.phase==="intro"){S.phase="play";$("intro").hidden=true}}
+
+/* ---------- menu ---------- */
+function openMenu(){
+  S.phase=S.phase==="play"?"paused":S.phase;
+  const m=$("menu");m.innerHTML=`<div class="menuHead"><div><h2>Pick a yard</h2><p>Each yard has three stars: deliver, run clean, beat par.</p></div>
+    <div class="total">${totalStars()}<small>/ ${LEVELS.length*3} stars</small></div></div><div class="grid" id="lvGrid"></div>`;
+  const g=m.querySelector("#lvGrid");
+  const CH=[[0,"Stone Yard","Yards 1–12 · walls, slots and cones"],[12,"Switchyard","Yards 13–24 · pressure plates, shutters and deep bays. Opens after yard 12, or with 15 stars."]];
+  LEVELS.forEach((lv,i)=>{const ch=CH.find(c=>c[0]===i);if(ch)g.insertAdjacentHTML("beforeend",`<div class="chap"><h3>${ch[1]}</h3><p>${ch[2]}</p></div>`);
+    const pr=PROG[i]||{},st=pr.stars||0,ok=unlocked(i);
+    const b=document.createElement("button");b.className="lv";b.disabled=!ok;
+    const c=document.createElement("canvas");c.width=192;c.height=144;thumb(c,lv);
+    b.append(c);b.insertAdjacentHTML("beforeend",`<div class="t"><span class="n"><em>${String(i+1).padStart(2,"0")}</em>${lv.name}</span>
+      <span class="s">${"★".repeat(st)}<span class="off">${"★".repeat(3-st)}</span></span></div>
+      <div class="m">${ok?`Par ${lv.par} · ${Object.keys(lv.docks).length} drop${Object.keys(lv.docks).length>1?"s":""}${pr.time?` · best ${fmt(pr.time)}`:""}`:(i===12?"Clear yard 12 or earn 15 stars":"Clear the yard before to unlock")}</div>`);
+    b.onclick=()=>load(i,true);g.append(b)});
+  m.hidden=false;
+}
+function thumb(c,lv){
+  const g=c.getContext("2d"),s=12;
+  for(let r=0;r<ROWS;r++)for(let k=0;k<COLS;k++){const ch=lv.map[r][k];
+    const GT={P:"#f2b705",Q:"#4fb3d9",R:"#d96bd1"};
+    g.fillStyle=ch==="#"?"#7d6e57":ch==="x"?"#8a5f34":ch==="E"?"#45413a":/[1-9]/.test(ch)?"#f2b705":"#d4c19a";g.fillRect(k*s,r*s,s,s);
+    if(GT[ch]){g.fillStyle="#5d646d";g.fillRect(k*s,r*s,s,s);g.fillStyle=GT[ch];g.fillRect(k*s,r*s+5,s,2)}
+    if(GT[ch.toUpperCase()]&&"pqr".includes(ch)){g.strokeStyle=GT[ch.toUpperCase()];g.lineWidth=2;g.strokeRect(k*s+2,r*s+2,s-4,s-4)}
+    if(ch==="c"){g.fillStyle="#f07c1e";g.beginPath();g.arc(k*s+6,r*s+6,3,0,7);g.fill()}
+    if(ch==="S"){g.fillStyle="#c8372d";g.fillRect(k*s+2,r*s+3,8,6)}}
+}
+
+/* ---------- background ---------- */
+function buildBg(){
+  const g=bg.getContext("2d");g.setTransform(2,0,0,2,0,0);const R=rng(cur*977+13);
+  g.fillStyle="#d4c19a";g.fillRect(0,0,W,H);
+  for(let i=0;i<40;i++){g.fillStyle=R()<.5?`rgba(120,100,70,${.04+R()*.05})`:`rgba(250,240,215,${.05+R()*.06})`;g.beginPath();g.ellipse(R()*W,R()*H,20+R()*60,10+R()*30,R()*3,0,7);g.fill()}
+  for(let i=0;i<2600;i++){g.fillStyle=R()<.5?"rgba(90,72,48,.22)":"rgba(255,248,230,.28)";g.fillRect(R()*W,R()*H,1+R(),1+R())}
+  g.strokeStyle="rgba(110,90,60,.06)";g.lineWidth=1;g.beginPath();
+  for(let c=1;c<COLS;c++){g.moveTo(c*T,0);g.lineTo(c*T,H)}for(let r=1;r<ROWS;r++){g.moveTo(0,r*T);g.lineTo(W,r*T)}g.stroke();
+  for(const d of L.docks){const x=d.c*T,y=d.r*T;g.fillStyle="#c9c1ae";g.fillRect(x,y,T,T);
+    g.save();g.translate(x+T/2,y+T/2);g.rotate(ANG[d.dir]);
+    g.fillStyle="#e8b10a";g.fillRect(-24,-24,48,3);g.fillRect(-24,21,48,3);
+    g.fillStyle="#4a4f55";g.fillRect(-24,-19,6,38);g.strokeStyle="rgba(255,255,255,.18)";g.beginPath();for(let j=-15;j<19;j+=5){g.moveTo(-24,j);g.lineTo(-18,j)}g.stroke();
+    g.fillStyle="#141414";g.fillRect(-18,-17,3,7);g.fillRect(-18,10,3,7);
+    g.rotate(-ANG[d.dir]);g.fillStyle="rgba(40,34,26,.5)";g.font="800 26px 'Big Shoulders Display',Impact,sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(d.n,0,2);
+    g.restore()}
+  for(const e of L.exits){const x=e.c*T,y=e.r*T;g.fillStyle="#45413a";g.fillRect(x,y,T,T);
+    g.save();g.translate(x+T/2,y+T/2);g.rotate(ANG[e.out]);g.fillStyle="rgba(255,255,255,.7)";g.fillRect(-14,-3,12,6);
+    g.beginPath();g.moveTo(10,0);g.lineTo(-2,-9);g.lineTo(-2,9);g.closePath();g.fill();g.restore()}
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if("PQR".includes(L.grid[r][c])){const x=c*T,y=r*T;
+    g.fillStyle="#b9b1a0";g.fillRect(x,y,T,T);g.fillStyle="rgba(60,60,60,.35)";
+    const v=solidAtRaw(r-1,c)||solidAtRaw(r+1,c);if(v){g.fillRect(x+3,y,3,T);g.fillRect(x+T-6,y,3,T)}else{g.fillRect(x,y+3,T,3);g.fillRect(x,y+T-6,T,3)}}
+  for(const pd of L.pads){const x=pd.c*T,y=pd.r*T;g.fillStyle="#3e3a33";g.fillRect(x+6,y+6,T-12,T-12);g.fillStyle="#5a554c";g.fillRect(x+8,y+8,T-16,T-16);
+    g.strokeStyle="rgba(0,0,0,.35)";g.lineWidth=1;g.beginPath();for(let k=12;k<T-10;k+=5){g.moveTo(x+10,y+k);g.lineTo(x+T-10,y+k)}g.stroke()}
+  g.fillStyle="rgba(50,36,15,.24)";
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const t=L.grid[r][c];if(t==="#"||t==="x")g.fillRect(c*T+4,r*T+6,T,T)}
+  const tones=["#8f806a","#978871","#887a63","#9c8d76","#837560"];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const t=L.grid[r][c],x=c*T,y=r*T;
+    if(t==="#"){g.fillStyle="#5c5040";g.fillRect(x,y,T,T);const h=T/2;
+      const bl=(r+c)%2?[[1,1,T-2,h-2],[1,h+1,h-2,h-2],[h+1,h+1,h-2,h-2]]:[[1,1,h-2,h-2],[h+1,1,h-2,h-2],[1,h+1,T-2,h-2]];
+      for(const b of bl){g.fillStyle=tones[R()*5|0];g.fillRect(x+b[0],y+b[1],b[2],b[3]);
+        g.fillStyle="rgba(255,245,220,.18)";g.fillRect(x+b[0],y+b[1],b[2],2);g.fillStyle="rgba(0,0,0,.18)";g.fillRect(x+b[0],y+b[1]+b[3]-2,b[2],2);
+        g.fillStyle="rgba(60,50,38,.35)";for(let k=0;k<3;k++)g.fillRect(x+b[0]+R()*(b[2]-2),y+b[1]+2+R()*(b[3]-4),1.5,1.5)}}
+    else if(t==="x"){g.fillStyle="#6b4a29";g.fillRect(x+3,y+3,T-6,T-6);g.fillStyle="#9a6c3c";for(let i=0;i<4;i++)g.fillRect(x+5,y+5+i*10,T-10,8);
+      g.fillStyle="rgba(25,25,25,.6)";g.fillRect(x+T/2-1.5,y+3,3,T-6);g.fillRect(x+3,y+T/2-1.5,T-6,3);
+      g.fillStyle="rgba(255,240,210,.15)";g.fillRect(x+3,y+3,T-6,2)}}
+}
+
+/* ---------- guide ---------- */
+function guide(){
+  const t=S.t,dir=Math.abs(t.v)>5?Math.sign(t.v):S.gear,v=dir>0?80:-45;
+  const st={x:t.x,y:t.y,th:t.th,ph:t.ph},pts=[];let bad=null;const steps=dir>0?40:66;
+  for(let i=0;i<steps;i++){for(let k=0;k<3;k++)integrate(st,v,t.steer,1/90);pts.push(dir>0?frontPt(st):rearPt(st));
+    if(Math.abs(wrap(st.th-st.ph))>RIG.jack){bad="jack";break}if(i%3===2&&collides(st)){bad="wall";break}}
+  return {pts,bad,dir,st};
+}
+
+/* ---------- render ---------- */
+function poly(g,p){g.beginPath();g.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)g.lineTo(p[i][0],p[i][1]);g.closePath()}
+function drawRig(g,st,steer,lights){
+  const hk=hitch(st);g.fillStyle="rgba(30,20,8,.28)";poly(g,rectPoly(hk.x+4,hk.y+5,st.ph,RIG.trFront,RIG.trBack,RIG.trW/2));g.fill();
+  poly(g,rectPoly(st.x+4,st.y+5,st.th,RIG.cabFront,RIG.cabBack,RIG.cabW/2));g.fill();
+  g.save();g.translate(st.x,st.y);g.rotate(st.th);
+  g.fillStyle="#1b1a18";g.fillRect(-6,-13,12,5);g.fillRect(-6,8,12,5);
+  for(const y of[-11,11]){g.save();g.translate(RIG.L1,y);g.rotate(steer);g.fillRect(-5,-2.5,10,5);g.restore()}
+  g.fillStyle="#34312c";g.fillRect(-10,-8,26,16);g.fillStyle="#5a554e";g.beginPath();g.arc(RIG.d,0,6,0,7);g.fill();
+  g.fillStyle="#c8372d";g.fillRect(13,-11,23,22);g.fillStyle="#de4a3b";g.fillRect(15,-9,12,18);
+  g.fillStyle="#a9c6cf";g.fillRect(28,-9,5,18);g.fillStyle="rgba(255,255,255,.45)";g.fillRect(29,-8,1.5,16);
+  g.fillStyle="#1d1d1d";g.fillRect(27,-14,3,3);g.fillRect(27,11,3,3);
+  g.fillStyle="#ffe9a8";g.fillRect(34.5,-10,1.5,4);g.fillRect(34.5,6,1.5,4);
+  g.restore();
+  g.save();g.translate(hk.x,hk.y);g.rotate(st.ph);
+  g.fillStyle="#1b1a18";for(const ax of[-RIG.L2-6,-RIG.L2+6]){g.fillRect(ax-4,-14,8,4);g.fillRect(ax-4,10,8,4)}
+  g.fillStyle="#ece6d8";g.fillRect(-66,-12,74,24);
+  g.strokeStyle="rgba(60,50,30,.12)";g.lineWidth=1;g.beginPath();for(let x=-60;x<8;x+=6){g.moveTo(x,-12);g.lineTo(x,12)}g.stroke();
+  g.fillStyle="rgba(255,255,255,.55)";g.fillRect(-66,-12,74,2);g.fillStyle="rgba(0,0,0,.09)";g.fillRect(-66,9,74,3);
+  g.fillStyle="#bdb4a2";g.fillRect(-66,-12,3,24);
+  g.fillStyle="rgba(120,100,70,.5)";g.font="800 9px 'Big Shoulders Display',Impact,sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText("STONE YARD CO.",-28,.5);
+  const tl=lights.rev?"#fffbe8":lights.brake?"#ff3b2a":"#8e2a20";
+  if(lights.rev||lights.brake){g.shadowColor=tl;g.shadowBlur=10}
+  g.fillStyle=tl;g.fillRect(-68,-11,2.5,5);g.fillRect(-68,6,2.5,5);g.shadowBlur=0;
+  g.restore();
+}
+function drawGhost(g,st){
+  g.lineWidth=1.5;g.strokeStyle="rgba(127,212,240,.8)";g.fillStyle="rgba(127,212,240,.14)";
+  for(const p of rigPolys(st)){poly(g,p);g.fill();g.stroke()}
+}
+function render(){
+  const g=ctx;g.setTransform(SCALE,0,0,SCALE,0,0);
+  if(S.shake>0)g.translate((Math.random()-.5)*S.shake,(Math.random()-.5)*S.shake);
+  g.drawImage(bg,0,0,W,H);g.drawImage(marks,0,0,W,H);
+  const pulse=.5+.5*Math.sin(S.clock*5);
+  L.docks.forEach((d,i)=>{const x=d.c*T,y=d.r*T;
+    if(i<S.dockIdx){g.fillStyle="rgba(108,192,112,.32)";g.fillRect(x,y,T,T);
+      g.save();g.translate(x+T/2,y+T/2);g.rotate(ANG[d.dir]);g.fillStyle="#8a5f34";g.fillRect(-16,-14,12,12);g.fillRect(-16,2,12,12);g.fillStyle="#9a6c3c";g.fillRect(-15,-13,10,4);g.fillRect(-15,3,10,4);g.restore();
+      g.strokeStyle="#4e9e52";g.lineWidth=2;g.strokeRect(x+2,y+2,T-4,T-4)}
+    else if(i===S.dockIdx){g.strokeStyle=`rgba(242,183,5,${.5+.5*pulse})`;g.lineWidth=3;g.strokeRect(x+2,y+2,T-4,T-4);
+      if(S.unload>0){g.strokeStyle="#6cc070";g.lineWidth=4;g.beginPath();g.arc(x+T/2,y+T/2,15,-Math.PI/2,-Math.PI/2+Math.PI*2*S.unload/UNLOAD);g.stroke()}}
+    else{g.fillStyle="rgba(30,24,16,.28)";g.fillRect(x,y,T,T)}});
+  const GC={P:"#f2b705",Q:"#4fb3d9",R:"#d96bd1"};
+  for(const pd of L.pads){const x=pd.c*T+T/2,y=pd.r*T+T/2,col=GC[pd.g];
+    if(pd.on){g.fillStyle=col;g.globalAlpha=.35;g.fillRect(x-17,y-17,34,34);g.globalAlpha=1}
+    else{g.strokeStyle=col;g.globalAlpha=.55+.45*pulse;g.lineWidth=2.5;g.strokeRect(x-17,y-17,34,34);g.globalAlpha=1}
+    g.fillStyle=pd.on?"#1b1915":col;g.font="800 18px 'Big Shoulders Display',Impact,sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(pd.g,x,y+1)}
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const k=L.grid[r][c];if(!"PQR".includes(k)||S.open[k])continue;
+    const x=c*T,y=r*T,col=GC[k],v=solidAtRaw(r-1,c)||solidAtRaw(r+1,c);
+    g.fillStyle="rgba(30,22,10,.3)";g.fillRect(x+3,y+5,T,T);
+    g.fillStyle="#5d646d";g.fillRect(x,y,T,T);g.fillStyle="rgba(255,255,255,.12)";
+    for(let i=4;i<T;i+=6){if(v)g.fillRect(x+i,y,2,T);else g.fillRect(x,y+i,T,2)}
+    g.fillStyle=col;if(v){g.fillRect(x,y,4,T);g.fillRect(x+T-4,y,4,T)}else{g.fillRect(x,y,T,4);g.fillRect(x,y+T-4,T,4)}
+    g.fillStyle="#1b1915";g.fillRect(x+T/2-10,y+T/2-10,20,20);g.fillStyle=col;g.font="800 16px 'Big Shoulders Display',Impact,sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(k,x+T/2,y+T/2+1)}
+  for(const e of L.exits){const x=e.c*T,y=e.r*T;g.save();g.translate(x+T/2,y+T/2);g.rotate(ANG[e.out]+Math.PI/2);
+    if(!S.exitOpen){for(let i=0;i<6;i++){g.fillStyle=i%2?"#f4f1ea":"#d1352a";g.fillRect(-24+i*8,-3,8,6)}g.fillStyle="#222";g.beginPath();g.arc(-22,0,4,0,7);g.fill()}
+    else{g.fillStyle=`rgba(108,192,112,${.25+.25*pulse})`;g.fillRect(-24,-24,48,48);g.fillStyle="#222";g.beginPath();g.arc(-22,0,4,0,7);g.fill();g.fillStyle="#6cc070";g.beginPath();g.arc(-22,0,2,0,7);g.fill()}
+    g.restore()}
+  if(SET.guide&&(S.phase==="play"||S.phase==="intro")){const gd=guide();
+    g.save();g.setLineDash([5,5]);g.lineWidth=2.5;g.strokeStyle=gd.dir<0?"rgba(242,183,5,.95)":"rgba(255,255,255,.55)";
+    g.beginPath();gd.pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.stroke();g.setLineDash([]);
+    if(gd.dir<0&&!gd.bad){g.strokeStyle="rgba(242,183,5,.4)";g.lineWidth=1.2;const gh=hitch(gd.st);poly(g,rectPoly(gh.x,gh.y,gd.st.ph,RIG.trFront,RIG.trBack,RIG.trW/2));g.stroke()}
+    if(gd.bad&&gd.pts.length){const p=gd.pts[gd.pts.length-1];g.strokeStyle="#e5573f";g.lineWidth=3;g.beginPath();g.moveTo(p.x-5,p.y-5);g.lineTo(p.x+5,p.y+5);g.moveTo(p.x+5,p.y-5);g.lineTo(p.x-5,p.y+5);g.stroke()}
+    g.restore()}
+  for(const k of L.cones){g.save();g.translate(k.x,k.y);g.rotate(k.rot);
+    if(k.hit){g.globalAlpha=.75;g.fillStyle="#d9691a";g.beginPath();g.ellipse(0,0,9,4,0,0,7);g.fill();g.fillStyle="#fff";g.fillRect(-1,-3.5,2,7)}
+    else{g.fillStyle="rgba(40,25,10,.3)";g.beginPath();g.arc(2,3,8,0,7);g.fill();g.fillStyle="#2a2a2a";g.fillRect(-8,-8,16,16);
+      g.fillStyle="#f07c1e";g.beginPath();g.arc(0,0,7,0,7);g.fill();g.strokeStyle="#fff";g.lineWidth=2;g.beginPath();g.arc(0,0,4,0,7);g.stroke();g.fillStyle="#ff9a3c";g.beginPath();g.arc(0,0,1.8,0,7);g.fill()}
+    g.restore()}
+  if(SET.ghost&&S.ghost&&S.ghost.length>=4){const nF=S.ghost.length/4,f=Math.min(nF-1,Math.floor(S.time*30))*4;
+    drawGhost(g,{x:S.ghost[f],y:S.ghost[f+1],th:S.ghost[f+2],ph:S.ghost[f+3]})}
+  const t=S.t,thr=(keys.up||touch.gas?1:0)-(keys.down||touch.rev?1:0);
+  drawRig(g,t,t.steer,{rev:t.v<-2||(thr<0),brake:thr===0&&Math.abs(t.v)>2});
+  for(const p of S.parts){g.fillStyle=p.dust?`rgba(190,170,130,${p.life*.5})`:`rgba(150,130,100,${p.life*.8})`;g.beginPath();g.arc(p.x,p.y,p.r*(p.dust?(1.6-p.life):1),0,7);g.fill()}
+  if(S.align&&S.align.near&&S.phase==="play"){const r=rearPt(t),deg=Math.round(S.align.err/D2R);
+    g.font="600 11px 'IBM Plex Mono',monospace";g.textAlign="center";g.textBaseline="middle";const txt=S.align.ok?"HOLD":`${deg}°`;
+    const w=g.measureText(txt).width+12;g.fillStyle="rgba(20,18,14,.8)";g.fillRect(r.x-w/2,r.y-30,w,17);g.fillStyle=S.align.ok?"#6cc070":deg<25?"#f2b705":"#e5573f";g.fillText(txt,r.x,r.y-21)}
+  const art=Math.abs(wrap(t.th-t.ph));
+  if(art>60*D2R&&S.phase==="play"){g.fillStyle=`rgba(229,87,63,${.08+.12*pulse})`;g.fillRect(0,0,W,H)}
+  let ty=26;for(const q of S.toasts){const a=Math.min(1,q.t*6,(1.8-q.t)*2.5);g.globalAlpha=a;
+    g.font="800 20px 'Big Shoulders Display',Impact,sans-serif";g.textAlign="center";g.textBaseline="middle";const tx=q.text.toUpperCase(),w=g.measureText(tx).width+28;
+    g.fillStyle="rgba(20,18,14,.85)";g.fillRect(W/2-w/2,ty-14,w,28);g.fillStyle=q.col==="good"?"#6cc070":"#f2b705";g.fillText(tx,W/2,ty+1);ty+=34}
+  g.globalAlpha=1;
+  if(S.flash>0){g.fillStyle=`rgba(108,192,112,${S.flash*.18})`;g.fillRect(0,0,W,H)}
+}
+
+/* ---------- hud ---------- */
+const hud={};["hMoves","hTime","hScr","hCone","hDock","hGear","hArt","sMoves","sScr","sCone","sGear"].forEach(k=>hud[k]=$(k));
+const set=(el,v)=>{if(el.textContent!==v)el.textContent=v};
+function updHud(){
+  const lv=LEVELS[cur];set(hud.hMoves,String(S.moves));hud.sMoves.classList.toggle("warn",S.moves>lv.par);
+  set(hud.hTime,fmt(S.time));set(hud.hScr,String(S.scrapes));hud.sScr.classList.toggle("warn",S.scrapes>0);
+  set(hud.hCone,String(S.cones));hud.sCone.classList.toggle("warn",S.cones>0);
+  set(hud.hDock,`${S.dockIdx}/${L.docks.length}`);
+  const rev=S.gear<0;set(hud.hGear,rev?"R":"D");hud.sGear.classList.toggle("rev",rev);
+  const a=Math.min(1,Math.abs(wrap(S.t.th-S.t.ph))/RIG.jack);hud.hArt.style.width=(a*100).toFixed(1)+"%";
+  hud.hArt.style.background=a>.7?"var(--bad)":a>.45?"var(--signal)":"var(--good)";
+}
+
+/* ---------- loop ---------- */
+let last=performance.now();
+function frame(now){const dt=Math.min(1/30,(now-last)/1000);last=now;update(dt);render();updHud();requestAnimationFrame(frame)}
+
+/* ---------- input ---------- */
+const KM={KeyW:"up",ArrowUp:"up",KeyS:"down",ArrowDown:"down",KeyA:"left",ArrowLeft:"left",KeyD:"right",ArrowRight:"right"};
+addEventListener("keydown",e=>{
+  AU.init();const k=KM[e.code];
+  if(k){e.preventDefault();keys[k]=1;if((k==="up"||k==="down")&&S.phase==="intro")startPlay();if(S.phase==="paused"&&$("menu").hidden)S.phase="play";return}
+  if(e.repeat)return;
+  if(e.code==="KeyR"){retry()}
+  else if(e.code==="Enter"){if(S.phase==="won"){e.preventDefault();next()}else if(S.phase==="intro"){e.preventDefault();startPlay()}else if(S.phase==="fail"){e.preventDefault();retry()}}
+  else if(e.code==="KeyG")toggle("guide");else if(e.code==="KeyH")toggle("ghost");else if(e.code==="KeyM")toggle("sound");
+  else if(e.code==="Escape"){if($("menu").hidden)openMenu();else{$("menu").hidden=true;if(S.phase==="paused")S.phase="play"}}
+});
+addEventListener("keyup",e=>{const k=KM[e.code];if(k)keys[k]=0});
+addEventListener("blur",()=>{for(const k in keys)keys[k]=0;touch.gas=touch.rev=0;touch.on=false});
+function toggle(k){SET[k]=!SET[k];save();syncTools();if(k==="sound"){AU.init();AU.mute(SET.sound)}if(k==="ghost"&&S.phase==="intro")showIntroCard()}
+function syncTools(){$("bGuide").setAttribute("aria-pressed",SET.guide);$("bGhost").setAttribute("aria-pressed",SET.ghost);$("bSound").setAttribute("aria-pressed",SET.sound)}
+$("bGuide").onclick=()=>toggle("guide");$("bGhost").onclick=()=>toggle("ghost");$("bSound").onclick=()=>toggle("sound");
+$("bRetry").onclick=()=>{AU.init();retry()};$("bYards").onclick=()=>{if($("menu").hidden)openMenu();else{$("menu").hidden=true;if(S.phase==="paused")S.phase="play"}};
+
+function hold(id,key){const b=$(id);
+  const on=e=>{e.preventDefault();AU.init();touch[key]=1;b.classList.add("down");if(S.phase==="intro")startPlay();try{b.setPointerCapture(e.pointerId)}catch(_){}};
+  const off=()=>{touch[key]=0;b.classList.remove("down")};
+  b.addEventListener("pointerdown",on);b.addEventListener("pointerup",off);b.addEventListener("pointercancel",off);b.addEventListener("lostpointercapture",off)}
+hold("gas","gas");hold("rev","rev");
+const wheel=$("wheel"),knob=$("knob");
+function steerAt(e){const r=wheel.getBoundingClientRect();const v=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/(r.width/2-30)));touch.steer=v;knob.style.transform=`translateX(${v*(r.width/2-30)}px) rotate(${v*90}deg)`}
+wheel.addEventListener("pointerdown",e=>{e.preventDefault();AU.init();touch.on=true;try{wheel.setPointerCapture(e.pointerId)}catch(_){}steerAt(e)});
+wheel.addEventListener("pointermove",e=>{if(touch.on)steerAt(e)});
+const wOff=()=>{touch.on=false;touch.steer=0;knob.style.transform=""};
+wheel.addEventListener("pointerup",wOff);wheel.addEventListener("pointercancel",wOff);
+
+/* ---------- boot ---------- */
+syncTools();fit();
+let startAt=LEVELS.findIndex((_,i)=>unlocked(i)&&!(PROG[i]||{}).stars);if(startAt<0)startAt=0;
+load(startAt,true);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{buildBg()});
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

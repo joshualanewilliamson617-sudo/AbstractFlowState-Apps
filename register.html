@@ -1,0 +1,2021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register — optical cipher instrument</title>
+<style>
+:root{
+  --ink:#14100d;
+  --stage:#0d0a08;
+  --surface:#1e1813;
+  --surface-2:#271f18;
+  --rule:#3a2f26;
+  --rule-soft:#2b231c;
+  --copper:#c77b45;
+  --copper-dim:#8d5730;
+  --rose:#e0a08a;
+  --silver:#9aa3a0;
+  --silver-dim:#6b736f;
+  --patina:#4fa08b;
+  --text:#e8ddd2;
+  --text-dim:#a2968a;
+  --warn:#d9604a;
+  --ui:"Segoe UI",Corbel,system-ui,-apple-system,"Helvetica Neue",sans-serif;
+  --display:Bahnschrift,"DIN Alternate","Franklin Gothic Medium","Trebuchet MS",var(--ui);
+  --data:Consolas,"SF Mono",Menlo,monospace;
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ink);color:var(--text);font-family:var(--ui);font-size:14px;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--rose);outline-offset:2px}
+
+/* ---------- header ---------- */
+header{
+  display:flex;align-items:baseline;gap:22px;padding:10px 18px;
+  border-bottom:1px solid var(--rule);background:linear-gradient(180deg,#241c15,#191310);
+  flex:none;
+}
+.wordmark{font-family:var(--display);font-size:19px;letter-spacing:.22em;color:var(--copper);font-weight:600}
+.tagline{color:var(--text-dim);font-size:12.5px}
+.modes{display:flex;gap:2px;margin-left:14px}
+.modes button{
+  background:transparent;border:1px solid transparent;border-bottom-color:transparent;
+  padding:6px 14px;border-radius:var(--r);color:var(--text-dim);font-family:var(--display);letter-spacing:.06em;
+}
+.modes button[aria-selected="true"]{color:var(--ink);background:var(--copper);border-color:var(--copper)}
+
+/* ---------- layout ---------- */
+main{flex:1;display:flex;min-height:0}
+.stagewrap{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--stage)}
+.stagebar{
+  display:flex;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--rule-soft);
+  flex-wrap:wrap;flex:none;
+}
+.stage{flex:1;position:relative;overflow:auto;display:flex;align-items:center;justify-content:center;padding:14px}
+canvas{display:block;max-width:100%;image-rendering:auto}
+#readCanvas{cursor:crosshair;box-shadow:0 0 0 1px var(--rule),0 18px 50px rgba(0,0,0,.6)}
+#gridCanvas{background:#fff;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.empty{max-width:46ch;text-align:center;color:var(--text-dim);line-height:1.6}
+.empty strong{display:block;font-family:var(--display);font-size:17px;color:var(--text);letter-spacing:.05em;margin-bottom:8px;font-weight:500}
+
+aside{
+  width:330px;flex:none;border-left:1px solid var(--rule);background:var(--surface);
+  overflow-y:auto;overflow-x:hidden;
+}
+aside::-webkit-scrollbar,.stage::-webkit-scrollbar{width:10px;height:10px}
+aside::-webkit-scrollbar-thumb,.stage::-webkit-scrollbar-thumb{background:var(--rule);border-radius:6px}
+
+details.group{border-bottom:1px solid var(--rule-soft)}
+details.group>summary{
+  padding:10px 14px;cursor:pointer;font-family:var(--display);letter-spacing:.08em;color:var(--rose);
+  list-style:none;display:flex;align-items:center;gap:8px;user-select:none;
+}
+details.group>summary::-webkit-details-marker{display:none}
+details.group>summary::before{content:"+";color:var(--copper-dim);width:10px}
+details.group[open]>summary::before{content:"\2212"}
+.body{padding:4px 14px 14px}
+
+.row{display:flex;align-items:center;gap:8px;margin:9px 0}
+.row label{flex:1;color:var(--text-dim);font-size:12.5px;line-height:1.3}
+.row .val{font-family:var(--data);color:var(--copper);font-size:12px;min-width:44px;text-align:right}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;background:transparent;width:100%;margin:0;height:18px;
+}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--rule)}
+input[type=range]::-moz-range-track{height:2px;background:var(--rule)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--copper);
+  margin-top:-5.5px;border:none;
+}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--copper);border:none}
+input[type=number],input[type=text],select{
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r);padding:5px 7px;width:100%;
+}
+input[type=number]{font-family:var(--data)}
+.btn{
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r);padding:7px 12px;
+  color:var(--text);letter-spacing:.02em;
+}
+.btn:hover{border-color:var(--copper-dim);background:#2f251c}
+.btn.primary{background:var(--copper);border-color:var(--copper);color:#20150d;font-weight:600}
+.btn.primary:hover{background:var(--rose)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.btnrow .btn{flex:1;min-width:92px}
+.hint{color:var(--silver-dim);font-size:11.5px;line-height:1.5;margin:8px 0 0}
+.warnline{color:var(--warn);font-size:12px;margin-top:8px}
+
+/* palette */
+.palette{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.pal{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r);padding:6px}
+.chip{width:22px;height:22px;border-radius:2px;border:1px solid rgba(255,255,255,.25);flex:none}
+.pal .nm{flex:1;min-width:0;font-size:12px}
+.pal .nm b{display:block;font-weight:600}
+.pal .nm span{color:var(--silver-dim);font-family:var(--data);font-size:11px}
+.pal select{width:96px;flex:none;font-size:12px;padding:4px}
+
+/* sections */
+.seclist{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.secitem{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--rule);
+  border-radius:var(--r);background:var(--surface-2);cursor:pointer;
+}
+.secitem[data-sel="1"]{border-color:var(--copper);background:#31241a}
+.secitem .swatch{width:8px;height:20px;border-radius:1px;flex:none}
+.secitem .t{flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.secitem .x{background:none;border:none;color:var(--silver-dim);padding:2px 4px}
+.secitem .x:hover{color:var(--warn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid2 .row{margin:0;flex-direction:column;align-items:stretch;gap:3px}
+.grid2 .row label{font-size:11.5px}
+
+/* transport */
+.transport{
+  flex:none;display:flex;align-items:center;gap:14px;padding:9px 16px;border-top:1px solid var(--rule);
+  background:linear-gradient(180deg,#191310,#241c15);flex-wrap:wrap;
+}
+.transport .btn{padding:7px 16px}
+.meter{font-family:var(--data);font-size:12px;color:var(--silver);min-width:120px}
+.meter b{color:var(--patina);font-weight:600}
+.tspin{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim)}
+.tspin input{width:64px}
+.spacer{flex:1}
+.badge{font-family:var(--data);font-size:11px;color:var(--silver-dim);border:1px solid var(--rule);padding:3px 7px;border-radius:2px}
+.hidden{display:none!important}
+@media (max-width:900px){
+  main{flex-direction:column}
+  aside{width:100%;border-left:none;border-top:1px solid var(--rule);max-height:44vh}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* ---- TOUR (delete from here to the matching end marker to remove) ---- */
+#tourHole{
+  position:fixed;pointer-events:none;z-index:60;border-radius:5px;
+  border:1px solid var(--copper);
+  box-shadow:0 0 0 9999px rgba(6,5,4,.68), 0 0 22px rgba(199,123,69,.45) inset;
+  transition:left .28s cubic-bezier(.4,0,.2,1),top .28s cubic-bezier(.4,0,.2,1),
+             width .28s cubic-bezier(.4,0,.2,1),height .28s cubic-bezier(.4,0,.2,1);
+}
+#tourCard{
+  position:fixed;z-index:61;width:330px;max-width:calc(100vw - 28px);
+  background:linear-gradient(180deg,#2a211a,#1d1712);
+  border:1px solid var(--copper-dim);border-radius:5px;
+  box-shadow:0 20px 48px rgba(0,0,0,.65);padding:16px 16px 12px;
+}
+#tourCard h3{
+  margin:0 0 7px;font-family:var(--display);font-size:15.5px;font-weight:600;
+  letter-spacing:.04em;color:var(--rose);
+}
+#tourCard p{margin:0;font-size:13px;line-height:1.55;color:var(--text)}
+#tourCard .nav{display:flex;align-items:center;gap:8px;margin-top:14px}
+#tourCard .count{font-family:var(--data);font-size:11px;color:var(--silver-dim);flex:1}
+#tourCard .skip{
+  position:absolute;top:8px;right:9px;background:none;border:none;color:var(--silver-dim);
+  font-size:16px;line-height:1;padding:3px 5px;
+}
+#tourCard .skip:hover{color:var(--rose)}
+#tourBtn{
+  background:transparent;border:1px solid var(--copper-dim);color:var(--copper);
+  border-radius:var(--r);padding:5px 12px;font-family:var(--display);letter-spacing:.06em;
+}
+#tourBtn:hover{background:var(--copper);color:var(--ink)}
+.empty .btn{margin-top:14px}
+/* ---- end TOUR ---- */
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">REGISTER</div>
+  <div class="tagline">Draw a grid, fill the cells, hear what you drew.</div>
+  <button id="tourBtn" style="margin-left:auto">Tour</button>
+  <nav class="modes" role="tablist">
+    <button id="tabRead" role="tab" aria-selected="true">Read cipher</button>
+    <button id="tabGrid" role="tab" aria-selected="false">Draw grid</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ STAGE ============ -->
+  <div class="stagewrap">
+    <div class="stagebar" id="readBar">
+      <button class="btn" id="loadBtn">Open image</button>
+      <input type="file" id="fileInput" accept="image/*" class="hidden">
+      <span class="badge" id="imgInfo">no image</span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="toolCorners" aria-pressed="true">Corners</button>
+      <button class="btn ghost" id="toolSections" aria-pressed="false">Sections</button>
+      <label class="tspin"><input type="checkbox" id="showMask"> Show what it read</label>
+    </div>
+    <div class="stagebar hidden" id="gridBar">
+      <span class="badge" id="gridInfo">72 &times; 68</span>
+      <span class="spacer"></span>
+      <button class="btn" id="gridPng">Save PNG</button>
+      <button class="btn" id="gridPrint">Print</button>
+      <button class="btn primary" id="gridToReader">Use these dimensions</button>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="empty" id="emptyState">
+        <strong>Nothing loaded yet</strong>
+        Open a photo or scan of a filled grid. If you printed a grid from the Draw grid tab,
+        press Find corner marks and it will line itself up.
+        <br><button class="btn primary" id="tourStart">Show me how it works</button>
+      </div>
+      <canvas id="readCanvas" class="hidden"></canvas>
+      <canvas id="gridCanvas" class="hidden"></canvas>
+    </div>
+  </div>
+
+  <!-- ============ INSPECTOR ============ -->
+  <aside id="readPanel">
+    <details class="group" open>
+      <summary>Page and grid</summary>
+      <div class="body">
+        <div class="grid2">
+          <div class="row"><label for="cols">Columns</label><input type="number" id="cols" min="1" max="200" value="16"></div>
+          <div class="row"><label for="rows">Rows</label><input type="number" id="rows" min="1" max="200" value="16"></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="findMarks">Find corner marks</button>
+          <button class="btn" id="findGrid">Detect grid</button>
+        </div>
+        <div class="btnrow">
+          <button class="btn ghost" id="resetCorners">Reset corners</button>
+        </div>
+        <p class="hint">Drag the four handles onto the outer corners of your grid. A tilted or slightly
+        angled photo is fine; each cell is sampled by interpolating inside the shape you set.</p>
+        <div class="warnline hidden" id="gridWarn"></div>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary>Reading</summary>
+      <div class="body">
+        <div class="row"><label for="autoThresh">Set darkness automatically</label>
+          <input type="checkbox" id="autoThresh" checked></div>
+        <div class="row"><label for="lumT">Darkness cutoff</label><span class="val" id="lumTv">128</span></div>
+        <input type="range" id="lumT" min="20" max="230" value="128">
+        <div class="row"><label for="satT">Treat as color above saturation</label><span class="val" id="satTv">0.30</span></div>
+        <input type="range" id="satT" min="5" max="90" value="30">
+        <div class="row"><label for="coverT">Cell counts as filled at</label><span class="val" id="coverTv">45%</span></div>
+        <input type="range" id="coverT" min="5" max="95" value="45">
+        <div class="row"><label for="inset">Ignore this much cell edge</label><span class="val" id="insetv">22%</span></div>
+        <input type="range" id="inset" min="0" max="45" value="22">
+        <div class="row"><label for="blackOnly">Black cells only, ignore colors</label>
+          <input type="checkbox" id="blackOnly"></div>
+        <div class="btnrow"><button class="btn primary" id="analyzeBtn">Read the grid</button></div>
+        <p class="hint" id="readStats">Edge margin keeps printed grid lines out of the sample.</p>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary>Colors found</summary>
+      <div class="body">
+        <div class="palette" id="paletteList"></div>
+        <p class="hint">Each ink the reader found gets its own voice. Rename a voice by picking a
+        different instrument.</p>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary>Sections</summary>
+      <div class="body">
+        <div class="btnrow">
+          <button class="btn" id="secWhole">One section</button>
+          <button class="btn" id="secSplit">Split grid</button>
+        </div>
+        <div class="grid2">
+          <div class="row"><label for="splitC">Across</label><input type="number" id="splitC" min="1" max="12" value="2"></div>
+          <div class="row"><label for="splitR">Down</label><input type="number" id="splitR" min="1" max="12" value="2"></div>
+        </div>
+        <div class="seclist" id="secList"></div>
+        <p class="hint">With the Sections tool active, drag a box on the page to carve out a new section.</p>
+      </div>
+    </details>
+
+    <details class="group" open id="secEditor">
+      <summary>Selected section</summary>
+      <div class="body">
+        <div class="row"><label for="secName">Name</label></div>
+        <input type="text" id="secName" value="Section 1">
+        <div class="grid2" style="margin-top:9px">
+          <div class="row"><label for="secMode">Time</label>
+            <select id="secMode">
+              <option value="step">Locked to tempo</option>
+              <option value="scan">Free scan</option>
+            </select></div>
+          <div class="row"><label for="secSync">Starts</label>
+            <select id="secSync">
+              <option value="seq">After the last one</option>
+              <option value="par">Together with the rest</option>
+            </select></div>
+          <div class="row"><label for="secPath">Reading path</label>
+            <select id="secPath">
+              <option value="rows">Rows, left to right</option>
+              <option value="rows-snake">Rows, back and forth</option>
+              <option value="cols">Columns, top to bottom</option>
+              <option value="cols-snake">Columns, back and forth</option>
+              <option value="diag">Diagonals</option>
+              <option value="spiral-in">Spiral inward</option>
+              <option value="spiral-out">Spiral outward</option>
+            </select></div>
+          <div class="row"><label for="secTuning">Tuning</label>
+            <select id="secTuning">
+              <option value="harmonic">Harmonic series</option>
+              <option value="just">Just intonation</option>
+              <option value="scale">Scale</option>
+              <option value="chromatic">Chromatic</option>
+            </select></div>
+          <div class="row"><label for="secRoot">Root</label>
+            <select id="secRoot"></select></div>
+          <div class="row"><label for="secScale">Scale</label>
+            <select id="secScale">
+              <option value="major">Major</option>
+              <option value="minor">Natural minor</option>
+              <option value="dorian">Dorian</option>
+              <option value="lydian">Lydian</option>
+              <option value="mixolydian">Mixolydian</option>
+              <option value="phrygian">Phrygian</option>
+              <option value="harmminor">Harmonic minor</option>
+              <option value="pentmaj">Major pentatonic</option>
+              <option value="pentmin">Minor pentatonic</option>
+              <option value="blues">Blues</option>
+              <option value="wholetone">Whole tone</option>
+            </select></div>
+        </div>
+        <div class="row" style="margin-top:10px"><label for="secRate">Speed multiplier</label><span class="val" id="secRatev">1.00&times;</span></div>
+        <input type="range" id="secRate" min="25" max="400" value="100">
+        <div class="row"><label for="secGate">Note length</label><span class="val" id="secGatev">0.90</span></div>
+        <input type="range" id="secGate" min="10" max="200" value="90">
+        <div class="row"><label for="secOct">Octave shift</label><span class="val" id="secOctv">0</span></div>
+        <input type="range" id="secOct" min="-3" max="3" value="0">
+        <div class="row"><label for="secLevel">Level</label><span class="val" id="secLevelv">0.80</span></div>
+        <input type="range" id="secLevel" min="0" max="140" value="80">
+        <div class="grid2" style="margin-top:8px">
+          <div class="row"><label for="secRepeat">Repeats</label><input type="number" id="secRepeat" min="1" max="16" value="1"></div>
+          <div class="row"><label for="secPan">Pan</label><input type="number" id="secPan" min="-1" max="1" step="0.1" value="0"></div>
+        </div>
+        <div class="row"><label for="secLegato">Hold repeated cells as one note</label><input type="checkbox" id="secLegato" checked></div>
+        <div class="row"><label for="secDrone">Sound a root drone under it</label><input type="checkbox" id="secDrone"></div>
+      </div>
+    </details>
+
+    <details class="group">
+      <summary>Room and output</summary>
+      <div class="body">
+        <div class="row"><label for="revMix">Reverb</label><span class="val" id="revMixv">0.28</span></div>
+        <input type="range" id="revMix" min="0" max="100" value="28">
+        <div class="row"><label for="revSize">Room size</label><span class="val" id="revSizev">2.4 s</span></div>
+        <input type="range" id="revSize" min="4" max="80" value="24">
+        <div class="row"><label for="dlyMix">Echo</label><span class="val" id="dlyMixv">0.15</span></div>
+        <input type="range" id="dlyMix" min="0" max="100" value="15">
+        <div class="row"><label for="dlyTime">Echo time</label><span class="val" id="dlyTimev">3/8</span></div>
+        <input type="range" id="dlyTime" min="0" max="5" value="3">
+        <div class="btnrow">
+          <button class="btn" id="expJson">Save score</button>
+          <button class="btn" id="expMidi">Export MIDI</button>
+          <button class="btn" id="expWav">Render WAV</button>
+        </div>
+        <div class="btnrow">
+          <button class="btn ghost" id="expSetup">Save setup</button>
+          <button class="btn ghost" id="impSetup">Load setup</button>
+          <input type="file" id="setupFile" accept="application/json" class="hidden">
+        </div>
+      </div>
+    </details>
+  </aside>
+
+  <!-- ============ GRID MAKER PANEL ============ -->
+  <aside id="gridPanel" class="hidden">
+    <details class="group" open>
+      <summary>Sheet</summary>
+      <div class="body">
+        <div class="grid2">
+          <div class="row"><label for="gCols">Columns</label><input type="number" id="gCols" min="1" max="160" value="72"></div>
+          <div class="row"><label for="gRows">Rows</label><input type="number" id="gRows" min="1" max="160" value="68"></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn ghost" data-preset="72,68">72 &times; 68</button>
+          <button class="btn ghost" data-preset="16,16">16 &times; 16</button>
+          <button class="btn ghost" data-preset="32,32">32 &times; 32</button>
+          <button class="btn ghost" data-preset="12,12">12 &times; 12</button>
+        </div>
+        <div class="grid2">
+          <div class="row"><label for="gPaper">Paper</label>
+            <select id="gPaper">
+              <option value="8.5,11">Letter portrait</option>
+              <option value="11,8.5">Letter landscape</option>
+              <option value="11,17">Tabloid portrait</option>
+              <option value="17,11">Tabloid landscape</option>
+              <option value="8.27,11.69">A4 portrait</option>
+              <option value="11.69,8.27">A4 landscape</option>
+              <option value="11.69,16.54">A3 portrait</option>
+              <option value="16.54,11.69">A3 landscape</option>
+            </select></div>
+          <div class="row"><label for="gDpi">Print detail</label>
+            <select id="gDpi">
+              <option value="150">150 dpi</option>
+              <option value="300" selected>300 dpi</option>
+              <option value="600">600 dpi</option>
+            </select></div>
+        </div>
+        <div class="row"><label for="gMargin">Margin</label><span class="val" id="gMarginv">0.50 in</span></div>
+        <input type="range" id="gMargin" min="0" max="150" value="50">
+        <div class="row"><label for="gSquare">Keep cells square</label><input type="checkbox" id="gSquare" checked></div>
+      </div>
+    </details>
+    <details class="group" open>
+      <summary>Lines</summary>
+      <div class="body">
+        <div class="row"><label for="gInk">Line color</label>
+          <select id="gInk">
+            <option value="#b4b4b4">Light grey, easiest to ignore</option>
+            <option value="#8c8c8c">Mid grey</option>
+            <option value="#000000">Black</option>
+            <option value="#9fb8c8">Pale blue</option>
+          </select></div>
+        <div class="row"><label for="gLw">Line weight</label><span class="val" id="gLwv">1.0</span></div>
+        <input type="range" id="gLw" min="4" max="40" value="10">
+        <div class="grid2">
+          <div class="row"><label for="gMajC">Heavy line every (across)</label><input type="number" id="gMajC" min="0" max="40" value="8"></div>
+          <div class="row"><label for="gMajR" >Heavy line every (down)</label><input type="number" id="gMajR" min="0" max="40" value="8"></div>
+        </div>
+        <div class="row"><label for="gMarks">Corner registration marks</label><input type="checkbox" id="gMarks" checked></div>
+        <div class="row"><label for="gLabels">Number the rows and columns</label><input type="checkbox" id="gLabels"></div>
+        <p class="hint">Registration marks sit centered on the four outer corners, so the reader can
+        find the page on its own. Heavy lines mark the section blocks you set up on the read side.</p>
+      </div>
+    </details>
+  </aside>
+</main>
+
+<div class="transport">
+  <button class="btn primary" id="playBtn" disabled>Play</button>
+  <button class="btn" id="stopBtn" disabled>Stop</button>
+  <div class="tspin"><label for="bpm">Tempo</label><input type="number" id="bpm" min="20" max="300" value="96"></div>
+  <div class="tspin"><label for="subdiv">Steps per beat</label>
+    <select id="subdiv" style="width:72px"><option>1</option><option>2</option><option selected>4</option><option>6</option><option>8</option></select></div>
+  <div class="tspin"><label for="loopChk">Loop</label><input type="checkbox" id="loopChk" checked></div>
+  <div class="tspin"><label for="master">Volume</label><input type="range" id="master" min="0" max="100" value="70" style="width:90px"></div>
+  <div class="spacer"></div>
+  <div class="meter" id="meter">ready</div>
+</div>
+<script>
+"use strict";
+/* =====================================================================
+   REGISTER — optical cipher instrument
+   1. helpers   2. audio engine   3. image analysis
+   4. grid maker  5. sections + score  6. export  7. ui
+   ===================================================================== */
+
+/* ------------------------------ 1. helpers ------------------------- */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp = (a,b,t) => a+(b-a)*t;
+
+function rgbToHsl(r,g,b){
+  r/=255; g/=255; b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  let h=0;
+  if(d>0){
+    if(mx===r) h=((g-b)/d+(g<b?6:0));
+    else if(mx===g) h=((b-r)/d+2);
+    else h=((r-g)/d+4);
+    h*=60;
+  }
+  const l=(mx+mn)/2;
+  const s = d===0 ? 0 : d/(1-Math.abs(2*l-1));
+  return [h, clamp(s,0,1), l];
+}
+function hexOf(r,g,b){
+  return '#'+[r,g,b].map(v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('');
+}
+const HUE_NAMES = [
+  [0,'Red'],[18,'Vermilion'],[38,'Orange'],[52,'Amber'],[65,'Yellow'],[90,'Lime'],
+  [130,'Green'],[165,'Sea green'],[188,'Teal'],[205,'Cyan'],[225,'Blue'],
+  [255,'Indigo'],[280,'Violet'],[305,'Magenta'],[335,'Rose'],[360,'Red']
+];
+function hueName(h){
+  let best='Ink', bd=1e9;
+  for(const [hh,nm] of HUE_NAMES){
+    let d=Math.abs(hh-h); d=Math.min(d,360-d);
+    if(d<bd){bd=d;best=nm;}
+  }
+  return best;
+}
+function download(name, blob){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},400);
+}
+
+/* ------------------------------ 2. audio --------------------------- */
+const NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
+function freqToMidi(f){ return 69+12*Math.log2(f/440); }
+
+const PARTIALS=[1,2,3,4,5,6,8,9,10,12,15,16,18,20,24,27,30,32,36,40,45,48];
+const JUST=[1,9/8,5/4,4/3,3/2,5/3,15/8];
+const SCALES={
+  major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10], dorian:[0,2,3,5,7,9,10],
+  lydian:[0,2,4,6,7,9,11], mixolydian:[0,2,4,5,7,9,10], phrygian:[0,1,3,5,7,8,10],
+  harmminor:[0,2,3,5,7,8,11], pentmaj:[0,2,4,7,9], pentmin:[0,3,5,7,10],
+  blues:[0,3,5,6,7,10], wholetone:[0,2,4,6,8,10]
+};
+
+function laneFreq(sec, lane){
+  const root = midiToFreq(sec.rootMidi);
+  const oct = Math.pow(2, sec.octave);
+  lane = Math.max(0, lane|0);
+  if(sec.tuning==='harmonic'){
+    let ratio;
+    if(lane < PARTIALS.length) ratio = PARTIALS[lane];
+    else ratio = PARTIALS[PARTIALS.length-1] * Math.pow(2, lane-PARTIALS.length+1);
+    return root*ratio*oct;
+  }
+  if(sec.tuning==='just'){
+    const o=Math.floor(lane/JUST.length), i=lane%JUST.length;
+    return root*JUST[i]*Math.pow(2,o)*oct;
+  }
+  if(sec.tuning==='scale'){
+    const sc=SCALES[sec.scale]||SCALES.major;
+    const o=Math.floor(lane/sc.length), i=lane%sc.length;
+    return root*Math.pow(2,(sc[i]+12*o)/12)*oct;
+  }
+  return root*Math.pow(2,lane/12)*oct;   // chromatic
+}
+
+const INSTRUMENTS={
+  bell:{name:'Bell',send:[.42,.20]}, marimba:{name:'Marimba',send:[.22,.10]},
+  glass:{name:'Glass',send:[.50,.26]}, pluck:{name:'Pluck',send:[.24,.22]},
+  pad:{name:'Pad',send:[.55,.14]},     reed:{name:'Reed',send:[.28,.14]},
+  bass:{name:'Bass',send:[.10,.05]},   sub:{name:'Sub',send:[.06,.02]},
+  air:{name:'Air',send:[.60,.30]},     perc:{name:'Percussion',send:[.30,.18]}
+};
+const INSTRUMENT_ORDER=['bell','marimba','glass','pluck','pad','reed','bass','sub','air','perc'];
+
+function makeNoise(ctx){
+  const n=Math.floor(ctx.sampleRate*2);
+  const buf=ctx.createBuffer(1,n,ctx.sampleRate);
+  const d=buf.getChannelData(0);
+  let last=0;
+  for(let i=0;i<n;i++){ const w=Math.random()*2-1; last=(last+w*0.4)/1.4; d[i]=last; }
+  return buf;
+}
+function makeImpulse(ctx,seconds){
+  const len=Math.max(1,Math.floor(ctx.sampleRate*seconds));
+  const buf=ctx.createBuffer(2,len,ctx.sampleRate);
+  for(let c=0;c<2;c++){
+    const d=buf.getChannelData(c);
+    for(let i=0;i<len;i++){
+      const t=i/len;
+      d[i]=(Math.random()*2-1)*Math.pow(1-t,2.6)*(1-Math.exp(-i/220));
+    }
+  }
+  return buf;
+}
+
+function createEngine(ctx, opts){
+  const o=Object.assign({reverb:.28,room:2.4,delay:.15,delayTime:.3,master:.7},opts||{});
+  const master=ctx.createGain(); master.gain.value=o.master;
+  const comp=ctx.createDynamicsCompressor();
+  comp.threshold.value=-14; comp.knee.value=12; comp.ratio.value=6;
+  comp.attack.value=.004; comp.release.value=.22;
+  comp.connect(master); master.connect(ctx.destination);
+
+  const dry=ctx.createGain(); dry.connect(comp);
+
+  const conv=ctx.createConvolver(); conv.buffer=makeImpulse(ctx,o.room);
+  const revIn=ctx.createGain(), revOut=ctx.createGain();
+  revOut.gain.value=o.reverb;
+  revIn.connect(conv); conv.connect(revOut); revOut.connect(comp);
+
+  const dly=ctx.createDelay(3); dly.delayTime.value=o.delayTime;
+  const fb=ctx.createGain(); fb.gain.value=.36;
+  const dlyLp=ctx.createBiquadFilter(); dlyLp.type='lowpass'; dlyLp.frequency.value=2600;
+  const dlyIn=ctx.createGain(), dlyOut=ctx.createGain();
+  dlyOut.gain.value=o.delay;
+  dlyIn.connect(dly); dly.connect(dlyLp); dlyLp.connect(fb); fb.connect(dly);
+  dlyLp.connect(dlyOut); dlyOut.connect(comp);
+
+  return {ctx,dry,revIn,revOut,dlyIn,dlyOut,dly,master,comp,noise:makeNoise(ctx)};
+}
+
+function adsr(param,t,a,d,s,r,peak,dur){
+  const sus=Math.max(.01,dur);
+  param.setValueAtTime(.0001,t);
+  param.exponentialRampToValueAtTime(Math.max(.0002,peak),t+a);
+  param.exponentialRampToValueAtTime(Math.max(.0002,peak*s),t+a+d);
+  param.setValueAtTime(Math.max(.0002,peak*s),t+Math.max(a+d,sus));
+  param.exponentialRampToValueAtTime(.0001,t+Math.max(a+d,sus)+r);
+}
+
+/* one note. returns the time at which its tail is finished */
+function playVoice(eng, ev){
+  const ctx=eng.ctx, t=ev.at, f=Math.min(ev.freq, ctx.sampleRate/2.2);
+  const inst=ev.inst, lvl=ev.level, dur=ev.dur;
+  const out=ctx.createGain(); out.gain.value=1;
+  const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+  if(pan){ pan.pan.value=clamp(ev.pan||0,-1,1); out.connect(pan); } 
+  const tail=pan||out;
+  const s=INSTRUMENTS[inst]?INSTRUMENTS[inst].send:[.3,.15];
+  const dg=ctx.createGain(); dg.gain.value=1; tail.connect(dg); dg.connect(eng.dry);
+  const rg=ctx.createGain(); rg.gain.value=s[0]; tail.connect(rg); rg.connect(eng.revIn);
+  const eg=ctx.createGain(); eg.gain.value=s[1]; tail.connect(eg); eg.connect(eng.dlyIn);
+
+  const g=ctx.createGain(); g.connect(out);
+  const stops=[];
+  const osc=(type,freq,gain,detune)=>{
+    const o=ctx.createOscillator(); o.type=type; o.frequency.value=freq;
+    if(detune) o.detune.value=detune;
+    const og=ctx.createGain(); og.gain.value=gain;
+    o.connect(og); og.connect(g); o.start(t); stops.push(o); return o;
+  };
+  const noise=(gain)=>{
+    const src=ctx.createBufferSource(); src.buffer=eng.noise; src.loop=true;
+    const ng=ctx.createGain(); ng.gain.value=gain;
+    src.connect(ng); src.start(t); stops.push(src); return ng;
+  };
+  let rel=.4;
+
+  switch(inst){
+    case 'bell':{
+      osc('sine',f,1); osc('sine',f*2.756,.16); osc('sine',f*5.4,.05);
+      rel=Math.min(2.6,1.1+dur*.4);
+      adsr(g.gain,t,.006,rel*.7,.0008,rel*.4,lvl,0.02);
+      break;}
+    case 'marimba':{
+      osc('sine',f,1); osc('sine',f*4,.13); osc('triangle',f*2,.07);
+      rel=.5; adsr(g.gain,t,.004,.34,.001,.25,lvl,0.02);
+      break;}
+    case 'glass':{
+      osc('triangle',f,1); osc('sine',f*3,.14); osc('sine',f*6.1,.05);
+      rel=1.4; adsr(g.gain,t,.10,.5,.42,1.3,lvl*.9,dur);
+      break;}
+    case 'pluck':{
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=6;
+      lp.frequency.setValueAtTime(Math.min(f*9,12000),t);
+      lp.frequency.exponentialRampToValueAtTime(Math.max(180,f*1.4),t+Math.min(.5,dur+.2));
+      const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=f;
+      const o2=ctx.createOscillator(); o2.type='sawtooth'; o2.frequency.value=f; o2.detune.value=-8;
+      const mix=ctx.createGain(); mix.gain.value=.5;
+      o1.connect(mix); o2.connect(mix); mix.connect(lp); lp.connect(g);
+      o1.start(t); o2.start(t); stops.push(o1,o2);
+      rel=.35; adsr(g.gain,t,.004,.22,.18,.3,lvl,dur*.6);
+      break;}
+    case 'pad':{
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=Math.min(f*6,3200); lp.Q.value=.7;
+      const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=f; o1.detune.value=-7;
+      const o2=ctx.createOscillator(); o2.type='sawtooth'; o2.frequency.value=f; o2.detune.value=7;
+      const o3=ctx.createOscillator(); o3.type='sine'; o3.frequency.value=f/2;
+      const mix=ctx.createGain(); mix.gain.value=.32;
+      o1.connect(mix);o2.connect(mix);o3.connect(mix); mix.connect(lp); lp.connect(g);
+      o1.start(t);o2.start(t);o3.start(t); stops.push(o1,o2,o3);
+      rel=.9; adsr(g.gain,t,.28,.3,.72,.85,lvl*.85,dur);
+      break;}
+    case 'reed':{
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=Math.min(f*5,4000); lp.Q.value=3;
+      const o=ctx.createOscillator(); o.type='sawtooth'; o.frequency.value=f;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=5.2;
+      const lg=ctx.createGain(); lg.gain.value=5;
+      lfo.connect(lg); lg.connect(o.detune); lfo.start(t); stops.push(lfo,o);
+      o.connect(lp); lp.connect(g); o.start(t);
+      rel=.3; adsr(g.gain,t,.05,.12,.8,.3,lvl*.8,dur);
+      break;}
+    case 'bass':{
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=Math.min(520,f*4);
+      const o1=ctx.createOscillator(); o1.type='sine'; o1.frequency.value=f/2;
+      const o2=ctx.createOscillator(); o2.type='triangle'; o2.frequency.value=f;
+      const mix=ctx.createGain(); mix.gain.value=.5;
+      o1.connect(mix);o2.connect(mix); mix.connect(lp); lp.connect(g);
+      o1.start(t);o2.start(t); stops.push(o1,o2);
+      rel=.3; adsr(g.gain,t,.01,.15,.6,.3,lvl,dur*.8);
+      break;}
+    case 'sub':{
+      osc('sine',f/2,1);
+      rel=.5; adsr(g.gain,t,.03,.2,.8,.5,lvl,dur);
+      break;}
+    case 'air':{
+      const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=14;
+      const ng=noise(1); ng.connect(bp); bp.connect(g);
+      osc('sine',f,.12);
+      rel=1.0; adsr(g.gain,t,.22,.25,.6,.9,lvl*1.4,dur);
+      break;}
+    default:{ /* perc */
+      const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=clamp(f,200,6000);
+      const ng=noise(1); ng.connect(hp); hp.connect(g);
+      osc('triangle',f,.25);
+      rel=.18; adsr(g.gain,t,.002,.09,.02,.14,lvl,0.02);
+    }
+  }
+  const end=t+Math.max(dur,.05)+rel+.08;
+  stops.forEach(n=>{ try{ n.stop(end); }catch(e){} });
+  return end;
+}
+
+/* ------------------------- 3. image analysis ----------------------- */
+const S={
+  img:null, src:null, W:0, H:0, data:null,
+  corners:null, cols:16, rows:16,
+  cells:[], palette:[], sections:[], sel:0,
+  score:null, dirty:true, analyzed:false
+};
+const work=document.createElement('canvas');
+const wctx=work.getContext('2d',{willReadFrequently:true});
+
+const MAXDIM=1800;
+function loadImageSource(src){
+  const im=new Image();
+  im.onload=()=>{
+    let w=im.naturalWidth,h=im.naturalHeight;
+    const sc=Math.min(1,MAXDIM/Math.max(w,h));
+    w=Math.round(w*sc); h=Math.round(h*sc);
+    work.width=w; work.height=h;
+    wctx.clearRect(0,0,w,h);
+    wctx.drawImage(im,0,0,w,h);
+    S.img=im; S.W=w; S.H=h;
+    S.data=wctx.getImageData(0,0,w,h).data;
+    S.corners=[{x:w*.06,y:h*.06},{x:w*.94,y:h*.06},{x:w*.94,y:h*.94},{x:w*.06,y:h*.94}];
+    S.cells=[]; S.palette=[]; S.analyzed=false; S.dirty=true;
+    onImageReady();
+  };
+  im.onerror=()=>setMeter('that file would not open as an image');
+  im.src=src;
+}
+
+function px(x,y){
+  x=clamp(x|0,0,S.W-1); y=clamp(y|0,0,S.H-1);
+  const i=(y*S.W+x)*4;
+  return [S.data[i],S.data[i+1],S.data[i+2]];
+}
+function lumOf(r,g,b){ return .299*r+.587*g+.114*b; }
+
+function paperLevel(){
+  // 92nd percentile luminance ~ the paper itself
+  const hist=new Float64Array(256);
+  const step=Math.max(1,Math.floor(Math.sqrt(S.W*S.H)/400));
+  let n=0;
+  for(let y=0;y<S.H;y+=step) for(let x=0;x<S.W;x+=step){
+    const i=(y*S.W+x)*4;
+    hist[Math.round(lumOf(S.data[i],S.data[i+1],S.data[i+2]))]++; n++;
+  }
+  let acc=0;
+  for(let v=255;v>=0;v--){ acc+=hist[v]; if(acc>=n*0.08) return v; }
+  return 255;
+}
+
+/* Otsu: pick the darkness cutoff that best separates paper from ink */
+function otsu(){
+  const hist=new Float64Array(256);
+  const step=Math.max(1,Math.floor(Math.sqrt(S.W*S.H)/500));
+  let total=0;
+  for(let y=0;y<S.H;y+=step) for(let x=0;x<S.W;x+=step){
+    const i=(y*S.W+x)*4;
+    hist[Math.round(lumOf(S.data[i],S.data[i+1],S.data[i+2]))]++; total++;
+  }
+  let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i];
+  let sumB=0,wB=0,best=0,bestVar=-1;
+  for(let t=0;t<256;t++){
+    wB+=hist[t]; if(!wB) continue;
+    const wF=total-wB; if(!wF) break;
+    sumB+=t*hist[t];
+    const mB=sumB/wB, mF=(sum-sumB)/wF;
+    const v=wB*wF*(mB-mF)*(mB-mF);
+    if(v>bestVar){bestVar=v;best=t;}
+  }
+  // a mostly-blank page pushes Otsu up into the paper; hold it below the sheet itself
+  // so ruled lines and paper texture never count as filled ink
+  return clamp(Math.min(best,paperLevel()*0.6),25,230);
+}
+
+/* bilinear point inside the quad the user set */
+function quadPoint(u,v){
+  const c=S.corners;
+  const tx=lerp(c[0].x,c[1].x,u), ty=lerp(c[0].y,c[1].y,u);
+  const bx=lerp(c[3].x,c[2].x,u), by=lerp(c[3].y,c[2].y,u);
+  return {x:lerp(tx,bx,v), y:lerp(ty,by,v)};
+}
+
+/* read every cell: is it inked, and what color is the ink */
+function analyzeCells(opt){
+  const {lumT,satT,coverT,inset,blackOnly}=opt;
+  const cols=S.cols, rows=S.rows, K=7;
+  const cells=new Array(cols*rows);
+  const inkColors=[];
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      let n=0,ink=0,sr=0,sg=0,sb=0;
+      for(let a=0;a<K;a++){
+        for(let b=0;b<K;b++){
+          const fu=(a+.5)/K, fv=(b+.5)/K;
+          const u=(c+inset+fu*(1-2*inset))/cols;
+          const v=(r+inset+fv*(1-2*inset))/rows;
+          const p=quadPoint(u,v);
+          const [R,G,B]=px(p.x,p.y);
+          n++;
+          const L=lumOf(R,G,B);
+          const hsl=rgbToHsl(R,G,B);
+          const isInk = blackOnly
+            ? (L<=lumT && hsl[1]<=satT)              // neutral dark only: colored ink is ignored
+            : (L<=lumT || (hsl[1]>=satT && hsl[2]<.88));
+          if(isInk){ ink++; sr+=R; sg+=G; sb+=B; }
+        }
+      }
+      const cover=ink/n;
+      const cell={r,c,cover,filled:cover>=coverT,key:'black',hex:'#000000',rgb:[0,0,0]};
+      if(cell.filled && ink){
+        cell.rgb=[sr/ink,sg/ink,sb/ink];
+        cell.hex=hexOf(cell.rgb[0],cell.rgb[1],cell.rgb[2]);
+        const hsl=rgbToHsl(cell.rgb[0],cell.rgb[1],cell.rgb[2]);
+        cell.hsl=hsl;
+        cell.isBlack = blackOnly || (hsl[1]<.28 || hsl[2]<.22);
+        if(!cell.isBlack) inkColors.push(cell);
+      }
+      cells[r*cols+c]=cell;
+    }
+  }
+  return {cells,inkColors};
+}
+
+/* k-means over hue/saturation so marker reds group with marker reds */
+function clusterColors(list,maxK){
+  if(!list.length) return [];
+  const pts=list.map(c=>{
+    const [h,s,l]=c.hsl;
+    const a=h*Math.PI/180;
+    return [Math.cos(a)*s, Math.sin(a)*s, l*.45];
+  });
+  const dist=(p,q)=>{const a=p[0]-q[0],b=p[1]-q[1],d=p[2]-q[2];return Math.sqrt(a*a+b*b+d*d);};
+  let bestSol=null;
+  for(let k=1;k<=Math.min(maxK,pts.length);k++){
+    // k-means++ seeding, deterministic: first point is the one nearest the mean
+    const cent=[];
+    const mean=[0,0,0];
+    pts.forEach(p=>{mean[0]+=p[0];mean[1]+=p[1];mean[2]+=p[2];});
+    mean.forEach((v,i)=>mean[i]=v/pts.length);
+    let f=0,fd=1e9;
+    pts.forEach((p,i)=>{const d=dist(p,mean); if(d<fd){fd=d;f=i;}});
+    cent.push(pts[f].slice());
+    while(cent.length<k){
+      let far=0,fdist=-1;
+      pts.forEach((p,i)=>{
+        let m=1e9; cent.forEach(c=>m=Math.min(m,dist(p,c)));
+        if(m>fdist){fdist=m;far=i;}
+      });
+      cent.push(pts[far].slice());
+    }
+    let assign=new Array(pts.length).fill(0);
+    for(let it=0;it<24;it++){
+      let moved=false;
+      pts.forEach((p,i)=>{
+        let bi=0,bd=1e9;
+        cent.forEach((c,j)=>{const d=dist(p,c); if(d<bd){bd=d;bi=j;}});
+        if(assign[i]!==bi){assign[i]=bi;moved=true;}
+      });
+      const sum=cent.map(()=>[0,0,0,0]);
+      pts.forEach((p,i)=>{const s=sum[assign[i]];s[0]+=p[0];s[1]+=p[1];s[2]+=p[2];s[3]++;});
+      sum.forEach((s,j)=>{ if(s[3]){cent[j]=[s[0]/s[3],s[1]/s[3],s[2]/s[3]];} });
+      if(!moved) break;
+    }
+    let minSep=1e9;
+    for(let i=0;i<cent.length;i++) for(let j=i+1;j<cent.length;j++) minSep=Math.min(minSep,dist(cent[i],cent[j]));
+    const counts=cent.map((_,j)=>assign.filter(a=>a===j).length);
+    const ok = k===1 || (minSep>0.17 && Math.min(...counts)>=Math.max(1,Math.round(pts.length*0.04)));
+    if(ok) bestSol={cent,assign,k};
+  }
+  return bestSol||{cent:[[0,0,0]],assign:pts.map(()=>0),k:1};
+}
+
+function buildPalette(res,blackOnly){
+  const pal=[];
+  const blacks=res.cells.filter(c=>c.filled&&c.isBlack);
+  if(blacks.length){
+    let r=0,g=0,b=0; blacks.forEach(c=>{r+=c.rgb[0];g+=c.rgb[1];b+=c.rgb[2];});
+    pal.push({key:'black',name:'Black',hex:hexOf(r/blacks.length,g/blacks.length,b/blacks.length),
+              count:blacks.length,inst:'marimba',level:1});
+    blacks.forEach(c=>c.key='black');
+  }
+  if(!blackOnly && res.inkColors.length){
+    const sol=clusterColors(res.inkColors,6);
+    const groups=[];
+    res.inkColors.forEach((c,i)=>{ (groups[sol.assign[i]]=groups[sol.assign[i]]||[]).push(c); });
+    groups.forEach((grp,j)=>{
+      if(!grp||!grp.length) return;
+      let r=0,g=0,b=0,hx=0,hy=0;
+      grp.forEach(c=>{
+        r+=c.rgb[0];g+=c.rgb[1];b+=c.rgb[2];
+        const a=c.hsl[0]*Math.PI/180; hx+=Math.cos(a); hy+=Math.sin(a);
+      });
+      const n=grp.length;
+      let hue=Math.atan2(hy/n,hx/n)*180/Math.PI; if(hue<0) hue+=360;
+      const key='c'+j;
+      const pool=['pluck','glass','pad','reed','bell','air','bass','perc'];
+      const inst=pool[j%pool.length];
+      pal.push({key,name:hueName(hue),hex:hexOf(r/n,g/n,b/n),count:n,inst,level:1,hue});
+      grp.forEach(c=>c.key=key);
+    });
+  }
+  return pal;
+}
+
+/* ---- projection profiles: find ruled grid lines automatically ---- */
+function detectGrid(lumT){
+  // ruled lines are often far lighter than filled cells, so look for anything
+  // darker than the paper rather than anything darker than the ink cutoff
+  const lineT=clamp(Math.max(lumT,paperLevel()*0.88),20,244);
+  const colSum=new Float64Array(S.W), rowSum=new Float64Array(S.H);
+  for(let y=0;y<S.H;y++){
+    for(let x=0;x<S.W;x++){
+      const i=(y*S.W+x)*4;
+      if(lumOf(S.data[i],S.data[i+1],S.data[i+2])<=lineT){ colSum[x]++; rowSum[y]++; }
+    }
+  }
+  const lines=arr=>{
+    let mx=0,mn=1e9;
+    for(const v of arr){ if(v>mx)mx=v; if(v<mn)mn=v; }
+    const t=mn+(mx-mn)*.55;
+    const out=[]; let start=-1;
+    for(let i=0;i<arr.length;i++){
+      if(arr[i]>=t){ if(start<0) start=i; }
+      else if(start>=0){ out.push((start+i-1)/2); start=-1; }
+    }
+    if(start>=0) out.push((start+arr.length-1)/2);
+    return out;
+  };
+  const cx=lines(colSum), cy=lines(rowSum);
+  if(cx.length<3||cy.length<3) return null;
+  const gaps=a=>{const g=[];for(let i=1;i<a.length;i++)g.push(a[i]-a[i-1]);g.sort((p,q)=>p-q);return g[g.length>>1];};
+  const gx=gaps(cx), gy=gaps(cy);
+  const keep=(a,g)=>a.filter((v,i)=>i===0||i===a.length-1||Math.abs(a[i]-a[i-1]-g)<g*.6);
+  const kx=keep(cx,gx), ky=keep(cy,gy);
+  return {
+    cols:Math.max(1,kx.length-1), rows:Math.max(1,ky.length-1),
+    x0:kx[0], x1:kx[kx.length-1], y0:ky[0], y1:ky[ky.length-1]
+  };
+}
+
+/* ---- find the four printed registration marks ---- */
+function findRegistrationMarks(lumT){
+  const W=S.W,H=S.H, seen=new Uint8Array(W*H);
+  const blobs=[];
+  const stack=new Int32Array(W*H);
+  const minA=Math.max(12,(W*H)/40000), maxA=(W*H)/180;
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      const id=y*W+x;
+      if(seen[id]) continue;
+      const i=id*4;
+      if(lumOf(S.data[i],S.data[i+1],S.data[i+2])>lumT){ seen[id]=1; continue; }
+      let sp=0; stack[sp++]=id; seen[id]=1;
+      let n=0,minX=x,maxX=x,minY=y,maxY=y,sx=0,sy=0;
+      while(sp){
+        const p=stack[--sp], py=(p/W)|0, pxx=p-py*W;
+        n++; sx+=pxx; sy+=py;
+        if(pxx<minX)minX=pxx; if(pxx>maxX)maxX=pxx;
+        if(py<minY)minY=py; if(py>maxY)maxY=py;
+        for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+          const nx=pxx+dx, ny=py+dy;
+          if(nx<0||ny<0||nx>=W||ny>=H) continue;
+          const nid=ny*W+nx;
+          if(seen[nid]) continue;
+          const ni=nid*4;
+          if(lumOf(S.data[ni],S.data[ni+1],S.data[ni+2])<=lumT){ seen[nid]=1; stack[sp++]=nid; }
+          else seen[nid]=1;
+        }
+      }
+      if(n<minA||n>maxA) continue;
+      const bw=maxX-minX+1, bh=maxY-minY+1;
+      const fill=n/(bw*bh), ar=bw/bh;
+      if(fill>=.72 && ar>.6 && ar<1.7) blobs.push({x:sx/n,y:sy/n,n});
+    }
+  }
+  if(blobs.length<4) return null;
+  const pick=f=>blobs.reduce((a,b)=>f(b)<f(a)?b:a);
+  const tl=pick(p=>p.x+p.y), br=pick(p=>-(p.x+p.y));
+  const tr=pick(p=>-(p.x-p.y)), bl=pick(p=>(p.x-p.y));
+  const set=new Set([tl,tr,br,bl]);
+  if(set.size<4) return null;
+  return [tl,tr,br,bl].map(p=>({x:p.x,y:p.y}));
+}
+
+/* --------------------- 4. sections, paths, score ------------------- */
+const SEC_COLORS=['#c77b45','#4fa08b','#e0a08a','#9aa3a0','#b98cc0','#d9a441','#6f97c9','#cf6f5a'];
+let secId=1;
+
+function makeSection(r0,c0,r1,c1,name){
+  return {
+    id:secId++, name:name||('Section '+secId),
+    r0:Math.min(r0,r1), c0:Math.min(c0,c1), r1:Math.max(r0,r1), c1:Math.max(c0,c1),
+    mode:'step', sync:'seq', path:'rows', tuning:'harmonic', rootMidi:45, scale:'major',
+    rate:1, gate:.9, octave:0, level:.8, repeat:1, pan:0, legato:true, drone:false,
+    color:SEC_COLORS[(secId-2)%SEC_COLORS.length]
+  };
+}
+const inSection=(s,r,c)=> r>=s.r0&&r<=s.r1&&c>=s.c0&&c<=s.c1;
+
+/* a path returns ordered steps; each step is a list of {r,c,lane} */
+function buildSteps(s){
+  const steps=[];
+  const H=s.r1-s.r0+1, W=s.c1-s.c0+1;
+  const cell=(r,c,lane)=>({r:s.r0+r,c:s.c0+c,lane});
+  switch(s.path){
+    case 'rows': case 'rows-snake':{
+      for(let r=0;r<H;r++){
+        const row=[];
+        for(let c=0;c<W;c++) row.push(cell(r,c,c));
+        if(s.path==='rows-snake'&&r%2===1) row.reverse();
+        steps.push(row);
+      }
+      break;}
+    case 'cols': case 'cols-snake':{
+      for(let c=0;c<W;c++){
+        const col=[];
+        for(let r=0;r<H;r++) col.push(cell(r,c,r));
+        if(s.path==='cols-snake'&&c%2===1) col.reverse();
+        steps.push(col);
+      }
+      break;}
+    case 'diag':{
+      for(let d=0;d<H+W-1;d++){
+        const st=[];
+        for(let r=0;r<H;r++){ const c=d-r; if(c>=0&&c<W) st.push(cell(r,c,c)); }
+        if(st.length) steps.push(st);
+      }
+      break;}
+    case 'spiral-in': case 'spiral-out':{
+      let top=0,bot=H-1,left=0,right=W-1,ring=0;
+      const seq=[];
+      while(top<=bot&&left<=right){
+        for(let c=left;c<=right;c++) seq.push([top,c,ring]);
+        for(let r=top+1;r<=bot;r++) seq.push([r,right,ring]);
+        if(top<bot) for(let c=right-1;c>=left;c--) seq.push([bot,c,ring]);
+        if(left<right) for(let r=bot-1;r>top;r--) seq.push([r,left,ring]);
+        top++;bot--;left++;right--;ring++;
+      }
+      if(s.path==='spiral-out') seq.reverse();
+      seq.forEach(([r,c,l])=>steps.push([cell(r,c,l)]));
+      break;}
+  }
+  return steps;
+}
+
+function cellAt(r,c){
+  if(r<0||c<0||r>=S.rows||c>=S.cols) return null;
+  return S.cells[r*S.cols+c]||null;
+}
+function instFor(key){
+  const p=S.palette.find(p=>p.key===key);
+  return p?p.inst:'marimba';
+}
+
+function buildScore(){
+  const bpm=clamp(+$('bpm').value||96,20,300);
+  const sub=+$('subdiv').value||4;
+  const beat=60/bpm;
+  const events=[]; let seqCursor=0, total=0;
+
+  S.sections.forEach(s=>{
+    const steps=buildSteps(s);
+    if(!steps.length) return;
+    const stepDur = s.mode==='step' ? (beat/sub)/s.rate : 1/(3*s.rate);
+    const oneDur = steps.length*stepDur;
+    const t0 = s.sync==='par' ? 0 : seqCursor;
+    const held=new Map();               // lane -> open event
+
+    const shut=(e,endT)=>{ e.dur=Math.max(stepDur*.25,(endT-e.t)-stepDur*(1-s.gate)); };
+    const closeAll=endT=>{ held.forEach(e=>shut(e,endT)); held.clear(); };
+
+    for(let rep=0;rep<s.repeat;rep++){
+      const base=t0+rep*oneDur;
+      steps.forEach((step,si)=>{
+        const t=base+si*stepDur;
+        const active=new Map();
+        step.forEach(({r,c,lane})=>{
+          const cl=cellAt(r,c);
+          if(!cl||!cl.filled) return;
+          const k=lane+'|'+cl.key;
+          if(!active.has(k)) active.set(k,{lane,key:cl.key,cells:[]});
+          active.get(k).cells.push({r,c});
+        });
+        // close lanes that stopped sounding
+        held.forEach((e,k)=>{ if(!active.has(k)){ shut(e,t); held.delete(k);} });
+        active.forEach((a,k)=>{
+          if(s.legato && held.has(k)){ held.get(k).cells.push(...a.cells); return; }
+          if(held.has(k)){ shut(held.get(k),t); held.delete(k); }
+          const ev={
+            t, dur:stepDur*s.gate, freq:laneFreq(s,a.lane), lane:a.lane, key:a.key,
+            inst:instFor(a.key), level:s.level*.5, pan:s.pan, sec:s.id, cells:a.cells
+          };
+          events.push(ev);
+          if(s.legato) held.set(k,ev);
+        });
+        if(!s.legato) held.clear();
+      });
+      if(s.legato) closeAll(base+oneDur);
+    }
+    if(s.drone){
+      for(let rep=0;rep<s.repeat;rep++){
+        events.push({t:t0+rep*oneDur, dur:oneDur*.98, freq:midiToFreq(s.rootMidi)*Math.pow(2,s.octave-1),
+          lane:0, key:'drone', inst:'pad', level:s.level*.3, pan:0, sec:s.id, cells:[]});
+      }
+    }
+    const end=t0+oneDur*s.repeat;
+    if(s.sync!=='par') seqCursor=end;
+    total=Math.max(total,end);
+  });
+
+  if(!S.sections.some(s=>s.sync!=='par')) total=Math.max(total,seqCursor);
+  events.sort((a,b)=>a.t-b.t);
+  // gate note length so legato notes do not run past their own window
+  events.forEach(e=>{ if(e.key!=='drone') e.dur=Math.max(.04,e.dur); });
+  S.score={events,total:Math.max(total,.25)};
+  S.dirty=false;
+  return S.score;
+}
+
+/* --------------------------- 5. grid maker ------------------------- */
+function gridOpts(){
+  const [pw,ph]=$('gPaper').value.split(',').map(Number);
+  return {
+    cols:clamp(+$('gCols').value||1,1,160), rows:clamp(+$('gRows').value||1,1,160),
+    paperW:pw, paperH:ph, margin:(+$('gMargin').value)/100,
+    ink:$('gInk').value, lw:(+$('gLw').value)/10,
+    majC:+$('gMajC').value||0, majR:+$('gMajR').value||0,
+    marks:$('gMarks').checked, labels:$('gLabels').checked, square:$('gSquare').checked
+  };
+}
+function drawSheet(ctx,o,dpi){
+  const W=Math.round(o.paperW*dpi), H=Math.round(o.paperH*dpi);
+  ctx.canvas.width=W; ctx.canvas.height=H;
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  const m=o.margin*dpi;
+  const labelPad=o.labels?dpi*0.22:0;
+  let availW=W-2*m-labelPad, availH=H-2*m-labelPad;
+  let cw=availW/o.cols, ch=availH/o.rows;
+  if(o.square){ const c=Math.min(cw,ch); cw=ch=c; }
+  const gw=cw*o.cols, gh=ch*o.rows;
+  const x0=m+labelPad+(availW-gw)/2, y0=m+labelPad+(availH-gh)/2;
+  const unit=dpi/300;
+
+  ctx.lineCap='butt';
+  for(let c=0;c<=o.cols;c++){
+    const heavy=o.majC>0 && c%o.majC===0;
+    ctx.strokeStyle=o.ink;
+    ctx.lineWidth=Math.max(.6,o.lw*unit*(heavy?2.4:1));
+    ctx.globalAlpha=heavy?1:.9;
+    const x=x0+c*cw;
+    ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,y0+gh); ctx.stroke();
+  }
+  for(let r=0;r<=o.rows;r++){
+    const heavy=o.majR>0 && r%o.majR===0;
+    ctx.strokeStyle=o.ink;
+    ctx.lineWidth=Math.max(.6,o.lw*unit*(heavy?2.4:1));
+    ctx.globalAlpha=heavy?1:.9;
+    const y=y0+r*ch;
+    ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x0+gw,y); ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+
+  if(o.labels){
+    ctx.fillStyle='#777'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    const fs=Math.max(6,Math.min(cw,ch)*.5);
+    ctx.font=fs+'px sans-serif';
+    const skipC=Math.ceil(28/cw), skipR=Math.ceil(28/ch);
+    for(let c=0;c<o.cols;c++) if(c%skipC===0) ctx.fillText(String(c+1),x0+c*cw+cw/2,y0-fs*.35);
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(let r=0;r<o.rows;r++) if(r%skipR===0) ctx.fillText(String(r+1),x0-fs*.35,y0+r*ch+ch/2);
+  }
+  if(o.marks){
+    const ms=Math.min(dpi*0.12, Math.min(cw,ch)*.7);
+    ctx.fillStyle='#000';
+    [[x0,y0],[x0+gw,y0],[x0+gw,y0+gh],[x0,y0+gh]].forEach(([x,y])=>{
+      ctx.fillRect(x-ms/2,y-ms/2,ms,ms);
+    });
+  }
+  ctx.fillStyle='#9a9a9a';
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.font=Math.round(dpi*0.055)+'px sans-serif';
+  ctx.fillText(o.cols+' \u00d7 '+o.rows, m, H-m*0.35);
+  return {x0,y0,cw,ch,gw,gh};
+}
+
+/* ------------------- 6. transport, render, export ------------------ */
+let actx=null, eng=null;
+const play={on:false,t0:0,idx:0,timer:null,raf:0};
+
+function ensureAudio(){
+  if(!actx){
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+    eng=createEngine(actx,engineOpts());
+  }
+  if(actx.state==='suspended') actx.resume();
+  return actx;
+}
+function engineOpts(){
+  return {
+    reverb:(+$('revMix').value)/100, room:(+$('revSize').value)/10,
+    delay:(+$('dlyMix').value)/100, delayTime:delaySeconds(),
+    master:(+$('master').value)/100
+  };
+}
+function delaySeconds(){
+  const bpm=clamp(+$('bpm').value||96,20,300), beat=60/bpm;
+  const div=[.25,.5,.75,1,1.5,2][+$('dlyTime').value]||.75;
+  return clamp(beat*div,.02,2.9);
+}
+function startPlay(){
+  ensureAudio();
+  if(S.dirty||!S.score) buildScore();
+  if(!S.score.events.length){ setMeter('nothing filled in to play yet'); return; }
+  play.on=true; play.idx=0; play.t0=actx.currentTime+.12;
+  $('playBtn').textContent='Stop';
+  play.timer=setInterval(tick,25);
+  loopFrame();
+}
+function stopPlay(reset){
+  play.on=false;
+  clearInterval(play.timer); play.timer=null;
+  cancelAnimationFrame(play.raf);
+  $('playBtn').textContent='Play';
+  if(reset!==false) setMeter('stopped');
+  drawRead();
+}
+function tick(){
+  if(!play.on) return;
+  const now=actx.currentTime, ev=S.score.events, total=S.score.total;
+  while(play.idx<ev.length && play.t0+ev[play.idx].t < now+.2){
+    const e=ev[play.idx++];
+    playVoice(eng,{at:play.t0+e.t,freq:e.freq,dur:e.dur,inst:e.inst,level:e.level,pan:e.pan});
+  }
+  if(now > play.t0+total){
+    if($('loopChk').checked){ play.t0+=total; play.idx=0; }
+    else if(now > play.t0+total+2){ stopPlay(); }
+  }
+}
+function loopFrame(){
+  if(!play.on) return;
+  drawRead();
+  const pt=actx.currentTime-play.t0;
+  setMeter('playing <b>'+Math.max(0,pt).toFixed(2)+'</b> / '+S.score.total.toFixed(2)+' s');
+  play.raf=requestAnimationFrame(loopFrame);
+}
+function setMeter(html){ $('meter').innerHTML=html; }
+
+/* ---------- canvas rendering ---------- */
+const rc=$('readCanvas'), rctx=rc.getContext('2d');
+let view={scale:1};
+let drag=null, tool='corners', pendingRect=null;
+
+function fitView(){
+  const stage=$('stage');
+  const maxW=Math.max(240,stage.clientWidth-30), maxH=Math.max(200,stage.clientHeight-30);
+  view.scale=Math.min(maxW/S.W, maxH/S.H, 1.6);
+  rc.width=Math.round(S.W*view.scale); rc.height=Math.round(S.H*view.scale);
+}
+const toView=p=>({x:p.x*view.scale,y:p.y*view.scale});
+
+function invQuad(x,y){
+  const c=S.corners;
+  const Ax=c[0].x,Ay=c[0].y;
+  const Bx=c[1].x-Ax,By=c[1].y-Ay;
+  const Cx=c[3].x-Ax,Cy=c[3].y-Ay;
+  const Dx=Ax-c[1].x-c[3].x+c[2].x, Dy=Ay-c[1].y-c[3].y+c[2].y;
+  let u=.5,v=.5;
+  for(let i=0;i<12;i++){
+    const fx=Ax+u*Bx+v*Cx+u*v*Dx-x;
+    const fy=Ay+u*By+v*Cy+u*v*Dy-y;
+    const j11=Bx+v*Dx, j12=Cx+u*Dx, j21=By+v*Dy, j22=Cy+u*Dy;
+    const det=j11*j22-j12*j21;
+    if(Math.abs(det)<1e-9) break;
+    u-=( j22*fx-j12*fy)/det;
+    v-=(-j21*fx+j11*fy)/det;
+  }
+  return {u,v};
+}
+function cellFromPoint(x,y){
+  const {u,v}=invQuad(x,y);
+  return {c:clamp(Math.floor(u*S.cols),0,S.cols-1), r:clamp(Math.floor(v*S.rows),0,S.rows-1),
+          inside:u>=-.02&&u<=1.02&&v>=-.02&&v<=1.02};
+}
+
+function drawRead(){
+  if(!S.img) return;
+  rctx.setTransform(1,0,0,1,0,0);
+  rctx.clearRect(0,0,rc.width,rc.height);
+  rctx.drawImage(work,0,0,rc.width,rc.height);
+  const showMask=$('showMask').checked;
+  if(showMask){ rctx.fillStyle='rgba(13,10,8,.82)'; rctx.fillRect(0,0,rc.width,rc.height); }
+
+  // cell lattice
+  if(S.corners){
+    rctx.lineWidth=1;
+    rctx.strokeStyle=showMask?'rgba(154,163,160,.22)':'rgba(224,160,138,.16)';
+    const stepC=Math.max(1,Math.round(S.cols/64)), stepR=Math.max(1,Math.round(S.rows/64));
+    for(let c=0;c<=S.cols;c+=stepC){
+      rctx.beginPath();
+      for(let i=0;i<=8;i++){
+        const p=toView(quadPoint(c/S.cols,i/8));
+        i?rctx.lineTo(p.x,p.y):rctx.moveTo(p.x,p.y);
+      }
+      rctx.stroke();
+    }
+    for(let r=0;r<=S.rows;r+=stepR){
+      rctx.beginPath();
+      for(let i=0;i<=8;i++){
+        const p=toView(quadPoint(i/8,r/S.rows));
+        i?rctx.lineTo(p.x,p.y):rctx.moveTo(p.x,p.y);
+      }
+      rctx.stroke();
+    }
+  }
+
+  // read cells
+  const active=new Set();
+  if(play.on&&S.score){
+    const pt=actx.currentTime-play.t0;
+    S.score.events.forEach(e=>{
+      if(pt>=e.t&&pt<e.t+Math.max(e.dur,.06)) e.cells.forEach(c=>active.add(c.r+'_'+c.c));
+    });
+  }
+  S.cells.forEach(cl=>{
+    if(!cl.filled) return;
+    const pts=[quadPoint(cl.c/S.cols,cl.r/S.rows),quadPoint((cl.c+1)/S.cols,cl.r/S.rows),
+               quadPoint((cl.c+1)/S.cols,(cl.r+1)/S.rows),quadPoint(cl.c/S.cols,(cl.r+1)/S.rows)].map(toView);
+    const hot=active.has(cl.r+'_'+cl.c);
+    rctx.beginPath();
+    pts.forEach((p,i)=>i?rctx.lineTo(p.x,p.y):rctx.moveTo(p.x,p.y));
+    rctx.closePath();
+    if(showMask){ rctx.fillStyle=cl.key==='black'?'#e8ddd2':cl.hex; rctx.globalAlpha=hot?1:.8; rctx.fill(); rctx.globalAlpha=1; }
+    if(hot){
+      rctx.lineWidth=2.5; rctx.strokeStyle='#4fa08b';
+      rctx.shadowColor='#4fa08b'; rctx.shadowBlur=14; rctx.stroke(); rctx.shadowBlur=0;
+    }else if(!showMask){
+      rctx.lineWidth=1.4; rctx.strokeStyle='rgba(199,123,69,.85)'; rctx.stroke();
+    }
+  });
+
+  // sections
+  S.sections.forEach((s,i)=>{
+    const pts=[quadPoint(s.c0/S.cols,s.r0/S.rows),quadPoint((s.c1+1)/S.cols,s.r0/S.rows),
+               quadPoint((s.c1+1)/S.cols,(s.r1+1)/S.rows),quadPoint(s.c0/S.cols,(s.r1+1)/S.rows)].map(toView);
+    rctx.beginPath();
+    pts.forEach((p,j)=>j?rctx.lineTo(p.x,p.y):rctx.moveTo(p.x,p.y));
+    rctx.closePath();
+    rctx.lineWidth=i===S.sel?2.5:1.4;
+    rctx.strokeStyle=s.color; rctx.setLineDash(i===S.sel?[]:[6,5]); rctx.stroke(); rctx.setLineDash([]);
+    rctx.fillStyle=s.color; rctx.globalAlpha=.10; rctx.fill(); rctx.globalAlpha=1;
+    rctx.font='600 12px Bahnschrift,sans-serif'; rctx.fillStyle=s.color;
+    rctx.fillText(s.name,pts[0].x+6,pts[0].y+15);
+  });
+
+  if(pendingRect){
+    rctx.strokeStyle='#e0a08a'; rctx.setLineDash([4,4]); rctx.lineWidth=1.5;
+    rctx.strokeRect(pendingRect.x,pendingRect.y,pendingRect.w,pendingRect.h);
+    rctx.setLineDash([]);
+  }
+
+  // corner handles
+  if(tool==='corners'&&S.corners){
+    S.corners.forEach((c,i)=>{
+      const p=toView(c);
+      rctx.beginPath(); rctx.arc(p.x,p.y,7,0,7);
+      rctx.fillStyle='rgba(20,16,13,.85)'; rctx.fill();
+      rctx.lineWidth=2; rctx.strokeStyle='#c77b45'; rctx.stroke();
+      rctx.beginPath(); rctx.arc(p.x,p.y,2,0,7); rctx.fillStyle='#e0a08a'; rctx.fill();
+    });
+    rctx.strokeStyle='rgba(199,123,69,.5)'; rctx.lineWidth=1.5;
+    rctx.beginPath();
+    S.corners.forEach((c,i)=>{const p=toView(c); i?rctx.lineTo(p.x,p.y):rctx.moveTo(p.x,p.y);});
+    rctx.closePath(); rctx.stroke();
+  }
+}
+
+/* ---------- export ---------- */
+function vlq(n){
+  const b=[n&127]; n>>=7;
+  while(n>0){ b.unshift((n&127)|128); n>>=7; }
+  return b;
+}
+function exportMidi(){
+  if(S.dirty||!S.score) buildScore();
+  const PPQ=480, bpm=clamp(+$('bpm').value||96,20,300);
+  const spq=60/bpm;
+  const byKey=new Map();
+  S.score.events.forEach(e=>{
+    const k=e.key||'black';
+    if(!byKey.has(k)) byKey.set(k,[]);
+    byKey.get(k).push(e);
+  });
+  const tracks=[];
+  // tempo track
+  const us=Math.round(60000000/bpm);
+  let t0=[...vlq(0),0xFF,0x51,0x03,(us>>16)&255,(us>>8)&255,us&255, ...vlq(0),0xFF,0x2F,0x00];
+  tracks.push(t0);
+  byKey.forEach((evs,key)=>{
+    const msgs=[];
+    evs.forEach(e=>{
+      const n=clamp(Math.round(freqToMidi(e.freq)),0,127);
+      const on=Math.round(e.t/spq*PPQ), off=Math.round((e.t+e.dur)/spq*PPQ);
+      const vel=clamp(Math.round(40+e.level*160),1,127);
+      msgs.push({tick:on,d:[0x90,n,vel]});
+      msgs.push({tick:Math.max(off,on+10),d:[0x80,n,0]});
+    });
+    msgs.sort((a,b)=>a.tick-b.tick||(a.d[0]&0xF0)-(b.d[0]&0xF0));
+    const bytes=[];
+    const nm='Register '+key;
+    bytes.push(...vlq(0),0xFF,0x03,nm.length,...[...nm].map(c=>c.charCodeAt(0)&127));
+    let last=0;
+    msgs.forEach(m=>{ bytes.push(...vlq(Math.max(0,m.tick-last)),...m.d); last=m.tick; });
+    bytes.push(...vlq(0),0xFF,0x2F,0x00);
+    tracks.push(bytes);
+  });
+  const head=[0x4D,0x54,0x68,0x64,0,0,0,6,0,1,(tracks.length>>8)&255,tracks.length&255,(PPQ>>8)&255,PPQ&255];
+  const out=[...head];
+  tracks.forEach(tr=>{
+    out.push(0x4D,0x54,0x72,0x6B,(tr.length>>>24)&255,(tr.length>>>16)&255,(tr.length>>>8)&255,tr.length&255);
+    out.push(...tr);
+  });
+  download('register-cipher.mid',new Blob([new Uint8Array(out)],{type:'audio/midi'}));
+  setMeter('MIDI saved (tunings rounded to the nearest semitone)');
+}
+function encodeWav(buf){
+  const nch=buf.numberOfChannels, len=buf.length, rate=buf.sampleRate;
+  const ab=new ArrayBuffer(44+len*nch*2), dv=new DataView(ab);
+  const str=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
+  str(0,'RIFF'); dv.setUint32(4,36+len*nch*2,true); str(8,'WAVE'); str(12,'fmt ');
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,nch,true);
+  dv.setUint32(24,rate,true); dv.setUint32(28,rate*nch*2,true);
+  dv.setUint16(32,nch*2,true); dv.setUint16(34,16,true); str(36,'data');
+  dv.setUint32(40,len*nch*2,true);
+  const chans=[]; for(let c=0;c<nch;c++) chans.push(buf.getChannelData(c));
+  let off=44;
+  for(let i=0;i<len;i++) for(let c=0;c<nch;c++){
+    const v=clamp(chans[c][i],-1,1);
+    dv.setInt16(off,v<0?v*32768:v*32767,true); off+=2;
+  }
+  return new Blob([ab],{type:'audio/wav'});
+}
+async function exportWav(){
+  if(S.dirty||!S.score) buildScore();
+  if(!S.score.events.length){ setMeter('nothing to render'); return; }
+  setMeter('rendering&hellip;');
+  const rate=44100, dur=S.score.total+3.5;
+  const off=new OfflineAudioContext(2,Math.ceil(rate*dur),rate);
+  const e2=createEngine(off,engineOpts());
+  S.score.events.forEach(ev=>{
+    playVoice(e2,{at:ev.t+.1,freq:ev.freq,dur:ev.dur,inst:ev.inst,level:ev.level,pan:ev.pan});
+  });
+  const buf=await off.startRendering();
+  download('register-cipher.wav',encodeWav(buf));
+  setMeter('WAV saved');
+}
+function exportScoreJson(){
+  if(S.dirty||!S.score) buildScore();
+  const out={
+    grid:{cols:S.cols,rows:S.rows},
+    palette:S.palette.map(p=>({key:p.key,name:p.name,hex:p.hex,instrument:p.inst,cells:p.count})),
+    sections:S.sections.map(s=>({...s})),
+    tempo:+$('bpm').value, stepsPerBeat:+$('subdiv').value,
+    cells:S.cells.filter(c=>c.filled).map(c=>({r:c.r,c:c.c,key:c.key,hex:c.hex})),
+    events:S.score.events.map(e=>({t:+e.t.toFixed(4),dur:+e.dur.toFixed(4),
+      hz:+e.freq.toFixed(3),midi:+freqToMidi(e.freq).toFixed(2),lane:e.lane,ink:e.key,voice:e.inst}))
+  };
+  download('register-score.json',new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
+  setMeter('score saved');
+}
+function exportSetup(){
+  const o={version:1,cols:S.cols,rows:S.rows,corners:S.corners,sections:S.sections,
+    palette:S.palette.map(p=>({key:p.key,inst:p.inst})),
+    read:{lumT:+$('lumT').value,satT:+$('satT').value,coverT:+$('coverT').value,
+      inset:+$('inset').value,auto:$('autoThresh').checked,blackOnly:$('blackOnly').checked},
+    room:{rev:+$('revMix').value,size:+$('revSize').value,dly:+$('dlyMix').value,dt:+$('dlyTime').value},
+    tempo:+$('bpm').value,sub:+$('subdiv').value};
+  download('register-setup.json',new Blob([JSON.stringify(o,null,2)],{type:'application/json'}));
+}
+
+/* ------------------------------ 7. ui ------------------------------ */
+function bindSlider(id,fmt,after){
+  const el=$(id), out=$(id+'v');
+  const upd=()=>{ if(out) out.textContent=fmt(+el.value); if(after) after(+el.value); };
+  el.addEventListener('input',upd); upd();
+}
+bindSlider('lumT',v=>v);
+bindSlider('satT',v=>(v/100).toFixed(2));
+bindSlider('coverT',v=>v+'%');
+bindSlider('inset',v=>v+'%');
+bindSlider('secRate',v=>(v/100).toFixed(2)+'\u00d7');
+bindSlider('secGate',v=>(v/100).toFixed(2));
+bindSlider('secOct',v=>v>0?'+'+v:''+v);
+bindSlider('secLevel',v=>(v/100).toFixed(2));
+bindSlider('gMargin',v=>(v/100).toFixed(2)+' in');
+bindSlider('gLw',v=>(v/10).toFixed(1));
+bindSlider('revMix',v=>(v/100).toFixed(2),v=>{ if(eng) eng.revOut.gain.value=v/100; });
+bindSlider('revSize',v=>(v/10).toFixed(1)+' s');
+bindSlider('dlyMix',v=>(v/100).toFixed(2),v=>{ if(eng) eng.dlyOut.gain.value=v/100; });
+bindSlider('dlyTime',v=>['1/16','1/8','dotted 1/8','1/4','dotted 1/4','1/2'][v]||'1/4',
+  ()=>{ if(eng) eng.dly.delayTime.value=delaySeconds(); });
+$('revSize').addEventListener('change',()=>{ if(eng) eng.revIn.disconnect(), rebuildReverb(); });
+function rebuildReverb(){
+  if(!eng) return;
+  const conv=actx.createConvolver(); conv.buffer=makeImpulse(actx,(+$('revSize').value)/10);
+  eng.revIn.connect(conv); conv.connect(eng.revOut);
+}
+$('master').addEventListener('input',()=>{ if(eng) eng.master.gain.value=(+$('master').value)/100; });
+
+/* root note list */
+(function(){
+  const sel=$('secRoot');
+  for(let m=24;m<=84;m++){
+    const o=document.createElement('option');
+    o.value=m; o.textContent=NOTE_NAMES[m%12]+(Math.floor(m/12)-1);
+    if(m===45) o.selected=true;
+    sel.appendChild(o);
+  }
+})();
+
+/* tabs */
+function setTab(which){
+  const read=which==='read';
+  $('tabRead').setAttribute('aria-selected',read); $('tabGrid').setAttribute('aria-selected',!read);
+  $('readPanel').classList.toggle('hidden',!read);
+  $('gridPanel').classList.toggle('hidden',read);
+  $('readBar').classList.toggle('hidden',!read);
+  $('gridBar').classList.toggle('hidden',read);
+  $('gridCanvas').classList.toggle('hidden',read);
+  $('readCanvas').classList.toggle('hidden',read?!S.img:true);
+  $('emptyState').classList.toggle('hidden',read?!!S.img:true);
+  if(!read) renderGridPreview(); else if(S.img){ fitView(); drawRead(); }
+}
+$('tabRead').onclick=()=>setTab('read');
+$('tabGrid').onclick=()=>setTab('grid');
+
+/* file in */
+$('loadBtn').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const fr=new FileReader();
+  fr.onload=ev=>loadImageSource(ev.target.result);
+  fr.readAsDataURL(f);
+};
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{
+  e.preventDefault();
+  const f=e.dataTransfer.files[0];
+  if(f&&/^image\//.test(f.type)){
+    const fr=new FileReader(); fr.onload=ev=>loadImageSource(ev.target.result); fr.readAsDataURL(f);
+  }
+});
+function onImageReady(){
+  $('emptyState').classList.add('hidden');
+  $('readCanvas').classList.remove('hidden');
+  $('imgInfo').textContent=S.W+' \u00d7 '+S.H+' px';
+  S.sections=[]; S.sel=0;
+  setTab('read'); fitView();
+  if($('autoThresh').checked){ const t=otsu(); $('lumT').value=t; $('lumTv').textContent=t; }
+  const g=detectGrid(+$('lumT').value);
+  if(g && g.cols>1 && g.rows>1){
+    $('cols').value=g.cols; $('rows').value=g.rows;
+    S.cols=g.cols; S.rows=g.rows;
+    S.corners=[{x:g.x0,y:g.y0},{x:g.x1,y:g.y0},{x:g.x1,y:g.y1},{x:g.x0,y:g.y1}];
+    setMeter('found a '+g.cols+'\u00d7'+g.rows+' grid');
+  } else setMeter('image loaded \u2014 set the corners and the grid size');
+  runAnalyze();
+}
+
+/* analysis */
+function readOpts(){
+  return {lumT:+$('lumT').value, satT:(+$('satT').value)/100,
+    coverT:(+$('coverT').value)/100, inset:(+$('inset').value)/100,
+    blackOnly:$('blackOnly').checked};
+}
+function runAnalyze(){
+  if(!S.img) return;
+  S.cols=clamp(+$('cols').value||1,1,200); S.rows=clamp(+$('rows').value||1,1,200);
+  const res=analyzeCells(readOpts());
+  S.cells=res.cells;
+  const prev=new Map(S.palette.map(p=>[p.key,p.inst]));
+  S.palette=buildPalette(res,readOpts().blackOnly);
+  S.palette.forEach(p=>{ if(prev.has(p.key)) p.inst=prev.get(p.key); });
+  S.analyzed=true; S.dirty=true;
+  if(!S.sections.length) S.sections=[makeSection(0,0,S.rows-1,S.cols-1,'Whole page')];
+  const filled=S.cells.filter(c=>c.filled).length;
+  $('readStats').textContent=filled+' of '+(S.cols*S.rows)+' cells filled, '+S.palette.length+' ink'+(S.palette.length===1?'':'s')+' found';
+  $('playBtn').disabled=false; $('stopBtn').disabled=false;
+  renderPalette(); renderSections(); loadSectionEditor(); drawRead();
+}
+$('analyzeBtn').onclick=runAnalyze;
+['cols','rows'].forEach(id=>$(id).addEventListener('change',()=>{ S.sections=[]; runAnalyze(); }));
+['lumT','satT','coverT','inset'].forEach(id=>$(id).addEventListener('change',runAnalyze));
+$('blackOnly').addEventListener('change',runAnalyze);
+$('autoThresh').addEventListener('change',()=>{
+  if($('autoThresh').checked&&S.img){ const t=otsu(); $('lumT').value=t; $('lumTv').textContent=t; runAnalyze(); }
+});
+$('showMask').addEventListener('change',drawRead);
+$('resetCorners').onclick=()=>{
+  if(!S.img) return;
+  S.corners=[{x:S.W*.06,y:S.H*.06},{x:S.W*.94,y:S.H*.06},{x:S.W*.94,y:S.H*.94},{x:S.W*.06,y:S.H*.94}];
+  runAnalyze();
+};
+$('findMarks').onclick=()=>{
+  if(!S.img) return;
+  const m=findRegistrationMarks(+$('lumT').value);
+  if(m){ S.corners=m; $('gridWarn').classList.add('hidden'); setMeter('corner marks located'); runAnalyze(); }
+  else { $('gridWarn').textContent='No corner marks found. Drag the handles instead, or print a grid with marks turned on.'; $('gridWarn').classList.remove('hidden'); }
+};
+$('findGrid').onclick=()=>{
+  if(!S.img) return;
+  const g=detectGrid(+$('lumT').value);
+  if(g&&g.cols>1&&g.rows>1){
+    $('cols').value=g.cols; $('rows').value=g.rows;
+    S.corners=[{x:g.x0,y:g.y0},{x:g.x1,y:g.y0},{x:g.x1,y:g.y1},{x:g.x0,y:g.y1}];
+    S.sections=[]; $('gridWarn').classList.add('hidden'); runAnalyze();
+    setMeter('detected '+g.cols+'\u00d7'+g.rows);
+  } else { $('gridWarn').textContent='Could not read ruled lines. Type the grid size in by hand.'; $('gridWarn').classList.remove('hidden'); }
+};
+
+/* palette ui */
+function renderPalette(){
+  const box=$('paletteList'); box.innerHTML='';
+  if(!S.palette.length){ box.innerHTML='<p class="hint">Nothing read yet.</p>'; return; }
+  S.palette.forEach(p=>{
+    const d=document.createElement('div'); d.className='pal';
+    d.innerHTML='<span class="chip" style="background:'+p.hex+'"></span>'+
+      '<span class="nm"><b>'+p.name+'</b><span>'+p.count+' cells &middot; '+p.hex+'</span></span>';
+    const sel=document.createElement('select');
+    INSTRUMENT_ORDER.forEach(k=>{
+      const o=document.createElement('option'); o.value=k; o.textContent=INSTRUMENTS[k].name;
+      if(k===p.inst) o.selected=true; sel.appendChild(o);
+    });
+    sel.onchange=()=>{ p.inst=sel.value; S.dirty=true; };
+    d.appendChild(sel); box.appendChild(d);
+  });
+}
+
+/* sections ui */
+function renderSections(){
+  const box=$('secList'); box.innerHTML='';
+  S.sections.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='secitem'; d.dataset.sel=i===S.sel?'1':'0';
+    d.innerHTML='<span class="swatch" style="background:'+s.color+'"></span>'+
+      '<span class="t">'+s.name+' <span style="color:var(--silver-dim)">r'+(s.r0+1)+'-'+(s.r1+1)+' c'+(s.c0+1)+'-'+(s.c1+1)+'</span></span>';
+    d.onclick=()=>{ S.sel=i; renderSections(); loadSectionEditor(); drawRead(); };
+    const x=document.createElement('button'); x.className='x'; x.textContent='\u00d7'; x.title='Remove';
+    x.onclick=e=>{ e.stopPropagation(); S.sections.splice(i,1); S.sel=0; S.dirty=true; renderSections(); loadSectionEditor(); drawRead(); };
+    d.appendChild(x); box.appendChild(d);
+  });
+}
+const SEC_FIELDS=[['secName','name','text'],['secMode','mode','sel'],['secSync','sync','sel'],
+  ['secPath','path','sel'],['secTuning','tuning','sel'],['secRoot','rootMidi','num'],
+  ['secScale','scale','sel'],['secRate','rate','pct'],['secGate','gate','pct'],
+  ['secOct','octave','num'],['secLevel','level','pct'],['secRepeat','repeat','num'],
+  ['secPan','pan','numf'],['secLegato','legato','chk'],['secDrone','drone','chk']];
+function loadSectionEditor(){
+  const s=S.sections[S.sel];
+  $('secEditor').classList.toggle('hidden',!s);
+  if(!s) return;
+  SEC_FIELDS.forEach(([id,key,kind])=>{
+    const el=$(id);
+    if(kind==='chk') el.checked=!!s[key];
+    else if(kind==='pct') el.value=Math.round(s[key]*100);
+    else el.value=s[key];
+    const out=$(id+'v');
+    if(out&&el.type==='range') el.dispatchEvent(new Event('input'));
+  });
+}
+SEC_FIELDS.forEach(([id,key,kind])=>{
+  $(id).addEventListener('input',()=>{
+    const s=S.sections[S.sel]; if(!s) return;
+    const el=$(id);
+    if(kind==='chk') s[key]=el.checked;
+    else if(kind==='pct') s[key]=(+el.value)/100;
+    else if(kind==='num') s[key]=parseInt(el.value,10)||0;
+    else if(kind==='numf') s[key]=parseFloat(el.value)||0;
+    else s[key]=el.value;
+    S.dirty=true;
+    if(key==='name'){ renderSections(); drawRead(); }
+  });
+});
+$('secWhole').onclick=()=>{
+  if(!S.img) return;
+  S.sections=[makeSection(0,0,S.rows-1,S.cols-1,'Whole page')];
+  S.sel=0; S.dirty=true; renderSections(); loadSectionEditor(); drawRead();
+};
+$('secSplit').onclick=()=>{
+  if(!S.img) return;
+  const nc=clamp(+$('splitC').value||1,1,12), nr=clamp(+$('splitR').value||1,1,12);
+  S.sections=[];
+  for(let rr=0;rr<nr;rr++) for(let cc=0;cc<nc;cc++){
+    const r0=Math.floor(rr*S.rows/nr), r1=Math.floor((rr+1)*S.rows/nr)-1;
+    const c0=Math.floor(cc*S.cols/nc), c1=Math.floor((cc+1)*S.cols/nc)-1;
+    const s=makeSection(r0,c0,r1,c1,'Part '+(rr*nc+cc+1));
+    s.sync = (rr*nc+cc)===0 ? 'seq' : 'seq';
+    S.sections.push(s);
+  }
+  S.sel=0; S.dirty=true; renderSections(); loadSectionEditor(); drawRead();
+};
+
+/* tools + canvas interaction */
+function setTool(t){
+  tool=t;
+  $('toolCorners').setAttribute('aria-pressed',t==='corners');
+  $('toolSections').setAttribute('aria-pressed',t==='sections');
+  $('toolCorners').classList.toggle('primary',t==='corners');
+  $('toolSections').classList.toggle('primary',t==='sections');
+  drawRead();
+}
+$('toolCorners').onclick=()=>setTool('corners');
+$('toolSections').onclick=()=>setTool('sections');
+setTool('corners');
+
+function evPos(e){
+  const r=rc.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return {vx:cx,vy:cy,x:cx/view.scale*(rc.width/r.width)/1,y:cy/view.scale*(rc.height/r.height)};
+}
+rc.addEventListener('pointerdown',e=>{
+  if(!S.img) return;
+  rc.setPointerCapture(e.pointerId);
+  const p=evPos(e);
+  if(tool==='corners'){
+    let bi=-1,bd=1e9;
+    S.corners.forEach((c,i)=>{
+      const d=Math.hypot(c.x-p.x,c.y-p.y)*view.scale;
+      if(d<bd){bd=d;bi=i;}
+    });
+    if(bd<22) drag={kind:'corner',i:bi};
+  } else {
+    drag={kind:'rect',x0:p.vx,y0:p.vy,ix:p.x,iy:p.y};
+  }
+});
+rc.addEventListener('pointermove',e=>{
+  if(!drag||!S.img) return;
+  const p=evPos(e);
+  if(drag.kind==='corner'){
+    S.corners[drag.i]={x:clamp(p.x,0,S.W),y:clamp(p.y,0,S.H)};
+    drawRead();
+  } else {
+    pendingRect={x:Math.min(drag.x0,p.vx),y:Math.min(drag.y0,p.vy),
+      w:Math.abs(p.vx-drag.x0),h:Math.abs(p.vy-drag.y0)};
+    drag.ex=p.x; drag.ey=p.y; drawRead();
+  }
+});
+rc.addEventListener('pointerup',()=>{
+  if(!drag) return;
+  if(drag.kind==='corner'){ runAnalyze(); }
+  else if(drag.ex!==undefined){
+    const a=cellFromPoint(drag.ix,drag.iy), b=cellFromPoint(drag.ex,drag.ey);
+    if(Math.abs(a.r-b.r)+Math.abs(a.c-b.c)>0){
+      const s=makeSection(a.r,a.c,b.r,b.c,'Section '+(S.sections.length+1));
+      S.sections.push(s); S.sel=S.sections.length-1; S.dirty=true;
+      renderSections(); loadSectionEditor();
+    }
+  }
+  drag=null; pendingRect=null; drawRead();
+});
+
+/* transport */
+$('playBtn').onclick=()=>{ if(play.on){ stopPlay(); } else startPlay(); };
+$('stopBtn').onclick=()=>stopPlay();
+['bpm','subdiv'].forEach(id=>$(id).addEventListener('change',()=>{
+  S.dirty=true; if(eng) eng.dly.delayTime.value=delaySeconds();
+}));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA') return;
+  if(e.code==='Space'){ e.preventDefault(); play.on?stopPlay():startPlay(); }
+});
+$('expMidi').onclick=exportMidi;
+$('expWav').onclick=exportWav;
+$('expJson').onclick=exportScoreJson;
+$('expSetup').onclick=exportSetup;
+$('impSetup').onclick=()=>$('setupFile').click();
+$('setupFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const fr=new FileReader();
+  fr.onload=ev=>{
+    try{
+      const o=JSON.parse(ev.target.result);
+      if(o.cols) $('cols').value=o.cols;
+      if(o.rows) $('rows').value=o.rows;
+      if(o.corners&&S.img) S.corners=o.corners;
+      if(o.read){ $('lumT').value=o.read.lumT; $('satT').value=o.read.satT; $('coverT').value=o.read.coverT;
+        $('inset').value=o.read.inset; $('autoThresh').checked=o.read.auto; $('blackOnly').checked=o.read.blackOnly; }
+      if(o.room){ $('revMix').value=o.room.rev; $('revSize').value=o.room.size; $('dlyMix').value=o.room.dly; $('dlyTime').value=o.room.dt; }
+      if(o.tempo) $('bpm').value=o.tempo;
+      if(o.sub) $('subdiv').value=o.sub;
+      ['lumT','satT','coverT','inset','revMix','revSize','dlyMix','dlyTime'].forEach(id=>$(id).dispatchEvent(new Event('input')));
+      if(S.img) runAnalyze();
+      if(o.sections&&o.sections.length){ S.sections=o.sections.map(s=>Object.assign(makeSection(s.r0,s.c0,s.r1,s.c1,s.name),s)); S.sel=0; }
+      if(o.palette) o.palette.forEach(p=>{ const m=S.palette.find(q=>q.key===p.key); if(m) m.inst=p.inst; });
+      renderPalette(); renderSections(); loadSectionEditor(); drawRead();
+      setMeter('setup loaded');
+    }catch(err){ setMeter('that setup file would not parse'); }
+  };
+  fr.readAsText(f);
+};
+
+/* grid maker wiring */
+const gc=$('gridCanvas'), gctx=gc.getContext('2d');
+function renderGridPreview(){
+  const o=gridOpts();
+  const stage=$('stage');
+  const maxW=Math.max(260,stage.clientWidth-30), maxH=Math.max(220,stage.clientHeight-30);
+  const dpi=Math.min(maxW/o.paperW, maxH/o.paperH);
+  drawSheet(gctx,o,dpi);
+  $('gridInfo').textContent=o.cols+' \u00d7 '+o.rows;
+  $('gridCanvas').classList.remove('hidden');
+}
+['gCols','gRows','gPaper','gMargin','gInk','gLw','gMajC','gMajR','gMarks','gLabels','gSquare','gDpi']
+  .forEach(id=>$(id).addEventListener('input',()=>{ if($('tabGrid').getAttribute('aria-selected')==='true') renderGridPreview(); }));
+document.querySelectorAll('[data-preset]').forEach(b=>{
+  b.onclick=()=>{ const [c,r]=b.dataset.preset.split(',');
+    $('gCols').value=c; $('gRows').value=r; renderGridPreview(); };
+});
+$('gridPng').onclick=()=>{
+  const o=gridOpts(), dpi=+$('gDpi').value;
+  const cv=document.createElement('canvas');
+  drawSheet(cv.getContext('2d'),o,dpi);
+  cv.toBlob(b=>download('grid-'+o.cols+'x'+o.rows+'-'+dpi+'dpi.png',b));
+};
+$('gridPrint').onclick=()=>{
+  const o=gridOpts(), dpi=+$('gDpi').value;
+  const cv=document.createElement('canvas');
+  drawSheet(cv.getContext('2d'),o,dpi);
+  const w=window.open('');
+  if(!w){ setMeter('the print window was blocked'); return; }
+  w.document.write('<html><head><title>Grid '+o.cols+'x'+o.rows+'</title><style>@page{margin:0}'+
+    'body{margin:0}img{width:100%;display:block}</style></head><body><img src="'+cv.toDataURL('image/png')+'"></body></html>');
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },350);
+};
+$('gridToReader').onclick=()=>{
+  const o=gridOpts();
+  $('cols').value=o.cols; $('rows').value=o.rows;
+  S.sections=[]; setTab('read');
+  if(S.img) runAnalyze(); else setMeter('grid size set to '+o.cols+'\u00d7'+o.rows+' \u2014 open your scan next');
+};
+
+window.addEventListener('resize',()=>{
+  if($('tabGrid').getAttribute('aria-selected')==='true') renderGridPreview();
+  else if(S.img){ fitView(); drawRead(); }
+});
+renderPalette(); renderSections();
+$('secEditor').classList.add('hidden');
+setMeter('open a scan, or draw a grid to print');
+
+/* ===================================================================
+   TOUR — self-contained. Delete this block and the #tourBtn /
+   #tourStart buttons in the markup to remove it entirely.
+   =================================================================== */
+const TOUR=[
+  {title:'What this thing does',
+   body:'You draw a grid, fill cells in by hand, photograph it, and this reads the page back as music. Filled cells become notes. Where a cell sits decides its pitch; what color it is decides its voice.'},
+  {tab:'grid', el:'#gCols',
+   title:'Start with the paper',
+   body:'Set how many columns and rows you want. 72 by 68 fills a tabloid sheet nicely. The preset buttons under here jump to common sizes.'},
+  {tab:'grid', el:'#gInk',
+   title:'Print the lines light',
+   body:'Light grey rules are easiest for the reader to ignore later, and easiest for you to draw over. Heavy lines every 8 mark out the blocks you will turn into sections on the read side.'},
+  {tab:'grid', el:'#gMarks',
+   title:'Leave the corner marks on',
+   body:'Four solid squares print centered on the outer corners of the grid. They are how the reader finds your page in a photo, even a crooked one. Without them you line the page up by hand.'},
+  {tab:'grid', el:'#gridPng',
+   title:'Get it onto paper',
+   body:'Print it, or save a PNG at 300 or 600 dpi. Then fill your cells in. Black marker, colored marker, whatever you like.'},
+  {tab:'read', el:'#loadBtn',
+   title:'Bring the drawing back',
+   body:'Open a scan or a phone photo, or just drag the file anywhere onto the window. Nothing gets uploaded; the whole thing runs on your machine.'},
+  {tab:'read', el:'#findMarks',
+   title:'Let it find the page',
+   body:'Find corner marks locates the four printed squares. Detect grid instead reads the ruled lines and counts the columns and rows for you. Either way you can correct the numbers above by hand.'},
+  {tab:'read', el:'#readCanvas', fallback:'#stage',
+   title:'The four handles',
+   body:'Drag each handle onto a corner of your grid. Every cell is sampled by interpolating inside the shape you set, so a tilted or slightly angled photo still reads straight.'},
+  {tab:'read', el:'#blackOnly',
+   title:'Black only, or every ink',
+   body:'Black cells only registers neutral dark ink and ignores colored ink completely. Leave it off and colored cells get read too. Turn on Show what it read above the page to see exactly which cells it caught.'},
+  {tab:'read', el:'#paletteList',
+   title:'Your inks, your voices',
+   body:'The reader clusters the actual colors it found, so two slightly different reds from the same marker land in one voice. Each ink gets an instrument, and you can reassign any of them.'},
+  {tab:'read', el:'#secList',
+   title:'Carve the page up',
+   body:'Switch to the Sections tool in the bar above the page and drag a box, or press Split grid for an even carve. Each section is read separately, and they can run one after another or all at once.'},
+  {tab:'read', el:'#secMode',
+   title:'Each section keeps its own time and tuning',
+   body:'One block can stay locked to the tempo while another free scans beside it. Harmonic series tunes the lanes to partials of one root, which is why stacked notes stay consonant instead of beeping. The reading path decides the order: rows, columns, diagonals, or a spiral.'},
+  {el:'#playBtn',
+   title:'Play it',
+   body:'Space bar works too. Cells light up as they sound, so you can watch the page play itself. Notes hold rather than retrigger, so a run of filled cells is one long note, not a stutter.'},
+  {el:'#expJson', openAll:true,
+   title:'Take it with you',
+   body:'MIDI and a rendered WAV for use elsewhere, or the score as JSON if you want the raw numbers. Save setup keeps your thresholds, corners and sections for the next page.'},
+  {title:'That is the whole loop',
+   body:'Draw grid, print, fill, photograph, read, arrange, play. The Tour button up top brings this back any time.'}
+];
+let tourAt=-1, tourEls=null;
+
+function tourNodes(){
+  if(tourEls) return tourEls;
+  const hole=document.createElement('div'); hole.id='tourHole';
+  const card=document.createElement('div'); card.id='tourCard';
+  card.innerHTML='<button class="skip" title="Close the tour">\u00d7</button>'+
+    '<h3></h3><p></p><div class="nav"><span class="count"></span>'+
+    '<button class="btn ghost" data-t="back">Back</button>'+
+    '<button class="btn primary" data-t="next">Next</button></div>';
+  document.body.appendChild(hole); document.body.appendChild(card);
+  card.querySelector('.skip').onclick=endTour;
+  card.querySelector('[data-t="back"]').onclick=()=>gotoStep(tourAt-1);
+  card.querySelector('[data-t="next"]').onclick=()=>gotoStep(tourAt+1);
+  tourEls={hole,card,
+    h:card.querySelector('h3'),p:card.querySelector('p'),
+    count:card.querySelector('.count'),
+    back:card.querySelector('[data-t="back"]'),next:card.querySelector('[data-t="next"]')};
+  return tourEls;
+}
+function openAncestors(node){
+  let d=node.closest('details');
+  while(d){ d.open=true; d=d.parentElement?d.parentElement.closest('details'):null; }
+}
+function placeCard(card,rect){
+  const pad=14, vw=innerWidth, vh=innerHeight;
+  const cw=card.offsetWidth, ch=card.offsetHeight;
+  let x,y;
+  if(!rect){ x=(vw-cw)/2; y=(vh-ch)/2; }
+  else if(rect.width>vw*0.45){
+    x=clamp(rect.left,pad,vw-cw-pad);
+    y=rect.top>vh/2 ? rect.top-ch-pad : rect.bottom+pad;
+  } else {
+    x = rect.left>vw/2 ? rect.left-cw-pad : rect.right+pad;
+    x = clamp(x,pad,vw-cw-pad);
+    y = clamp(rect.top+rect.height/2-ch/2,pad,vh-ch-pad);
+  }
+  card.style.left=clamp(x,pad,Math.max(pad,vw-cw-pad))+'px';
+  card.style.top=clamp(y,pad,Math.max(pad,vh-ch-pad))+'px';
+}
+function gotoStep(i){
+  if(i<0) return;
+  if(i>=TOUR.length){ endTour(); return; }
+  const n=tourNodes(), step=TOUR[i];
+  tourAt=i;
+  if(step.tab) setTab(step.tab);
+  n.h.textContent=step.title;
+  n.p.textContent=step.body;
+  n.count.textContent=(i+1)+' of '+TOUR.length;
+  n.back.style.visibility=i?'visible':'hidden';
+  n.next.textContent=i===TOUR.length-1?'Done':'Next';
+  n.hole.style.display='block'; n.card.style.display='block';
+
+  let target=step.el?document.querySelector(step.el):null;
+  if(target){
+    openAncestors(target);                       // a collapsed panel has no box to point at
+    if(step.openAll) document.querySelectorAll('details.group').forEach(d=>d.open=true);
+    const hidden=target.classList.contains('hidden')||target.offsetParent===null;
+    if(hidden) target=step.fallback?document.querySelector(step.fallback):null;
+  }
+
+  const settle=()=>{
+    if(target){
+      const r=target.getBoundingClientRect();
+      n.hole.style.left=(r.left-7)+'px'; n.hole.style.top=(r.top-7)+'px';
+      n.hole.style.width=(r.width+14)+'px'; n.hole.style.height=(r.height+14)+'px';
+      placeCard(n.card,r);
+    } else {
+      n.hole.style.left=(innerWidth/2)+'px'; n.hole.style.top=(innerHeight/2)+'px';
+      n.hole.style.width='0px'; n.hole.style.height='0px';
+      placeCard(n.card,null);
+    }
+  };
+  if(target){
+    target.scrollIntoView({block:'center',behavior:'smooth'});
+    setTimeout(settle,240);
+  }
+  settle();
+}
+function startTour(){ gotoStep(0); }
+function endTour(){
+  const n=tourNodes();
+  n.hole.style.display='none'; n.card.style.display='none';
+  tourAt=-1;
+}
+$('tourBtn').onclick=()=>{ tourAt>=0?endTour():startTour(); };
+$('tourStart').onclick=startTour;
+document.addEventListener('keydown',e=>{
+  if(tourAt<0) return;
+  if(e.key==='Escape'){ endTour(); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); gotoStep(tourAt+1); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); gotoStep(tourAt-1); }
+});
+window.addEventListener('resize',()=>{ if(tourAt>=0) gotoStep(tourAt); });
+/* ===================== end TOUR ===================== */
+
+</script>
+</body>
+</html>

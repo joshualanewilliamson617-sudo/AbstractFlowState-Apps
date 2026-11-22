@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AFS Apps">
+<title>AbstractFlowState Apps</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --card-hover: #1f2733; --line: #2a3340;
+    --text: #e6edf3; --muted: #8b98a8; --accent: #58c4dc;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: max(16px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom)); }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 8px 0 4px; letter-spacing: .02em; }
+  p.sub { color: var(--muted); margin: 0 0 16px; }
+  .search { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0 12px; }
+  input[type=search] { width: 100%; font-size: 1.05rem; padding: 14px 16px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); outline: none; }
+  input[type=search]:focus { border-color: var(--accent); }
+  h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted);
+    margin: 20px 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  a.app { display: flex; flex-direction: column; justify-content: center; min-height: 64px;
+    padding: 12px 16px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+    color: var(--text); text-decoration: none; font-size: 1.05rem; font-weight: 600;
+    transition: background .15s, border-color .15s, transform .05s; -webkit-tap-highlight-color: transparent; }
+  a.app:hover, a.app:focus-visible { background: var(--card-hover); border-color: var(--accent); outline: none; }
+  a.app:active { transform: scale(.98); }
+  a.app small { display: block; color: var(--muted); font-weight: 400; font-size: .82rem; margin-top: 3px; }
+  .none { color: var(--muted); display: none; padding: 20px 0; }
+  footer { color: var(--muted); font-size: .8rem; margin-top: 32px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AbstractFlowState Apps</h1>
+  <p class="sub">Tap any button to open an app.</p>
+  <div class="search"><input id="q" type="search" placeholder="Search apps…" autocomplete="off" aria-label="Search apps"></div>
+  <div id="list"></div>
+  <p class="none" id="none">No apps match that search.</p>
+  <footer><span id="count"></span></footer>
+</div>
+<script>
+const SECTIONS = [
+  ["Installable apps (add to home screen)", [
+    ["Burn-Out", "burn-out-pwa/", "Works offline"],
+    ["Oil Wheel", "oil-wheel-pwa/", "Works offline"],
+    ["Star Atlas", "star-atlas-pwa/", "Works offline"],
+  ]],
+  ["Big projects", [
+    ["3D Anatomy", "3D-Anatomy/"],
+    ["Earth Scope", "Earth-Scope/"],
+    ["Soul System", "Soul-System/"],
+    ["The Root Field · Ant Colony", "root-field-colony/root-field-colony-latest.html", "Newest version"],
+  ]],
+  ["Games", [
+    ["Apex Prism", "Apex-Prism.html"],
+    ["Burn-Out", "Burn-Out.html"],
+    ["Byte Pyramid", "Byte-Pyramid.html"],
+    ["Core 83", "Core-83.html"],
+    ["Dead Block AR", "Dead-Block-AR.html"],
+    ["Draft Line Racer", "Draft-Line-Racer.html"],
+    ["Fighter Jet Cockpit", "fighter-jet-cockpit.html"],
+    ["Geometry Battle", "Geometry-Battle.html"],
+    ["Gift Box Unblocker", "Gift-Box-Unblocker.html"],
+    ["Longbow Sortie", "Longbow-Sortie.html"],
+    ["Oil Wheel", "oil-wheel.html"],
+    ["Radar Green", "Radar-Green.html"],
+    ["Shell Lock", "Shell-Lock.html"],
+    ["Spectre Gunship", "Spectre-Gunship.html"],
+    ["Starlens Circle Seek", "star-lens-seek.html"],
+    ["Stone Yard Dock Master", "Stone-Yard-Dock-Master.html"],
+    ["Tumble House", "Tumble-House.html"],
+    ["Vextrix Nexus", "Vextrix-Nexus.html"],
+    ["Water Line", "Water-Line.html"],
+  ]],
+  ["Science & math", [
+    ["Chamber", "chamber.html"],
+    ["Cymatics Plate", "cymatics-plate.html"],
+    ["DNA and RNA", "dna-rna-explorer.html", "A working model"],
+    ["Element Lab", "element-lab.html"],
+    ["Field Notes", "math-roadmap.html", "A math roadmap"],
+    ["Infinity Explorer", "infinity-explorer.html"],
+    ["Interference Lab", "interference-lab.html"],
+    ["Number Field", "number-field.html"],
+    ["Number Field — Volume", "numberfield-volume.html"],
+    ["Slipstream", "slipstream.html", "Wind tunnel lab"],
+    ["Teleport as Reprojection", "teleport_projection.html"],
+    ["White Hole", "entangle3d.html", "A galaxy collision"],
+  ]],
+  ["Codes & ciphers", [
+    ["Bit Tape", "bit-tape.html", "Binary / ASCII translator"],
+    ["Lattice Cipher Field", "Lattice-Cipher-Field.html"],
+    ["Lattice Cipher Field Lite", "Lattice-Cipher-Field-Lite.html"],
+    ["Lattice Cipher Field + Bit Tape", "Lattice-Cipher-Field-and-Bit-Tape.html"],
+    ["Register", "register.html", "Optical cipher instrument"],
+  ]],
+  ["Art, sound & creative", [
+    ["Flower Field", "Flower-Field.html"],
+    ["Paint Lapse", "paint-lapse.html"],
+    ["Photo Bench", "Photo-bench.html"],
+    ["Sound Levels 1 & 2", "Sound-Levels-1-and-2.html"],
+  ]],
+  ["Tools", [
+    ["Analyzer", "Analyzer.html"],
+    ["CP3", "CP3.html"],
+    ["Exact Ledger", "Exact-Ledger.html"],
+    ["File Organizer", "Local-File-Organizer.html"],
+    ["Idea Verdict", "Idea-Verdict.html", "Who buys it, and should you build it?"],
+    ["SOS Beacon", "sos-beacon.html"],
+    ["World Frontline", "World-Frontline-Live-Theater.html", "Live theater"],
+  ]],
+  ["Computer only", [
+    ["AirDraw (Python)", "https://github.com/joshualanewilliamson617-sudo/AbstractFlowState-Apps/blob/main/airdraw/airdraw.py", "Desktop script — view the code"],
+  ]],
+];
+
+const list = document.getElementById("list");
+const q = document.getElementById("q");
+const none = document.getElementById("none");
+let total = 0;
+for (const [title, apps] of SECTIONS) {
+  const sec = document.createElement("section");
+  const h = document.createElement("h2"); h.textContent = title; sec.appendChild(h);
+  const grid = document.createElement("div"); grid.className = "grid";
+  for (const [name, href, note] of apps) {
+    const a = document.createElement("a");
+    a.className = "app"; a.href = href; a.textContent = name;
+    a.dataset.search = (name + " " + (note || "") + " " + title).toLowerCase();
+    if (note) { const s = document.createElement("small"); s.textContent = note; a.appendChild(s); }
+    grid.appendChild(a); total++;
+  }
+  sec.appendChild(grid); list.appendChild(sec);
+}
+document.getElementById("count").textContent = total + " apps";
+
+q.addEventListener("input", () => {
+  const term = q.value.trim().toLowerCase();
+  let shown = 0;
+  for (const sec of list.children) {
+    let any = 0;
+    for (const a of sec.querySelectorAll("a.app")) {
+      const hit = !term || a.dataset.search.includes(term);
+      a.style.display = hit ? "" : "none"; if (hit) { any++; shown++; }
+    }
+    sec.style.display = any ? "" : "none";
+  }
+  none.style.display = shown ? "none" : "block";
+});
+</script>
+</body>
+</html>

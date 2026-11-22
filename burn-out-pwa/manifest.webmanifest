@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Burn-Out: Endless Crossing",
+  "short_name": "Burn-Out",
+  "description": "Endless night-time crossing game. Hop the lanes, dodge the freight train, outrun the tow truck.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07080c",
+  "theme_color": "#07080c",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

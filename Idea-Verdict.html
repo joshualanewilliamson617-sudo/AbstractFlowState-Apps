@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Idea Verdict — who buys it, and should you build it?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E8ECF1; --sheet:#F7F9FB; --ink:#14213D; --ink-soft:#4A5773; --rule:#C6CEDA;
+  --go:#1F7A4D; --pivot:#B87A0C; --pass:#B3261E; --seal:#2B3E68; --bar:#2B3E68; --bar-2:#8FA3C7;
+  --display:"Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body:"Source Serif 4", Georgia, "Times New Roman", serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1629; --sheet:#16213A; --ink:#E6EBF3; --ink-soft:#A3B0C8; --rule:#2C3A58;
+    --go:#4CC38A; --pivot:#E8B04A; --pass:#F07167; --seal:#8FA3C7; --bar:#8FA3C7; --bar-2:#3E5078;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1629; --sheet:#16213A; --ink:#E6EBF3; --ink-soft:#A3B0C8; --rule:#2C3A58;
+  --go:#4CC38A; --pivot:#E8B04A; --pass:#F07167; --seal:#8FA3C7; --bar:#8FA3C7; --bar-2:#3E5078;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:1.0625rem;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+h1,h2,h3{font-family:var(--display);font-weight:800;line-height:1;margin:0;letter-spacing:.01em}
+h1{font-size:clamp(3rem,11vw,6rem);font-weight:900}
+h2{font-size:clamp(1.8rem,5vw,2.4rem);margin-bottom:.75rem}
+h3{font-size:1.35rem;margin-bottom:.5rem}
+p{margin:0 0 1rem;max-width:64ch}
+.lede{font-size:1.2rem;color:var(--ink-soft);margin-top:1rem}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:4px;padding:1.75rem;margin-top:2rem}
+.hidden{display:none !important}
+
+/* form */
+.field{margin-bottom:1.35rem}
+label,.legend{display:block;font-weight:600;margin-bottom:.35rem}
+.hint{display:block;font-size:.9rem;color:var(--ink-soft);font-weight:400;margin-top:-.2rem;margin-bottom:.4rem}
+input[type=text],input[type=email],input[type=number],select,textarea{
+  width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:3px;padding:.65rem .75rem}
+textarea{min-height:88px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.chips label{font-weight:400;margin:0;border:1px solid var(--rule);border-radius:999px;padding:.35rem .8rem;cursor:pointer;background:var(--paper)}
+.chips input{position:absolute;opacity:0;pointer-events:none}
+.chips input:checked + span{font-weight:600}
+.chips label:has(input:checked){border-color:var(--ink);background:var(--ink);color:var(--sheet)}
+.chips label:has(input:focus-visible){outline:2px solid var(--seal);outline-offset:2px}
+:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.err{color:var(--pass);font-size:.95rem;min-height:1.4em}
+button{font:inherit;cursor:pointer}
+.btn{font-family:var(--display);font-weight:800;font-size:1.35rem;letter-spacing:.02em;border:0;border-radius:3px;padding:.8rem 1.4rem;background:var(--ink);color:var(--sheet)}
+.btn:hover{filter:brightness(1.15)}
+.btn-quiet{background:none;border:1px solid var(--rule);color:var(--ink);font-size:1.05rem;padding:.55rem 1rem}
+
+/* docket */
+.docket-head{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:.75rem;margin-bottom:1.5rem}
+.docket-head .case{font-family:var(--display);font-size:1.1rem;font-weight:600;color:var(--ink-soft)}
+.subject{font-family:var(--display);font-size:clamp(2rem,7vw,3.2rem);font-weight:900;line-height:1}
+.seal-zone{position:relative;min-height:200px;display:grid;place-items:center;border:2px dashed var(--rule);border-radius:4px;margin:1.5rem 0;overflow:hidden}
+.sealed-msg{text-align:center;padding:1.5rem}
+.sealed-msg .big{font-family:var(--display);font-weight:900;font-size:2.4rem;color:var(--seal)}
+.stamp{font-family:var(--display);font-weight:900;font-size:clamp(4rem,16vw,7.5rem);line-height:.9;padding:.4rem 1.4rem .2rem;border:.35rem solid currentColor;border-radius:6px;transform:rotate(-7deg);text-align:center}
+.stamp small{display:block;font-size:.2em;font-weight:600;letter-spacing:.08em;padding-bottom:.4rem}
+.stamp.slam{animation:slam .55s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes slam{0%{transform:rotate(-7deg) scale(2.6);opacity:0}60%{opacity:1}100%{transform:rotate(-7deg) scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.stamp.slam{animation:none}}
+
+.free-note{border-left:4px solid var(--seal);padding:.25rem 0 .25rem 1rem;margin:1.5rem 0}
+.free-note strong{font-size:1.2rem}
+
+.locked{position:relative}
+.locked.is-locked .content{filter:blur(7px);user-select:none;pointer-events:none}
+.locked.is-locked::after{content:"Sealed — unlock to read";position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.4rem;color:var(--ink)}
+section.block{padding:1.5rem 0;border-top:1px solid var(--rule)}
+
+.scores{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+.score{border:1px solid var(--rule);border-radius:3px;padding:.75rem}
+.score b{font-family:var(--display);font-size:2.2rem;font-weight:900;display:block;line-height:1}
+.score span{font-size:.9rem;color:var(--ink-soft)}
+.overall{display:flex;align-items:baseline;gap:.75rem;margin-bottom:1rem}
+.overall b{font-family:var(--display);font-size:3.5rem;font-weight:900;line-height:1}
+
+.bars{display:grid;gap:.45rem}
+.bar-row{display:grid;grid-template-columns:5.5rem 1fr 3rem;align-items:center;gap:.6rem;font-size:.95rem}
+.track{height:14px;background:var(--paper);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.fill{height:100%;background:var(--bar)}
+.fill.alt{background:var(--bar-2)}
+.pct{text-align:right;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.persona{background:var(--paper);border-radius:4px;padding:1.25rem}
+.persona .name{font-family:var(--display);font-size:1.8rem;font-weight:900}
+ul.plain{margin:0;padding-left:1.1rem}
+ul.plain li{margin-bottom:.4rem}
+.price-scale{position:relative;height:44px;margin:1.25rem 0 .5rem;border-bottom:2px solid var(--ink)}
+.price-band{position:absolute;bottom:0;height:18px;background:var(--bar-2)}
+.price-pin{position:absolute;bottom:-6px;width:2px;height:40px;background:var(--pass)}
+.price-pin span{position:absolute;top:-1.4rem;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:.85rem;font-weight:600}
+.price-legend{display:flex;justify-content:space-between;font-size:.85rem;color:var(--ink-soft)}
+
+/* paywall */
+.paywall{position:sticky;bottom:env(safe-area-inset-bottom,0px);margin-top:2rem;background:var(--ink);color:var(--sheet);border-radius:4px;padding:1.25rem 1.5rem;display:flex;gap:1.25rem;align-items:center;justify-content:space-between;flex-wrap:wrap;box-shadow:0 -8px 24px rgba(20,33,61,.18)}
+.paywall .price{font-family:var(--display);font-size:2.6rem;font-weight:900;line-height:1}
+.paywall .price s{font-size:1.2rem;opacity:.6;font-weight:600;margin-left:.4rem}
+.paywall p{margin:.25rem 0 0;font-size:.95rem;opacity:.85}
+.paywall .btn{background:var(--sheet);color:var(--ink)}
+.demo-flag{font-size:.85rem;color:var(--ink-soft);margin-top:.75rem}
+.after{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:2rem}
+
+@media (max-width:620px){
+  .row,.two{grid-template-columns:1fr}
+  .scores{grid-template-columns:1fr 1fr}
+  .sheet{padding:1.25rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Idea Verdict</h1>
+  <p class="lede">Describe what you want to sell. We'll tell you who actually buys it, whether your price fits them, and give a straight verdict: go, pivot, or pass.</p>
+</header>
+
+<!-- STEP 1: INTAKE -->
+<form id="intake" class="sheet" novalidate>
+  <h2>File your idea</h2>
+
+  <div class="field">
+    <label for="name">Product or idea name</label>
+    <input id="name" type="text" maxlength="60" placeholder="e.g. Glow Trail pet harness" required>
+  </div>
+
+  <div class="field">
+    <label for="desc">What is it, in one or two sentences?</label>
+    <textarea id="desc" maxlength="300" placeholder="A reflective, LED-lit harness for evening dog walks."></textarea>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="cat">Category</label>
+      <select id="cat"></select>
+    </div>
+    <div class="field">
+      <label for="price">Your price (USD)</label>
+      <input id="price" type="number" min="1" step="1" placeholder="39" required>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="who">Who do you think buys it?</label>
+    <span class="hint">Your guess. The verdict will confirm or correct it.</span>
+    <input id="who" type="text" maxlength="120" placeholder="Young dog owners in cities">
+  </div>
+
+  <div class="field">
+    <span class="legend" id="ch-l">Where will you sell?</span>
+    <div class="chips" role="group" aria-labelledby="ch-l">
+      <label><input type="checkbox" name="ch" value="Own website"><span>Own website</span></label>
+      <label><input type="checkbox" name="ch" value="Marketplace"><span>Marketplace (Etsy, Amazon)</span></label>
+      <label><input type="checkbox" name="ch" value="Social"><span>Social media</span></label>
+      <label><input type="checkbox" name="ch" value="Local"><span>In person / local</span></label>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="stage">How far along are you?</label>
+      <select id="stage">
+        <option value="0">Just an idea</option>
+        <option value="4">Prototype or sample</option>
+        <option value="8">Already selling</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="budget">Launch budget</label>
+      <select id="budget">
+        <option value="0">Under $500</option>
+        <option value="3">$500–$2,500</option>
+        <option value="6">$2,500+</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="email">Email for your verdict copy</label>
+    <input id="email" type="email" placeholder="you@example.com">
+  </div>
+
+  <p class="err" id="err" role="alert"></p>
+  <button class="btn" type="submit">Get my verdict</button>
+</form>
+
+<!-- STEP 2: DOCKET -->
+<article id="docket" class="sheet hidden" aria-live="polite">
+  <div class="docket-head">
+    <div class="subject" id="d-subject"></div>
+    <div class="case" id="d-case"></div>
+  </div>
+
+  <div class="seal-zone" id="seal-zone">
+    <div class="sealed-msg" id="sealed-msg">
+      <div class="big">Verdict sealed</div>
+      <p>Your verdict is ready. Unlock it to see the ruling and everything behind it.</p>
+    </div>
+  </div>
+
+  <div class="free-note">
+    <p><strong id="free-line"></strong></p>
+    <p id="free-sub" style="color:var(--ink-soft);margin:0"></p>
+  </div>
+
+  <div class="locked is-locked" id="locked">
+    <div class="content">
+      <section class="block">
+        <h3>Scorecard</h3>
+        <div class="overall"><b id="s-overall"></b><span>out of 100</span></div>
+        <div class="scores" id="s-grid"></div>
+      </section>
+
+      <section class="block">
+        <h3>Your real buyer</h3>
+        <div class="persona">
+          <div class="name" id="p-name"></div>
+          <p id="p-desc" style="margin:.4rem 0 0"></p>
+        </div>
+        <p id="p-compare" style="margin-top:1rem"></p>
+      </section>
+
+      <section class="block">
+        <div class="two">
+          <div>
+            <h3>Age</h3>
+            <div class="bars" id="b-age"></div>
+          </div>
+          <div>
+            <h3>Household income</h3>
+            <div class="bars" id="b-inc"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="two">
+          <div>
+            <h3>Gender split</h3>
+            <div class="bars" id="b-gen"></div>
+          </div>
+          <div>
+            <h3>Where they live</h3>
+            <div class="bars" id="b-loc"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h3>Where they shop</h3>
+        <div class="bars" id="b-ch"></div>
+        <p id="ch-note" style="margin-top:.8rem"></p>
+      </section>
+
+      <section class="block">
+        <h3>Price fit</h3>
+        <p id="pr-note"></p>
+        <div class="price-scale" id="pr-scale"></div>
+        <div class="price-legend"><span id="pr-min"></span><span id="pr-max"></span></div>
+      </section>
+
+      <section class="block">
+        <div class="two">
+          <div><h3>Risks</h3><ul class="plain" id="l-risk"></ul></div>
+          <div><h3>Next moves</h3><ul class="plain" id="l-next"></ul></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="paywall" id="paywall">
+    <div>
+      <div class="price">$9<s>$29</s></div>
+      <p>One-time. Ruling, scorecard, full buyer profile, price fit, risks and next moves.</p>
+    </div>
+    <button class="btn" id="unlock">Unlock verdict</button>
+  </div>
+  <p class="demo-flag" id="demo-flag">Demo mode: unlocking is free here. Connect a payment link to charge for real.</p>
+
+  <div class="after">
+    <button class="btn-quiet" id="restart">File another idea</button>
+  </div>
+</article>
+
+</div>
+
+<script>
+/* Category priors: illustrative figures for a demo engine, not live market data. */
+const CATS = {
+  apparel:{label:"Apparel & merch",age:[30,34,18,11,7],female:.56,inc:[34,38,18,10],loc:[52,36,12],ch:{Social:44,Marketplace:28,"Own website":20,Local:8},price:[18,55],demand:70,comp:30,persona:["The identity buyer","Buys things that say something about them. Discovers brands through creators and friends, buys on impulse when the design lands."]},
+  digital:{label:"Digital download",age:[26,36,21,11,6],female:.61,inc:[30,40,19,11],loc:[48,40,12],ch:{Marketplace:42,Social:30,"Own website":26,Local:2},price:[5,35],demand:66,comp:28,persona:["The organized dabbler","Wants a shortcut: a template, pack or guide that saves an evening. Price-sensitive but buys often."]},
+  home:{label:"Home & decor",age:[10,30,27,18,15],female:.68,inc:[18,38,26,18],loc:[34,50,16],ch:{Marketplace:36,Social:26,"Own website":24,Local:14},price:[25,140],demand:64,comp:40,persona:["The nest builder","Recently moved or renovating. Saves ideas for weeks, then buys pieces that make the space feel finished."]},
+  food:{label:"Food & drink",age:[16,30,24,17,13],female:.55,inc:[24,40,22,14],loc:[46,42,12],ch:{Local:34,"Own website":28,Social:24,Marketplace:14},price:[8,45],demand:72,comp:34,persona:["The repeat treat buyer","Tries something because it looks good, keeps buying if it tastes better than the grocery-store version."]},
+  fitness:{label:"Fitness & wellness",age:[22,36,22,12,8],female:.58,inc:[20,40,24,16],loc:[50,40,10],ch:{Social:40,"Own website":28,Marketplace:24,Local:8},price:[15,90],demand:68,comp:24,persona:["The routine keeper","Has a routine and spends to protect it. Trusts reviews and creators who visibly use the product."]},
+  tech:{label:"Tech accessory",age:[26,34,20,12,8],female:.38,inc:[22,40,24,14],loc:[54,36,10],ch:{Marketplace:48,"Own website":22,Social:22,Local:8},price:[15,80],demand:62,comp:26,persona:["The setup optimizer","Researches specs, reads comparisons, and buys the thing that fixes one annoying problem well."]},
+  course:{label:"Course or coaching",age:[14,34,28,16,8],female:.52,inc:[20,38,26,16],loc:[50,40,10],ch:{"Own website":40,Social:40,Marketplace:14,Local:6},price:[29,400],demand:58,comp:32,persona:["The ambitious switcher","Wants a specific result: a skill, income, or career move. Buys from people who already got the result."]},
+  pet:{label:"Pet products",age:[16,34,24,15,11],female:.64,inc:[22,40,24,14],loc:[38,46,16],ch:{Marketplace:40,Social:30,"Own website":20,Local:10},price:[12,70],demand:74,comp:36,persona:["The pet parent","Treats the pet like family and spends accordingly. Photos of other people's pets sell more than specs."]},
+  beauty:{label:"Beauty & personal care",age:[30,34,18,11,7],female:.78,inc:[28,40,20,12],loc:[52,38,10],ch:{Social:46,Marketplace:26,"Own website":22,Local:6},price:[10,60],demand:70,comp:22,persona:["The ingredient reader","Follows reviewers closely, compares ingredient lists, and becomes loyal once something works."]}
+};
+const AGE=["18–24","25–34","35–44","45–54","55+"], INC=["Under $50k","$50–100k","$100–150k","$150k+"], LOC=["Urban","Suburban","Rural"];
+
+const $=id=>document.getElementById(id);
+const sel=$("cat");
+for(const [k,c] of Object.entries(CATS)){const o=document.createElement("option");o.value=k;o.textContent=c.label;sel.append(o)}
+
+function hash(s){let h=2166136261;for(const ch of s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function jitter(arr,seed){ // nudge a distribution slightly, keep it summing to 100
+  const out=arr.map((v,i)=>Math.max(2,v+(((seed>>(i*3))&7)-3)));
+  const t=out.reduce((a,b)=>a+b,0);const n=out.map(v=>Math.round(v/t*100));
+  n[n.indexOf(Math.max(...n))]+=100-n.reduce((a,b)=>a+b,0);return n;
+}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function judge(f){
+  const c=CATS[f.cat], seed=hash(f.name+f.cat+f.price);
+  const age=jitter(c.age,seed), inc=jitter(c.inc,seed>>7), loc=jitter(c.loc,seed>>13);
+  const fem=clamp(Math.round(c.female*100+((seed>>17)&7)-3),5,95);
+
+  // price fit: 100 in the middle of the band, falls off outside it
+  const [lo,hi]=c.price, mid=(lo+hi)/2;
+  let priceFit = f.price<lo ? 55 - (lo-f.price)/lo*60 : f.price>hi ? 60 - (f.price-hi)/hi*70 : 100 - Math.abs(f.price-mid)/(hi-lo)*50;
+  priceFit=clamp(Math.round(priceFit),5,98);
+
+  // reach: overlap between chosen channels and where buyers shop
+  const reach = f.ch.length ? clamp(Math.round(f.ch.reduce((a,k)=>a+c.ch[k],0)*1.3),10,95) : 25;
+  const demand=clamp(c.demand+f.stage+((seed>>5)&7)-3,5,98);
+  const competition=clamp(100-c.comp-((seed>>9)&7)+f.budget,5,95); // higher = easier
+  const overall=Math.round(demand*.3+competition*.2+priceFit*.3+reach*.2);
+  const ruling= overall>=68?"GO":overall>=50?"PIVOT":"PASS";
+
+  const topAge=age.indexOf(Math.max(...age)), topInc=inc.indexOf(Math.max(...inc));
+  const bestCh=Object.entries(c.ch).sort((a,b)=>b[1]-a[1]);
+  const missed=bestCh.filter(([k])=>!f.ch.includes(k)).slice(0,1)[0];
+
+  const risks=[], next=[];
+  if(priceFit<60) risks.push(f.price<lo?`At $${f.price} you're under what these buyers expect, which can read as low quality and leaves little margin for ads.`:`At $${f.price} you're above what most of these buyers pay for ${c.label.toLowerCase()}, so you'll need proof it's worth it.`);
+  if(c.comp>=34) risks.push(`${c.label} is crowded. Without a clear difference, buyers default to the cheapest listing.`);
+  if(missed) risks.push(`You're not selling on ${missed[0].toLowerCase()}, where about ${missed[1]}% of these buyers shop.`);
+  if(f.stage===0) risks.push("It's still an idea, so demand here is modeled, not proven. Pre-sales would change that.");
+  if(f.budget===0) risks.push("A small launch budget means organic reach has to do most of the work at first.");
+  next.push(`Write every product page and ad for ${c.persona[0].toLowerCase()}, aged ${AGE[topAge]}.`);
+  next.push(priceFit<60?`Test a price between $${lo} and $${hi} before you scale.`:`Hold your $${f.price} price and spend on showing the product in use.`);
+  next.push(`Lead with ${bestCh[0][0].toLowerCase()} first. It's where ${bestCh[0][1]}% of these buyers shop.`);
+  if(f.stage<8) next.push("Take 10 pre-orders or sign-ups before you make inventory.");
+
+  const whoGuess=f.who?.trim();
+  const compare= whoGuess ? `You guessed “${whoGuess}.” The strongest group is actually ${AGE[topAge]}-year-olds, ${fem>=55?"mostly women":fem<=45?"mostly men":"split fairly evenly by gender"}, with household income around ${INC[topInc]}, ${loc[0]>loc[1]?"in cities":"in the suburbs"}.` : `The strongest group is ${AGE[topAge]}-year-olds with household income around ${INC[topInc]}.`;
+
+  return {c,age,inc,loc,fem,priceFit,reach,demand,competition,overall,ruling,topAge,risks:risks.slice(0,3),next:next.slice(0,3),bestCh,compare,seed};
+}
+
+function bars(el,labels,vals,alt){
+  el.innerHTML=labels.map((l,i)=>`<div class="bar-row"><span>${l}</span><div class="track"><div class="fill${alt&&i%2?" alt":""}" style="width:${vals[i]}%"></div></div><span class="pct">${vals[i]}%</span></div>`).join("");
+}
+const esc=s=>s.replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+let current=null;
+$("intake").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f={name:$("name").value.trim(),desc:$("desc").value.trim(),cat:sel.value,price:Number($("price").value),who:$("who").value,
+    ch:[...document.querySelectorAll('input[name=ch]:checked')].map(x=>x.value),stage:+$("stage").value,budget:+$("budget").value};
+  if(!f.name){$("err").textContent="Add a name for your idea.";$("name").focus();return}
+  if(!(f.price>0)){$("err").textContent="Add a price in dollars, like 39.";$("price").focus();return}
+  $("err").textContent="";
+  current=judge(f);render(f,current);
+});
+
+function render(f,v){
+  $("d-subject").textContent=f.name;
+  $("d-case").textContent=`Case ${String(v.seed%100000).padStart(5,"0")}, ${v.c.label}`;
+  $("free-line").textContent=`Your strongest buyers are ${AGE[v.topAge]} years old.`;
+  $("free-sub").textContent=`That group makes up ${v.age[v.topAge]}% of likely buyers. Your full verdict shows who they are, what they earn, and whether your $${f.price} price fits them.`;
+
+  $("s-overall").textContent=v.overall;
+  $("s-grid").innerHTML=[["Demand",v.demand],["Room to compete",v.competition],["Price fit",v.priceFit],["Reach",v.reach]]
+    .map(([l,n])=>`<div class="score"><b>${n}</b><span>${l}</span></div>`).join("");
+  $("p-name").textContent=v.c.persona[0];
+  $("p-desc").textContent=v.c.persona[1];
+  $("p-compare").textContent=v.compare;
+  bars($("b-age"),AGE,v.age);
+  bars($("b-inc"),INC,v.inc);
+  bars($("b-gen"),["Women","Men"],[v.fem,100-v.fem],true);
+  bars($("b-loc"),LOC,v.loc);
+  const chs=v.bestCh; bars($("b-ch"),chs.map(x=>x[0]),chs.map(x=>x[1]));
+  $("ch-note").textContent= f.ch.length?`You picked ${f.ch.join(", ").toLowerCase()}. Together those reach about ${f.ch.reduce((a,k)=>a+v.c.ch[k],0)}% of your buyers.`:"You didn't pick a sales channel yet, so reach is scored low.";
+
+  const [lo,hi]=v.c.price, max=Math.max(hi*1.6,f.price*1.15), pos=x=>clamp(x/max*100,0,100);
+  $("pr-scale").innerHTML=`<div class="price-band" style="left:${pos(lo)}%;width:${pos(hi)-pos(lo)}%"></div><div class="price-pin" style="left:${pos(f.price)}%"><span>You: $${f.price}</span></div>`;
+  $("pr-min").textContent="$0"; $("pr-max").textContent="$"+Math.round(max);
+  $("pr-note").textContent=`These buyers usually pay $${lo}–$${hi} (shaded). Price fit: ${v.priceFit}/100.`;
+  $("l-risk").innerHTML=v.risks.map(r=>`<li>${esc(r)}</li>`).join("")||"<li>No major risks flagged.</li>";
+  $("l-next").innerHTML=v.next.map(r=>`<li>${esc(r)}</li>`).join("");
+
+  // reset seal state
+  $("locked").classList.add("is-locked");
+  $("paywall").classList.remove("hidden");$("demo-flag").classList.remove("hidden");
+  $("seal-zone").innerHTML=$("sealed-msg")?.outerHTML||`<div class="sealed-msg" id="sealed-msg"><div class="big">Verdict sealed</div><p>Your verdict is ready. Unlock it to see the ruling and everything behind it.</p></div>`;
+
+  $("intake").classList.add("hidden");$("docket").classList.remove("hidden");
+  $("docket").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});
+}
+
+$("unlock").addEventListener("click",()=>{
+  if(!current) return;
+  const color={GO:"var(--go)",PIVOT:"var(--pivot)",PASS:"var(--pass)"}[current.ruling];
+  const sub={GO:"Build it",PIVOT:"Change something first",PASS:"Don't build this version"}[current.ruling];
+  $("seal-zone").innerHTML=`<div class="stamp slam" style="color:${color}" role="img" aria-label="Verdict: ${current.ruling}, ${sub}">${current.ruling}<small>${sub}</small></div>`;
+  $("locked").classList.remove("is-locked");
+  $("paywall").classList.add("hidden");$("demo-flag").classList.add("hidden");
+});
+
+$("restart").addEventListener("click",()=>{
+  $("docket").classList.add("hidden");$("intake").classList.remove("hidden");$("intake").reset();
+  window.scrollTo({top:0});$("name").focus();
+});
+</script>
+</body>
+</html>

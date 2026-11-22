@@ -1,0 +1,3488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interference lab</title>
+<style>
+:root{
+  --void:#070a10;
+  --bench:#101623;
+  --rail:#1a2333;
+  --etch:#2a3547;
+  --ink:#dce3f0;
+  --dim:#7c8899;
+  --faint:#4a5568;
+  --accent:#ff5a3c;
+  --accent-soft:rgba(255,90,60,.15);
+  --sans:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  --math:Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--void);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+}
+button,input,select{font-family:inherit;color:inherit}
+
+.shell{display:grid;grid-template-columns:290px minmax(0,1fr) 330px;gap:1px;background:var(--rail);min-height:100vh}
+.rail{background:var(--bench);overflow-y:auto;max-height:100vh}
+.stage{background:var(--void);padding:18px 22px 40px;overflow-y:auto;max-height:100vh}
+
+.masthead{padding:20px 20px 16px;border-bottom:1px solid var(--rail)}
+.masthead h1{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.masthead p{color:var(--dim);font-size:12.5px;margin-top:5px}
+
+.tabs{display:flex;flex-direction:column;border-bottom:1px solid var(--rail)}
+.tab{
+  background:none;border:0;border-left:3px solid transparent;text-align:left;
+  padding:11px 20px;cursor:pointer;color:var(--dim);font-size:13.5px;transition:.12s;
+}
+.tab:hover{color:var(--ink);background:rgba(255,255,255,.03)}
+.tab[aria-selected="true"]{color:var(--ink);border-left-color:var(--accent);background:rgba(255,255,255,.045)}
+.tab span{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+.tab[aria-selected="true"] span{color:var(--dim)}
+
+.group{padding:16px 20px;border-bottom:1px solid var(--rail)}
+.group h2{font-size:12px;font-weight:600;color:var(--dim);margin-bottom:12px;letter-spacing:.02em}
+
+.ctl{margin-bottom:15px}
+.ctl:last-child{margin-bottom:0}
+.ctl-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.ctl-head label{font-size:12.5px;color:var(--ink)}
+.ctl-head label i{font-family:var(--math);font-style:italic;font-size:14px;color:var(--dim);margin-right:5px}
+.val{font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;
+  background:var(--etch);outline:none;cursor:pointer
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--bench);cursor:pointer
+}
+input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;background:var(--accent);
+  border:2px solid var(--bench);cursor:pointer
+}
+input[type=range]:focus-visible{box-shadow:0 0 0 3px var(--accent-soft)}
+
+.seg{display:flex;background:var(--void);border:1px solid var(--etch);border-radius:6px;overflow:hidden}
+.seg button{
+  flex:1;background:none;border:0;padding:7px 4px;font-size:12px;color:var(--dim);
+  cursor:pointer;transition:.12s
+}
+.seg button[aria-pressed="true"]{background:var(--etch);color:var(--ink)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+.toolgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.toolgrid button{
+  background:var(--void);border:1px solid var(--etch);color:var(--dim);border-radius:5px;
+  padding:7px 2px;font-size:11px;cursor:pointer;transition:.12s
+}
+.toolgrid button:hover{color:var(--ink);border-color:var(--faint)}
+.toolgrid button[aria-pressed="true"]{background:var(--accent);color:#080a0f;border-color:var(--accent);font-weight:600}
+.toolgrid button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.numrow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.numrow label{font-size:12.5px;color:var(--ink);flex:1}
+.numrow input{
+  width:78px;background:var(--void);border:1px solid var(--etch);border-radius:5px;
+  padding:5px 7px;font-family:var(--mono);font-size:12px;text-align:right
+}
+.numrow input:focus{outline:none;border-color:var(--accent)}
+.numgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.numgrid .numrow{margin-bottom:0}
+.numgrid .numrow input{width:100%}
+
+.check{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;padding:3px 0}
+.check input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+.note{font-size:11.5px;color:var(--faint);line-height:1.45;margin-top:8px}
+
+.btn{
+  background:var(--void);border:1px solid var(--etch);color:var(--dim);border-radius:6px;
+  padding:7px 12px;font-size:12px;cursor:pointer;transition:.12s
+}
+.btn:hover{border-color:var(--faint);color:var(--ink)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+.panelhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:12px}
+.panelhead h3{font-size:12.5px;font-weight:600;color:var(--dim)}
+.panelhead .hint{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+
+.frame{border:1px solid var(--rail);border-radius:8px;overflow:hidden;background:#000;position:relative}
+.frame canvas{display:block;width:100%}
+.badge{
+  position:absolute;left:10px;top:10px;background:rgba(7,10,16,.82);border:1px solid var(--etch);
+  border-radius:5px;padding:4px 8px;font-family:var(--mono);font-size:11px;color:var(--dim)
+}
+.block{margin-bottom:22px}
+
+.eq{border-bottom:1px solid var(--rail);padding:14px 20px}
+.eq:last-child{border-bottom:0}
+.eq .cap{font-size:11.5px;color:var(--faint);margin-bottom:7px}
+.sym{font-family:var(--math);font-size:16.5px;font-style:italic;color:var(--ink);line-height:1.9}
+.sym .op,.sym .num{font-style:normal}
+.sym .num{font-family:var(--mono);font-size:13.5px}
+.sub{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:5px;line-height:1.7;word-break:break-word}
+.res{font-family:var(--mono);font-size:12.5px;color:var(--accent);margin-top:4px}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 3px}
+.frac b{font-weight:400;border-bottom:1px solid currentColor;padding:0 5px 1px}
+.frac s{text-decoration:none;padding:1px 5px 0}
+
+.readout{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-family:var(--mono);font-size:12px;padding:14px 20px}
+.readout dt{color:var(--faint)}
+.readout dd{color:var(--ink);text-align:right}
+
+.prose{font-size:12.5px;color:var(--dim);line-height:1.65;padding:14px 20px}
+.prose strong{color:var(--ink);font-weight:500}
+
+/* guided tour */
+.tour-spot{
+  position:fixed;border-radius:8px;pointer-events:none;z-index:60;
+  box-shadow:0 0 0 3px var(--accent), 0 0 0 9999px rgba(3,5,10,.76);
+  transition:all .28s cubic-bezier(.4,0,.2,1)
+}
+.tour-card{
+  position:fixed;z-index:61;width:340px;background:var(--bench);
+  border:1px solid var(--etch);border-radius:10px;padding:16px 18px 14px;
+  box-shadow:0 18px 44px rgba(0,0,0,.6)
+}
+.tour-card h4{font-size:14.5px;font-weight:600;margin-bottom:7px}
+.tour-card p{font-size:12.8px;color:var(--dim);line-height:1.6}
+.tour-card p+p{margin-top:8px}
+.tour-card .kbd{
+  font-family:var(--mono);font-size:11px;background:var(--void);
+  border:1px solid var(--etch);border-radius:4px;padding:1px 5px;color:var(--ink)
+}
+.tour-foot{display:flex;align-items:center;gap:8px;margin-top:14px}
+.tour-count{font-family:var(--mono);font-size:11px;color:var(--faint);margin-right:auto}
+.tour-btn{
+  background:var(--void);border:1px solid var(--etch);color:var(--dim);
+  border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer
+}
+.tour-btn:hover{color:var(--ink);border-color:var(--faint)}
+.tour-btn.go{background:var(--accent);border-color:var(--accent);color:#080a0f;font-weight:600}
+.tour-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.banner{
+  display:flex;align-items:center;gap:12px;background:var(--bench);
+  border:1px solid var(--etch);border-radius:9px;padding:12px 14px;margin-bottom:18px
+}
+.banner p{font-size:12.8px;color:var(--dim);margin-right:auto}
+.banner strong{color:var(--ink);font-weight:600}
+
+.refdoc{border-top:1px solid var(--rail);margin-top:34px;padding-top:22px}
+.refdoc h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.refdoc>p{font-size:12.8px;color:var(--dim);margin-bottom:18px}
+.refdoc section{margin-bottom:22px}
+.refdoc h4{
+  font-size:11.5px;font-weight:600;color:var(--dim);letter-spacing:.04em;
+  text-transform:uppercase;margin-bottom:9px
+}
+.refdoc dl{display:grid;grid-template-columns:150px 1fr;gap:7px 16px;font-size:12.6px}
+.refdoc dt{color:var(--ink)}
+.refdoc dd{color:var(--dim);line-height:1.55}
+@media (max-width:700px){ .refdoc dl{grid-template-columns:1fr;gap:2px 0} .refdoc dd{margin-bottom:9px} }
+
+/* The columns are transparent to layout everywhere except the sandbox, so the
+   four analytic modules keep the single-column stack they already had. */
+.col{display:contents}
+.stage.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 20px;align-items:start}
+.stage.split > .col{display:block}
+.stage.split > #welcome,
+.stage.split > .refdoc,
+.stage.split > #photon-block{grid-column:1/-1}
+@media (max-width:1100px){
+  .stage.split{display:block}
+  .stage.split > .col{display:contents}
+}
+
+@media (max-width:1180px){
+  .shell{grid-template-columns:1fr}
+  .rail{max-height:none}
+  .stage{max-height:none;order:-1}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside class="rail">
+  <div class="masthead">
+    <h1>Interference lab</h1>
+    <p>Every pattern here is the same calculation: add the waves, square the sum.</p>
+    <button class="tour-btn go" id="tour-start" style="margin-top:11px">Take the tour</button>
+  </div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="group">
+    <h2>Controls</h2>
+    <div id="controls"></div>
+  </div>
+  <div class="group" id="group-fidelity">
+    <h2>Fidelity</h2>
+    <div class="seg" role="group">
+      <button id="fid-true" aria-pressed="false">True scale</button>
+      <button id="fid-exag" aria-pressed="true">Exaggerated</button>
+    </div>
+    <p class="note" id="fid-note"></p>
+  </div>
+  <div class="group">
+    <h2>Near-field view</h2>
+    <div class="seg" role="group">
+      <button id="vw-field" aria-pressed="true">Live wave</button>
+      <button id="vw-int" aria-pressed="false">Time-averaged</button>
+    </div>
+    <div style="margin-top:12px">
+      <label class="check"><input type="checkbox" id="playing" checked> Animate</label>
+    </div>
+  </div>
+</aside>
+
+<main class="stage">
+  <div class="banner" id="welcome">
+    <p><strong>First time here?</strong> The tour walks through all five modules and everything the
+      sandbox can build, in about two minutes. It drives the app as it goes.</p>
+    <button class="tour-btn go" id="welcome-go">Start</button>
+    <button class="tour-btn" id="welcome-x">Dismiss</button>
+  </div>
+
+  <div class="col" id="col-a">
+  <div class="block" id="field-block">
+    <div class="panelhead">
+      <h3 id="field-title">Near field</h3>
+      <span class="hint" id="field-hint"></span>
+    </div>
+    <div class="frame">
+      <canvas id="field" width="1320" height="600"></canvas>
+      <div class="badge" id="field-badge"></div>
+      <div class="badge" id="cursor-badge" style="left:auto;right:10px"></div>
+    </div>
+  </div>
+
+  <div class="block" id="screen-block">
+    <div class="panelhead">
+      <h3 id="screen-title">What you would see</h3>
+      <span class="hint">move the cursor across to probe</span>
+    </div>
+    <div class="frame">
+      <canvas id="screen" width="1320" height="150"></canvas>
+    </div>
+  </div>
+
+  <div class="block" id="graph-block">
+    <div class="panelhead">
+      <h3>Intensity</h3>
+      <span class="hint" id="graph-hint"></span>
+    </div>
+    <div class="frame">
+      <canvas id="graph" width="1320" height="340"></canvas>
+    </div>
+  </div>
+  </div>
+
+  <div class="col" id="col-b">
+
+  <div class="block" id="surface-block">
+    <div class="panelhead">
+      <h3>3D preview</h3>
+      <span class="hint" id="surf-badge"></span>
+    </div>
+    <div class="frame" style="position:relative">
+      <canvas id="surface" width="1320" height="600" style="touch-action:none;cursor:grab"></canvas>
+      <canvas id="surflabels" width="1320" height="600"
+              style="position:absolute;inset:0;pointer-events:none"></canvas>
+    </div>
+    <p class="note" style="padding:0;margin-top:8px">Drag to orbit, scroll to zoom. The x and y axes are marked in grid
+      cells and the bracket on the front edge is one wavelength, so you can count crests against it from any angle.</p>
+  </div>
+
+  <div class="block" id="scope-block">
+    <div class="panelhead">
+      <h3>Probe traces</h3>
+      <span class="hint">sampled every step, newest on the right</span>
+    </div>
+    <div class="frame"><canvas id="scope" width="1320" height="210"></canvas></div>
+    <p class="note" style="padding:0;margin-top:8px">Two traces side by side show phase directly: aligned crests mean the
+      probes sit on the same wavefront, opposed crests mean they are half a wavelength apart.</p>
+  </div>
+
+  </div>
+
+  <div class="block" id="photon-block">
+    <div class="panelhead">
+      <h3>One photon at a time</h3>
+      <span class="hint" id="photon-count">0 detected</span>
+    </div>
+    <div class="frame">
+      <canvas id="photons" width="1320" height="220"></canvas>
+    </div>
+    <div class="row" style="margin-top:10px;align-items:center">
+      <button class="btn" id="ph-toggle">Start emitting</button>
+      <button class="btn" id="ph-clear">Clear</button>
+      <label class="check" style="margin-left:6px">
+        <span style="color:var(--dim)">rate</span>
+        <input type="range" id="ph-rate" min="1" max="400" value="40" style="width:120px">
+      </label>
+    </div>
+    <p class="note">Each dot is one detection, placed at random with probability set by the curve above. The
+      pattern is not in any single photon. It only exists in the accumulation.</p>
+  </div>
+  <div class="refdoc">
+    <h3>Reference</h3>
+    <p>Everything this document can do, in one place.</p>
+
+    <section>
+      <h4>The five modules</h4>
+      <dl>
+        <dt>Double slit</dt><dd>Two coherent sources. Closed-form solution, so it runs at true optical scale. Slit separation, slit width, screen distance, wavelength, and a white-light option.</dd>
+        <dt>Diffraction grating</dt><dd>Two to four hundred slits. Adding slits never moves the orders, it only sharpens them — which is what turns a grating into a spectrometer.</dd>
+        <dt>Ripple tank</dt><dd>One to six point sources you can drag, with a phase step between them. A phase step steers the beam without anything physically rotating.</dd>
+        <dt>Thin film</dt><dd>Soap and oil. A wedge of film rendered in true colour, plus the reflectance maths behind it. Zero thickness comes out black, which is the real dark spot at the top of a draining bubble.</dd>
+        <dt>Open field</dt><dd>A different engine. Instead of solving a formula it steps the wave equation on a grid, so anything you build gets solved — including geometry no formula covers.</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h4>Open field tools</h4>
+      <dl>
+        <dt>Select</dt><dd>Drag anything. Barriers slide sideways, individual slits slide up and down, everything stays where you put it.</dd>
+        <dt>Point</dt><dd>A point source. Each one carries its own wavelength, phase, amplitude and drift.</dd>
+        <dt>Plane</dt><dd>Drag out a line to emit a flat wavefront. This is what you aim into a lens or a mirror.</dd>
+        <dt>Probe</dt><dd>A marker that stays put and records a trace. Dropped near a merge ring it snaps onto it exactly.</dd>
+        <dt>Erase</dt><dd>Removes whatever you click.</dd>
+        <dt>Wall</dt><dd>Drag to draw a solid barrier at any angle. Waves reflect off it and bend around its ends.</dd>
+        <dt>Brush</dt><dd>Paint solid obstacles freehand at any shape you like.</dd>
+        <dt>Disc</dt><dd>A solid circular obstacle. Watch the wave close back up behind it.</dd>
+        <dt>Mirror</dt><dd>A true parabola with its focus marked. A plane wave along the axis collapses onto that dot.</dd>
+        <dt>Lens</dt><dd>A region where the wave travels slower. Refraction, focusing and total internal reflection all follow from that one change.</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h4>Reading the panels</h4>
+      <dl>
+        <dt>Near field</dt><dd>The wave itself. Switch between the live oscillation and the time-averaged intensity in the left rail.</dd>
+        <dt>What you would see</dt><dd>The screen, in true colour for the current wavelength. Hover it to drop a probe line.</dd>
+        <dt>Intensity</dt><dd>The same thing as a curve, normalised from zero to one.</dd>
+        <dt>Live math</dt><dd>Right rail. Symbolic form, your numbers substituted, and the result. It updates on every change and follows your cursor when you hover the screen.</dd>
+        <dt>Probe traces</dt><dd>Open field only. Every probe's recorded history. Two traces side by side show phase directly.</dd>
+        <dt>3D preview</dt><dd>The settled field as a surface. Drag to orbit, scroll to zoom, five preset views.</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h4>Mouse and keyboard</h4>
+      <dl>
+        <dt>Hover the screen</dt><dd>Probes that exact angle and feeds it into the live math.</dd>
+        <dt>Drag in the tank</dt><dd>Moves whatever you grabbed, with the Select tool.</dd>
+        <dt>Drag the 3D view</dt><dd>Orbits the camera. Scroll wheel zooms.</dd>
+        <dt>Arrow keys</dt><dd>Step through the tour. <span class="kbd">Esc</span> closes it.</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h4>Honest limits</h4>
+      <dl>
+        <dt>Grid scale</dt><dd>The sandbox holds about twenty to forty wavelengths. A real optical bench spans about two million, which is why the closed-form modules exist alongside it.</dd>
+        <dt>Grid anisotropy</dt><dd>Waves travel about 1% faster along the axes than diagonally. Keep ten or more cells per wavelength and it stays negligible — the panel warns you when you drop below that.</dd>
+        <dt>Two dimensions</dt><dd>Amplitude falls off as one over the square root of distance, not one over distance. Fringe geometry is right; brightness falloff is not.</dd>
+        <dt>Scalar field</dt><dd>One number per cell, so there is no polarization anywhere in the sandbox.</dd>
+        <dt>3D preview</dt><dd>Deliberately coarse so it never steals the frame budget from the physics. The export carries the full-resolution field for an offline render.</dd>
+      </dl>
+    </section>
+  </div>
+</main>
+
+<aside class="rail">
+  <div class="masthead">
+    <h1>Live math</h1>
+    <p>Symbols, your numbers, result. Updates on every change.</p>
+  </div>
+  <div id="math"></div>
+  <dl class="readout" id="readout"></dl>
+  <div class="prose" id="explain"></div>
+</aside>
+
+</div>
+
+<div class="tour-spot" id="tour-spot" hidden></div>
+<div class="tour-card" id="tour-card" role="dialog" aria-modal="false" aria-live="polite" hidden>
+  <h4 id="tour-title"></h4>
+  <div id="tour-body"></div>
+  <div class="tour-foot">
+    <span class="tour-count" id="tour-count"></span>
+    <button class="tour-btn" id="tour-skip">Close</button>
+    <button class="tour-btn" id="tour-prev">Back</button>
+    <button class="tour-btn go" id="tour-next">Next</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- small helpers ---------- */
+const TAU = Math.PI * 2;
+const LUT_N = 4096, COS = new Float32Array(LUT_N);
+for (let i = 0; i < LUT_N; i++) COS[i] = Math.cos(i * TAU / LUT_N);
+function fcos(x){ let i = (x * (LUT_N / TAU)) | 0; i %= LUT_N; if (i < 0) i += LUT_N; return COS[i]; }
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const fmt = (v,p=2) => Number(v).toFixed(p);
+function sig(v,p=3){
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) return v.toExponential(p-1).replace("e","e");
+  return Number(v.toPrecision(p)).toString();
+}
+function sinc2(x){ if (Math.abs(x) < 1e-9) return 1; const s = Math.sin(x)/x; return s*s; }
+
+/* wavelength (nm) -> linear-ish rgb, clipped to sRGB gamut */
+function wlRGB(nm){
+  let r=0,g=0,b=0;
+  if (nm>=380&&nm<440){ r=-(nm-440)/60; b=1; }
+  else if (nm<490){ g=(nm-440)/50; b=1; }
+  else if (nm<510){ g=1; b=-(nm-510)/20; }
+  else if (nm<580){ r=(nm-510)/70; g=1; }
+  else if (nm<645){ r=1; g=-(nm-645)/65; }
+  else if (nm<=780){ r=1; }
+  let f=1;
+  if (nm<420) f=.3+.7*(nm-380)/40;
+  else if (nm>700) f=.3+.7*(780-nm)/80;
+  const gam = v => Math.round(255*Math.pow(clamp(v*f,0,1),.8));
+  return [gam(r),gam(g),gam(b)];
+}
+const rgbCss = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+/* white light: sum the visible band weighted by a per-wavelength intensity fn */
+const WL_SAMPLES = [];
+for (let nm = 390; nm <= 720; nm += 6) WL_SAMPLES.push({ nm, rgb: wlRGB(nm) });
+function whiteMix(intensityOf){
+  let r=0,g=0,b=0;
+  for (const s of WL_SAMPLES){
+    const I = intensityOf(s.nm);
+    r += s.rgb[0]*I; g += s.rgb[1]*I; b += s.rgb[2]*I;
+  }
+  const n = WL_SAMPLES.length * 0.62;
+  return [clamp(r/n,0,255)|0, clamp(g/n,0,255)|0, clamp(b/n,0,255)|0];
+}
+
+/* ---------- compute grid for the near-field renderer ---------- */
+const GW = 440, GH = 200;
+
+/* ---------- shared state ---------- */
+const S = {
+  module: "doubleslit",
+  fidelity: "exag",
+  nearView: "field",
+  playing: true,
+  t: 0,
+  probe: null,
+  doubleslit: { lambda: 600, d: 24, a: 6, L: 1200, white: false },
+  grating:    { lambda: 600, d: 12, a: 3, N: 6, L: 1200, white: false },
+  ripple:     { lambda: 42, sep: 150, n: 2, phase: 0, damp: 1 },
+  film:       { lambda: 550, t: 380, n: 1.34, ang: 20, white: true, tmax: 900 },
+  openfield:  { lambda: 20, medium: "water", tintnm: 520, marks: true, speed: 2,
+                srcMode: "cw", brush: 4, snap: 0, surfSrc: "int", hscale: 0.8, wire: true,
+                cam: { azim: -35, elev: 30, dist: 3.1 } }
+};
+
+/* ---------- ripple tank sources (module 3) ---------- */
+const rippleSources = [];
+function rippleSpacing(){
+  const st = S.ripple;
+  return Math.min(st.sep, (GH - 34) / Math.max(st.n - 1, 1));
+}
+function rebuildRipple(){
+  const st = S.ripple;
+  rippleSources.length = 0;
+  const gap = rippleSpacing(), half = (st.n - 1) / 2;
+  for (let i = 0; i < st.n; i++){
+    rippleSources.push({
+      x: Math.round(GW * 0.16),
+      y: GH / 2 + (i - half) * gap,
+      phase: i * st.phase * Math.PI / 180,
+      on: true
+    });
+  }
+}
+rebuildRipple();
+
+/* ---------- open-field world: everything here persists until deleted ---------- */
+const FW = 540, FH = 300, FN = FW*FH;
+const PROBE_LEN = 600;
+let uid = 1;
+let paint = new Uint8Array(FN);                 /* freehand brush strokes */
+const world = { emitters:[], barriers:[], walls:[], shapes:[], media:[], probes:[] };
+
+function newProbe(x, y, label){
+  return { id:uid++, x, y, label, buf:new Float32Array(PROBE_LEN), head:0, n:0 };
+}
+function seedWorld(){
+  for (const k of ["emitters","barriers","walls","shapes","media","probes"]) world[k].length = 0;
+  paint.fill(0); uid = 1;
+  world.emitters.push({ id:uid++, kind:"point", mode:"cw", x:64, y:FH/2, x2:64, y2:FH/2-40,
+                        lam:20, phase:0, amp:1, on:true, vx:0, vy:0, t0:0 });
+  world.barriers.push({ id:uid++, x:190, slits:[{ y:FH/2-30, w:8 },{ y:FH/2+30, w:8 }] });
+  world.probes.push(newProbe(440, FH/2, "P1"));
+}
+seedWorld();
+
+/* ---------- FDTD wave engine ----------
+   Solves the 2D wave equation on a grid, so diffraction, reflection and
+   refraction are emergent rather than scripted. Stability needs c ≤ 1/√2;
+   c = 0.5 leaves headroom, and refractive media only ever slow it further.  */
+const C = 0.5, C2 = C*C;
+let uPrev = new Float32Array(FN), uCur = new Float32Array(FN), uNext = new Float32Array(FN);
+let solid  = new Uint8Array(FN);
+let c2map  = new Float32Array(FN);              /* local c², set by refractive media */
+let c2tmp  = new Float32Array(FN);
+let acc    = new Float32Array(FN);              /* running mean of u², the intensity map */
+let dampA  = new Float32Array(FN), dampB = new Float32Array(FN);
+let simStep = 0;
+
+const ABS_PAD = 30, ABS_MAX = 0.075;
+const MARGIN = ABS_PAD - 4;                     /* keep displays clear of the absorbing layer */
+const MUR = (C - 1)/(C + 1);
+
+/* Absorbing layer as a damping term in u_tt + 2σu_t = c²∇²u, ramped smoothly so
+   there is no impedance step. An earlier version multiplied the whole update
+   instead, which altered the local wave speed and measured ~35% reflection. */
+const sigBase = new Float32Array(FN);    /* boundary absorbing layer */
+const sigObs  = new Float32Array(FN);    /* per-obstacle absorption      */
+const sigTmp  = new Float32Array(FN);
+
+(function buildDamping(){
+  for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++){
+    const e = Math.min(x, y, FW-1-x, FH-1-y);
+    sigBase[y*FW+x] = e >= ABS_PAD ? 0 : ABS_MAX*Math.pow((ABS_PAD-e)/ABS_PAD, 3);
+  }
+})();
+/* Combine the boundary layer with whatever absorption the obstacles declare.
+   Obstacle absorption is blurred at its edges for the same reason the boundary
+   layer is ramped: a hard step in damping reflects off its own gradient. */
+/* Absorption has to fade in with depth, not switch on at the surface. This is
+   how a real anechoic wedge works and how a PML is built: a chamfer distance
+   transform gives each cell its depth inside the obstacle, and sigma rises as
+   the square of that depth. A hard-edged absorber just reflects. */
+const absDepth = new Float32Array(FN);
+const ABS_RAMP = 9;
+function rampAbsorption(){
+  const BIG = 1e9;
+  for (let i = 0; i < FN; i++) absDepth[i] = sigObs[i] > 0 ? BIG : 0;
+  for (let y = 1; y < FH; y++) for (let x = 1; x < FW-1; x++){
+    const i = y*FW+x;
+    if (absDepth[i] === 0) continue;
+    absDepth[i] = Math.min(absDepth[i], absDepth[i-1]+1, absDepth[i-FW]+1,
+                           absDepth[i-FW-1]+1.414, absDepth[i-FW+1]+1.414);
+  }
+  for (let y = FH-2; y >= 0; y--) for (let x = FW-2; x >= 1; x--){
+    const i = y*FW+x;
+    if (absDepth[i] === 0) continue;
+    absDepth[i] = Math.min(absDepth[i], absDepth[i+1]+1, absDepth[i+FW]+1,
+                           absDepth[i+FW+1]+1.414, absDepth[i+FW-1]+1.414);
+  }
+  for (let i = 0; i < FN; i++){
+    if (sigObs[i] <= 0) continue;
+    const t = clamp(absDepth[i]/ABS_RAMP, 0, 1);
+    sigObs[i] *= t*t;
+  }
+}
+function rebuildDamping(){
+  rampAbsorption();
+  sigTmp.set(sigObs);
+  for (let y = 1; y < FH-1; y++) for (let x = 1; x < FW-1; x++){
+    const i = y*FW+x;
+    sigObs[i] = (sigTmp[i]*4 + sigTmp[i-1] + sigTmp[i+1] + sigTmp[i-FW] + sigTmp[i+FW])/8;
+  }
+  for (let i = 0; i < FN; i++){
+    const sg = sigBase[i] + sigObs[i];
+    dampA[i] = 1 - sg;
+    dampB[i] = 1/(1 + sg);
+  }
+}
+
+/* One-way boundary at the very edge. Exact at normal incidence, weaker at
+   grazing angles, which is what the damping layer above is there to catch. */
+function applyMur(){
+  for (let y = 1; y < FH-1; y++){
+    const l = y*FW, r = y*FW + FW-1;
+    uNext[l] = uCur[l+1] + MUR*(uNext[l+1] - uCur[l]);
+    uNext[r] = uCur[r-1] + MUR*(uNext[r-1] - uCur[r]);
+  }
+  for (let x = 1; x < FW-1; x++){
+    const t = x, b = (FH-1)*FW + x;
+    uNext[t] = uCur[t+FW] + MUR*(uNext[t+FW] - uCur[t]);
+    uNext[b] = uCur[b-FW] + MUR*(uNext[b-FW] - uCur[b]);
+  }
+  uNext[0] = 0.5*(uNext[1] + uNext[FW]);
+  uNext[FW-1] = 0.5*(uNext[FW-2] + uNext[2*FW-1]);
+  uNext[(FH-1)*FW] = 0.5*(uNext[(FH-1)*FW+1] + uNext[(FH-2)*FW]);
+  uNext[FN-1] = 0.5*(uNext[FN-2] + uNext[FN-1-FW]);
+}
+
+function stamp(px, py, r){
+  const x0 = Math.max(1, Math.floor(px-r)), x1 = Math.min(FW-2, Math.ceil(px+r));
+  const y0 = Math.max(1, Math.floor(py-r)), y1 = Math.min(FH-2, Math.ceil(py+r));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
+    if ((x-px)*(x-px) + (y-py)*(y-py) <= r*r) paint[y*FW+x] = 1;
+}
+
+/* rotation helpers: every solid and every medium carries a rot in degrees */
+function arcHalf(o){ return Math.asin(clamp((o.span||20)/Math.max(o.r,1), 0, 0.999)); }
+function rotCos(o){ return Math.cos(-(o.rot||0)*Math.PI/180); }
+function rotSin(o){ return Math.sin(-(o.rot||0)*Math.PI/180); }
+function toLocal(o, x, y){
+  const c = rotCos(o), sn = rotSin(o), dx = x-o.x, dy = y-o.y;
+  return [dx*c - dy*sn, dx*sn + dy*c];
+}
+function toWorld(o, lx, ly){
+  const a = (o.rot||0)*Math.PI/180, c = Math.cos(a), sn = Math.sin(a);
+  return [o.x + lx*c - ly*sn, o.y + lx*sn + ly*c];
+}
+/* an obstacle is a rigid reflector below this, a lossy absorber above it */
+const RIGID = 0.04;
+function markCell(x, y, absorb){
+  if (x < 1 || x >= FW-1 || y < 1 || y >= FH-1) return;
+  const i = y*FW + x;
+  if (absorb < RIGID) solid[i] = 1;
+  else sigObs[i] = Math.max(sigObs[i], absorb*0.38);
+}
+function markDisc(px, py, r, absorb){
+  const x0 = Math.max(1,Math.floor(px-r)), x1 = Math.min(FW-2,Math.ceil(px+r));
+  const y0 = Math.max(1,Math.floor(py-r)), y1 = Math.min(FH-2,Math.ceil(py+r));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
+    if ((x-px)*(x-px) + (y-py)*(y-py) <= r*r) markCell(x, y, absorb);
+}
+
+function rebuildSolid(){
+  solid.set(paint);
+  sigObs.fill(0);
+
+  for (const b of world.barriers){
+    const bx = Math.round(b.x), ab = b.absorb || 0;
+    for (let x = bx-1; x <= bx+1; x++){
+      if (x < 1 || x >= FW-1) continue;
+      for (let y = 0; y < FH; y++){
+        let open = false;
+        for (const sl of b.slits) if (Math.abs(y - sl.y) <= sl.w/2) open = true;
+        if (!open) markCell(x, y, ab);
+      }
+    }
+  }
+  for (const w of world.walls){
+    const th = Math.max(w.th || 3, 1), ab = w.absorb || 0;
+    const n = Math.max(2, Math.ceil(Math.hypot(w.x2-w.x1, w.y2-w.y1))*2);
+    for (let i = 0; i <= n; i++){
+      const t = i/n;
+      markDisc(w.x1 + (w.x2-w.x1)*t, w.y1 + (w.y2-w.y1)*t, th/2, ab);
+    }
+  }
+  for (const sh of world.shapes){
+    const ab = sh.absorb || 0;
+    if (sh.type === "disc"){
+      const inner = sh.inner || 0, r = sh.r;
+      const x0 = Math.max(1,Math.floor(sh.x-r)), x1 = Math.min(FW-2,Math.ceil(sh.x+r));
+      const y0 = Math.max(1,Math.floor(sh.y-r)), y1 = Math.min(FH-2,Math.ceil(sh.y+r));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++){
+        const d2 = (x-sh.x)*(x-sh.x) + (y-sh.y)*(y-sh.y);
+        if (d2 <= r*r && d2 >= inner*inner) markCell(x, y, ab);
+      }
+    } else if (sh.type === "mirror"){
+      /* circular arc sharing the parabola's frame: vertex at (x,y), centre of
+         curvature at local (r,0), focus at local (r/2,0). Unlike a parabola it
+         has spherical aberration — the outer parts miss the focus. */
+      const half = arcHalf(sh), steps = Math.max(64, Math.ceil(sh.r*2*half));
+      for (let i = 0; i <= steps; i++){
+        const th = Math.PI - half + 2*half*i/steps;
+        const [wx, wy] = toWorld(sh, sh.r + sh.r*Math.cos(th), sh.r*Math.sin(th));
+        markDisc(wx, wy, Math.max(sh.th,1)/2, ab);
+      }
+    } else if (sh.type === "parabola"){
+      const step = 0.4;
+      for (let v = -sh.span; v <= sh.span; v += step){
+        const [wx, wy] = toWorld(sh, v*v/(4*sh.f), v);
+        markDisc(wx, wy, Math.max(sh.th,1)/2, ab);
+      }
+    }
+  }
+  for (let i = 0; i < FN; i++) if (solid[i]){ uPrev[i] = uCur[i] = uNext[i] = 0; }
+  rebuildDamping();
+}
+
+/* Refractive media set a slower local wave speed. The map is softened by one
+   averaging pass so a curved or tilted boundary does not scatter off its own
+   staircase. */
+function rebuildMedia(){
+  c2map.fill(C2);
+  for (const m of world.media){
+    const v = Math.pow(C/Math.max(m.n, 1), 2);
+    const R = Math.hypot(m.rx, m.ry) + 2;
+    const x0 = Math.max(0,Math.floor(m.x-R)), x1 = Math.min(FW-1,Math.ceil(m.x+R));
+    const y0 = Math.max(0,Math.floor(m.y-R)), y1 = Math.min(FH-1,Math.ceil(m.y+R));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++){
+      const [lx, ly] = toLocal(m, x, y);
+      const inside = m.type === "slab"
+        ? (Math.abs(lx) <= m.rx && Math.abs(ly) <= m.ry)
+        : ((lx/m.rx)*(lx/m.rx) + (ly/m.ry)*(ly/m.ry) <= 1);
+      if (inside) c2map[y*FW+x] = v;
+    }
+  }
+  c2tmp.set(c2map);
+  for (let y = 1; y < FH-1; y++) for (let x = 1; x < FW-1; x++){
+    const i = y*FW+x;
+    c2map[i] = (c2tmp[i]*4 + c2tmp[i-1] + c2tmp[i+1] + c2tmp[i-FW] + c2tmp[i+FW])/8;
+  }
+}
+rebuildSolid(); rebuildMedia();
+
+function resetField(){
+  uPrev.fill(0); uCur.fill(0); uNext.fill(0); acc.fill(0); simStep = 0;
+  for (const p of world.probes){ p.buf.fill(0); p.head = 0; p.n = 0; }
+}
+function triggerPulses(){
+  for (const e of world.emitters) if (e.mode === "pulse") e.t0 = simStep;
+}
+
+function driveEmitters(){
+  for (const e of world.emitters){
+    if (!e.on) continue;
+    if (e.vx || e.vy){
+      e.x += e.vx*0.02; e.y += e.vy*0.02;
+      if (e.x < MARGIN || e.x > FW-MARGIN) e.vx *= -1;
+      if (e.y < MARGIN || e.y > FH-MARGIN) e.vy *= -1;
+      e.x = clamp(e.x, MARGIN, FW-MARGIN); e.y = clamp(e.y, MARGIN, FH-MARGIN);
+    }
+    const omega = TAU*C/Math.max(e.lam, 4);
+    let env;
+    if (e.mode === "pulse"){
+      const width = Math.max(e.lam*2.2/C, 20), t = simStep - (e.t0||0);
+      if (t < 0 || t > width*3) continue;
+      env = Math.exp(-Math.pow((t - width)/(width*0.42), 2));
+      if (env < 1e-4) continue;
+    } else {
+      env = Math.min(1, simStep/60);
+    }
+    const drive = e.amp*env*Math.sin(omega*simStep + e.phase*Math.PI/180);
+    if (e.kind === "plane"){
+      const len = Math.hypot(e.x2-e.x, e.y2-e.y), n = Math.max(2, Math.ceil(len));
+      const tap = clamp(e.taper || 0, 0, 1);
+      for (let i = 0; i <= n; i++){
+        const t = i/n;
+        const px = Math.round(e.x + (e.x2-e.x)*t), py = Math.round(e.y + (e.y2-e.y)*t);
+        if (px < 1 || px > FW-2 || py < 1 || py > FH-2) continue;
+        /* a raised-cosine window on the ends. A hard-edged beam diffracts off
+           its own ends; tapering it suppresses those edge waves. */
+        let win = 1;
+        if (tap > 0.001){
+          const e0 = tap*0.5;
+          if (t < e0) win = 0.5 - 0.5*Math.cos(Math.PI*t/e0);
+          else if (t > 1-e0) win = 0.5 - 0.5*Math.cos(Math.PI*(1-t)/e0);
+        }
+        uNext[py*FW+px] += drive*0.30*win;
+      }
+    } else {
+      const ex = Math.round(e.x), ey = Math.round(e.y);
+      if (ex < 2 || ex > FW-3 || ey < 2 || ey > FH-3) continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+        const w = (dx === 0 && dy === 0) ? 1 : 0.4;
+        uNext[(ey+dy)*FW + ex+dx] += drive*w*0.55;
+      }
+    }
+  }
+}
+
+function stepSim(){
+  for (let y = 1; y < FH-1; y++){
+    const row = y*FW;
+    for (let x = 1; x < FW-1; x++){
+      const i = row + x;
+      if (solid[i]){ uNext[i] = 0; continue; }
+      const lap = uCur[i-1] + uCur[i+1] + uCur[i-FW] + uCur[i+FW] - 4*uCur[i];
+      uNext[i] = (2*uCur[i] - dampA[i]*uPrev[i] + c2map[i]*lap) * dampB[i];
+    }
+  }
+  applyMur();
+  driveEmitters();
+  const t = uPrev; uPrev = uCur; uCur = uNext; uNext = t;
+  simStep++;
+  const a = simStep < 300 ? 0.02 : 0.008;
+  for (let i = 0; i < FN; i++) acc[i] += (uCur[i]*uCur[i] - acc[i])*a;
+  for (const p of world.probes){
+    const xi = clamp(Math.round(p.x),0,FW-1), yi = clamp(Math.round(p.y),0,FH-1);
+    p.buf[p.head] = uCur[yi*FW+xi];
+    p.head = (p.head + 1) % PROBE_LEN;
+    if (p.n < PROBE_LEN) p.n++;
+  }
+}
+
+function accMax(){ let m = 1e-9; for (let i = 0; i < FN; i++) if (acc[i] > m) m = acc[i]; return m; }
+function sampleAcc(x, y){
+  const xi = clamp(Math.round(x),0,FW-1), yi = clamp(Math.round(y),0,FH-1);
+  return acc[yi*FW+xi];
+}
+function sampleU(x, y){
+  const xi = clamp(Math.round(x),0,FW-1), yi = clamp(Math.round(y),0,FH-1);
+  return uCur[yi*FW+xi];
+}
+function driveOmega(){
+  const e = world.emitters.find(q => q.on) || world.emitters[0];
+  return e ? TAU*C/Math.max(e.lam, 4) : TAU*C/20;
+}
+/* Fit the known drive frequency to a probe's recorded trace. Exact, and far
+   more stable than looking for zero crossings. */
+function probeFit(p, omega){
+  const N = p.n; if (N < 40) return { amp:0, phase:0 };
+  let I = 0, Q = 0;
+  for (let k = 0; k < N; k++){
+    const idx = (p.head - 1 - k + 2*PROBE_LEN) % PROBE_LEN;
+    const v = p.buf[idx], t = -k;
+    I += v*Math.cos(omega*t); Q += v*Math.sin(omega*t);
+  }
+  return { amp: 2*Math.hypot(I,Q)/N, phase: Math.atan2(Q, I) };
+}
+
+/* Where wavefronts reinforce, the settled field forms continuous antinodal
+   ridges. Raw intensity falls off with distance, so a ridge has no maximum
+   along its length — dividing by a blurred copy removes the falloff and
+   leaves the fringe contrast, which does have clean maxima. */
+const blurDst = new Float32Array(FN), blurTmp = new Float32Array(FN);
+function boxBlur(src, dst, tmp, R){
+  for (let y = 0; y < FH; y++){
+    const row = y*FW; let sum = 0, cnt = 0;
+    for (let x = 0; x <= R && x < FW; x++){ sum += src[row+x]; cnt++; }
+    for (let x = 0; x < FW; x++){
+      tmp[row+x] = sum/cnt;
+      const add = x+R+1, sub = x-R;
+      if (add < FW){ sum += src[row+add]; cnt++; }
+      if (sub >= 0){ sum -= src[row+sub]; cnt--; }
+    }
+  }
+  for (let x = 0; x < FW; x++){
+    let sum = 0, cnt = 0;
+    for (let y = 0; y <= R && y < FH; y++){ sum += tmp[y*FW+x]; cnt++; }
+    for (let y = 0; y < FH; y++){
+      dst[y*FW+x] = sum/cnt;
+      const add = y+R+1, sub = y-R;
+      if (add < FH){ sum += tmp[add*FW+x]; cnt++; }
+      if (sub >= 0){ sum -= tmp[sub*FW+x]; cnt--; }
+    }
+  }
+}
+let mergePts = [];
+function findMerges(){
+  const m = accMax();
+  boxBlur(acc, blurDst, blurTmp, 12);
+  const floor = m*0.02, eps = m*1e-4, cand = [];
+  const ratio = i => acc[i] / (blurDst[i] + eps);
+  for (let y = MARGIN; y < FH-MARGIN; y += 2){
+    for (let x = MARGIN; x < FW-MARGIN; x += 2){
+      const i = y*FW+x;
+      if (acc[i] < floor || solid[i]) continue;
+      const v = ratio(i);
+      if (v < 1.35) continue;
+      let isMax = true;
+      for (let dy = -2; dy <= 2 && isMax; dy++){
+        for (let dx = -2; dx <= 2; dx++){
+          if (!dx && !dy) continue;
+          if (ratio((y+dy)*FW + x+dx) > v){ isMax = false; break; }
+        }
+      }
+      if (isMax) cand.push({ x, y, v: acc[i]/m, contrast: v });
+    }
+  }
+  cand.sort((a,b) => b.v - a.v);
+  const keep = [];
+  for (const p of cand){
+    let clear = true;
+    for (const q of keep) if (Math.hypot(q.x-p.x, q.y-p.y) < 7){ clear = false; break; }
+    if (clear) keep.push(p);
+    if (keep.length >= 120) break;
+  }
+  mergePts = keep;
+}
+
+/* ---------- module definitions ----------
+   Each module supplies:
+     params   : slider spec
+     profile  : (n) -> { xs, I, rgb, label, unit, extent }  screen intensity
+     near     : { sources, lambdaPx, widthLabel }  for the superposition renderer
+     math     : (probe) -> [{cap, sym, sub, res}]
+     readout  : () -> [[label, value]]
+     explain  : string
+     photons  : bool
+*/
+const MODULES = {};
+
+/* ===== 1. double slit ===== */
+MODULES.doubleslit = {
+  name: "Double slit",
+  blurb: "two coherent sources",
+  photons: true,
+  params: [
+    {k:"lambda", sym:"λ", label:"Wavelength", min:390, max:720, step:1, unit:"nm"},
+    {k:"d", sym:"d", label:"Slit separation", min:4, max:120, step:.5, unit:"µm"},
+    {k:"a", sym:"a", label:"Slit width", min:.5, max:30, step:.1, unit:"µm"},
+    {k:"L", sym:"L", label:"Screen distance", min:200, max:3000, step:10, unit:"mm"},
+    {k:"white", type:"check", label:"White light source"}
+  ],
+  extent(){
+    const st = S.doubleslit;
+    return 6.5 * (st.lambda * 1e-9) * (st.L * 1e-3) / (st.d * 1e-6) * 1000; // mm
+  },
+  Iat(y, nm){
+    const st = S.doubleslit, L = st.L;
+    const sinT = y / Math.sqrt(y*y + L*L);
+    const lam = nm * 1e-6; // mm
+    const d = st.d * 1e-3, a = st.a * 1e-3;
+    return sinc2(Math.PI * a * sinT / lam) * Math.pow(Math.cos(Math.PI * d * sinT / lam), 2);
+  },
+  profile(n){
+    const st = S.doubleslit, ext = this.extent();
+    const xs = new Float64Array(n), I = new Float64Array(n), rgb = [];
+    for (let i = 0; i < n; i++){
+      const y = -ext + 2*ext*i/(n-1);
+      xs[i] = y;
+      if (st.white){
+        const c = whiteMix(nm => this.Iat(y, nm));
+        rgb.push(c);
+        I[i] = (c[0]+c[1]+c[2]) / 765;
+      } else {
+        const v = this.Iat(y, st.lambda);
+        I[i] = v;
+        const base = wlRGB(st.lambda);
+        rgb.push([base[0]*v|0, base[1]*v|0, base[2]*v|0]);
+      }
+    }
+    return { xs, I, rgb, label: "position on screen", unit: "mm", extent: ext };
+  },
+  near(){
+    const st = S.doubleslit;
+    return { sepUnits: st.d, lambdaUnits: st.lambda * 1e-3, unit: "µm", n: 2, phase: 0 };
+  },
+  math(probe){
+    const st = S.doubleslit;
+    const lam = st.lambda, d = st.d, L = st.L;
+    const dy = lam*1e-9 * L*1e-3 / (d*1e-6) * 1000;
+    const out = [];
+    out.push({
+      cap: "Path difference between the two slits",
+      sym: `Δ = <i>d</i> <span class="op">sin</span> <i>θ</i>`,
+      sub: probe ? `Δ = ${fmt(d,1)} µm × sin(${fmt(probe.theta,3)}°) = ${fmt(probe.pathDiff,1)} nm` : "hover the screen to probe an angle",
+      res: probe ? `${fmt(probe.pathDiff/lam,2)} λ` : ""
+    });
+    out.push({
+      cap: "Bright fringe when the difference is a whole wavelength",
+      sym: `<i>d</i> <span class="op">sin</span> <i>θ</i><sub class="op">m</sub> = <i>m</i>λ`,
+      sub: `sin θ₁ = λ / d = ${lam} nm / ${fmt(d,1)} µm = ${sig(lam*1e-3/d,3)}`,
+      res: `θ₁ = ${fmt(Math.asin(clamp(lam*1e-3/d,-1,1))*180/Math.PI,3)}°`
+    });
+    out.push({
+      cap: "Fringe spacing on the screen",
+      sym: `Δ<i>y</i> = <span class="frac"><b>λ<i>L</i></b><s><i>d</i></s></span>`,
+      sub: `(${lam} nm × ${fmt(L,0)} mm) / ${fmt(d,1)} µm`,
+      res: `Δy = ${fmt(dy,3)} mm`
+    });
+    out.push({
+      cap: "Single-slit envelope, first zero",
+      sym: `<i>a</i> <span class="op">sin</span> <i>θ</i> = λ`,
+      sub: `sin θ = ${lam} nm / ${fmt(st.a,1)} µm = ${sig(lam*1e-3/st.a,3)}`,
+      res: `${fmt(st.d/st.a,2)} fringes per envelope lobe`
+    });
+    out.push({
+      cap: "Intensity, both effects together",
+      sym: `<i>I</i> = <i>I</i><sub class="op">0</sub> <span class="op">sinc</span><sup class="op">2</sup>(<span class="frac"><b>π<i>a</i> <span class="op">sin</span><i>θ</i></b><s>λ</s></span>) <span class="op">cos</span><sup class="op">2</sup>(<span class="frac"><b>π<i>d</i> <span class="op">sin</span><i>θ</i></b><s>λ</s></span>)`,
+      sub: probe ? `at y = ${fmt(probe.y,3)} mm` : "",
+      res: probe ? `I / I₀ = ${fmt(probe.I,4)}` : ""
+    });
+    return out;
+  },
+  readout(){
+    const st = S.doubleslit;
+    return [
+      ["frequency", sig(2.998e17/st.lambda,4) + " Hz"],
+      ["photon energy", fmt(1239.84/st.lambda,3) + " eV"],
+      ["λ per slit gap", fmt(st.d*1000/st.lambda,1)],
+      ["screen width shown", fmt(2*this.extent(),2) + " mm"]
+    ];
+  },
+  explain: "Two slits carve one wavefront into two coherent sources. Where their path lengths differ by a whole number of wavelengths the crests line up and you get a bright fringe. Where the difference is a half wavelength they cancel completely. The single-slit width sets the broad envelope that dims the outer fringes."
+};
+
+/* ===== 2. grating ===== */
+MODULES.grating = {
+  name: "Diffraction grating",
+  blurb: "N slits, sharpening orders",
+  photons: true,
+  params: [
+    {k:"lambda", sym:"λ", label:"Wavelength", min:390, max:720, step:1, unit:"nm"},
+    {k:"d", sym:"d", label:"Line spacing", min:1.5, max:40, step:.1, unit:"µm"},
+    {k:"a", sym:"a", label:"Slit width", min:.2, max:10, step:.1, unit:"µm"},
+    {k:"N", sym:"N", label:"Number of slits", min:2, max:400, step:1, unit:""},
+    {k:"L", sym:"L", label:"Screen distance", min:200, max:3000, step:10, unit:"mm"},
+    {k:"white", type:"check", label:"White light source"}
+  ],
+  extent(){
+    const st = S.grating;
+    const s1 = clamp(st.lambda*1e-3/st.d, -.98, .98);
+    const th = Math.asin(s1);
+    return 2.4 * st.L * Math.tan(th);
+  },
+  Iat(y, nm){
+    const st = S.grating, L = st.L;
+    const sinT = y / Math.sqrt(y*y + L*L);
+    const lam = nm*1e-6, d = st.d*1e-3, a = st.a*1e-3, N = st.N;
+    const b = Math.PI * d * sinT / lam;
+    let grat;
+    const sb = Math.sin(b);
+    if (Math.abs(sb) < 1e-7) grat = 1;
+    else { const r = Math.sin(N*b)/(N*sb); grat = r*r; }
+    return sinc2(Math.PI * a * sinT / lam) * grat;
+  },
+  profile(n){
+    const st = S.grating, ext = this.extent();
+    const xs = new Float64Array(n), I = new Float64Array(n), rgb = [];
+    for (let i = 0; i < n; i++){
+      const y = -ext + 2*ext*i/(n-1);
+      xs[i] = y;
+      if (st.white){
+        const c = whiteMix(nm => this.Iat(y, nm));
+        rgb.push(c); I[i] = (c[0]+c[1]+c[2])/765;
+      } else {
+        const v = this.Iat(y, st.lambda); I[i] = v;
+        const base = wlRGB(st.lambda);
+        rgb.push([base[0]*v|0, base[1]*v|0, base[2]*v|0]);
+      }
+    }
+    return { xs, I, rgb, label: "position on screen", unit: "mm", extent: ext };
+  },
+  near(){
+    const st = S.grating;
+    return { sepUnits: st.d, lambdaUnits: st.lambda*1e-3, unit:"µm", n: Math.min(st.N, 9), phase: 0 };
+  },
+  math(probe){
+    const st = S.grating, lam = st.lambda, d = st.d, N = st.N;
+    const th1 = Math.asin(clamp(lam*1e-3/d,-1,1));
+    const res = N;
+    return [
+      { cap:"Grating equation, same as two slits",
+        sym:`<i>d</i> <span class="op">sin</span> <i>θ</i><sub class="op">m</sub> = <i>m</i>λ`,
+        sub:`sin θ₁ = ${lam} nm / ${fmt(d,1)} µm = ${sig(lam*1e-3/d,3)}`,
+        res:`θ₁ = ${fmt(th1*180/Math.PI,3)}°` },
+      { cap:"Amplitude sum over N slits",
+        sym:`<i>I</i> = <i>I</i><sub class="op">0</sub> <span class="frac"><b><span class="op">sin</span><sup class="op">2</sup>(<i>Nβ</i>)</b><s><i>N</i><sup class="op">2</sup> <span class="op">sin</span><sup class="op">2</sup><i>β</i></s></span>, &nbsp; <i>β</i> = <span class="frac"><b>π<i>d</i> <span class="op">sin</span><i>θ</i></b><s>λ</s></span>`,
+        sub: probe ? `β = ${fmt(probe.beta,4)} rad at y = ${fmt(probe.y,3)} mm` : "hover the screen to probe",
+        res: probe ? `I / I₀ = ${fmt(probe.I,4)}` : "" },
+      { cap:"Peaks sharpen as 1/N",
+        sym:`Δ<i>θ</i> ≈ <span class="frac"><b>λ</b><s><i>Nd</i> <span class="op">cos</span><i>θ</i></s></span>`,
+        sub:`λ / (${N} × ${fmt(d,1)} µm) = ${sig(lam*1e-3/(N*d),3)} rad`,
+        res:`peak width ${fmt(lam*1e-3/(N*d)*180/Math.PI*1000,2)} mrad` },
+      { cap:"Chromatic resolving power at first order",
+        sym:`<span class="frac"><b>λ</b><s>δλ</s></span> = <i>mN</i>`,
+        sub:`m = 1, N = ${N}`,
+        res:`δλ = ${fmt(lam/Math.max(res,1),3)} nm resolvable` },
+      { cap:"Between principal maxima",
+        sym:`<i>N</i> − 2 = ${N-2} secondary maxima`,
+        sub:`${N-1} zeros between each pair of orders`,
+        res: N > 40 ? "too fine to see — orders look like lines" : "visible in the curve above" }
+    ];
+  },
+  readout(){
+    const st = S.grating;
+    return [
+      ["lines per mm", fmt(1000/st.d,0)],
+      ["orders visible", String(Math.floor(st.d*1000/st.lambda))],
+      ["peak width vs 2-slit", "1 / " + st.N],
+      ["screen width shown", fmt(2*this.extent(),2) + " mm"]
+    ];
+  },
+  explain: "Adding slits does not move the bright orders. It sharpens them. With two slits the intensity varies as a gentle cosine squared; with four hundred, all but the exact in-phase directions cancel, leaving needle-thin lines. That sharpening is what turns a grating into a spectrometer, because two close wavelengths land in resolvably different places."
+};
+
+/* ===== 3. ripple tank ===== */
+MODULES.ripple = {
+  name: "Ripple tank",
+  blurb: "movable point sources",
+  photons: false,
+  params: [
+    {k:"lambda", sym:"λ", label:"Wavelength", min:6, max:60, step:1, unit:"units"},
+    {k:"sep", sym:"s", label:"Source spacing", min:16, max:160, step:1, unit:"units"},
+    {k:"n", sym:"N", label:"Sources", min:1, max:6, step:1, unit:""},
+    {k:"phase", sym:"φ", label:"Phase step", min:0, max:360, step:5, unit:"°"},
+    {k:"damp", sym:"", type:"check", label:"1/√r amplitude falloff"}
+  ],
+  extent(){ return 180; },
+  profile(n){
+    const st = S.ripple;
+    const xs = new Float64Array(n), I = new Float64Array(n), rgb = [];
+    const R = 4000, cx = Math.round(GW*0.16), cy = GH/2;
+    let peak = 1e-9;
+    const raw = new Float64Array(n);
+    for (let i = 0; i < n; i++){
+      const ang = (-60 + 120*i/(n-1)) * Math.PI/180;
+      xs[i] = ang*180/Math.PI;
+      const px = cx + R*Math.cos(ang), py = cy + R*Math.sin(ang);
+      let re = 0, im = 0;
+      for (const s of rippleSources){
+        if (!s.on) continue;
+        const r = Math.hypot(px-s.x, py-s.y);
+        const k = TAU/st.lambda, ph = k*r + s.phase;
+        const amp = st.damp ? 1/Math.sqrt(Math.max(r,1)) : 1;
+        re += amp*Math.cos(ph); im += amp*Math.sin(ph);
+      }
+      raw[i] = re*re + im*im;
+      if (raw[i] > peak) peak = raw[i];
+    }
+    const base = [90, 190, 255];
+    for (let i = 0; i < n; i++){
+      const v = raw[i]/peak; I[i] = v;
+      rgb.push([base[0]*v|0, base[1]*v|0, base[2]*v|0]);
+    }
+    return { xs, I, rgb, label:"angle from the source axis", unit:"°", extent: 60 };
+  },
+  near(){ return { custom:true }; },
+  math(probe){
+    const st = S.ripple;
+    const gap = rippleSpacing();
+    const on = rippleSources.filter(s=>s.on).length;
+    const out = [
+      { cap:"The whole engine, in one line",
+        sym:`<i>A</i>(<i>r</i>,<i>t</i>) = Σ <span class="frac"><b><i>A</i><sub class="op">i</sub></b><s>√<i>r</i><sub class="op">i</sub></s></span> <i>e</i><sup class="op">i(<i>kr</i><sub>i</sub> − <i>ωt</i> + <i>φ</i><sub>i</sub>)</sup>`,
+        sub:`${on} active source${on===1?"":"s"}, k = 2π/λ = ${sig(TAU/st.lambda,4)} rad/unit`,
+        res:`I = |A|²` },
+      { cap:"Constructive where paths differ by whole wavelengths",
+        sym:`<i>r</i><sub class="op">2</sub> − <i>r</i><sub class="op">1</sub> = <i>m</i>λ`,
+        sub: probe ? `at ${fmt(probe.y,1)}°: Δr = ${fmt(probe.pathDiff,1)} units` : "hover the intensity strip",
+        res: probe ? `${fmt(probe.pathDiff/st.lambda,2)} λ` : "" },
+      { cap:"Number of nodal lines either side of centre",
+        sym:`<i>n</i> = ⌊<i>s</i> / λ⌋`,
+        sub:`${fmt(gap,0)} / ${st.lambda}`,
+        res:`${Math.floor(gap/st.lambda)} lines each side` },
+      { cap:"Phase offset steers the beam",
+        sym:`<span class="op">sin</span> <i>θ</i> = <span class="frac"><b>φλ</b><s>2π<i>s</i></s></span>`,
+        sub:`φ = ${st.phase}° between adjacent sources, s = ${fmt(gap,0)}`,
+        res: st.n > 1 ? `beam tilt ${fmt(Math.asin(clamp(st.phase/360*st.lambda/gap,-1,1))*180/Math.PI,2)}°` : "single source, no steering" }
+    ];
+    return out;
+  },
+  readout(){
+    const st = S.ripple;
+    return [
+      ["wavenumber k", sig(TAU/st.lambda,4)],
+      ["spacing in λ", fmt(rippleSpacing()/st.lambda,2)],
+      ["active sources", String(rippleSources.filter(s=>s.on).length)],
+      ["array type", st.phase === 0 ? "broadside" : "phased"]
+    ];
+  },
+  explain: "Drag any source in the wave view to move it. This is the general case with nothing optical about it. The same arrangement of emitters and phases describes a phased-array radar, a loudspeaker line array, and a radio interferometer. Put a phase step between the sources and the whole beam steers without anything physically rotating."
+};
+
+/* ===== 4. thin film ===== */
+MODULES.film = {
+  name: "Thin film",
+  blurb: "soap, oil, coatings",
+  photons: false,
+  params: [
+    {k:"t", sym:"t", label:"Film thickness", min:0, max:1200, step:5, unit:"nm"},
+    {k:"n", sym:"n", label:"Refractive index", min:1.05, max:2.6, step:.01, unit:""},
+    {k:"ang", sym:"θ", label:"Incidence angle", min:0, max:80, step:1, unit:"°"},
+    {k:"lambda", sym:"λ", label:"Wavelength", min:390, max:720, step:1, unit:"nm"},
+    {k:"tmax", sym:"", label:"Wedge max thickness", min:300, max:2500, step:50, unit:"nm"},
+    {k:"white", type:"check", label:"White light source"}
+  ],
+  extent(){ return S.film.tmax; },
+  cosT(){
+    const st = S.film;
+    const s = Math.sin(st.ang*Math.PI/180)/st.n;
+    return Math.sqrt(Math.max(0, 1 - s*s));
+  },
+  Iat(thickness, nm){
+    const st = S.film;
+    const delta = TAU * 2 * st.n * thickness * this.cosT() / nm;
+    return Math.pow(Math.sin(delta/2), 2);
+  },
+  profile(n){
+    const st = S.film;
+    const xs = new Float64Array(n), I = new Float64Array(n), rgb = [];
+    for (let i = 0; i < n; i++){
+      const th = st.tmax * i/(n-1);
+      xs[i] = th;
+      if (st.white){
+        const c = whiteMix(nm => this.Iat(th, nm));
+        rgb.push(c); I[i] = (c[0]+c[1]+c[2])/765;
+      } else {
+        const v = this.Iat(th, st.lambda); I[i] = v;
+        const base = wlRGB(st.lambda);
+        rgb.push([base[0]*v|0, base[1]*v|0, base[2]*v|0]);
+      }
+    }
+    return { xs, I, rgb, label:"film thickness", unit:"nm", extent: st.tmax };
+  },
+  near(){ return { custom:true }; },
+  math(probe){
+    const st = S.film, ct = this.cosT(), lam = st.lambda;
+    const opd = 2*st.n*st.t*ct;
+    const th = probe ? probe.y : st.t;
+    return [
+      { cap:"Extra distance travelled by the second reflection",
+        sym:`Δ = 2<i>nt</i> <span class="op">cos</span> <i>θ</i><sub class="op">t</sub>`,
+        sub:`2 × ${fmt(st.n,2)} × ${fmt(st.t,0)} nm × ${fmt(ct,4)}`,
+        res:`Δ = ${fmt(opd,1)} nm = ${fmt(opd/lam,2)} λ` },
+      { cap:"The top surface flips phase by half a wavelength",
+        sym:`<i>δ</i> = <span class="frac"><b>2π Δ</b><s>λ</s></span> + π`,
+        sub:`going from n = 1.00 into n = ${fmt(st.n,2)} is a hard reflection`,
+        res:`δ = ${fmt((TAU*opd/lam + Math.PI) % TAU, 3)} rad` },
+      { cap:"Bright reflection when",
+        sym:`2<i>nt</i> <span class="op">cos</span> <i>θ</i><sub class="op">t</sub> = (<i>m</i> + ½)λ`,
+        sub:`nearest order: m = ${Math.max(0,Math.round(opd/lam - .5))}`,
+        res:`I / I₀ = ${fmt(this.Iat(st.t, lam),4)}` },
+      { cap:"Snell's law sets the internal angle",
+        sym:`<span class="op">sin</span> <i>θ</i><sub class="op">i</sub> = <i>n</i> <span class="op">sin</span> <i>θ</i><sub class="op">t</sub>`,
+        sub:`θi = ${st.ang}° → θt = ${fmt(Math.asin(clamp(Math.sin(st.ang*Math.PI/180)/st.n,-1,1))*180/Math.PI,2)}°`,
+        res:`cos θt = ${fmt(ct,4)}` },
+      { cap:"Colour cancelled at this thickness",
+        sym:`λ<sub class="op">dark</sub> = <span class="frac"><b>2<i>nt</i> <span class="op">cos</span><i>θ</i></b><s><i>m</i></s></span>`,
+        sub: probe ? `probing t = ${fmt(th,0)} nm` : `m = 1, 2, 3 …`,
+        res: opd > 390 ? `${fmt(opd,0)} nm, ${fmt(opd/2,0)} nm, ${fmt(opd/3,0)} nm` : "none in the visible band" }
+    ];
+  },
+  readout(){
+    const st = S.film;
+    const opd = 2*st.n*st.t*this.cosT();
+    return [
+      ["optical path", fmt(opd,1) + " nm"],
+      ["in wavelengths", fmt(opd/st.lambda,3)],
+      ["quarter-wave at", fmt(st.lambda/(4*st.n),1) + " nm"],
+      ["tilt shifts colour", st.ang > 0 ? "toward blue" : "no tilt"]
+    ];
+  },
+  explain: "Light reflects off both the top and the bottom of the film, and the two reflections interfere. Because the extra path depends on wavelength, some colours cancel and others survive, so a colourless film of soap or oil looks coloured. Tilting your view shortens the internal path and shifts everything toward blue. The same physics, run backwards with a quarter-wave layer, gives you anti-reflective lens coatings."
+};
+
+/* ===== 5. open field ===== */
+MODULES.openfield = {
+  name: "Open field",
+  blurb: "build it yourself",
+  photons: false,
+  custom: true,
+  params: [],
+  extent(){ return FH/2; },
+  profile(n){
+    const xs = new Float64Array(n), I = new Float64Array(n), rgb = [];
+    const col = FW - MARGIN - 6;
+    let peak = 1e-9;
+    const raw = new Float64Array(n);
+    for (let i = 0; i < n; i++){
+      const y = MARGIN + (FH-2*MARGIN)*i/(n-1);
+      xs[i] = y - FH/2;
+      raw[i] = sampleAcc(col, y);
+      if (raw[i] > peak) peak = raw[i];
+    }
+    const base = fieldTint();
+    for (let i = 0; i < n; i++){
+      const v = Math.sqrt(raw[i]/peak); I[i] = v;
+      rgb.push([base[0]*v|0, base[1]*v|0, base[2]*v|0]);
+    }
+    return { xs, I, rgb, label:"across the far wall", unit:"cells", extent: FH/2 };
+  },
+  near(){ return { custom:true }; },
+  math(probe){
+    const st = S.openfield;
+    const em = world.emitters.filter(e => e.on);
+    const out = [
+      { cap:"What the grid actually solves, every step",
+        sym:`<span class="frac"><b>∂<sup class="op">2</sup><i>u</i></b><s>∂<i>t</i><sup class="op">2</sup></s></span> = <i>c</i>(<i>x</i>,<i>y</i>)<sup class="op">2</sup> ∇<sup class="op">2</sup><i>u</i>`,
+        sub:`no interference, reflection or refraction term is written anywhere — all of it emerges from this`,
+        res:`${FW} × ${FH} cells, step ${simStep.toLocaleString()}` },
+      { cap:"Discrete update, five neighbours",
+        sym:`<i>u</i><sup class="op">n+1</sup> = 2<i>u</i><sup class="op">n</sup> − <i>u</i><sup class="op">n−1</sup> + <i>c</i><sup class="op">2</sup>(∇<sup class="op">2</sup><i>u</i>)<sup class="op">n</sup>`,
+        sub:`c = ${C} cells per step in open field`,
+        res:`stable while c ≤ 1/√2 = ${fmt(1/Math.SQRT2,4)}` }
+    ];
+    if (em.length){
+      const e = em[0];
+      out.push({ cap:"Drive period and cells per wavelength",
+        sym:`<i>T</i> = λ / <i>c</i>`,
+        sub: em.map(q => `${q.kind === "plane" ? "plane" : "point"} λ=${q.lam} → T=${fmt(q.lam/C,1)} steps`).slice(0,3).join("  "),
+        res: e.lam >= 10 ? `${e.lam} cells per λ — dispersion under 1%`
+                         : `only ${e.lam} cells per λ — the grid will distort this` });
+    }
+    if (world.media.length){
+      const m = world.media[0];
+      const inc = 45;
+      const sr = Math.sin(inc*Math.PI/180)/m.n;
+      out.push({ cap:"Refraction: the medium simply slows the wave",
+        sym:`<i>n</i> = <span class="frac"><b><i>c</i><sub class="op">0</sub></b><s><i>c</i><sub class="op">medium</sub></s></span>, &nbsp; <span class="op">sin</span><i>θ</i><sub class="op">i</sub> = <i>n</i> <span class="op">sin</span><i>θ</i><sub class="op">t</sub>`,
+        sub:`n = ${fmt(m.n,2)} → c = ${fmt(C/m.n,3)} cells per step inside`,
+        res:`a ray at 45° bends to ${fmt(Math.asin(clamp(sr,-1,1))*180/Math.PI,1)}°` });
+      out.push({ cap:"Total internal reflection, leaving the medium",
+        sym:`<i>θ</i><sub class="op">c</sub> = <span class="op">arcsin</span>(1/<i>n</i>)`,
+        sub:`1 / ${fmt(m.n,2)}`,
+        res:`${fmt(Math.asin(clamp(1/m.n,-1,1))*180/Math.PI,1)}° — steeper than this cannot escape` });
+    }
+    const ps = world.probes;
+    if (ps.length >= 2){
+      const w = driveOmega();
+      const f1 = probeFit(ps[0], w), f2 = probeFit(ps[1], w);
+      let d = (f2.phase - f1.phase)*180/Math.PI;
+      while (d > 180) d -= 360; while (d < -180) d += 360;
+      out.push({ cap:`Phase between ${ps[0].label} and ${ps[1].label}, fitted to the drive`,
+        sym:`Δ<i>φ</i> = <i>φ</i><sub class="op">2</sub> − <i>φ</i><sub class="op">1</sub>`,
+        sub:`amplitudes ${fmt(f1.amp,3)} and ${fmt(f2.amp,3)}`,
+        res:`${fmt(d,1)}° = ${fmt(Math.abs(d)/360,2)} λ ${Math.abs(d) < 45 ? "— in step" : Math.abs(d) > 135 ? "— opposed" : ""}` });
+    }
+    if (em.length >= 2 && ps.length){
+      const p = ps[0], e1 = em[0], e2 = em[1];
+      const r1 = Math.hypot(p.x-e1.x, p.y-e1.y), r2 = Math.hypot(p.x-e2.x, p.y-e2.y);
+      const dr = Math.abs(r2-r1), nn = dr/e1.lam;
+      out.push({ cap:`Geometric path difference at ${p.label}`,
+        sym:`Δ<i>r</i> = |<i>r</i><sub class="op">2</sub> − <i>r</i><sub class="op">1</sub>|`,
+        sub:`${fmt(r2,1)} − ${fmt(r1,1)} = ${fmt(dr,1)} cells`,
+        res:`${fmt(nn,2)} λ` });
+    }
+    const b = world.barriers[0];
+    if (b) out.push({ cap:"Barrier aperture against wavelength",
+      sym:`<i>w</i> / λ`,
+      sub:`gap ${fmt(b.slits[0].w,1)} cells, λ = ${st.lambda} cells`,
+      res: b.slits[0].w < st.lambda ? "under one λ — the slit acts as a fresh point source"
+                                    : `${fmt(b.slits[0].w/st.lambda,1)} λ — a beam with soft edges` });
+    if (probe) out.push({ cap:"Far wall reading",
+      sym:`<i>I</i> ∝ ⟨<i>u</i><sup class="op">2</sup>⟩`,
+      sub:`${fmt(probe.y,0)} cells off axis`,
+      res:`relative amplitude ${fmt(probe.I,3)}` });
+    return out;
+  },
+  readout(){
+    const m = accMax(), w = driveOmega();
+    const rows = [
+      ["emitters", String(world.emitters.length)],
+      ["obstacles", String(world.barriers.length + world.walls.length + world.shapes.length)],
+      ["refractive media", String(world.media.length)],
+      ["merge points", String(mergePts.length)]
+    ];
+    for (const p of world.probes){
+      const f = probeFit(p, w);
+      rows.push([p.label, `${fmt(Math.sqrt(Math.max(sampleAcc(p.x,p.y),0)/Math.sqrt(m)),2)} rms · ${fmt(f.phase*180/Math.PI,0)}°`]);
+    }
+    return rows;
+  },
+  explain: "Nothing here is precomputed. The grid steps the wave equation forward and whatever you build gets solved. Waves bend around a wall corner, bounce off a mirror, slow down and refract inside a lens, and cross each other without disturbing each other. Everything you place stays where you put it and goes into the export, so the same scene can be rebuilt as a 3D surface at any resolution you like."
+};
+
+/* ---------- DOM ---------- */
+const $ = id => document.getElementById(id);
+const els = {
+  tabs:$("tabs"), controls:$("controls"), math:$("math"), readout:$("readout"),
+  explain:$("explain"), field:$("field"), screen:$("screen"), graph:$("graph"),
+  photons:$("photons"), fieldBadge:$("field-badge"), fieldHint:$("field-hint"),
+  fieldTitle:$("field-title"), screenTitle:$("screen-title"), graphHint:$("graph-hint"),
+  fidNote:$("fid-note"), photonBlock:$("photon-block"), photonCount:$("photon-count"),
+  scope:$("scope"), scopeBlock:$("scope-block"), surface:$("surface"),
+  surfaceBlock:$("surface-block"), surfBadge:$("surf-badge"), surfLabels:$("surflabels"),
+  cursorBadge:$("cursor-badge"), stage:document.querySelector(".stage")
+};
+const ctxF = els.field.getContext("2d");
+const ctxS = els.screen.getContext("2d");
+const ctxG = els.graph.getContext("2d");
+const ctxP = els.photons.getContext("2d", { willReadFrequently:false });
+const ctxScope = els.scope.getContext("2d");
+const ctxLab = els.surfLabels.getContext("2d");
+
+/* tabs */
+for (const key of Object.keys(MODULES)){
+  const m = MODULES[key];
+  const b = document.createElement("button");
+  b.className = "tab"; b.setAttribute("role","tab");
+  b.setAttribute("aria-selected", key === S.module ? "true" : "false");
+  b.innerHTML = `${m.name}<span>${m.blurb}</span>`;
+  b.onclick = () => { S.module = key; syncTabs(); buildControls(); clearPhotons(); redraw(); };
+  els.tabs.appendChild(b);
+}
+function syncTabs(){
+  [...els.tabs.children].forEach((b,i) => {
+    b.setAttribute("aria-selected", Object.keys(MODULES)[i] === S.module ? "true":"false");
+  });
+}
+
+/* controls */
+function buildControls(){
+  const m = MODULES[S.module], st = S[S.module];
+  els.controls.innerHTML = "";
+  els.photonBlock.style.display = m.photons ? "" : "none";
+  els.scopeBlock.style.display = m.custom ? "" : "none";
+  els.surfaceBlock.style.display = m.custom ? "" : "none";
+  if (m.custom){ buildOpenFieldControls(); return; }
+  for (const p of m.params){
+    const wrap = document.createElement("div");
+    wrap.className = "ctl";
+    if (p.type === "check"){
+      wrap.innerHTML = `<label class="check"><input type="checkbox" ${st[p.k]?"checked":""}> ${p.label}</label>`;
+      wrap.querySelector("input").onchange = e => { st[p.k] = e.target.checked; redraw(); };
+    } else {
+      wrap.innerHTML =
+        `<div class="ctl-head"><label>${p.sym?`<i>${p.sym}</i>`:""}${p.label}</label>
+         <span class="val"></span></div>
+         <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${st[p.k]}">`;
+      const out = wrap.querySelector(".val"), inp = wrap.querySelector("input");
+      const show = () => out.textContent = `${p.step < 1 ? fmt(st[p.k], String(p.step).split(".")[1].length) : st[p.k]}${p.unit?" "+p.unit:""}`;
+      show();
+      inp.oninput = e => {
+        st[p.k] = parseFloat(e.target.value);
+        show();
+        if (S.module === "ripple") rebuildRipple();
+        clearPhotons();
+        redraw();
+      };
+    }
+    els.controls.appendChild(wrap);
+  }
+}
+
+/* fidelity + view toggles */
+function setFid(v){
+  S.fidelity = v;
+  $("fid-true").setAttribute("aria-pressed", v==="true");
+  $("fid-exag").setAttribute("aria-pressed", v==="exag");
+  redraw();
+}
+$("fid-true").onclick = () => setFid("true");
+$("fid-exag").onclick = () => setFid("exag");
+function setView(v){
+  S.nearView = v;
+  $("vw-field").setAttribute("aria-pressed", v==="field");
+  $("vw-int").setAttribute("aria-pressed", v==="int");
+  redraw();
+}
+$("vw-field").onclick = () => setView("field");
+$("vw-int").onclick = () => setView("int");
+$("playing").onchange = e => { S.playing = e.target.checked; };
+
+/* ---------- near-field superposition renderer ---------- */
+let img = ctxF.createImageData(GW, GH);
+const off = document.createElement("canvas"); off.width = GW; off.height = GH;
+const offCtx = off.getContext("2d");
+let cache = { key:"", r:null, srcs:null };
+
+const MIN_LAM_PX = 3.4;   /* below this the grid cannot resolve a crest */
+
+/* Sources sit in a vertical column, so the array must fit GH, not GW. */
+function viewScale(){
+  if (S.module === "ripple")
+    return { pxPerUnit:1, lambdaPx:S.ripple.lambda, exag:1, nShown:S.ripple.n, nAsked:S.ripple.n };
+  const cfg = MODULES[S.module].near();
+  const usable = GH - 30;
+  const nAsked = cfg.n;
+  let n = nAsked;
+
+  if (S.fidelity === "true"){
+    /* keep true proportions; show fewer slits rather than alias the wave */
+    const maxN = 1 + Math.floor(usable * cfg.lambdaUnits / (MIN_LAM_PX * cfg.sepUnits));
+    n = clamp(Math.min(nAsked, maxN), 2, nAsked);
+    const pxPerUnit = usable / Math.max((n-1)*cfg.sepUnits, cfg.sepUnits);
+    return { pxPerUnit, lambdaPx: cfg.lambdaUnits*pxPerUnit, exag:1, nShown:n, nAsked };
+  }
+
+  const pxPerUnit = usable / Math.max((n-1)*cfg.sepUnits, cfg.sepUnits);
+  const trueLamPx = cfg.lambdaUnits * pxPerUnit;
+  const target = clamp(usable / 14, 6, 20);
+  const exag = Math.max(1, target/Math.max(trueLamPx, 1e-6));
+  return { pxPerUnit, lambdaPx: trueLamPx*exag, exag, nShown:n, nAsked };
+}
+
+function nearSources(){
+  if (S.module === "ripple") return rippleSources;
+  const cfg = MODULES[S.module].near();
+  const vs = viewScale();
+  const list = [], half = (vs.nShown - 1)/2;
+  for (let i = 0; i < vs.nShown; i++){
+    list.push({ x: Math.round(GW*0.11), y: GH/2 + (i-half)*cfg.sepUnits*vs.pxPerUnit, phase:0, on:true });
+  }
+  return list;
+}
+
+function drawNear(){
+  const srcs = nearSources();
+  const vs = viewScale();
+  const lamPx = Math.max(vs.lambdaPx, 1.6);
+  const k = TAU/lamPx;
+  const key = srcs.map(s=>`${s.x|0},${s.y|0},${s.phase.toFixed(3)},${s.on?1:0}`).join("|") + "#" + lamPx.toFixed(3);
+  if (cache.key !== key){
+    const rs = [];
+    for (const s of srcs){
+      const arr = new Float32Array(GW*GH), amp = new Float32Array(GW*GH);
+      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++){
+        const r = Math.hypot(x - s.x, y - s.y);
+        arr[y*GW+x] = k*r + s.phase;
+        amp[y*GW+x] = 1/Math.sqrt(Math.max(r, lamPx*0.35));
+      }
+      rs.push({ arr, amp, on:s.on });
+    }
+    cache = { key, r:rs, srcs };
+  }
+  const rs = cache.r;
+  const d = img.data;
+  const wl = S.module === "ripple" ? [110,200,255] : wlRGB(S[S.module].lambda);
+  const t = S.t;
+  const timeAvg = S.nearView === "int";
+  let norm = 0;
+  for (const s of srcs) if (s.on) norm++;
+  norm = Math.max(norm, 1);
+
+  for (let p = 0; p < GW*GH; p++){
+    let v = 0, re = 0, im = 0;
+    if (timeAvg){
+      for (const s of rs){
+        if (!s.on) continue;
+        const ph = s.arr[p], a = s.amp[p];
+        re += a*fcos(ph); im += a*fcos(ph - Math.PI/2);
+      }
+      const I = (re*re + im*im);
+      v = clamp(Math.sqrt(I) / (norm*0.30), 0, 1);
+    } else {
+      for (const s of rs){
+        if (!s.on) continue;
+        v += s.amp[p]*fcos(s.arr[p] - t);
+      }
+      v = clamp((v/(norm*0.30) + 1)/2, 0, 1);
+      v = v*v*(3-2*v);
+    }
+    const o = p*4;
+    d[o]   = wl[0]*v;
+    d[o+1] = wl[1]*v;
+    d[o+2] = wl[2]*v;
+    d[o+3] = 255;
+  }
+  offCtx.putImageData(img, 0, 0);
+  ctxF.imageSmoothingEnabled = true;
+  ctxF.clearRect(0,0,els.field.width,els.field.height);
+  ctxF.drawImage(off, 0, 0, els.field.width, els.field.height);
+
+  /* source markers */
+  const sx = els.field.width/GW;
+  ctxF.lineWidth = 3;
+  for (const s of srcs){
+    ctxF.beginPath();
+    ctxF.arc(s.x*sx, s.y*sx, 9, 0, TAU);
+    ctxF.strokeStyle = s.on ? "rgba(255,255,255,.85)" : "rgba(255,255,255,.25)";
+    ctxF.stroke();
+  }
+  const parts = [];
+  if (vs.exag > 1.02)
+    parts.push(`λ drawn ${vs.exag < 10 ? fmt(vs.exag,1) : Math.round(vs.exag)}× oversize — the numbers stay true`);
+  else parts.push("true relative scale");
+  if (vs.nShown < vs.nAsked) parts.push(`showing ${vs.nShown} of ${vs.nAsked} slits`);
+  els.fieldBadge.textContent = parts.join(" · ");
+}
+
+/* ---------- open field: render, manipulate, export ---------- */
+function fieldTint(){
+  const st = S.openfield;
+  return st.medium === "water" ? [96, 186, 255] : wlRGB(st.tintnm);
+}
+const fimg = document.createElement("canvas");
+fimg.width = FW; fimg.height = FH;
+const fctx = fimg.getContext("2d");
+const fdata = fctx.createImageData(FW, FH);
+let selected = null, pendingWall = null, pendingPlane = null;
+const OF = { tool: "select", hover: null, cursor: null };
+
+function drawOpenField(){
+  const st = S.openfield, tint = fieldTint(), d = fdata.data;
+  const timeAvg = S.nearView === "int";
+  const scale = timeAvg ? 1/Math.sqrt(accMax()) : 1;
+  const slowTint = [140, 120, 200];
+  for (let i = 0; i < FN; i++){
+    const o = i*4;
+    if (solid[i]){ d[o] = 58; d[o+1] = 66; d[o+2] = 80; d[o+3] = 255; continue; }
+    let v;
+    if (timeAvg) v = clamp(Math.sqrt(Math.max(acc[i],0))*scale, 0, 1);
+    else { v = clamp(uCur[i]*2.6, -1, 1); v = (v+1)/2; v = v*v*(3-2*v); }
+    const slow = clamp((C2 - c2map[i])/C2, 0, 1) * 0.30;
+    d[o]   = tint[0]*v*(1-slow) + slowTint[0]*slow*(0.35 + 0.65*v);
+    d[o+1] = tint[1]*v*(1-slow) + slowTint[1]*slow*(0.35 + 0.65*v);
+    d[o+2] = tint[2]*v*(1-slow) + slowTint[2]*slow*(0.35 + 0.65*v);
+    d[o+3] = 255;
+  }
+  fctx.putImageData(fdata, 0, 0);
+  const W = els.field.width, H = els.field.height, sc = W/FW;
+  ctxF.imageSmoothingEnabled = true;
+  ctxF.clearRect(0,0,W,H);
+  ctxF.drawImage(fimg, 0, 0, W, H);
+  ctxF.font = "18px " + getComputedStyle(document.body).fontFamily;
+  ctxF.textAlign = "left"; ctxF.textBaseline = "alphabetic";
+
+  if (st.marks){
+    ctxF.strokeStyle = "rgba(255,255,255,.5)"; ctxF.lineWidth = 1.5;
+    for (const m of mergePts){
+      ctxF.beginPath(); ctxF.arc(m.x*sc, m.y*sc, 3 + 7*m.v, 0, TAU); ctxF.stroke();
+    }
+  }
+  for (const m of world.media){
+    const sel = selected && selected.obj === m;
+    ctxF.strokeStyle = sel ? "#fff" : "rgba(178,158,255,.75)";
+    ctxF.lineWidth = sel ? 3 : 2; ctxF.setLineDash([7,6]);
+    const rr = (m.rot||0)*Math.PI/180;
+    ctxF.save(); ctxF.translate(m.x*sc, m.y*sc); ctxF.rotate(rr);
+    ctxF.beginPath();
+    if (m.type === "slab") ctxF.rect(-m.rx*sc, -m.ry*sc, 2*m.rx*sc, 2*m.ry*sc);
+    else ctxF.ellipse(0, 0, m.rx*sc, m.ry*sc, 0, 0, TAU);
+    ctxF.stroke(); ctxF.restore(); ctxF.setLineDash([]);
+    ctxF.fillStyle = "rgba(200,185,255,.9)";
+    ctxF.fillText(`n = ${fmt(m.n,2)}`, (m.x-m.rx)*sc, (m.y-m.ry)*sc - 8);
+  }
+  for (const b of world.barriers){
+    const sel = selected && selected.obj === b;
+    ctxF.strokeStyle = sel ? "#fff" : "rgba(255,255,255,.35)";
+    ctxF.lineWidth = sel ? 3 : 2;
+    for (const g of b.slits){
+      ctxF.beginPath();
+      ctxF.moveTo(b.x*sc - 9, (g.y - g.w/2)*sc); ctxF.lineTo(b.x*sc + 9, (g.y - g.w/2)*sc);
+      ctxF.moveTo(b.x*sc - 9, (g.y + g.w/2)*sc); ctxF.lineTo(b.x*sc + 9, (g.y + g.w/2)*sc);
+      ctxF.stroke();
+    }
+  }
+  for (const w of world.walls){
+    const sel = selected && selected.obj === w;
+    ctxF.strokeStyle = sel ? "#fff" : "rgba(160,175,200,.55)";
+    ctxF.lineWidth = Math.max((w.th||3)*sc*0.8, sel ? 4 : 2);
+    if (w.absorb > 0) ctxF.setLineDash([4,5]);
+    ctxF.beginPath(); ctxF.moveTo(w.x1*sc, w.y1*sc); ctxF.lineTo(w.x2*sc, w.y2*sc); ctxF.stroke();
+    ctxF.setLineDash([]); ctxF.lineWidth = 2;
+  }
+  for (const sh of world.shapes){
+    const sel = selected && selected.obj === sh;
+    ctxF.strokeStyle = sel ? "#fff" : "rgba(160,175,200,.5)";
+    ctxF.lineWidth = sel ? 3 : 1.5;
+    if (sh.absorb > 0) ctxF.setLineDash([3,4]);
+    ctxF.beginPath();
+    if (sh.type === "disc"){
+      ctxF.arc(sh.x*sc, sh.y*sc, sh.r*sc, 0, TAU);
+      if (sh.inner > 0){ ctxF.moveTo((sh.x+sh.inner)*sc, sh.y*sc); ctxF.arc(sh.x*sc, sh.y*sc, sh.inner*sc, 0, TAU); }
+    } else if (sh.type === "mirror"){
+      const half = arcHalf(sh), N = 40;
+      for (let i = 0; i <= N; i++){
+        const th = Math.PI - half + 2*half*i/N;
+        const [wx,wy] = toWorld(sh, sh.r + sh.r*Math.cos(th), sh.r*Math.sin(th));
+        i ? ctxF.lineTo(wx*sc,wy*sc) : ctxF.moveTo(wx*sc,wy*sc);
+      }
+    } else if (sh.type === "parabola"){
+      for (let v = -sh.span; v <= sh.span; v += 1){
+        const [wx,wy] = toWorld(sh, v*v/(4*sh.f), v);
+        v === -sh.span ? ctxF.moveTo(wx*sc,wy*sc) : ctxF.lineTo(wx*sc,wy*sc);
+      }
+    }
+    ctxF.stroke(); ctxF.setLineDash([]);
+    if (sh.type === "parabola" || sh.type === "mirror"){
+      const fd = sh.type === "parabola" ? sh.f : sh.r/2;
+      const [fx,fy] = toWorld(sh, fd, 0);
+      ctxF.fillStyle = "rgba(255,214,120,.85)";
+      ctxF.beginPath(); ctxF.arc(fx*sc, fy*sc, 5, 0, TAU); ctxF.fill();
+    }
+  }
+  if (pendingWall){
+    ctxF.strokeStyle = "rgba(255,255,255,.6)"; ctxF.lineWidth = 3; ctxF.setLineDash([8,8]);
+    ctxF.beginPath(); ctxF.moveTo(pendingWall.x1*sc, pendingWall.y1*sc);
+    ctxF.lineTo(pendingWall.x2*sc, pendingWall.y2*sc); ctxF.stroke(); ctxF.setLineDash([]);
+  }
+  if (pendingPlane){
+    ctxF.strokeStyle = "rgba(120,230,255,.8)"; ctxF.lineWidth = 4; ctxF.setLineDash([4,6]);
+    ctxF.beginPath(); ctxF.moveTo(pendingPlane.x*sc, pendingPlane.y*sc);
+    ctxF.lineTo(pendingPlane.x2*sc, pendingPlane.y2*sc); ctxF.stroke(); ctxF.setLineDash([]);
+  }
+  for (const e of world.emitters){
+    const sel = selected && selected.obj === e;
+    ctxF.strokeStyle = e.on ? "#fff" : "rgba(255,255,255,.3)";
+    ctxF.lineWidth = sel ? 4 : 2.5;
+    if (e.kind === "plane"){
+      ctxF.beginPath(); ctxF.moveTo(e.x*sc, e.y*sc); ctxF.lineTo(e.x2*sc, e.y2*sc); ctxF.stroke();
+      ctxF.beginPath(); ctxF.arc(e.x*sc, e.y*sc, 5, 0, TAU); ctxF.stroke();
+    } else {
+      ctxF.beginPath(); ctxF.arc(e.x*sc, e.y*sc, sel ? 13 : 10, 0, TAU); ctxF.stroke();
+      if (e.on){ ctxF.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},.55)`; ctxF.fill(); }
+    }
+    if (e.vx || e.vy){
+      ctxF.strokeStyle = "rgba(255,214,120,.9)"; ctxF.lineWidth = 2;
+      ctxF.beginPath(); ctxF.moveTo(e.x*sc, e.y*sc);
+      ctxF.lineTo((e.x + e.vx*3)*sc, (e.y + e.vy*3)*sc); ctxF.stroke();
+    }
+  }
+  if (OF.hover && OF.hover.kind !== "handle" && (!selected || OF.hover.obj !== selected.obj)){
+    const h = OF.hover, o = h.obj;
+    ctxF.strokeStyle = "rgba(255,255,255,.45)"; ctxF.lineWidth = 2; ctxF.setLineDash([5,5]);
+    ctxF.beginPath();
+    if (h.kind === "wall") { ctxF.moveTo(o.x1*sc,o.y1*sc); ctxF.lineTo(o.x2*sc,o.y2*sc); }
+    else if (h.kind === "medium") ctxF.ellipse(o.x*sc,o.y*sc,(o.rx+3)*sc,(o.ry+3)*sc,0,0,TAU);
+    else if (h.kind === "shape" && o.type === "disc") ctxF.arc(o.x*sc,o.y*sc,(o.r+3)*sc,0,TAU);
+    else if (h.kind === "barrier" || h.kind === "slit") { ctxF.moveTo(o.x*sc,0); ctxF.lineTo(o.x*sc,H); }
+    else ctxF.arc(o.x*sc, o.y*sc, 15, 0, TAU);
+    ctxF.stroke(); ctxF.setLineDash([]);
+  }
+  for (const hd of handlesFor(selected)){
+    const hx = hd.x*sc, hy = hd.y*sc;
+    const hot = OF.hover && OF.hover.kind === "handle" && OF.hover.h.id === hd.id;
+    ctxF.fillStyle = hot ? "#fff" : "rgba(255,255,255,.88)";
+    ctxF.strokeStyle = "rgba(10,14,22,.9)"; ctxF.lineWidth = 2;
+    ctxF.beginPath(); ctxF.rect(hx-7, hy-7, 14, 14);
+    ctxF.fill(); ctxF.stroke();
+    if (hot){
+      ctxF.fillStyle = "rgba(255,255,255,.95)";
+      ctxF.textAlign = "center";
+      ctxF.fillText(hd.tip, hx, hy-14);
+      ctxF.textAlign = "left";
+    }
+  }
+  if (OF.cursor && OF.tool !== "select"){
+    const cx = OF.cursor.x*sc, cy = OF.cursor.y*sc;
+    ctxF.strokeStyle = "rgba(255,255,255,.28)"; ctxF.lineWidth = 1;
+    ctxF.beginPath();
+    ctxF.moveTo(cx,0); ctxF.lineTo(cx,H); ctxF.moveTo(0,cy); ctxF.lineTo(W,cy);
+    ctxF.stroke();
+  }
+  for (const p of world.probes){
+    const sel = selected && selected.obj === p;
+    const px = p.x*sc, py = p.y*sc;
+    ctxF.strokeStyle = sel ? "#fff" : "rgba(255,214,120,.95)";
+    ctxF.lineWidth = sel ? 3 : 2;
+    ctxF.beginPath();
+    ctxF.moveTo(px-10, py); ctxF.lineTo(px+10, py);
+    ctxF.moveTo(px, py-10); ctxF.lineTo(px, py+10);
+    ctxF.stroke();
+    ctxF.beginPath(); ctxF.arc(px, py, 6, 0, TAU); ctxF.stroke();
+    ctxF.fillStyle = "rgba(255,214,120,.95)";
+    ctxF.fillText(p.label, px+14, py-10);
+  }
+  els.fieldBadge.textContent =
+    `${OF.tool} · ${world.emitters.length} src · ${world.barriers.length+world.walls.length+world.shapes.length} obs · ${world.media.length} media · ${world.probes.length} probes`;
+  if (els.cursorBadge){
+    if (OF.cursor){
+      const cx = Math.round(OF.cursor.x), cy = Math.round(OF.cursor.y);
+      const lam = Math.max(st.lambda, 1);
+      const what = OF.hover ? (OF.hover.kind === "handle" ? OF.hover.h.tip : OF.hover.kind) : "";
+      els.cursorBadge.textContent =
+        `x ${cx}  y ${cy}   ${fmt(cx/lam,2)}λ  ${fmt(cy/lam,2)}λ${what ? "   • " + what : ""}`;
+    } else els.cursorBadge.textContent = `${FW} × ${FH} cells`;
+  }
+}
+
+/* ---- probe scopes ---- */
+function drawScope(){
+  const cv = els.scope, ctx = ctxScope, W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle = "#05070c"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+  if (!world.probes.length){
+    ctx.fillStyle = "rgba(220,227,240,.4)";
+    ctx.font = "20px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText("drop a probe to record a trace", W/2, H/2 + 7);
+    return;
+  }
+  let peak = 1e-6;
+  for (const p of world.probes) for (let k = 0; k < p.n; k++) peak = Math.max(peak, Math.abs(p.buf[k]));
+  const palette = [[255,214,120],[120,230,255],[180,255,160],[255,150,200],[200,180,255],[255,190,140]];
+  world.probes.forEach((p, pi) => {
+    const c = palette[pi % palette.length];
+    ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const N = p.n;
+    for (let k = 0; k < N; k++){
+      const idx = (p.head - N + k + 2*PROBE_LEN) % PROBE_LEN;
+      const x = k/(PROBE_LEN-1)*W;
+      const y = H/2 - (p.buf[idx]/peak)*(H/2 - 8);
+      k ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    ctx.font = "19px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "left";
+    ctx.fillText(p.label, 10, 24 + pi*24);
+  });
+  ctx.fillStyle = "rgba(220,227,240,.45)";
+  ctx.font = "18px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "right";
+  ctx.fillText(`${PROBE_LEN} steps`, W-10, H-10);
+}
+
+/* ---- live 3D surface (WebGL) ----
+   A real depth buffer, because free orbit makes painter's-algorithm tricks
+   fall apart the moment you look at the surface edge-on or from below. */
+const SX = 120, SY = 60;
+const ZH = (FH - 2*MARGIN)/(FW - 2*MARGIN);
+const surfH   = new Float32Array(SX*SY);
+const surfPos = new Float32Array(SX*SY*3);
+const surfNrm = new Float32Array(SX*SY*3);
+let gl = null, glReady = false, glMsg = "";
+const G = {};
+
+function mat4Perspective(fovy, aspect, near, far){
+  const f = 1/Math.tan(fovy/2), nf = 1/(near-far);
+  return new Float32Array([f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
+}
+function mat4LookAt(eye, ctr, up){
+  let z0 = eye[0]-ctr[0], z1 = eye[1]-ctr[1], z2 = eye[2]-ctr[2];
+  let l = 1/Math.hypot(z0,z1,z2); z0*=l; z1*=l; z2*=l;
+  let x0 = up[1]*z2-up[2]*z1, x1 = up[2]*z0-up[0]*z2, x2 = up[0]*z1-up[1]*z0;
+  l = Math.hypot(x0,x1,x2);
+  if (l){ l = 1/l; x0*=l; x1*=l; x2*=l; } else { x0 = 1; x1 = 0; x2 = 0; }
+  const y0 = z1*x2-z2*x1, y1 = z2*x0-z0*x2, y2 = z0*x1-z1*x0;
+  return new Float32Array([x0,y0,z0,0, x1,y1,z1,0, x2,y2,z2,0,
+    -(x0*eye[0]+x1*eye[1]+x2*eye[2]),
+    -(y0*eye[0]+y1*eye[1]+y2*eye[2]),
+    -(z0*eye[0]+z1*eye[1]+z2*eye[2]), 1]);
+}
+function mat4Mul(m, n){
+  const o = new Float32Array(16);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){
+    let sum = 0; for (let k = 0; k < 4; k++) sum += m[k*4+j]*n[i*4+k];
+    o[i*4+j] = sum;
+  }
+  return o;
+}
+function projectPt(mvp, x, y, z){
+  const px = mvp[0]*x + mvp[4]*y + mvp[8]*z + mvp[12];
+  const py = mvp[1]*x + mvp[5]*y + mvp[9]*z + mvp[13];
+  const pw = mvp[3]*x + mvp[7]*y + mvp[11]*z + mvp[15];
+  return [px/pw, py/pw, pw];
+}
+function camEye(){
+  const c = S.openfield.cam;
+  const a = c.azim*Math.PI/180, e = c.elev*Math.PI/180;
+  return [c.dist*Math.cos(e)*Math.sin(a), c.dist*Math.sin(e), c.dist*Math.cos(e)*Math.cos(a)];
+}
+function currentMVP(){
+  const P = mat4Perspective(48*Math.PI/180, els.surface.width/els.surface.height, 0.05, 60);
+  return mat4Mul(P, mat4LookAt(camEye(), [0, 0.18, 0], [0,1,0]));
+}
+
+const VSRC = `
+attribute vec3 aPos; attribute vec3 aNrm;
+uniform mat4 uMVP;
+varying vec3 vN; varying float vY;
+void main(){ gl_Position = uMVP*vec4(aPos,1.0); vN = aNrm; vY = aPos.y; }`;
+const FSRC = `
+precision mediump float;
+varying vec3 vN; varying float vY;
+uniform vec3 uTint; uniform vec4 uFlat; uniform float uSpan;
+void main(){
+  if (uFlat.a > 0.5){ gl_FragColor = vec4(uFlat.rgb, 1.0); return; }
+  vec3 L = normalize(vec3(0.35, 0.85, 0.40));
+  float d = 0.28 + 0.72*abs(dot(normalize(vN), L));
+  float t = clamp(vY/uSpan*0.5 + 0.5, 0.0, 1.0);
+  gl_FragColor = vec4(uTint*(0.18 + 1.00*t)*d, 1.0);
+}`;
+
+function initGL(){
+  try {
+    gl = els.surface.getContext("webgl", { antialias:true, depth:true, alpha:false })
+      || els.surface.getContext("experimental-webgl", { antialias:true, depth:true, alpha:false });
+  } catch(e){ gl = null; }
+  if (!gl){ glMsg = "WebGL is unavailable in this browser, so the 3D preview is off. Everything else still works."; return; }
+  function sh(type, src){
+    const o = gl.createShader(type);
+    gl.shaderSource(o, src); gl.compileShader(o);
+    if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o));
+    return o;
+  }
+  try {
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VSRC));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FSRC));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    G.prog = prog;
+  } catch(e){ gl = null; glMsg = "The 3D shader failed to build, so the preview is off."; return; }
+
+  G.aPos = gl.getAttribLocation(G.prog, "aPos");
+  G.aNrm = gl.getAttribLocation(G.prog, "aNrm");
+  G.uMVP = gl.getUniformLocation(G.prog, "uMVP");
+  G.uTint = gl.getUniformLocation(G.prog, "uTint");
+  G.uFlat = gl.getUniformLocation(G.prog, "uFlat");
+  G.uSpan = gl.getUniformLocation(G.prog, "uSpan");
+
+  G.pos = gl.createBuffer(); G.nrm = gl.createBuffer();
+  G.idx = gl.createBuffer(); G.wire = gl.createBuffer();
+  G.axPos = gl.createBuffer(); G.axNrm = gl.createBuffer();
+
+  const tri = [];
+  for (let j = 0; j < SY-1; j++) for (let i = 0; i < SX-1; i++){
+    const k = j*SX+i;
+    tri.push(k, k+1, k+SX, k+1, k+SX+1, k+SX);
+  }
+  G.triCount = tri.length;
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.idx);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tri), gl.STATIC_DRAW);
+
+  const wl = [];
+  for (let j = 0; j < SY; j += 5) for (let i = 0; i < SX-1; i++) wl.push(j*SX+i, j*SX+i+1);
+  for (let i = 0; i < SX; i += 5) for (let j = 0; j < SY-1; j++) wl.push(j*SX+i, (j+1)*SX+i);
+  G.wireCount = wl.length;
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.wire);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(wl), gl.STATIC_DRAW);
+
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LEQUAL);
+  gl.clearColor(0.02, 0.027, 0.047, 1);
+  glReady = true;
+}
+
+/* cell coordinate -> normalised axis position */
+const cellX = c => -1 + 2*(c - MARGIN)/(FW - 2*MARGIN);
+const cellZ = c => -ZH + 2*ZH*(c - MARGIN)/(FH - 2*MARGIN);
+
+function buildAxes(){
+  const v = [], L = [];
+  const push = (x1,y1,z1,x2,y2,z2) => { v.push(x1,y1,z1, x2,y2,z2); };
+  const zf = ZH, zb = -ZH;
+  push(-1,0,zf,  1,0,zf);            /* x axis, front edge   */
+  push(-1,0,zb, -1,0,zf);            /* y axis of the field  */
+  push(-1,0,zf, -1,1,zf);            /* amplitude axis       */
+  push(-1,0,zb,  1,0,zb); push(1,0,zb, 1,0,zf);   /* base outline */
+  const tick = 50;
+  for (let c = Math.ceil(MARGIN/tick)*tick; c <= FW-MARGIN; c += tick){
+    const x = cellX(c); push(x,0,zf, x,0,zf+0.05);
+    L.push({ p:[x,0,zf+0.10], t:String(c), a:"center" });
+  }
+  for (let c = Math.ceil(MARGIN/tick)*tick; c <= FH-MARGIN; c += tick){
+    const z = cellZ(c); push(-1,0,z, -1.05,0,z);
+    L.push({ p:[-1.12,0,z], t:String(c), a:"center" });
+  }
+  for (let k = 1; k <= 4; k++){
+    const y = k/4; push(-1,y,zf, -1.05,y,zf);
+    L.push({ p:[-1.14,y,zf], t:fmt(y,2), a:"right" });
+  }
+  L.push({ p:[0,0,zf+0.20], t:"x  (cells)", a:"center" });
+  L.push({ p:[-1.30,0,0], t:"y  (cells)", a:"center" });
+  L.push({ p:[-1.16,1.10,zf], t: S.openfield.surfSrc === "wave" ? "displacement" : "rms amplitude", a:"center" });
+
+  const lam = S.openfield.lambda;
+  const x0 = cellX(MARGIN + 20), x1 = cellX(MARGIN + 20 + lam), zb2 = zf + 0.15;
+  push(x0,0,zb2, x1,0,zb2);
+  push(x0,0,zb2-0.03, x0,0,zb2+0.03);
+  push(x1,0,zb2-0.03, x1,0,zb2+0.03);
+  L.push({ p:[(x0+x1)/2, 0, zb2+0.09], t:`\u03bb = ${lam} cells`, a:"center" });
+
+  G.axVerts = new Float32Array(v);
+  G.axCount = v.length/3;
+  G.labels = L;
+  const n = new Float32Array(v.length);
+  for (let i = 1; i < n.length; i += 3) n[i] = 1;
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.axPos); gl.bufferData(gl.ARRAY_BUFFER, G.axVerts, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.axNrm); gl.bufferData(gl.ARRAY_BUFFER, n, gl.STATIC_DRAW);
+  G.axKey = `${S.openfield.lambda}|${S.openfield.surfSrc}`;
+}
+
+function buildSurface(){
+  const st = S.openfield, wave = st.surfSrc === "wave";
+  const norm = wave ? 2.2 : 1/Math.sqrt(accMax());
+  for (let j = 0; j < SY; j++){
+    const fy = clamp(Math.round(MARGIN + (FH-2*MARGIN)*j/(SY-1)), 0, FH-1);
+    for (let i = 0; i < SX; i++){
+      const fx = clamp(Math.round(MARGIN + (FW-2*MARGIN)*i/(SX-1)), 0, FW-1);
+      const idx = fy*FW + fx;
+      surfH[j*SX+i] = solid[idx] ? 0
+        : (wave ? uCur[idx]*norm : Math.sqrt(Math.max(acc[idx],0))*norm);
+    }
+  }
+  const hs = st.hscale;
+  for (let j = 0; j < SY; j++) for (let i = 0; i < SX; i++){
+    const k = j*SX+i;
+    surfPos[k*3]   = -1 + 2*i/(SX-1);
+    surfPos[k*3+1] = surfH[k]*hs;
+    surfPos[k*3+2] = -ZH + 2*ZH*j/(SY-1);
+  }
+  const dx = 2/(SX-1), dz = 2*ZH/(SY-1);
+  for (let j = 0; j < SY; j++) for (let i = 0; i < SX; i++){
+    const k = j*SX+i;
+    const hl = surfH[j*SX + Math.max(i-1,0)]*hs, hr = surfH[j*SX + Math.min(i+1,SX-1)]*hs;
+    const hd = surfH[Math.max(j-1,0)*SX + i]*hs, hu = surfH[Math.min(j+1,SY-1)*SX + i]*hs;
+    let nx = -(hr-hl)/(2*dx), ny = 1, nz = -(hu-hd)/(2*dz);
+    const l = Math.hypot(nx,ny,nz) || 1;
+    surfNrm[k*3] = nx/l; surfNrm[k*3+1] = ny/l; surfNrm[k*3+2] = nz/l;
+  }
+}
+
+function drawSurface(){
+  const W = els.surface.width, H = els.surface.height;
+  ctxLab.clearRect(0,0,W,H);
+  if (!glReady){
+    ctxLab.fillStyle = "rgba(220,227,240,.55)";
+    ctxLab.font = "22px " + getComputedStyle(document.body).fontFamily;
+    ctxLab.textAlign = "center";
+    ctxLab.fillText(glMsg || "3D preview unavailable", W/2, H/2);
+    els.surfBadge.textContent = "unavailable";
+    return;
+  }
+  const st = S.openfield, tint = fieldTint();
+  buildSurface();
+  if (G.axKey !== `${st.lambda}|${st.surfSrc}`) buildAxes();
+
+  gl.viewport(0,0,W,H);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(G.prog);
+  const mvp = currentMVP();
+  gl.uniformMatrix4fv(G.uMVP, false, mvp);
+  gl.uniform3f(G.uTint, tint[0]/255, tint[1]/255, tint[2]/255);
+  gl.uniform1f(G.uSpan, st.surfSrc === "wave" ? 1.0*st.hscale : 0.7*st.hscale);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.pos);
+  gl.bufferData(gl.ARRAY_BUFFER, surfPos, gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(G.aPos); gl.vertexAttribPointer(G.aPos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.nrm);
+  gl.bufferData(gl.ARRAY_BUFFER, surfNrm, gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(G.aNrm); gl.vertexAttribPointer(G.aNrm, 3, gl.FLOAT, false, 0, 0);
+
+  gl.uniform4f(G.uFlat, 0,0,0,0);
+  gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.2, 1.2);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.idx);
+  gl.drawElements(gl.TRIANGLES, G.triCount, gl.UNSIGNED_SHORT, 0);
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+
+  if (st.wire){
+    gl.uniform4f(G.uFlat, 0.72, 0.78, 0.88, 1);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G.wire);
+    gl.drawElements(gl.LINES, G.wireCount, gl.UNSIGNED_SHORT, 0);
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.axPos);
+  gl.vertexAttribPointer(G.aPos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.axNrm);
+  gl.vertexAttribPointer(G.aNrm, 3, gl.FLOAT, false, 0, 0);
+  gl.uniform4f(G.uFlat, 1.0, 0.84, 0.47, 1);
+  gl.drawArrays(gl.LINES, 0, G.axCount);
+
+  /* labels and probe markers, projected with the same matrix */
+  ctxLab.font = "17px " + getComputedStyle(document.body).fontFamily;
+  ctxLab.fillStyle = "rgba(226,232,244,.82)";
+  for (const L of G.labels){
+    const q = projectPt(mvp, L.p[0], L.p[1], L.p[2]);
+    if (q[2] <= 0) continue;
+    ctxLab.textAlign = L.a;
+    ctxLab.fillText(L.t, (q[0]*0.5+0.5)*W, (1 - (q[1]*0.5+0.5))*H);
+  }
+  const wave = st.surfSrc === "wave";
+  const nrm = wave ? 2.2 : 1/Math.sqrt(accMax());
+  for (const p of world.probes){
+    const h = (wave ? sampleU(p.x,p.y)*nrm : Math.sqrt(Math.max(sampleAcc(p.x,p.y),0))*nrm)*st.hscale;
+    const q = projectPt(mvp, cellX(p.x), h, cellZ(p.y));
+    if (q[2] <= 0) continue;
+    const px = (q[0]*0.5+0.5)*W, py = (1 - (q[1]*0.5+0.5))*H;
+    ctxLab.fillStyle = "rgba(255,214,120,.95)";
+    ctxLab.beginPath(); ctxLab.arc(px, py, 5, 0, TAU); ctxLab.fill();
+    ctxLab.textAlign = "left";
+    ctxLab.fillText(p.label, px+9, py-7);
+  }
+  const c = st.cam;
+  els.surfBadge.textContent =
+    `${SX}×${SY} mesh · azim ${fmt(c.azim,0)}° elev ${fmt(c.elev,0)}° · export carries ${FW}×${FH}`;
+}
+
+/* orbit and zoom */
+let camDrag = null;
+els.surface.addEventListener("pointerdown", ev => {
+  ev.preventDefault();
+  els.surface.setPointerCapture(ev.pointerId);
+  camDrag = { x:ev.clientX, y:ev.clientY };
+  els.surface.style.cursor = "grabbing";
+});
+els.surface.addEventListener("pointermove", ev => {
+  if (!camDrag) return;
+  const c = S.openfield.cam;
+  c.azim -= (ev.clientX - camDrag.x)*0.35;
+  c.elev = clamp(c.elev + (ev.clientY - camDrag.y)*0.30, -88, 88);
+  while (c.azim > 180) c.azim -= 360;
+  while (c.azim < -180) c.azim += 360;
+  camDrag = { x:ev.clientX, y:ev.clientY };
+});
+window.addEventListener("pointerup", () => {
+  if (camDrag){ camDrag = null; els.surface.style.cursor = "grab"; }
+});
+els.surface.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const c = S.openfield.cam;
+  c.dist = clamp(c.dist*Math.exp(ev.deltaY*0.0014), 1.1, 9);
+}, { passive:false });
+
+const VIEWS = {
+  iso:    { azim:-35, elev:30,  dist:3.1 },
+  top:    { azim:0,   elev:88,  dist:2.9 },
+  front:  { azim:0,   elev:4,   dist:3.0 },
+  side:   { azim:90,  elev:6,   dist:2.6 },
+  bottom: { azim:0,   elev:-72, dist:3.1 }
+};
+function setCamView(k){ Object.assign(S.openfield.cam, VIEWS[k]); }
+
+/* ---- precision helpers ---- */
+function cellsPerPixel(){
+  const r = els.field.getBoundingClientRect();
+  return r && r.width ? FW/r.width : 0.4;
+}
+/* grab radius is defined in screen pixels, so it feels the same whatever the
+   tank size or window width */
+function grabR(){ return clamp(11*cellsPerPixel(), 3, 16); }
+function snapVal(v){ const q = S.openfield.snap; return q ? Math.round(v/q)*q : v; }
+function snapPt(g){ return { x:snapVal(g.x), y:snapVal(g.y) }; }
+function axisLock(on, anchor, p){
+  if (!on) return p;
+  const dx = p.x-anchor.x, dy = p.y-anchor.y;
+  const r = Math.hypot(dx,dy);
+  const q = Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
+  return { x: anchor.x + r*Math.cos(q), y: anchor.y + r*Math.sin(q) };
+}
+
+function gridFromEvent(e){
+  const r = els.field.getBoundingClientRect();
+  return {
+    x: clamp((e.clientX-r.left)/r.width*FW, 1, FW-2),
+    y: clamp((e.clientY-r.top)/r.height*FH, 1, FH-2)
+  };
+}
+
+/* ---- resize handles ---- */
+function handlesFor(sel){
+  if (!sel) return [];
+  const o = sel.obj;
+  if (sel.kind === "shape"){
+    if (o.type === "disc"){
+      const hs = [{ id:"r", x:o.x+o.r, y:o.y, tip:"radius" }];
+      if (o.inner > 0) hs.push({ id:"inner", x:o.x-o.inner, y:o.y, tip:"bore" });
+      return hs;
+    }
+    if (o.type === "parabola"){
+      const [fx,fy] = toWorld(o, o.f, 0);
+      const [ax,ay] = toWorld(o, o.span*o.span/(4*o.f), o.span);
+      return [{ id:"f", x:fx, y:fy, tip:"focus" },
+              { id:"span", x:ax, y:ay, tip:"aperture" },
+              rotHandle(o, o.f + 26)];
+    }
+    if (o.type === "mirror"){
+      const half = arcHalf(o);
+      const [fx,fy] = toWorld(o, o.r/2, 0);
+      const [ax,ay] = toWorld(o, o.r + o.r*Math.cos(Math.PI-half), o.r*Math.sin(Math.PI-half));
+      return [{ id:"mr", x:fx, y:fy, tip:"focus" },
+              { id:"span", x:ax, y:ay, tip:"aperture" },
+              rotHandle(o, o.r/2 + 26)];
+    }
+    return [];
+  }
+  if (sel.kind === "medium"){
+    const [hx,hy] = toWorld(o, o.rx, 0);
+    const [vx,vy] = toWorld(o, 0, o.ry);
+    return [{ id:"rx", x:hx, y:hy, tip:"half width" },
+            { id:"ry", x:vx, y:vy, tip:"half height" },
+            rotHandle(o, Math.max(o.rx,o.ry) + 26)];
+  }
+  if (sel.kind === "wall") return [
+    { id:"w1", x:o.x1, y:o.y1, tip:"end" },
+    { id:"w2", x:o.x2, y:o.y2, tip:"end" }];
+  if (sel.kind === "emitter" && o.kind === "plane") return [
+    { id:"e1", x:o.x,  y:o.y,  tip:"end" },
+    { id:"e2", x:o.x2, y:o.y2, tip:"end" }];
+  if (sel.kind === "slit" || sel.kind === "barrier"){
+    const sl = sel.sub || o.slits[0];
+    if (!sl) return [];
+    return [{ id:"gw", x:o.x, y:sl.y - sl.w/2, sub:sl, tip:"gap" }];
+  }
+  return [];
+}
+function rotHandle(o, dist){
+  const [x,y] = toWorld(o, dist, 0);
+  return { id:"rot", x, y, tip:"rotate" };
+}
+function hitHandle(g){
+  const R = grabR();
+  for (const h of handlesFor(selected))
+    if (Math.hypot(h.x-g.x, h.y-g.y) < R) return { kind:"handle", obj:selected.obj, h };
+  return null;
+}
+function applyHandle(d, g, shift){
+  const o = d.obj, id = d.h.id;
+  const gx = snapVal(g.x), gy = snapVal(g.y);
+  switch (id){
+    case "rot": {
+      let a = Math.atan2(g.y-o.y, g.x-o.x)*180/Math.PI;
+      if (shift) a = Math.round(a/15)*15;
+      o.rot = Math.round(a*10)/10;
+      rebuildSolid(); rebuildMedia(); break;
+    }
+    case "r":    o.r  = clamp(Math.round(Math.hypot(gx-o.x, gy-o.y)), 2, 160);
+                 if (o.inner >= o.r) o.inner = o.r-2;
+                 rebuildSolid(); break;
+    case "inner":o.inner = clamp(Math.round(Math.hypot(gx-o.x, gy-o.y)), 0, o.r-2); rebuildSolid(); break;
+    case "mr": { const [lx] = toLocal(o, gx, gy);
+                 o.r = clamp(Math.round(Math.abs(lx)*2), 12, 300);
+                 if (o.span > o.r*0.95) o.span = Math.round(o.r*0.95);
+                 rebuildSolid(); break; }
+    case "rx": { const [lx] = toLocal(o, gx, gy); o.rx = clamp(Math.round(Math.abs(lx)), 3, 240); rebuildMedia(); break; }
+    case "ry": { const [,ly] = toLocal(o, gx, gy); o.ry = clamp(Math.round(Math.abs(ly)), 3, 140); rebuildMedia(); break; }
+    case "rxry": { const [lx,ly] = toLocal(o, gx, gy);
+                 o.rx = clamp(Math.round(Math.abs(lx)), 3, 240);
+                 o.ry = clamp(Math.round(Math.abs(ly)), 3, 140); rebuildMedia(); break; }
+    case "f": { const [lx] = toLocal(o, gx, gy); o.f = clamp(Math.round(lx), 6, 260); rebuildSolid(); break; }
+    case "span": { const [,ly] = toLocal(o, gx, gy); o.span = clamp(Math.round(Math.abs(ly)), 8, 140); rebuildSolid(); break; }
+    case "fspan": { const [lx,ly] = toLocal(o, gx, gy);
+                 o.f = clamp(Math.round(Math.abs(lx)), 6, 260);
+                 o.span = clamp(Math.round(Math.abs(ly)), 8, 140); rebuildSolid(); break; }
+    case "w1": { const p = axisLock(shift, { x:o.x2, y:o.y2 }, { x:gx, y:gy }); o.x1 = p.x; o.y1 = p.y; rebuildSolid(); break; }
+    case "w2": { const p = axisLock(shift, { x:o.x1, y:o.y1 }, { x:gx, y:gy }); o.x2 = p.x; o.y2 = p.y; rebuildSolid(); break; }
+    case "e1": { const p = axisLock(shift, { x:o.x2, y:o.y2 }, { x:gx, y:gy }); o.x  = p.x; o.y  = p.y; break; }
+    case "e2": { const p = axisLock(shift, { x:o.x,  y:o.y  }, { x:gx, y:gy }); o.x2 = p.x; o.y2 = p.y; break; }
+    case "gw": {
+      const w = clamp(Math.round(2*Math.abs(d.h.sub.y - gy)), 2, 90);
+      o.slits.forEach(q => q.w = w); rebuildSolid(); break;
+    }
+  }
+}
+
+/* ---- undo ---- */
+const undoStack = [];
+function snapshot(){
+  undoStack.push({
+    e: world.emitters.map(o => ({...o})),
+    b: world.barriers.map(o => ({...o, slits:o.slits.map(q => ({...q})) })),
+    w: world.walls.map(o => ({...o})),
+    s: world.shapes.map(o => ({...o})),
+    m: world.media.map(o => ({...o})),
+    p: world.probes.map(o => ({ id:o.id, x:o.x, y:o.y, label:o.label })),
+    paint: paint.slice(), uid
+  });
+  if (undoStack.length > 20) undoStack.shift();
+}
+function undo(){
+  const k = undoStack.pop();
+  if (!k) return;
+  world.emitters = k.e; world.barriers = k.b; world.walls = k.w;
+  world.shapes = k.s; world.media = k.m;
+  world.probes = k.p.map(q => { const np = newProbe(q.x, q.y, q.label); np.id = q.id; return np; });
+  paint = k.paint; uid = k.uid;
+  selected = null;
+  rebuildSolid(); rebuildMedia();
+  buildControls(); drawOpenField(); drawMath();
+}
+
+function hitTest(g){
+  const R = grabR();
+  for (const p of world.probes) if (Math.hypot(p.x-g.x, p.y-g.y) < R) return { kind:"probe", obj:p };
+  for (const e of world.emitters){
+    if (Math.hypot(e.x-g.x, e.y-g.y) < R) return { kind:"emitter", obj:e };
+    if (e.kind === "plane"){
+      const dx = e.x2-e.x, dy = e.y2-e.y, L2 = dx*dx+dy*dy || 1;
+      const t = clamp(((g.x-e.x)*dx + (g.y-e.y)*dy)/L2, 0, 1);
+      if (Math.hypot(e.x+dx*t-g.x, e.y+dy*t-g.y) < R)
+        return { kind:"emitter", obj:e, grab:{ x:g.x-e.x, y:g.y-e.y } };
+    }
+  }
+  for (const b of world.barriers){
+    if (Math.abs(b.x-g.x) < R){
+      for (const sl of b.slits) if (Math.abs(sl.y-g.y) < sl.w/2 + R) return { kind:"slit", obj:b, sub:sl };
+      return { kind:"barrier", obj:b };
+    }
+  }
+  for (const sh of world.shapes){
+    const d = Math.hypot(sh.x-g.x, sh.y-g.y);
+    if (sh.type === "disc" && d < sh.r + R*0.5) return { kind:"shape", obj:sh, grab:{ x:g.x-sh.x, y:g.y-sh.y } };
+    if (sh.type === "mirror"){
+      const [lx,ly] = toLocal(sh, g.x, g.y);
+      if (Math.abs(Math.hypot(lx - sh.r, ly) - sh.r) < sh.th + R && Math.abs(ly) < sh.span + R)
+        return { kind:"shape", obj:sh, grab:{ x:g.x-sh.x, y:g.y-sh.y } };
+    }
+    if (sh.type === "parabola" && Math.abs(g.y-sh.y) < sh.span + R &&
+        Math.abs(g.x - (sh.x + (g.y-sh.y)*(g.y-sh.y)/(4*sh.f))) < R+4)
+      return { kind:"shape", obj:sh, grab:{ x:g.x-sh.x, y:g.y-sh.y } };
+  }
+  for (const m of world.media){
+    const dx = (g.x-m.x)/m.rx, dy = (g.y-m.y)/m.ry;
+    if (m.type === "slab" ? (Math.abs(g.x-m.x) < m.rx && Math.abs(g.y-m.y) < m.ry) : (dx*dx+dy*dy <= 1.05))
+      return { kind:"medium", obj:m, grab:{ x:g.x-m.x, y:g.y-m.y } };
+  }
+  for (const w of world.walls){
+    const dx = w.x2-w.x1, dy = w.y2-w.y1, L2 = dx*dx+dy*dy || 1;
+    const t = clamp(((g.x-w.x1)*dx + (g.y-w.y1)*dy)/L2, 0, 1);
+    if (Math.hypot(w.x1+dx*t-g.x, w.y1+dy*t-g.y) < R)
+      return { kind:"wall", obj:w, grab:{ x:g.x-w.x1, y:g.y-w.y1 } };
+  }
+  return null;
+}
+function snapToMerge(g){
+  let best = null, bd = grabR();
+  for (const m of mergePts){ const d = Math.hypot(m.x-g.x, m.y-g.y); if (d < bd){ bd = d; best = m; } }
+  return best ? { x:best.x, y:best.y } : snapPt(g);
+}
+function nextProbeLabel(){
+  let n = 1; while (world.probes.some(p => p.label === "P"+n)) n++; return "P"+n;
+}
+function listFor(kind){
+  return ({ probe:world.probes, emitter:world.emitters, wall:world.walls, shape:world.shapes,
+            medium:world.media, barrier:world.barriers, slit:world.barriers })[kind];
+}
+function removeAt(g){
+  const h = hitTest(g);
+  if (!h) return false;
+  snapshot();
+  const l = listFor(h.kind);
+  if (l){ const i = l.indexOf(h.obj); if (i >= 0) l.splice(i,1); }
+  if (selected && selected.obj === h.obj) selected = null;
+  rebuildSolid(); rebuildMedia();
+  return true;
+}
+function deleteSelected(){
+  if (!selected) return;
+  snapshot();
+  const o = selected.obj;
+  if (selected.kind === "slit" && o.slits.length > 1){
+    const j = o.slits.indexOf(selected.sub);
+    if (j >= 0) o.slits.splice(j,1);
+    selected = { kind:"barrier", obj:o };
+  } else {
+    const l = listFor(selected.kind), i = l.indexOf(o);
+    if (i >= 0) l.splice(i,1);
+    selected = null;
+  }
+  rebuildSolid(); rebuildMedia(); buildControls(); drawOpenField(); drawMath();
+}
+function moveSelected(dx, dy){
+  if (!selected) return;
+  const o = selected.obj;
+  switch (selected.kind){
+    case "probe": case "emitter":
+      o.x = clamp(o.x+dx, 1, FW-2); o.y = clamp(o.y+dy, 1, FH-2);
+      if (o.kind === "plane"){ o.x2 = clamp(o.x2+dx, 1, FW-2); o.y2 = clamp(o.y2+dy, 1, FH-2); }
+      break;
+    case "slit": selected.sub.y = clamp(selected.sub.y+dy, 4, FH-5); rebuildSolid(); break;
+    case "barrier": o.x = clamp(o.x+dx, MARGIN, FW-MARGIN-20); rebuildSolid(); break;
+    case "shape": o.x += dx; o.y += dy; rebuildSolid(); break;
+    case "medium": o.x += dx; o.y += dy; rebuildMedia(); break;
+    case "wall": o.x1 += dx; o.y1 += dy; o.x2 += dx; o.y2 += dy; rebuildSolid(); break;
+  }
+  buildControls(); drawOpenField(); drawMath();
+}
+
+let ofDrag = null, brushing = false, scenePan = null;
+
+/* Moving the whole scene keeps every relative distance, so a layout you have
+   tuned stays tuned — you are only changing where it sits in the tank. */
+function startScenePan(g){
+  scenePan = {
+    sx: g.x, sy: g.y,
+    e: world.emitters.map(o => ({ x:o.x, y:o.y, x2:o.x2, y2:o.y2 })),
+    b: world.barriers.map(o => ({ x:o.x, sl:o.slits.map(q => q.y) })),
+    w: world.walls.map(o => ({ x1:o.x1, y1:o.y1, x2:o.x2, y2:o.y2 })),
+    s: world.shapes.map(o => ({ x:o.x, y:o.y })),
+    m: world.media.map(o => ({ x:o.x, y:o.y })),
+    p: world.probes.map(o => ({ x:o.x, y:o.y })),
+    paint: paint.slice()
+  };
+}
+function applyScenePan(dx, dy){
+  const k = scenePan;
+  world.emitters.forEach((o,i) => { const q = k.e[i]; o.x = q.x+dx; o.y = q.y+dy; o.x2 = q.x2+dx; o.y2 = q.y2+dy; });
+  world.barriers.forEach((o,i) => { const q = k.b[i]; o.x = q.x+dx; o.slits.forEach((sl,j) => sl.y = q.sl[j]+dy); });
+  world.walls.forEach((o,i) => { const q = k.w[i]; o.x1 = q.x1+dx; o.y1 = q.y1+dy; o.x2 = q.x2+dx; o.y2 = q.y2+dy; });
+  world.shapes.forEach((o,i) => { const q = k.s[i]; o.x = q.x+dx; o.y = q.y+dy; });
+  world.media.forEach((o,i) => { const q = k.m[i]; o.x = q.x+dx; o.y = q.y+dy; });
+  world.probes.forEach((o,i) => { const q = k.p[i]; o.x = q.x+dx; o.y = q.y+dy; });
+  const ix = Math.round(dx), iy = Math.round(dy);
+  paint.fill(0);
+  if (ix || iy){
+    for (let y = 0; y < FH; y++){
+      const sy = y - iy; if (sy < 0 || sy >= FH) continue;
+      for (let x = 0; x < FW; x++){
+        const sx = x - ix; if (sx < 0 || sx >= FW) continue;
+        if (k.paint[sy*FW+sx]) paint[y*FW+x] = 1;
+      }
+    }
+  } else paint.set(k.paint);
+  rebuildSolid(); rebuildMedia();
+}
+function moveAllBy(dx, dy){
+  snapshot(); startScenePan({ x:0, y:0 }); applyScenePan(dx, dy); scenePan = null;
+}
+function ofDown(ev){
+  if (S.module !== "openfield") return;
+  ev.preventDefault();
+  try { els.field.setPointerCapture(ev.pointerId); } catch(e){}
+  const raw = gridFromEvent(ev), g = snapPt(raw), st = S.openfield;
+
+  /* Move never grabs a handle, so you can reposition something without any
+     risk of resizing it. Alt does the same from whatever tool is active. */
+  if (OF.tool === "move" || ev.altKey){
+    const h = hitTest(raw);
+    snapshot();
+    if (h){ selected = h; ofDrag = h; }
+    else startScenePan(raw);
+    buildControls(); drawOpenField(); drawMath();
+    return;
+  }
+
+  /* a handle on the current selection always wins over anything underneath */
+  if (OF.tool === "select"){
+    const hh = hitHandle(raw);
+    if (hh){ snapshot(); ofDrag = hh; return; }
+  }
+  switch (OF.tool){
+    case "emitter": {
+      snapshot();
+      const e = { id:uid++, kind:"point", mode:st.srcMode, x:g.x, y:g.y, x2:g.x, y2:g.y-40,
+                  lam:st.lambda, phase:0, amp:1, on:true, vx:0, vy:0, t0:simStep };
+      world.emitters.push(e); selected = { kind:"emitter", obj:e };
+      break;
+    }
+    case "plane": snapshot(); pendingPlane = { x:g.x, y:g.y, x2:g.x, y2:g.y }; break;
+    case "wall":  snapshot(); pendingWall = { x1:g.x, y1:g.y, x2:g.x, y2:g.y }; break;
+    case "brush": snapshot(); brushing = true; stamp(raw.x, raw.y, st.brush); rebuildSolid(); break;
+    case "disc": {
+      snapshot();
+      const sh = { id:uid++, type:"disc", x:g.x, y:g.y, r:2, inner:0, rot:0, absorb:0 };
+      world.shapes.push(sh); selected = { kind:"shape", obj:sh };
+      rebuildSolid();
+      ofDrag = { kind:"handle", obj:sh, h:{ id:"r" } };   /* drag straight out to size it */
+      break;
+    }
+    case "mirror": {
+      snapshot();
+      const sh = { id:uid++, type:"parabola", x:g.x, y:g.y, f:14, span:18, r:28, th:3, rot:0, absorb:0 };
+      world.shapes.push(sh); selected = { kind:"shape", obj:sh };
+      rebuildSolid();
+      ofDrag = { kind:"handle", obj:sh, h:{ id:"fspan" } };
+      break;
+    }
+    case "lens": {
+      snapshot();
+      const m = { id:uid++, type:"lens", x:g.x, y:g.y, rx:4, ry:4, n:1.5, rot:0 };
+      world.media.push(m); selected = { kind:"medium", obj:m };
+      rebuildMedia();
+      ofDrag = { kind:"handle", obj:m, h:{ id:"rxry" } };
+      break;
+    }
+    case "probe": {
+      snapshot();
+      const sn = snapToMerge(raw);
+      const p = newProbe(sn.x, sn.y, nextProbeLabel());
+      world.probes.push(p); selected = { kind:"probe", obj:p };
+      break;
+    }
+    case "erase": removeAt(raw); break;
+    default: {
+      const h = hitTest(raw);
+      selected = h;
+      if (h){ snapshot(); ofDrag = h; }
+    }
+  }
+  buildControls(); drawOpenField(); drawMath();
+}
+function ofMove(ev){
+  if (S.module !== "openfield") return;
+  const raw = gridFromEvent(ev), st = S.openfield;
+  OF.cursor = raw;
+  if (scenePan){
+    let dx = raw.x - scenePan.sx, dy = raw.y - scenePan.sy;
+    if (ev.shiftKey){ if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+    applyScenePan(snapVal(dx), snapVal(dy));
+    return;
+  }
+  if (brushing){ stamp(raw.x, raw.y, st.brush); rebuildSolid(); return; }
+  if (pendingWall){
+    const p = axisLock(ev.shiftKey, { x:pendingWall.x1, y:pendingWall.y1 }, snapPt(raw));
+    pendingWall.x2 = p.x; pendingWall.y2 = p.y; return;
+  }
+  if (pendingPlane){
+    const p = axisLock(ev.shiftKey, { x:pendingPlane.x, y:pendingPlane.y }, snapPt(raw));
+    pendingPlane.x2 = p.x; pendingPlane.y2 = p.y; return;
+  }
+  if (!ofDrag){
+    const moveMode = OF.tool === "move" || ev.altKey;
+    OF.hover = OF.tool === "select" ? (hitHandle(raw) || hitTest(raw))
+             : moveMode ? hitTest(raw) : null;
+    els.field.style.cursor = moveMode ? (OF.hover ? "grab" : "move")
+      : OF.tool !== "select" ? "crosshair"
+      : OF.hover ? (OF.hover.kind === "handle" ? "nwse-resize" : "grab") : "default";
+    return;
+  }
+  els.field.style.cursor = "grabbing";
+  if (ofDrag.kind === "handle"){ applyHandle(ofDrag, raw, ev.shiftKey); return; }
+  const g = snapPt(raw), o = ofDrag.obj;
+  switch (ofDrag.kind){
+    case "probe": o.x = g.x; o.y = g.y; break;
+    case "emitter":
+      if (o.kind === "plane" && ofDrag.grab){
+        const dx = o.x2-o.x, dy = o.y2-o.y;
+        o.x = g.x - ofDrag.grab.x; o.y = g.y - ofDrag.grab.y;
+        o.x2 = o.x + dx; o.y2 = o.y + dy;
+      } else { o.x = g.x; o.y = g.y; }
+      break;
+    case "slit": ofDrag.sub.y = clamp(g.y, 4, FH-5); rebuildSolid(); break;
+    case "barrier": o.x = clamp(g.x, MARGIN, FW-MARGIN-20); rebuildSolid(); break;
+    case "shape": o.x = g.x - ofDrag.grab.x; o.y = g.y - ofDrag.grab.y; rebuildSolid(); break;
+    case "medium": o.x = g.x - ofDrag.grab.x; o.y = g.y - ofDrag.grab.y; rebuildMedia(); break;
+    case "wall": {
+      const dx = o.x2-o.x1, dy = o.y2-o.y1;
+      o.x1 = g.x - ofDrag.grab.x; o.y1 = g.y - ofDrag.grab.y;
+      o.x2 = o.x1 + dx; o.y2 = o.y1 + dy;
+      rebuildSolid(); break;
+    }
+  }
+}
+function ofUp(){
+  if (pendingWall){
+    if (Math.hypot(pendingWall.x2-pendingWall.x1, pendingWall.y2-pendingWall.y1) > 3){
+      const w = { id:uid++, th:3, absorb:0, ...pendingWall };
+      world.walls.push(w); selected = { kind:"wall", obj:w };
+      rebuildSolid();
+    } else undoStack.pop();
+    pendingWall = null; buildControls();
+  }
+  if (pendingPlane){
+    const st = S.openfield;
+    if (Math.hypot(pendingPlane.x2-pendingPlane.x, pendingPlane.y2-pendingPlane.y) > 5){
+      const e = { id:uid++, kind:"plane", mode:st.srcMode, x:pendingPlane.x, y:pendingPlane.y,
+                  x2:pendingPlane.x2, y2:pendingPlane.y2, lam:st.lambda, phase:0, amp:1,
+                  on:true, vx:0, vy:0, t0:simStep, taper:0 };
+      world.emitters.push(e); selected = { kind:"emitter", obj:e };
+    } else undoStack.pop();
+    pendingPlane = null; buildControls();
+  }
+  if (ofDrag || scenePan) buildControls();
+  brushing = false;
+  ofDrag = null;
+  scenePan = null;
+}
+els.field.addEventListener("pointerdown", ofDown);
+els.field.addEventListener("pointermove", ofMove);
+els.field.addEventListener("pointerleave", () => { OF.cursor = null; OF.hover = null; });
+window.addEventListener("pointerup", ofUp);
+window.addEventListener("pointercancel", ofUp);
+els.field.style.touchAction = "none";
+
+window.addEventListener("keydown", e => {
+  if (S.module !== "openfield" || TOURSTATE.open) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); return; }
+  if (selected && (e.key === "Delete" || e.key === "Backspace")){ e.preventDefault(); deleteSelected(); return; }
+  const d = e.shiftKey ? 10 : 1;
+  let dx = 0, dy = 0;
+  if (e.key === "ArrowLeft") dx = -d;
+  else if (e.key === "ArrowRight") dx = d;
+  else if (e.key === "ArrowUp") dy = -d;
+  else if (e.key === "ArrowDown") dy = d;
+  else return;
+  e.preventDefault();
+  if (selected){ snapshot(); moveSelected(dx, dy); }
+  else { moveAllBy(dx, dy); buildControls(); drawOpenField(); drawMath(); }
+});
+
+/* ---- export ---- */
+function rle(mask){
+  const out = []; let cur = mask[0], run = 0;
+  for (let i = 0; i < mask.length; i++){
+    if (mask[i] === cur) run++;
+    else { out.push(run); cur = mask[i]; run = 1; }
+  }
+  out.push(run);
+  return { first: mask[0], runs: out };
+}
+function exportWorld(){
+  const step = 2, gw = Math.floor(FW/step), gh = Math.floor(FH/step);
+  const m = accMax(), w = driveOmega(), grid = [];
+  for (let y = 0; y < gh; y++){
+    const row = [];
+    for (let x = 0; x < gw; x++){
+      const i = y*step*FW + x*step;
+      row.push(solid[i] ? null : +Math.sqrt(Math.max(acc[i],0)/m).toFixed(4));
+    }
+    grid.push(row);
+  }
+  const payload = {
+    format: "interference-lab/openfield", version: 2,
+    grid: { w:FW, h:FH, waveSpeed:C, margin:MARGIN, step:simStep },
+    medium: S.openfield.medium,
+    emitters: world.emitters.map(e => ({ id:e.id, kind:e.kind, mode:e.mode,
+      x:+e.x.toFixed(2), y:+e.y.toFixed(2), x2:+e.x2.toFixed(2), y2:+e.y2.toFixed(2),
+      wavelength:e.lam, phaseDeg:e.phase, amplitude:e.amp, velocity:[e.vx,e.vy], on:e.on })),
+    barriers: world.barriers.map(b => ({ id:b.id, x:+b.x.toFixed(2), absorption:b.absorb||0,
+      slits:b.slits.map(sl => ({ y:+sl.y.toFixed(2), width:sl.w })) })),
+    walls: world.walls.map(q => ({ id:q.id, x1:+q.x1.toFixed(2), y1:+q.y1.toFixed(2),
+      x2:+q.x2.toFixed(2), y2:+q.y2.toFixed(2), thickness:q.th||3, absorption:q.absorb||0 })),
+    shapes: world.shapes.map(sh => ({ ...sh, x:+sh.x.toFixed(2), y:+sh.y.toFixed(2) })),
+    media: world.media.map(md => ({ id:md.id, type:md.type, x:+md.x.toFixed(2), y:+md.y.toFixed(2),
+      rx:md.rx, ry:md.ry, rotationDeg:md.rot||0, refractiveIndex:md.n,
+      waveSpeed:+(C/md.n).toFixed(4) })),
+    brushMask: rle(paint),
+    probes: world.probes.map(p => {
+      const f = probeFit(p, w);
+      const trace = [];
+      for (let k = 0; k < p.n; k++) trace.push(+p.buf[(p.head - p.n + k + 2*PROBE_LEN) % PROBE_LEN].toFixed(4));
+      return { id:p.id, label:p.label, x:+p.x.toFixed(2), y:+p.y.toFixed(2),
+               rms:+Math.sqrt(sampleAcc(p.x,p.y)/m).toFixed(4),
+               fittedAmplitude:+f.amp.toFixed(4), phaseDeg:+(f.phase*180/Math.PI).toFixed(2),
+               trace };
+    }),
+    mergePoints: mergePts.map(q => ({ x:q.x, y:q.y, relative:+q.v.toFixed(3), contrast:+q.contrast.toFixed(3) })),
+    heightfield: { step, w:gw, h:gh,
+      note:"normalised rms amplitude, row-major, null where an obstacle stands", data:grid }
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type:"application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "interference-field.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ---- the sandbox control panel ---- */
+const TOOLS = [["select","Select"],["move","Move"],["emitter","Point"],["plane","Plane"],["probe","Probe"],
+               ["erase","Erase"],["wall","Wall"],["brush","Brush"],["disc","Disc"],["mirror","Mirror"],
+               ["lens","Lens"]];
+const TOOL_TIPS = {
+  select:"Drag anything, or grab a white square handle to resize, re-aim or set a focal length.",
+  move:"Drag any object without touching its handles. Drag empty water and the whole scene moves together, keeping every spacing intact.",
+  emitter:"Click to drop a point source.",
+  plane:"Drag out a line to make a plane-wave front. Aim it at a lens or a mirror.",
+  probe:"Click to drop a marker that stays put and records a trace. Near a merge ring it snaps on.",
+  erase:"Click anything to remove it.",
+  wall:"Drag to draw a solid wall at any angle. Hold Shift to lock it to 45° steps.",
+  brush:"Paint solid obstacles freehand. Hold and drag.",
+  disc:"Press and drag outwards to set the radius of a solid circular obstacle.",
+  mirror:"Press at the vertex and drag: sideways sets focal length, up or down sets aperture.",
+  lens:"Press at the centre and drag to size a refractive region. Waves travel slower inside."
+};
+function buildOpenFieldControls(){
+  const st = S.openfield, c = els.controls;
+  let h = `<div class="ctl"><div class="ctl-head"><label>Tool</label></div>
+    <div class="toolgrid" id="of-tools">${TOOLS.map(([k,n]) =>
+      `<button data-t="${k}" aria-pressed="${OF.tool===k}">${n}</button>`).join("")}</div>
+    <p class="note" id="of-tip"></p>
+    <div class="ctl-head" style="margin-top:12px"><label>Snap to</label></div>
+    <div class="seg" id="of-snap">
+      <button data-q="0"  aria-pressed="${st.snap===0}">Off</button>
+      <button data-q="5"  aria-pressed="${st.snap===5}">5</button>
+      <button data-q="10" aria-pressed="${st.snap===10}">10</button>
+      <button data-q="25" aria-pressed="${st.snap===25}">25</button>
+    </div>
+    <p class="note">Hold <span class="kbd">Alt</span> with any tool to move things without switching.
+      <span class="kbd">Shift</span> locks a drag to 45° steps, or to one axis when moving the whole scene.
+      Arrow keys nudge the selection one cell and <span class="kbd">Shift</span> ten; with nothing selected
+      they move everything. <span class="kbd">Ctrl</span>+<span class="kbd">Z</span> undoes.</p>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="of-undo">Undo</button>
+      <button class="btn" id="of-centre">Centre scene</button>
+    </div></div>`;
+
+  h += `<div class="ctl"><div class="ctl-head"><label>Render as</label></div>
+    <div class="seg" id="of-medium">
+      <button data-m="water" aria-pressed="${st.medium==="water"}">Water</button>
+      <button data-m="light" aria-pressed="${st.medium==="light"}">Light</button>
+    </div></div>`;
+  if (st.medium === "light") h += ctlSlider("of-tint", "Colour", st.tintnm, 390, 720, 1, "nm");
+
+  h += `<div class="ctl"><div class="ctl-head"><label>New sources emit</label></div>
+    <div class="seg" id="of-srcmode">
+      <button data-s="cw" aria-pressed="${st.srcMode==="cw"}">Continuous</button>
+      <button data-s="pulse" aria-pressed="${st.srcMode==="pulse"}">Single pulse</button>
+    </div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="of-fire">Fire pulses</button></div></div>`;
+
+  h += ctlSlider("of-lam", "λ for new sources", st.lambda, 8, 60, 1, "cells");
+  if (OF.tool === "brush") h += ctlSlider("of-brush", "Brush radius", st.brush, 1, 12, 1, "cells");
+  h += ctlSlider("of-speed", "Steps per frame", st.speed, 1, 6, 1, "");
+  h += `<div class="ctl"><label class="check"><input type="checkbox" id="of-marks" ${st.marks?"checked":""}> Mark merge points</label></div>`;
+
+  if (selected){
+    const o = selected.obj;
+    const title = selected.kind === "probe" ? o.label
+                : selected.kind === "medium" ? "refractive region"
+                : selected.kind === "shape" ? o.type : selected.kind;
+    h += `<div class="ctl" style="border-top:1px solid var(--rail);padding-top:14px">
+      <div class="ctl-head"><label>Selected: ${title}</label></div>`;
+    if (selected.kind === "wall" || (selected.kind === "emitter" && o.kind === "plane")){
+      const ax = selected.kind === "wall" ? o.x1 : o.x, ay = selected.kind === "wall" ? o.y1 : o.y;
+      h += `<div class="numgrid">
+              ${numRow("of-px","from x",ax,1,FW-2,1)}${numRow("of-py","from y",ay,1,FH-2,1)}
+              ${numRow("of-qx","to x",o.x2,1,FW-2,1)}${numRow("of-qy","to y",o.y2,1,FH-2,1)}
+            </div>
+            <p class="note">length ${fmt(Math.hypot(o.x2-ax, o.y2-ay),1)} cells, angle ${fmt(Math.atan2(o.y2-ay,o.x2-ax)*180/Math.PI,1)}°</p>`;
+      if (selected.kind === "wall")
+        h += ctlSlider("of-w-th","Thickness",o.th||3,1,14,1,"cells") + absorbBlock(o);
+    } else if (selected.kind !== "slit" && selected.kind !== "barrier"){
+      h += `<div class="numgrid">
+              ${numRow("of-px","x",fmt(o.x,1),1,FW-2,0.5)}${numRow("of-py","y",fmt(o.y,1),1,FH-2,0.5)}
+            </div>`;
+    } else {
+      h += `${numRow("of-px","barrier x",fmt(o.x,1),MARGIN,FW-MARGIN-20,0.5)}`;
+    }
+    if (selected.kind === "emitter"){
+      h += `<div class="seg" id="of-e-mode" style="margin-bottom:12px">
+              <button data-m="cw" aria-pressed="${o.mode!=="pulse"}">Continuous</button>
+              <button data-m="pulse" aria-pressed="${o.mode==="pulse"}">Pulse</button>
+            </div>`;
+      if (o.kind === "plane")
+        h += ctlSlider("of-e-tap","Edge taper",o.taper||0,0,1,.05,"")
+           + `<p class="note">A hard-edged beam diffracts off its own ends. Taper softens them, so what
+              spreads downstream is the aperture you meant rather than the edges of the source.</p>`;
+      h += ctlSlider("of-e-lam","Wavelength",o.lam,8,60,1,"cells")
+         + numRow("of-n-lam","exact \u03bb",o.lam,4,120,1)
+         + ctlSlider("of-e-ph","Phase",o.phase,0,355,5,"°")
+         + ctlSlider("of-e-amp","Amplitude",o.amp,0.1,2,.05,"")
+         + ctlSlider("of-e-vx","Drift across",o.vx,-8,8,.5,"")
+         + ctlSlider("of-e-vy","Drift down",o.vy,-8,8,.5,"")
+         + `<div class="numgrid">${numRow("of-n-ph","exact phase",o.phase,0,359,1)}${numRow("of-n-amp","exact amp",fmt(o.amp,2),0.05,3,0.05)}</div>`
+         + `<label class="check"><input type="checkbox" id="of-e-on" ${o.on?"checked":""}> Emitting</label>
+            <p class="note">Any drift above zero gives you Doppler: the wavefronts bunch ahead of the source and stretch behind it.</p>`;
+    } else if (selected.kind === "slit" || selected.kind === "barrier"){
+      h += ctlSlider("of-b-n","Slits",o.slits.length,1,12,1,"")
+         + ctlSlider("of-b-w","Gap width",o.slits[0].w,2,90,1,"cells")
+         + ctlSlider("of-b-sep","Slit spacing",slitSpacing(o),6,130,1,"cells")
+         + absorbBlock(o);
+    } else if (selected.kind === "medium"){
+      h += ctlSlider("of-m-rot","Rotation",o.rot||0,-180,180,1,"°")
+         + numRow("of-n-rot","exact angle",o.rot||0,-180,180,1)
+         + ctlSlider("of-m-n","Refractive index",o.n,1,2.6,.01,"")
+         + numRow("of-n-idx","exact index",fmt(o.n,2),1,2.6,0.01)
+         + ctlSlider("of-m-rx","Half width",o.rx,3,240,1,"cells")
+         + ctlSlider("of-m-ry","Half height",o.ry,3,140,1,"cells")
+         + `<div class="numgrid">${numRow("of-n-rx","exact rx",o.rx,3,240,1)}${numRow("of-n-ry","exact ry",o.ry,3,140,1)}</div>`
+         + `<div class="seg" id="of-m-type" style="margin-top:8px">
+              <button data-k="lens" aria-pressed="${o.type==="lens"}">Ellipse</button>
+              <button data-k="slab" aria-pressed="${o.type==="slab"}">Slab</button>
+            </div>
+            <p class="note">Wave speed inside is c/n = ${fmt(C/o.n,3)} cells per step. Critical angle ${fmt(Math.asin(clamp(1/o.n,-1,1))*180/Math.PI,1)}°.</p>`;
+    } else if (selected.kind === "shape" && o.type === "disc"){
+      h += ctlSlider("of-s-r","Radius",o.r,2,160,1,"cells")
+         + ctlSlider("of-s-inner","Bore",o.inner||0,0,Math.max(o.r-2,1),1,"cells")
+         + `<div class="numgrid">${numRow("of-n-r","exact radius",o.r,2,160,1)}${numRow("of-n-inner","exact bore",o.inner||0,0,158,1)}</div>`
+         + absorbBlock(o)
+         + `<p class="note">Open the bore and the ring becomes a cavity: waves entering through the gap
+            bounce inside and only certain wavelengths survive.</p>`;
+    } else if (selected.kind === "shape" && o.type === "parabola"){
+      h += `<div class="seg" id="of-s-kind" style="margin-bottom:12px">
+              <button data-k="parabola" aria-pressed="true">Parabolic</button>
+              <button data-k="mirror" aria-pressed="false">Spherical</button>
+            </div>`
+         + ctlSlider("of-s-f","Focal length",o.f,6,260,1,"cells")
+         + ctlSlider("of-s-span","Aperture",o.span,8,140,1,"cells")
+         + ctlSlider("of-s-rot","Rotation",o.rot||0,-180,180,1,"°")
+         + `<div class="numgrid">${numRow("of-n-f","exact f",o.f,6,260,1)}${numRow("of-n-span","exact span",o.span,8,140,1)}</div>`
+         + numRow("of-n-rot","exact angle",o.rot||0,-180,180,1)
+         + absorbBlock(o)
+         + `<p class="note">A plane wave arriving along the axis converges on the marked focus, whatever
+            direction you rotate it to. Switch to spherical to see the aberration a parabola does not have.</p>`;
+    } else if (selected.kind === "shape" && o.type === "mirror"){
+      h += `<div class="seg" id="of-s-kind" style="margin-bottom:12px">
+              <button data-k="parabola" aria-pressed="false">Parabolic</button>
+              <button data-k="mirror" aria-pressed="true">Spherical</button>
+            </div>`
+         + ctlSlider("of-s-mr","Focal length",o.r/2,6,150,1,"cells")
+         + ctlSlider("of-s-span","Aperture",o.span,8,140,1,"cells")
+         + ctlSlider("of-s-rot","Rotation",o.rot||0,-180,180,1,"°")
+         + numRow("of-n-rot","exact angle",o.rot||0,-180,180,1)
+         + absorbBlock(o)
+         + `<p class="note">Radius of curvature ${fmt(o.r,0)} cells, so the focus sits at ${fmt(o.r/2,0)}.
+            Widen the aperture and the outer parts of the mirror stop meeting it — that is spherical
+            aberration, and it is why telescopes use parabolas.</p>`;
+    } else if (selected.kind === "probe"){
+      const mm = accMax(), f = probeFit(o, driveOmega());
+      h += `<p class="note">rms ${fmt(Math.sqrt(sampleAcc(o.x,o.y)/mm),3)}, fitted amplitude ${fmt(f.amp,3)}, phase ${fmt(f.phase*180/Math.PI,1)}°. Position ${fmt(o.x,0)}, ${fmt(o.y,0)}.</p>`;
+    }
+    h += `<div class="row" style="margin-top:10px"><button class="btn" id="of-del">Delete</button></div></div>`;
+  }
+
+  h += `<div class="ctl" style="border-top:1px solid var(--rail);padding-top:14px">
+    <div class="ctl-head"><label>3D preview</label></div>
+    <div class="seg" id="of-surfsrc">
+      <button data-k="int" aria-pressed="${st.surfSrc==="int"}">Settled</button>
+      <button data-k="wave" aria-pressed="${st.surfSrc==="wave"}">Live wave</button>
+    </div>
+    <div class="toolgrid" id="of-views" style="margin-top:8px">
+      ${["iso","top","front","side","bottom"].map(k =>
+        `<button data-v="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join("")}
+    </div>
+    ${ctlSlider("of-hscale","Height",st.hscale,.1,2,.05,"")}
+    <label class="check"><input type="checkbox" id="of-wire" ${st.wire?"checked":""}> Mesh lines</label>
+    <p class="note">Drag the preview to orbit and scroll to zoom. Top looks straight down at the fringe pattern,
+      Front puts the wave in profile, Bottom shows the underside of the surface.</p></div>`;
+
+  h += `<div class="ctl" style="border-top:1px solid var(--rail);padding-top:14px">
+    <div class="row">
+      <button class="btn" id="of-addbar">Add barrier</button>
+      <button class="btn" id="of-reset">Restart wave</button>
+      <button class="btn" id="of-clear">Clear all</button>
+      <button class="btn" id="of-seed">Example</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="of-demo-lens">Lens demo</button>
+      <button class="btn" id="of-demo-mirror">Mirror demo</button>
+    </div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="of-export">Export for 3D</button></div>
+    <p class="note">Export carries the emitters, obstacles, media, probe traces, merge points and the full-resolution height field.</p></div>`;
+
+  c.innerHTML = h;
+  $("of-tip").textContent = TOOL_TIPS[OF.tool];
+
+  c.querySelectorAll("#of-tools button").forEach(bt => bt.onclick = () => {
+    OF.tool = bt.dataset.t; selected = null; buildControls(); drawOpenField();
+  });
+  c.querySelectorAll("#of-medium button").forEach(bt => bt.onclick = () => {
+    st.medium = bt.dataset.m; buildControls(); accentFromModule(); drawOpenField(); redrawSecondary();
+  });
+  c.querySelectorAll("#of-srcmode button").forEach(bt => bt.onclick = () => {
+    st.srcMode = bt.dataset.s; buildControls();
+  });
+  c.querySelectorAll("#of-surfsrc button").forEach(bt => bt.onclick = () => {
+    st.surfSrc = bt.dataset.k; buildControls();
+  });
+  bindSlider("of-tint", v => { st.tintnm = v; accentFromModule(); redrawSecondary(); });
+  bindSlider("of-lam", v => { st.lambda = v; });
+  bindSlider("of-brush", v => { st.brush = v; });
+  bindSlider("of-speed", v => { st.speed = v; });
+  bindSlider("of-hscale", v => { st.hscale = v; });
+  c.querySelectorAll("#of-views button").forEach(bt => bt.onclick = () => setCamView(bt.dataset.v));
+  const wr = $("of-wire"); if (wr) wr.onchange = e => { st.wire = e.target.checked; };
+  const mk = $("of-marks"); if (mk) mk.onchange = e => { st.marks = e.target.checked; drawOpenField(); };
+  $("of-fire").onclick = triggerPulses;
+  $("of-undo").onclick = undo;
+  $("of-centre").onclick = () => {
+    const pts = [];
+    for (const o of world.emitters){ pts.push([o.x,o.y]); if (o.kind === "plane") pts.push([o.x2,o.y2]); }
+    for (const o of world.walls){ pts.push([o.x1,o.y1],[o.x2,o.y2]); }
+    for (const o of world.shapes) pts.push([o.x,o.y]);
+    for (const o of world.media) pts.push([o.x,o.y]);
+    for (const o of world.probes) pts.push([o.x,o.y]);
+    for (const b of world.barriers) for (const sl of b.slits) pts.push([b.x, sl.y]);
+    for (let i = 0; i < FN; i++) if (paint[i]){ pts.push([i%FW, (i/FW)|0]); break; }
+    if (!pts.length) return;
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const [x,y] of pts){ x0 = Math.min(x0,x); x1 = Math.max(x1,x); y0 = Math.min(y0,y); y1 = Math.max(y1,y); }
+    moveAllBy(Math.round(FW/2 - (x0+x1)/2), Math.round(FH/2 - (y0+y1)/2));
+    buildControls(); drawOpenField(); drawMath();
+  };
+  c.querySelectorAll("#of-snap button").forEach(bt => bt.onclick = () => {
+    st.snap = parseInt(bt.dataset.q, 10); buildControls();
+  });
+
+  if (selected){
+    const o = selected.obj;
+    bindSlider("of-e-lam", v => { o.lam = v; });
+    bindSlider("of-e-ph",  v => { o.phase = v; });
+    bindSlider("of-e-amp", v => { o.amp = v; });
+    bindSlider("of-e-vx",  v => { o.vx = v; });
+    bindSlider("of-e-vy",  v => { o.vy = v; });
+    const on = $("of-e-on"); if (on) on.onchange = e => { o.on = e.target.checked; };
+    bindSlider("of-b-n",   v => { setSlitCount(o, v); rebuildSolid(); buildControls(); });
+    bindSlider("of-b-w",   v => { o.slits.forEach(sl => sl.w = v); rebuildSolid(); });
+    bindSlider("of-b-sep", v => { setSlitSpacing(o, v); rebuildSolid(); });
+    bindSlider("of-m-n",   v => { o.n = v; rebuildMedia(); });
+    bindSlider("of-m-rx",  v => { o.rx = v; rebuildMedia(); });
+    bindSlider("of-m-ry",  v => { o.ry = v; rebuildMedia(); });
+    bindSlider("of-s-r",   v => { o.r = v; rebuildSolid(); });
+    bindSlider("of-s-f",   v => { o.f = v; rebuildSolid(); });
+    bindSlider("of-s-span",v => { o.span = v; rebuildSolid(); });
+    bindNum("of-n-r",    v => { o.r = clamp(v,2,160); rebuildSolid(); });
+    bindNum("of-n-f",    v => { o.f = clamp(v,6,260); rebuildSolid(); });
+    bindNum("of-n-span", v => { o.span = clamp(v,8,140); rebuildSolid(); });
+    bindNum("of-n-idx",  v => { o.n = clamp(v,1,2.6); rebuildMedia(); });
+    bindNum("of-n-rx",   v => { o.rx = clamp(v,3,240); rebuildMedia(); });
+    bindNum("of-n-ry",   v => { o.ry = clamp(v,3,140); rebuildMedia(); });
+    bindNum("of-n-lam",  v => { o.lam = clamp(v,4,120); });
+    bindNum("of-n-ph",   v => { o.phase = clamp(v,0,359); });
+    bindNum("of-n-amp",  v => { o.amp = clamp(v,0.05,3); });
+    bindNum("of-n-inner",v => { o.inner = clamp(v,0,Math.max(o.r-2,0)); rebuildSolid(); });
+    bindNum("of-n-rot",  v => { o.rot = clamp(v,-180,180); rebuildSolid(); rebuildMedia(); });
+    bindSlider("of-e-tap",   v => { o.taper = v; });
+    bindSlider("of-s-inner", v => { o.inner = v; rebuildSolid(); });
+    bindSlider("of-s-rot",   v => { o.rot = v; rebuildSolid(); });
+    bindSlider("of-m-rot",   v => { o.rot = v; rebuildMedia(); });
+    bindSlider("of-s-mr",    v => { o.r = v*2; if (o.span > o.r*0.95) o.span = Math.round(o.r*0.95);
+                                    rebuildSolid(); });
+
+    bindSlider("of-w-th",    v => { o.th = v; rebuildSolid(); });
+    bindSlider("of-absorb",  v => { o.absorb = v; rebuildSolid(); buildControls(); });
+    els.controls.querySelectorAll("#of-e-mode button").forEach(bt => bt.onclick = () => {
+      o.mode = bt.dataset.m; if (o.mode === "pulse") o.t0 = simStep;
+      buildControls(); drawOpenField();
+    });
+    els.controls.querySelectorAll("#of-s-kind button").forEach(bt => bt.onclick = () => {
+      const k = bt.dataset.k;
+      if (k === o.type) return;
+      if (k === "mirror"){
+        o.type = "mirror"; o.r = Math.round((o.f || 30)*2);
+        o.span = Math.round(Math.min(o.span || 40, o.r*0.95));
+      } else {
+        o.type = "parabola"; o.f = Math.round((o.r || 60)/2);
+      }
+      o.th = o.th || 3;
+      rebuildSolid(); buildControls(); drawOpenField();
+    });
+    if (selected.kind === "wall" || (selected.kind === "emitter" && o.kind === "plane")){
+      const isWall = selected.kind === "wall";
+      bindNum("of-px", v => { if (isWall) o.x1 = v; else o.x = v; rebuildSolid(); });
+      bindNum("of-py", v => { if (isWall) o.y1 = v; else o.y = v; rebuildSolid(); });
+      bindNum("of-qx", v => { o.x2 = v; rebuildSolid(); });
+      bindNum("of-qy", v => { o.y2 = v; rebuildSolid(); });
+    } else {
+      bindNum("of-px", v => { o.x = v; rebuildSolid(); rebuildMedia(); });
+      bindNum("of-py", v => { o.y = v; rebuildSolid(); rebuildMedia(); });
+    }
+    els.controls.querySelectorAll("#of-m-type button").forEach(bt => bt.onclick = () => {
+      o.type = bt.dataset.k; rebuildMedia(); buildControls(); drawOpenField();
+    });
+    $("of-del").onclick = deleteSelected;
+  }
+  $("of-addbar").onclick = () => {
+    const b = { id:uid++, x:190, slits:[{ y:FH/2, w:8 }] };
+    world.barriers.push(b); selected = { kind:"barrier", obj:b };
+    rebuildSolid(); buildControls(); drawOpenField();
+  };
+  $("of-reset").onclick = resetField;
+  $("of-clear").onclick = () => {
+    snapshot();
+    for (const k of ["emitters","barriers","walls","shapes","media","probes"]) world[k].length = 0;
+    paint.fill(0); selected = null;
+    rebuildSolid(); rebuildMedia(); resetField(); buildControls(); drawOpenField();
+  };
+  $("of-seed").onclick = () => {
+    snapshot(); seedWorld(); selected = null; rebuildSolid(); rebuildMedia(); resetField();
+    buildControls(); drawOpenField();
+  };
+  $("of-demo-lens").onclick = () => {
+    for (const k of ["emitters","barriers","walls","shapes","media","probes"]) world[k].length = 0;
+    paint.fill(0); uid = 1;
+    world.emitters.push({ id:uid++, kind:"plane", mode:"cw", x:60, y:MARGIN+8, x2:60, y2:FH-MARGIN-8,
+                          lam:18, phase:0, amp:1, on:true, vx:0, vy:0, t0:0 });
+    world.media.push({ id:uid++, type:"lens", x:210, y:FH/2, rx:28, ry:88, n:1.6 });
+    world.probes.push(newProbe(370, FH/2, "P1"));
+    selected = null; rebuildSolid(); rebuildMedia(); resetField();
+    buildControls(); drawOpenField();
+  };
+  $("of-demo-mirror").onclick = () => {
+    for (const k of ["emitters","barriers","walls","shapes","media","probes"]) world[k].length = 0;
+    paint.fill(0); uid = 1;
+    world.emitters.push({ id:uid++, kind:"plane", mode:"cw", x:470, y:MARGIN+10, x2:470, y2:FH-MARGIN-10,
+                          lam:16, phase:180, amp:1, on:true, vx:0, vy:0, t0:0 });
+    world.shapes.push({ id:uid++, type:"parabola", x:80, y:FH/2, f:70, span:110, th:3 });
+    world.probes.push(newProbe(150, FH/2, "focus"));
+    selected = null; rebuildSolid(); rebuildMedia(); resetField();
+    buildControls(); drawOpenField();
+  };
+  $("of-export").onclick = exportWorld;
+}
+function slitSpacing(b){
+  if (b.slits.length < 2) return 24;
+  return Math.round(Math.abs(b.slits[1].y - b.slits[0].y));
+}
+function setSlitCount(b, n){
+  const gap = slitSpacing(b), w = b.slits[0] ? b.slits[0].w : 8, half = (n-1)/2;
+  b.slits = [];
+  for (let i = 0; i < n; i++) b.slits.push({ y: clamp(FH/2 + (i-half)*gap, 4, FH-5), w });
+}
+function setSlitSpacing(b, gap){
+  const n = b.slits.length, half = (n-1)/2, w = b.slits[0].w;
+  b.slits = [];
+  for (let i = 0; i < n; i++) b.slits.push({ y: clamp(FH/2 + (i-half)*gap, 4, FH-5), w });
+}
+function absorbBlock(o){
+  const a = o.absorb || 0;
+  return ctlSlider("of-absorb","Absorption",a,0,1,.05,"")
+    + `<p class="note">${a < 0.04
+        ? "Rigid: reflects everything, so you get a standing wave in front of it."
+        : a > 0.7 ? "Anechoic: swallows almost everything, with barely an echo."
+        : "Lossy: part reflects, part is absorbed inside."}</p>`;
+}
+function numRow(id, label, val, min, max, step){
+  return `<div class="numrow"><label for="${id}">${label}</label>
+    <input type="number" id="${id}" value="${val}" min="${min}" max="${max}" step="${step}"></div>`;
+}
+function bindNum(id, fn){
+  const el = $(id); if (!el) return;
+  el.oninput = e => {
+    const v = parseFloat(e.target.value);
+    if (!isFinite(v)) return;
+    fn(v); drawOpenField(); drawMath();
+  };
+}
+function ctlSlider(id, label, val, min, max, step, unit){
+  const dp = step < 1 ? String(step).split(".")[1].length : 0;
+  return `<div class="ctl"><div class="ctl-head"><label>${label}</label>
+    <span class="val" id="${id}-v">${fmt(val,dp)}${unit?" "+unit:""}</span></div>
+    <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
+}
+function bindSlider(id, fn){
+  const el = $(id); if (!el) return;
+  const out = $(id+"-v"), unit = out ? out.textContent.replace(/^[-\d.]+\s?/,"") : "";
+  const step = parseFloat(el.step), dp = step < 1 ? String(step).split(".")[1].length : 0;
+  el.oninput = e => {
+    const v = parseFloat(e.target.value);
+    if (out) out.textContent = fmt(v,dp) + (unit?" "+unit:"");
+    fn(v);
+  };
+}
+
+/* thin-film near view: a wedge of film in true colour */
+function drawFilmNear(){
+  const st = S.film, W = els.field.width, H = els.field.height;
+  ctxF.clearRect(0,0,W,H);
+  const wedgeTop = 120, wedgeH = 300;
+  const cols = 240;
+  for (let i = 0; i < cols; i++){
+    const th = st.tmax * i/(cols-1);
+    let c;
+    if (st.white) c = whiteMix(nm => MODULES.film.Iat(th, nm));
+    else { const v = MODULES.film.Iat(th, st.lambda), b = wlRGB(st.lambda); c = [b[0]*v|0,b[1]*v|0,b[2]*v|0]; }
+    ctxF.fillStyle = rgbCss(c);
+    ctxF.fillRect(i*W/cols, wedgeTop, W/cols + 1, wedgeH);
+  }
+  ctxF.strokeStyle = "rgba(255,255,255,.22)"; ctxF.lineWidth = 2;
+  ctxF.strokeRect(0.5, wedgeTop, W-1, wedgeH);
+  /* current-thickness marker */
+  const mx = clamp(st.t/st.tmax,0,1)*W;
+  ctxF.strokeStyle = "#fff"; ctxF.lineWidth = 2;
+  ctxF.beginPath(); ctxF.moveTo(mx, wedgeTop-16); ctxF.lineTo(mx, wedgeTop+wedgeH+16); ctxF.stroke();
+  ctxF.fillStyle = "#fff"; ctxF.font = "22px " + getComputedStyle(document.body).fontFamily;
+  ctxF.textAlign = clamp(mx/W,0,1) > .8 ? "right" : "left";
+  ctxF.fillText(`t = ${st.t} nm`, mx + (ctxF.textAlign==="right"? -12:12), wedgeTop-26);
+  ctxF.fillStyle = "rgba(220,227,240,.55)"; ctxF.font = "20px " + getComputedStyle(document.body).fontFamily;
+  ctxF.textAlign = "left"; ctxF.fillText("0 nm", 8, wedgeTop+wedgeH+38);
+  ctxF.textAlign = "right"; ctxF.fillText(`${st.tmax} nm`, W-8, wedgeTop+wedgeH+38);
+  els.fieldBadge.textContent = "reflected colour across a wedge of film";
+}
+
+/* ---------- screen strip + graph ---------- */
+let prof = null;
+const PN = 661;
+
+function drawScreen(){
+  const W = els.screen.width, H = els.screen.height;
+  ctxS.clearRect(0,0,W,H);
+  for (let i = 0; i < PN; i++){
+    ctxS.fillStyle = rgbCss(prof.rgb[i]);
+    ctxS.fillRect(i*W/PN, 0, W/PN + 1, H);
+  }
+  if (S.probe != null){
+    const x = S.probe.i*W/PN;
+    ctxS.strokeStyle = "rgba(255,255,255,.9)"; ctxS.lineWidth = 2;
+    ctxS.beginPath(); ctxS.moveTo(x,0); ctxS.lineTo(x,H); ctxS.stroke();
+  }
+}
+
+function drawGraph(){
+  const W = els.graph.width, H = els.graph.height, pad = 34;
+  ctxG.clearRect(0,0,W,H);
+  ctxG.fillStyle = "#05070c"; ctxG.fillRect(0,0,W,H);
+  ctxG.strokeStyle = "rgba(255,255,255,.07)"; ctxG.lineWidth = 1;
+  for (let g = 0; g <= 4; g++){
+    const y = pad + (H-2*pad)*g/4;
+    ctxG.beginPath(); ctxG.moveTo(pad,y); ctxG.lineTo(W-pad,y); ctxG.stroke();
+  }
+  const px = i => pad + (W-2*pad)*i/(PN-1);
+  const py = v => H-pad - (H-2*pad)*clamp(v,0,1);
+  ctxG.beginPath();
+  ctxG.moveTo(px(0), py(0));
+  for (let i = 0; i < PN; i++) ctxG.lineTo(px(i), py(prof.I[i]));
+  ctxG.lineTo(px(PN-1), py(0)); ctxG.closePath();
+  const accent = S.module === "ripple" ? [90,190,255] : wlRGB(S[S.module].lambda || 550);
+  ctxG.fillStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},.16)`;
+  ctxG.fill();
+  ctxG.beginPath();
+  for (let i = 0; i < PN; i++) i ? ctxG.lineTo(px(i), py(prof.I[i])) : ctxG.moveTo(px(i), py(prof.I[i]));
+  ctxG.strokeStyle = rgbCss(accent); ctxG.lineWidth = 2.5; ctxG.stroke();
+  if (S.probe != null){
+    const x = px(S.probe.i);
+    ctxG.strokeStyle = "rgba(255,255,255,.55)"; ctxG.lineWidth = 1.5;
+    ctxG.beginPath(); ctxG.moveTo(x,pad-8); ctxG.lineTo(x,H-pad); ctxG.stroke();
+  }
+  ctxG.fillStyle = "rgba(220,227,240,.5)";
+  ctxG.font = "19px " + getComputedStyle(document.body).fontFamily;
+  ctxG.textAlign = "left";  ctxG.fillText(`${fmt(prof.xs[0],2)} ${prof.unit}`, pad, H-10);
+  ctxG.textAlign = "right"; ctxG.fillText(`${fmt(prof.xs[PN-1],2)} ${prof.unit}`, W-pad, H-10);
+  ctxG.textAlign = "center"; ctxG.fillText(prof.label, W/2, H-10);
+  els.graphHint.textContent = `I / I₀ from 0 to 1`;
+}
+
+/* probe */
+function probeFromEvent(e, el){
+  const rect = el.getBoundingClientRect();
+  const f = clamp((e.clientX - rect.left)/rect.width, 0, 1);
+  const i = Math.round(f*(PN-1));
+  const y = prof.xs[i], I = prof.I[i];
+  const o = { i, y, I };
+  const st = S[S.module];
+  if (S.module === "doubleslit"){
+    const sinT = y/Math.sqrt(y*y + st.L*st.L);
+    o.theta = Math.asin(clamp(sinT,-1,1))*180/Math.PI;
+    o.pathDiff = st.d*1000*sinT;
+  } else if (S.module === "grating"){
+    const sinT = y/Math.sqrt(y*y + st.L*st.L);
+    o.theta = Math.asin(clamp(sinT,-1,1))*180/Math.PI;
+    o.beta = Math.PI*st.d*1e-3*sinT/(st.lambda*1e-6);
+  } else if (S.module === "ripple"){
+    o.pathDiff = rippleSpacing()*Math.sin(y*Math.PI/180);
+  }
+  return o;
+}
+for (const el of [els.screen, els.graph]){
+  el.addEventListener("mousemove", e => { S.probe = probeFromEvent(e, el); drawScreen(); drawGraph(); drawMath(); });
+  el.addEventListener("mouseleave", () => { S.probe = null; drawScreen(); drawGraph(); drawMath(); });
+}
+
+/* dragging ripple sources */
+let dragging = null;
+els.field.addEventListener("mousedown", e => {
+  if (S.module !== "ripple") return;
+  const r = els.field.getBoundingClientRect();
+  const x = (e.clientX-r.left)/r.width*GW, y = (e.clientY-r.top)/r.height*GH;
+  let best = null, bd = 14;
+  for (const s of rippleSources){ const d = Math.hypot(s.x-x, s.y-y); if (d < bd){ bd = d; best = s; } }
+  if (best) dragging = best;
+});
+window.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  const r = els.field.getBoundingClientRect();
+  dragging.x = clamp((e.clientX-r.left)/r.width*GW, 8, GW-8);
+  dragging.y = clamp((e.clientY-r.top)/r.height*GH, 8, GH-8);
+  redraw();
+});
+window.addEventListener("mouseup", () => { dragging = null; });
+els.field.style.cursor = "default";
+
+/* ---------- photons ---------- */
+let cdf = null, photonOn = false, photonN = 0;
+function buildCDF(){
+  cdf = new Float64Array(PN);
+  let acc = 0;
+  for (let i = 0; i < PN; i++){ acc += prof.I[i]; cdf[i] = acc; }
+  for (let i = 0; i < PN; i++) cdf[i] /= acc || 1;
+}
+function clearPhotons(){
+  photonN = 0;
+  ctxP.clearRect(0,0,els.photons.width, els.photons.height);
+  ctxP.fillStyle = "#05070c"; ctxP.fillRect(0,0,els.photons.width, els.photons.height);
+  els.photonCount.textContent = "0 detected";
+}
+function emit(n){
+  const W = els.photons.width, H = els.photons.height;
+  const base = S.module === "ripple" ? [90,190,255] : wlRGB(S[S.module].lambda);
+  ctxP.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},.85)`;
+  for (let j = 0; j < n; j++){
+    const u = Math.random();
+    let lo = 0, hi = PN-1;
+    while (lo < hi){ const mid = (lo+hi)>>1; if (cdf[mid] < u) lo = mid+1; else hi = mid; }
+    const x = lo/(PN-1)*W + (Math.random()-.5)*W/PN;
+    const y = Math.random()*H;
+    ctxP.fillRect(x, y, 1.6, 1.6);
+  }
+  photonN += n;
+  els.photonCount.textContent = photonN.toLocaleString() + " detected";
+}
+$("ph-toggle").onclick = e => {
+  photonOn = !photonOn;
+  e.target.textContent = photonOn ? "Pause emitting" : "Start emitting";
+};
+$("ph-clear").onclick = clearPhotons;
+
+/* ---------- math + readout panels ---------- */
+function drawMath(){
+  const m = MODULES[S.module];
+  const blocks = m.math(S.probe);
+  els.math.innerHTML = blocks.map(b =>
+    `<div class="eq">
+       <div class="cap">${b.cap}</div>
+       <div class="sym">${b.sym}</div>
+       ${b.sub?`<div class="sub">${b.sub}</div>`:""}
+       ${b.res?`<div class="res">${b.res}</div>`:""}
+     </div>`).join("");
+  els.readout.innerHTML = m.readout().map(([k,v]) =>
+    `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  els.explain.innerHTML = m.explain;
+}
+
+/* ---------- orchestration ---------- */
+function accentFromModule(){
+  const st = S[S.module];
+  const c = S.module === "ripple" ? [90,190,255]
+          : S.module === "openfield" ? fieldTint()
+          : wlRGB(st.lambda);
+  document.documentElement.style.setProperty("--accent", rgbCss(c));
+  document.documentElement.style.setProperty("--accent-soft", `rgba(${c[0]},${c[1]},${c[2]},.2)`);
+}
+
+function redrawSecondary(){
+  prof = MODULES[S.module].profile(PN);
+  buildCDF(); drawScreen(); drawGraph(); drawMath();
+}
+
+function redraw(){
+  accentFromModule();
+  const m = MODULES[S.module];
+  /* The sandbox runs a two-column layout with the tank and the 3D view side by
+     side, so both canvases are cut to the same shape and sit level. Every other
+     module keeps the single column and the original 1320x600. */
+  if (els.stage) els.stage.classList.toggle("split", !!m.custom);
+  const fw = m.custom ? 1080 : 1320, fh = m.custom ? 600 : 600;
+  if (els.field.width !== fw || els.field.height !== fh){
+    els.field.width = fw; els.field.height = fh;
+  }
+  const sw = m.custom ? 1080 : 1320, sh = m.custom ? 600 : 600;
+  if (els.surface.width !== sw || els.surface.height !== sh){
+    els.surface.width = sw; els.surface.height = sh;
+    els.surfLabels.width = sw; els.surfLabels.height = sh;
+  }
+  prof = m.profile(PN);
+  buildCDF();
+  if (S.module === "openfield"){ drawOpenField(); drawScope(); drawSurface(); }
+  else if (S.module === "film") drawFilmNear();
+  else drawNear();
+  drawScreen(); drawGraph(); drawMath();
+  els.fieldTitle.textContent =
+    S.module === "openfield" ? "Open field — click to build, drag to move" :
+    S.module === "film" ? "The film itself" :
+    S.module === "ripple" ? "Wave field — drag a source" : "Near field at the slits";
+  els.screenTitle.textContent =
+    S.module === "openfield" ? "What reaches the far wall" :
+    S.module === "film" ? "Reflected colour vs thickness" : "What you would see";
+  els.fieldHint.textContent = S.nearView === "int" && S.module !== "film" ? "time-averaged intensity" : "";
+  els.fidNote.textContent = S.module === "openfield"
+    ? "The sandbox is always true to its own grid — there is nothing to exaggerate, because the wave equation is solved directly."
+    : S.fidelity === "true"
+    ? "Real proportions. At optical wavelengths the near field can look almost uniform — that is honest, not a bug."
+    : "Wavelength inflated in the wave view so crests are visible. Every number in the math panel stays true.";
+}
+
+let last = 0, phAcc = 0, frame = 0;
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function loop(ts){
+  const dt = Math.min((ts - last)/1000, .05); last = ts;
+  frame++;
+  if (S.module === "openfield"){
+    if (S.playing && !reduced){
+      const n = S.openfield.speed;
+      for (let i = 0; i < n; i++) stepSim();
+    }
+    drawOpenField();
+    if (frame % 3 === 0){ drawScope(); drawSurface(); }
+    if (frame % 10 === 0) redrawSecondary();
+    if (S.openfield.marks && frame % 45 === 0) findMerges();
+  } else {
+    if (S.playing && !reduced){
+      S.t += dt * 5.2;
+      if (S.module !== "film" && S.nearView === "field") drawNear();
+    }
+    if (photonOn && MODULES[S.module].photons){
+      phAcc += dt * parseFloat($("ph-rate").value) * 3;
+      const n = Math.floor(phAcc);
+      if (n > 0){ emit(n); phAcc -= n; }
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+
+/* ---------- guided tour ----------
+   Each step can drive the app before it shows, so the thing being described is
+   actually on screen rather than described in the abstract. */
+const TOUR = [
+  { title:"Interference, five ways",
+    body:`<p>This one page holds five modules. Four of them solve interference from a formula,
+          which lets them run at true optical scale. The fifth simulates the wave itself on a grid,
+          which lets you build geometry no formula covers.</p>
+          <p>The tour drives the app as it goes, so watch the panels change.</p>`,
+    enter(){ S.module = "doubleslit"; syncTabs(); buildControls(); redraw(); } },
+
+  { title:"Pick a module here", target:"tabs",
+    body:`<p>Double slit, grating, ripple tank, thin film, and the open sandbox.
+          Each keeps its own settings, so you can move between them without losing your place.</p>` },
+
+  { title:"Three views of the same thing", target:"field",
+    body:`<p>Top is the wave near the slits. Below it is the screen as you would actually see it,
+          in true colour for the current wavelength. Below that, the same thing as a curve.</p>
+          <p>All three are the same calculation, drawn three ways.</p>`,
+    enter(){ S.module = "doubleslit"; syncTabs(); buildControls(); redraw(); } },
+
+  { title:"Hover the screen to probe it", target:"screen",
+    body:`<p>Move your cursor across the colour strip. A line drops at that exact position and the
+          maths panel switches from generic form to your actual angle, path difference and intensity there.</p>` },
+
+  { title:"The maths is live, not decorative", target:"math",
+    body:`<p>Every block shows the symbolic form, then your numbers substituted into it, then the result.
+          Drag any slider and watch all of it move together.</p>` },
+
+  { title:"Two kinds of honesty", target:"group-fidelity",
+    body:`<p>At real optical scale a wavelength is far too small to draw next to the slit spacing.
+          Exaggerated mode inflates it so you can see crests, and a badge on the view tells you by how much.</p>
+          <p>True scale keeps the real proportions. Either way, every number in the maths panel is the true one.</p>` },
+
+  { title:"One photon at a time", target:"photon-block",
+    body:`<p>Press start and dots land one by one, each placed at random with probability set by the curve above.
+          At first it looks like noise. Leave it running and the fringes assemble themselves.</p>
+          <p>No single photon carries the pattern. It only exists in the accumulation.</p>` },
+
+  { title:"Adding slits sharpens, it does not move", target:"graph",
+    body:`<p>This is the grating with four hundred slits. Compare the needle-thin orders to the gentle
+          cosine of two slits — the orders sit in exactly the same places, they are just far narrower.</p>
+          <p>That sharpening is the whole reason a grating can separate colours.</p>`,
+    enter(){ S.module = "grating"; S.grating.N = 400; S.grating.white = true;
+             syncTabs(); buildControls(); redraw(); } },
+
+  { title:"Colour from a colourless film", target:"field",
+    body:`<p>A wedge of soap or oil, thin on the left and thick on the right, lit by white light.
+          Some wavelengths cancel at each thickness and the rest survive, so a clear film looks coloured.</p>
+          <p>Slide thickness and watch the marker travel across the bands.</p>`,
+    enter(){ S.module = "film"; syncTabs(); buildControls(); redraw(); } },
+
+  { title:"Now the sandbox", target:"field",
+    body:`<p>Different engine entirely. Nothing about interference is written into it — it steps the wave
+          equation forward on a grid, and diffraction, reflection and refraction all emerge on their own.</p>`,
+    enter(){ S.module = "openfield"; OF.tool = "select"; syncTabs(); seedWorld();
+             rebuildSolid(); rebuildMedia(); resetField(); buildControls(); redraw(); } },
+
+  { title:"Ten tools", target:"of-tools",
+    body:`<p>Sources, obstacles, refractive regions and probes. Everything you place stays exactly where
+          you put it and can be dragged later with Select.</p>
+          <p>The note under the palette explains whichever tool is active.</p>` },
+
+  { title:"Refraction, from one change", target:"field",
+    body:`<p>A flat wavefront arriving at an ellipse where the wave simply travels slower.
+          Nothing here is scripted: bending on entry, focusing behind it and total internal reflection
+          all follow from that single change in speed.</p>
+          <p>The maths panel is showing you the critical angle for this index.</p>`,
+    enter(){ S.module = "openfield"; syncTabs(); buildControls();
+             const b = $("of-demo-lens"); if (b) b.onclick(); } },
+
+  { title:"A parabola has one focus", target:"field",
+    body:`<p>A plane wave coming in along the axis of a parabolic mirror collapses onto the marked dot.
+          A probe is already sitting there.</p>
+          <p>Drag the mirror, change its focal length, and watch the convergence point move with it.</p>`,
+    enter(){ S.module = "openfield"; syncTabs(); buildControls();
+             const b = $("of-demo-mirror"); if (b) b.onclick(); } },
+
+  { title:"Probes record, they do not just report", target:"scope-block",
+    body:`<p>Each probe keeps a rolling history of what the field did at that point. Two traces side by side
+          show phase directly: aligned crests mean the probes sit on the same wavefront, opposed crests
+          mean they are half a wavelength apart.</p>
+          <p>The maths panel fits the drive frequency to each trace and gives you the difference in degrees.</p>` },
+
+  { title:"See it as a surface", target:"surface-block",
+    body:`<p>Drag to orbit, scroll to zoom, or jump to a preset: Top for the fringe map, Front for the wave
+          in profile, Bottom for the underside where nulls become peaks.</p>
+          <p>The axes are marked in grid cells, and the bracket on the front edge is exactly one wavelength
+          so you can count crests against it from any angle.</p>`,
+    enter(){ setCamView("iso"); } },
+
+  { title:"Merge points", target:"field",
+    body:`<p>The rings mark every place where wavefronts reinforce. With the Probe tool, clicking near a ring
+          snaps the probe precisely onto it.</p>
+          <p>They are found on fringe contrast rather than raw brightness, so they keep working far from
+          the source where everything has faded.</p>`,
+    enter(){ S.module = "openfield"; syncTabs(); S.openfield.marks = true; buildControls(); findMerges(); redraw(); } },
+
+  { title:"Take it somewhere else", target:"controls",
+    body:`<p>Export writes the emitters, obstacles, refractive media, probe traces, merge points and the
+          full-resolution height field to JSON.</p>
+          <p>The preview above is deliberately coarse so it never steals time from the physics. The export
+          is the full field, for a renderer with no frame budget.</p>` },
+
+  { title:"That is the whole thing",
+    body:`<p>There is a written reference at the bottom of the page covering every module, every tool and
+          the honest limits of a grid simulation.</p>
+          <p>Reopen this any time with the button at the top left.</p>` }
+];
+
+const TOURSTATE = { i: -1, open: false };
+function tourEls(){
+  return { spot:$("tour-spot"), card:$("tour-card"), title:$("tour-title"),
+           body:$("tour-body"), count:$("tour-count"), prev:$("tour-prev"), next:$("tour-next") };
+}
+function scrollAncestorIntoView(el){
+  if (!el || !el.getBoundingClientRect) return;
+  let node = el.parentElement;
+  while (node && node !== document.body){
+    let oy = "";
+    try { oy = getComputedStyle(node).overflowY; } catch(e){}
+    if (oy === "auto" || oy === "scroll"){
+      const r = el.getBoundingClientRect(), c = node.getBoundingClientRect();
+      if (r.top < c.top + 20 || r.bottom > c.bottom - 20)
+        node.scrollTop += (r.top - c.top) - (c.height/2 - r.height/2);
+    }
+    node = node.parentElement;
+  }
+  try {
+    const r = el.getBoundingClientRect();
+    if (r.top < 60 || r.bottom > (window.innerHeight||800) - 60)
+      el.scrollIntoView({ behavior:"smooth", block:"center" });
+  } catch(e){}
+}
+function positionTour(){
+  if (!TOURSTATE.open) return;
+  const step = TOUR[TOURSTATE.i], t = tourEls();
+  const vw = window.innerWidth || 1400, vh = window.innerHeight || 900;
+  const CW = 340, CH = t.card.offsetHeight || 220, PAD = 14;
+  const el = step.target ? $(step.target) : null;
+  if (!el || !el.getBoundingClientRect){
+    t.spot.hidden = true;
+    t.card.style.left = Math.round(vw/2 - CW/2) + "px";
+    t.card.style.top  = Math.round(vh/2 - CH/2) + "px";
+    return;
+  }
+  const r = el.getBoundingClientRect();
+  t.spot.hidden = false;
+  t.spot.style.left = (r.left - 5) + "px";
+  t.spot.style.top = (r.top - 5) + "px";
+  t.spot.style.width = (r.width + 10) + "px";
+  t.spot.style.height = (r.height + 10) + "px";
+  let left = r.right + PAD, top = r.top;
+  if (left + CW > vw - 8) left = r.left - CW - PAD;
+  if (left < 8){ left = Math.min(Math.max(8, r.left), vw - CW - 8); top = r.bottom + PAD; }
+  if (top + CH > vh - 8) top = Math.max(8, vh - CH - 8);
+  if (top < 8) top = 8;
+  t.card.style.left = Math.round(left) + "px";
+  t.card.style.top = Math.round(top) + "px";
+}
+function showTourStep(i){
+  TOURSTATE.i = clamp(i, 0, TOUR.length-1);
+  const step = TOUR[TOURSTATE.i], t = tourEls();
+  if (step.enter) { try { step.enter(); } catch(e){} }
+  t.title.textContent = step.title;
+  t.body.innerHTML = step.body;
+  t.count.textContent = `${TOURSTATE.i+1} / ${TOUR.length}`;
+  t.prev.disabled = TOURSTATE.i === 0;
+  t.prev.style.opacity = TOURSTATE.i === 0 ? ".4" : "1";
+  t.next.textContent = TOURSTATE.i === TOUR.length-1 ? "Done" : "Next";
+  const el = step.target ? $(step.target) : null;
+  scrollAncestorIntoView(el);
+  positionTour();
+  setTimeout(positionTour, 320);
+}
+function openTour(){
+  const t = tourEls();
+  TOURSTATE.open = true;
+  t.card.hidden = false;
+  const w = $("welcome"); if (w) w.style.display = "none";
+  showTourStep(0);
+}
+function closeTour(){
+  const t = tourEls();
+  TOURSTATE.open = false;
+  t.card.hidden = true; t.spot.hidden = true;
+}
+$("tour-start").onclick = openTour;
+$("tour-next").onclick = () => TOURSTATE.i === TOUR.length-1 ? closeTour() : showTourStep(TOURSTATE.i+1);
+$("tour-prev").onclick = () => showTourStep(TOURSTATE.i-1);
+$("tour-skip").onclick = closeTour;
+$("welcome-go").onclick = openTour;
+$("welcome-x").onclick = () => { const w = $("welcome"); if (w) w.style.display = "none"; };
+window.addEventListener("resize", positionTour);
+window.addEventListener("scroll", positionTour, true);
+window.addEventListener("keydown", e => {
+  if (!TOURSTATE.open) return;
+  if (e.key === "Escape") closeTour();
+  else if (e.key === "ArrowRight") showTourStep(TOURSTATE.i+1);
+  else if (e.key === "ArrowLeft") showTourStep(TOURSTATE.i-1);
+});
+
+initGL();
+buildControls();
+clearPhotons();
+redraw();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

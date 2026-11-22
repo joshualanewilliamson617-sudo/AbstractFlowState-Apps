@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Field Notes — a math roadmap you can turn the dials on</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0d1017;
+  --panel:#141824;
+  --panel-2:#1a1f2e;
+  --line:#272e42;
+  --text:#c9cfdd;
+  --dim:#7e879c;
+  --brass:#e0a458;
+  --lilac:#9b8cf0;
+  --sea:#54b8a4;
+  --rose:#d8748a;
+  --serif:"Spectral",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:var(--serif);
+  font-size:16px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--brass)}
+
+/* ---------- header ---------- */
+header{
+  height:58px;display:flex;align-items:center;gap:18px;
+  padding:0 18px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#11151f,#0d1017);
+}
+header .mark{
+  font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--brass);
+  border:1px solid rgba(224,164,88,.35);border-radius:2px;padding:3px 7px;
+}
+header h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
+header .sub{color:var(--dim);font-size:13.5px;font-style:italic}
+header .prog{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--dim)}
+header .prog b{color:var(--sea);font-weight:500}
+#menuBtn{display:none}
+
+/* ---------- shell ---------- */
+.shell{
+  display:grid;
+  grid-template-columns:264px minmax(0,1fr) 430px;
+  height:calc(100% - 58px);
+}
+.col{overflow-y:auto;overflow-x:hidden;padding:20px 20px 80px}
+.col::-webkit-scrollbar{width:9px}
+.col::-webkit-scrollbar-thumb{background:#232a3c;border-radius:9px}
+.col::-webkit-scrollbar-track{background:transparent}
+#map{border-right:1px solid var(--line);background:#0f131c;padding-top:16px}
+#lesson{padding:26px 40px 120px}
+#studio{border-left:1px solid var(--line);background:var(--panel);padding:16px 18px 60px}
+
+/* ---------- roadmap ---------- */
+.stage{margin-bottom:20px}
+.stage > h2{
+  font-size:12.5px;font-family:var(--mono);font-weight:500;letter-spacing:.1em;
+  color:var(--dim);margin:0 0 3px;
+}
+.stage > p{margin:0 0 8px;font-size:13px;font-style:italic;color:#5f6879;line-height:1.4}
+.node{
+  display:grid;grid-template-columns:22px 1fr 14px;align-items:baseline;gap:7px;
+  padding:5px 8px 5px 9px;border-left:2px solid var(--line);
+  cursor:pointer;color:var(--text);font-size:14.5px;line-height:1.35;
+}
+.node:hover{background:#151a26;border-left-color:#3b455f}
+.node .num{font-family:var(--mono);font-size:11px;color:#525b70}
+.node.on{border-left-color:var(--brass);background:#171b26;color:#f0e2cd}
+.node.on .num{color:var(--brass)}
+.node .dot{width:7px;height:7px;border-radius:50%;border:1px solid #39415a;align-self:center}
+.node.done .dot{background:var(--sea);border-color:var(--sea)}
+.node:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{
+  outline:2px solid var(--brass);outline-offset:2px
+}
+
+/* ---------- lesson ---------- */
+#lesson{max-width:none}
+.lesson-inner{max-width:64ch}
+.eyebrow{font-family:var(--mono);font-size:12px;color:var(--brass);letter-spacing:.08em;margin-bottom:6px}
+#lesson h2{font-size:31px;line-height:1.15;margin:0 0 6px;font-weight:600;letter-spacing:-.01em}
+.one{font-size:19px;font-style:italic;color:#a8b1c4;margin:0 0 22px}
+#lesson h3{
+  font-size:14px;font-weight:600;margin:30px 0 8px;color:var(--lilac);
+  letter-spacing:.02em;
+}
+#lesson p{margin:0 0 13px}
+.why{
+  border-left:2px solid var(--brass);background:rgba(224,164,88,.05);
+  padding:11px 15px;margin:0 0 6px;font-size:15px;
+}
+.why b{color:var(--brass);font-weight:600}
+table.sym{width:100%;border-collapse:collapse;margin:4px 0 6px}
+table.sym td{padding:6px 10px 6px 0;border-bottom:1px solid #1f2434;vertical-align:top;font-size:14.5px}
+table.sym td:first-child{
+  font-family:var(--mono);color:var(--brass);white-space:nowrap;width:1%;padding-right:18px;font-size:14px
+}
+.eq{
+  font-family:var(--mono);font-size:14px;background:#10141e;border:1px solid var(--line);
+  border-radius:3px;padding:10px 13px;margin:8px 0;overflow-x:auto;white-space:pre-wrap;color:#dfe4ef
+}
+.ex{border:1px solid var(--line);border-radius:4px;margin:10px 0;background:#111622}
+.ex .q{padding:11px 14px;border-bottom:1px solid var(--line);font-weight:600;font-size:15px}
+.ex ol{margin:0;padding:10px 14px 10px 34px;font-family:var(--mono);font-size:13.5px;line-height:1.75;color:#b6becf}
+.ex .a{padding:9px 14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:13.5px;color:var(--sea)}
+.dials li{margin-bottom:4px}
+.dials{font-family:var(--mono);font-size:13.5px;padding-left:20px;color:#b6becf}
+
+/* practice */
+.practice{border:1px solid var(--line);border-radius:4px;margin-top:12px;background:#111622}
+.practice .bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:11px 14px;border-bottom:1px solid var(--line)}
+.practice .bar span{font-size:13.5px;color:var(--dim)}
+.pq{padding:13px 14px;font-size:15.5px}
+.pin{display:flex;gap:8px;padding:0 14px 13px;flex-wrap:wrap}
+.pin input{
+  width:150px;background:#0c1018;border:1px solid var(--line);color:var(--text);
+  font-family:var(--mono);font-size:14px;padding:7px 9px;border-radius:3px
+}
+.verdict{font-family:var(--mono);font-size:13.5px;padding:0 14px 12px}
+.verdict.ok{color:var(--sea)}
+.verdict.no{color:var(--rose)}
+details.sol{border-top:1px solid var(--line)}
+details.sol summary{padding:9px 14px;cursor:pointer;font-size:13.5px;color:var(--dim)}
+details.sol summary:hover{color:var(--text)}
+
+button{
+  font-family:var(--serif);font-size:14px;background:#1c2231;color:var(--text);
+  border:1px solid var(--line);border-radius:3px;padding:6px 12px;cursor:pointer
+}
+button:hover{background:#242c3e;border-color:#3a445c}
+button.key{background:var(--brass);border-color:var(--brass);color:#1a1204;font-weight:600}
+button.key:hover{background:#eeb469}
+select{
+  font-family:var(--serif);font-size:14px;background:#0c1018;color:var(--text);
+  border:1px solid var(--line);border-radius:3px;padding:6px 8px
+}
+.ai{margin-top:34px;border-top:1px solid var(--line);padding-top:14px}
+.tutor{border:1px solid var(--line);border-radius:4px;background:#111622;margin-top:10px}
+.tutor .head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 13px;border-bottom:1px solid var(--line)}
+.tutor .head .status{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-left:auto}
+.tutor .head .status.live{color:var(--sea)}
+.tutor .head .status.off{color:var(--rose)}
+#thread{padding:4px 13px;max-height:none}
+.msg{margin:12px 0}
+.msg.you{border-left:2px solid var(--lilac);padding:2px 0 2px 11px;color:#aeb6c8;font-style:italic;font-size:14.5px}
+.msg.bot{border-left:2px solid var(--brass);padding:2px 0 2px 13px;font-size:15px}
+.msg.bot p{margin:0 0 10px}
+.msg.bot code{font-family:var(--mono);font-size:13px;background:#0c1018;border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:#e4cfa8}
+.msg.bot pre.code{font-family:var(--mono);font-size:12.5px;background:#0c1018;border:1px solid var(--line);border-radius:3px;padding:10px 12px;overflow-x:auto;white-space:pre;color:#cdd6e6;line-height:1.5}
+.msg.err{border-left:2px solid var(--rose);padding-left:13px;color:var(--rose);font-family:var(--mono);font-size:13px}
+.msg.wait{color:var(--dim);font-style:italic;font-size:14.5px;padding-left:13px}
+.quick{display:flex;flex-wrap:wrap;gap:6px;padding:0 13px 11px}
+.quick button{font-size:12.5px;padding:4px 9px;color:#9aa3b6}
+.askrow{display:flex;gap:8px;padding:0 13px 13px}
+.askrow input{flex:1;background:#0c1018;border:1px solid var(--line);color:var(--text);
+  font-family:var(--serif);font-size:14.5px;padding:8px 10px;border-radius:3px}
+.aiset{border-top:1px solid var(--line)}
+.aiset summary{padding:8px 13px;cursor:pointer;font-size:13px;color:var(--dim)}
+.aiset .body{padding:2px 13px 13px;font-size:13.5px;color:#9aa3b6}
+.aiset input[type=password],.aiset input[type=text]{width:100%;max-width:420px;background:#0c1018;border:1px solid var(--line);
+  color:var(--text);font-family:var(--mono);font-size:12.5px;padding:7px 9px;border-radius:3px;margin-top:5px}
+.aiset p{margin:8px 0 0;line-height:1.5}
+.ai textarea{
+  width:100%;height:96px;background:#0c1018;color:#a8b1c4;border:1px solid var(--line);
+  border-radius:3px;font-family:var(--mono);font-size:12.5px;padding:10px;resize:vertical
+}
+.nav{display:flex;justify-content:space-between;gap:10px;margin-top:34px;padding-top:16px;border-top:1px solid var(--line)}
+
+/* ---------- studio ---------- */
+#studio h3{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;color:var(--dim);
+  margin:0 0 9px;font-weight:500
+}
+#stage-wrap{position:relative;border:1px solid var(--line);border-radius:4px;background:#080a10;overflow:hidden}
+canvas{display:block;width:100%;height:auto}
+#formula{
+  font-family:var(--mono);font-size:12.5px;color:#9fb0c9;background:#10141e;
+  border:1px solid var(--line);border-top:none;border-radius:0 0 4px 4px;padding:9px 11px;
+  min-height:38px;white-space:pre-wrap;line-height:1.55
+}
+.dial{margin-top:11px}
+.dial label{display:flex;justify-content:space-between;font-size:13px;color:#9aa3b6;margin-bottom:3px}
+.dial label b{font-family:var(--mono);color:var(--brass);font-weight:500}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:3px;background:#2b3348;border-radius:3px;outline:none
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--brass);cursor:pointer;border:none
+}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--brass);cursor:pointer;border:none}
+.studio-btns{display:flex;gap:8px;margin-top:14px}
+.hint{font-size:13px;color:#6d7689;font-style:italic;margin-top:12px;line-height:1.45}
+
+@media (max-width:1180px){
+  .shell{grid-template-columns:230px minmax(0,1fr) 360px}
+  #lesson{padding:24px 26px 120px}
+}
+@media (max-width:980px){
+  #menuBtn{display:inline-block}
+  header h1{font-size:15px}
+  header .sub{display:none}
+  .shell{display:block;height:calc(100% - 58px);overflow-y:auto}
+  .col{height:auto;overflow:visible;padding:18px}
+  #map{display:none;border-right:none;border-bottom:1px solid var(--line)}
+  #map.open{display:block}
+  #studio{border-left:none;border-bottom:1px solid var(--line)}
+  #lesson{padding:22px 18px 90px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="mark">FIELD NOTES</span>
+  <h1>A math roadmap you can turn the dials on</h1>
+  <span class="sub">built around the apps you're making</span>
+  <button id="menuBtn">Roadmap</button>
+  <span class="prog"><b id="doneCount">0</b> / <span id="totalCount">0</span> marked learned</span>
+</header>
+
+<div class="shell">
+  <nav class="col" id="map"></nav>
+
+  <main class="col" id="lesson"></main>
+
+  <aside class="col" id="studio">
+    <h3>Live model</h3>
+    <div id="stage-wrap"><canvas id="cv" width="800" height="600"></canvas></div>
+    <div id="formula"></div>
+    <div id="dials"></div>
+    <div class="studio-btns">
+      <button id="playBtn">Pause</button>
+      <button id="resetBtn">Reset dials</button>
+    </div>
+    <p class="hint" id="vizHint"></p>
+  </aside>
+</div>
+
+<script>
+/* ============================================================
+   FIELD NOTES — single file. No build step, no dependencies.
+   Everything below is: 1) content  2) app  3) drawing engine.
+   To add a topic, copy a node object in STAGES and give it an
+   id, some prose, and a viz name that exists in VIZ.
+   ============================================================ */
+
+/* ---------- small math helpers used by content + app ---------- */
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a}
+function lcm(a,b){return Math.abs(a*b)/(gcd(a,b)||1)}
+function r2(x){return Math.round(x*100)/100}
+function r3(x){return Math.round(x*1000)/1000}
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+
+/* ============================================================
+   1) CONTENT
+   ============================================================ */
+const STAGES = [
+{
+ id:'ground', name:'STAGE 1 — NUMBER SENSE',
+ blurb:'The rules that decide which cells light up.',
+ nodes:[
+
+{ id:'arithmetic', n:'Operations and order',
+  one:'Four moves, and a rule for who goes first.',
+  why:'Every app you build is a stack of these four moves. When a visual comes out wrong, it is almost always order of operations, not the idea.',
+  idea:[
+   'Adding and multiplying are the two engines; subtracting and dividing are those engines run backwards. Subtracting 5 is adding −5. Dividing by 4 is multiplying by 1/4. Writing it that way means you only ever have two operations to think about, which is why negative numbers stop feeling like a special case.',
+   'When several operations sit in one expression, they do not run left to right. Brackets go first, then powers, then multiply/divide, then add/subtract. A computer follows exactly this order, so 2 + 3 * 4 is 14 in your head, in JavaScript, and in a shader.',
+   'A negative number is a direction, not a smaller number. On a number line, multiplying by −1 is a 180° turn. Hold onto that: later, multiplying by i will be a 90° turn, and it will feel like the same idea.'
+  ],
+  symbols:[['+  −','step right, step left along the line'],['×  ·  *','repeat a step, or scale it'],['÷  /','undo a scaling'],['xⁿ','multiply x by itself n times'],['( )','do this first']],
+  dials:['a + b · c  — change c and watch only part of the total move','a · (b + c)  — the bracket makes c matter much more','(−1)ⁿ  — flips between +1 and −1 as n counts up'],
+  examples:[{q:'Evaluate 6 + 4 × (9 − 5)²  ÷ 8',
+    steps:['bracket first:  9 − 5 = 4','power next:  4² = 16','multiply and divide, left to right:  4 × 16 = 64,  64 ÷ 8 = 8','add last:  6 + 8'],a:'14'}],
+  viz:'numberline',
+  params:[{k:'a',label:'start at',min:-10,max:10,step:1,v:-6},{k:'b',label:'step size',min:-6,max:6,step:1,v:3},{k:'c',label:'how many steps',min:0,max:8,step:1,v:4}],
+  formula:p=>`${p.a} + ${p.c} × (${p.b}) = ${p.a + p.c*p.b}\nnegative step size = walk the other way`,
+  hint:'Set step size negative. The walk reverses; the arithmetic does not change.'
+},
+
+{ id:'multiples', n:'Factors, multiples, primes',
+  one:'Which numbers land on which.',
+  why:'This is the engine under Number Field. A cell lights when its number is a multiple of your rule, and the interesting structure is where two rules land on the same cell.',
+  idea:[
+   'A multiple of n is anything you reach by counting in steps of n. A factor (or divisor) of m is any number that divides m with nothing left over. The two words describe the same relationship from opposite ends: 3 is a factor of 12, and 12 is a multiple of 3.',
+   'A prime has exactly two factors, 1 and itself. Every other whole number breaks into primes in exactly one way — 84 = 2 × 2 × 3 × 7 and there is no second answer. That uniqueness is why prime factorisation is the tool for everything else in this topic.',
+   'Two rules running at once meet at the least common multiple. Steps of 3 and steps of 4 both land on 12, 24, 36 — that is lcm(3,4) = 12, and it is the period of the pattern. Shared factors are the reverse question: gcd(84,36) = 12 is the biggest step that fits inside both.'
+  ],
+  symbols:[['n | m','n divides m exactly (no remainder)'],['gcd(a,b)','largest number that divides both'],['lcm(a,b)','smallest number both divide into'],['p','a prime: only 1 and p divide it']],
+  dials:['multiples of n:  n·k  for k = 1, 2, 3 …','overlap of two rules repeats every lcm(a,b)','gcd(a,b) × lcm(a,b) = a × b  (always)'],
+  examples:[{q:'Find gcd(84, 36) and lcm(84, 36)',
+    steps:['84 = 2·2·3·7','36 = 2·2·3·3','shared primes: 2·2·3 = 12  → gcd','gcd × lcm = 84 × 36 = 3024','lcm = 3024 ÷ 12'],a:'gcd = 12,  lcm = 252'}],
+  viz:'multiples',
+  params:[{k:'a',label:'rule A — step of',min:2,max:12,step:1,v:3},{k:'b',label:'rule B — step of',min:2,max:12,step:1,v:4},{k:'c',label:'grid width',min:6,max:24,step:1,v:12}],
+  formula:p=>`A: multiples of ${p.a}   B: multiples of ${p.b}\nboth land together every lcm(${p.a},${p.b}) = ${lcm(p.a,p.b)}   gcd = ${gcd(p.a,p.b)}`,
+  hint:'Change the grid width. The same rule draws diagonals, columns, or braids depending on how many cells you wrap at — that is the whole visual trick.'
+},
+
+{ id:'mod', n:'Remainders and wrapping',
+  one:'What is left over, and why leftovers repeat forever.',
+  why:'Wrapping is how a grid becomes a pattern and how an angle stays inside one turn. Same operation, two uses.',
+  idea:[
+   'Divide 17 by 5 and you get 3 with 2 left over. That leftover is written 17 mod 5 = 2. The remainder can only ever be 0 to 4, so counting upward cycles through those five values endlessly — this is arithmetic on a clock face rather than a line.',
+   'Two numbers with the same remainder are called congruent for that step size: 17 and 32 are both 2 mod 5, so anything the pattern does at 17 it does again at 32. That is exactly why a Number Field grid repeats, and why the repeat length is the step size.',
+   'You already use this without naming it. Angle mod 360°, hue mod 360, index mod array length, phase mod 2π. Any time something loops back to its start, a mod is doing the work.'
+  ],
+  symbols:[['a mod m','remainder after dividing a by m'],['a ≡ b (mod m)','a and b leave the same remainder'],['%','the same operation in code (careful with negatives)']],
+  dials:['a mod m cycles: 0, 1, 2 … m−1, 0, 1 …','(a + k·m) mod m = a mod m  for any whole k','in JS, ((a % m) + m) % m keeps negatives positive'],
+  examples:[{q:'A pattern repeats every 7 cells. Cell 100 shows the same thing as which cell in the first row?',
+    steps:['100 ÷ 7 = 14 remainder 2','100 = 7×14 + 2','so 100 ≡ 2 (mod 7)'],a:'cell 2'}],
+  viz:'modclock',
+  params:[{k:'a',label:'count up to',min:1,max:60,step:1,v:17},{k:'b',label:'wrap every',min:2,max:16,step:1,v:5},{k:'c',label:'trail length',min:1,max:30,step:1,v:12}],
+  formula:p=>`${p.a} mod ${p.b} = ${((p.a%p.b)+p.b)%p.b}\n${p.a} = ${p.b}×${Math.floor(p.a/p.b)} + ${((p.a%p.b)+p.b)%p.b}`,
+  hint:'Set the wrap to 12 and count to 60. Every landing point repeats after 12 steps — a clock is a mod machine.'
+}
+]},
+
+{
+ id:'symbols', name:'STAGE 2 — SYMBOLS AND SHAPE',
+ blurb:'From fixed numbers to things you can pass a value into.',
+ nodes:[
+
+{ id:'expressions', n:'Variables and solving',
+  one:'A letter is a slot waiting for a number.',
+  why:'Every slider in every app you build is a variable. Solving is just working out what the slider must be set to for a target result.',
+  idea:[
+   'An expression like 3x + 5 is a recipe: take x, triple it, add five. An equation says the recipe produced a particular result: 3x + 5 = 20. Solving is undoing the recipe in reverse order — subtract five, then divide by three.',
+   'Whatever you do to one side you do to the other. That is not a rule to memorise, it is the definition of an equals sign: both sides name the same number, so both must change identically to stay naming the same number.',
+   'Getting comfortable here is what lets you rearrange a formula instead of looking up a second version of it. v = fλ, f = v/λ, and λ = v/f are one fact, not three.'
+  ],
+  symbols:[['x, y, t','a slot for a value; t usually means time'],['=','both sides name the same number'],['≈','close enough for the purpose'],['∴','therefore']],
+  dials:['a·x + b = c   →   x = (c − b) / a','swap which letter you solve for and the same line rearranges'],
+  examples:[{q:'Solve 7x − 12 = 30',
+    steps:['add 12 to both sides:  7x = 42','divide both sides by 7:  x = 42/7'],a:'x = 6'}],
+  viz:'solve',
+  params:[{k:'a',label:'a  (multiplier)',min:-6,max:8,step:1,v:7},{k:'b',label:'b  (offset)',min:-15,max:15,step:1,v:-12},{k:'c',label:'c  (target)',min:-20,max:40,step:1,v:30}],
+  formula:p=>{const a=p.a||1;return `${a}x + (${p.b}) = ${p.c}\nx = (${p.c} − (${p.b})) / ${a} = ${r3((p.c-p.b)/a)}`},
+  hint:'Drag a toward 0. The line flattens and the solution runs off to infinity — that is what dividing by zero looks like.'
+},
+
+{ id:'functions', n:'Functions and transformations',
+  one:'Feed in a number, get a number, draw the pairs.',
+  why:'Infinity Explorer is a function machine: you type a rule, it feeds thousands of inputs through and plots what comes out. Transformations are the four dials that let you reshape any rule without changing it.',
+  idea:[
+   'A function f takes each input to exactly one output. The graph is just every pair (x, f(x)) plotted as a point. Nothing more mystical than that — the curve is a picture of a lookup table with infinitely many rows.',
+   'Four changes reshape any function you already have. Writing a·f(b(x − c)) + d gives you: a stretches it vertically, b squeezes it horizontally, c slides it sideways, d lifts it. Learn them once and they work on sines, parabolas, noise, anything.',
+   'Watch the signs. Inside the bracket, things behave backwards: (x − 3) moves the graph right by three, not left. Inside affects input, outside affects output, and input changes always feel inverted.'
+  ],
+  symbols:[['f(x)','the output of f for input x'],['domain','inputs allowed'],['range','outputs produced'],['f∘g','do g first, then f']],
+  dials:['a·f(b(x − c)) + d  — the four universal dials','a: taller/flipped   b: tighter/wider   c: slide   d: lift'],
+  examples:[{q:'f(x) = x². Describe 2·f(x − 3) + 1 and find its value at x = 5.',
+    steps:['x − 3 slides the parabola right 3','the 2 doubles its height','the +1 lifts it by 1','at x = 5:  (5 − 3)² = 4','2 × 4 + 1'],a:'9,  with the vertex now at (3, 1)'}],
+  viz:'transform',
+  params:[{k:'a',label:'a  vertical stretch',min:-3,max:3,step:.1,v:1},{k:'b',label:'b  horizontal squeeze',min:.2,max:3,step:.1,v:1},{k:'c',label:'c  slide sideways',min:-6,max:6,step:.2,v:0},{k:'d',label:'d  lift',min:-4,max:4,step:.2,v:0}],
+  formula:p=>`y = ${r2(p.a)} · f( ${r2(p.b)}(x − ${r2(p.c)}) ) + ${r2(p.d)}\nf(x) = x²  (grey)   transformed (brass)`,
+  hint:'Set a negative. The curve flips through its own baseline — the same flip that turns a wave crest into a trough.'
+},
+
+{ id:'powers', n:'Powers, roots and logs',
+  one:'Repeated multiplying, and the question that undoes it.',
+  why:'Macro-to-micro zoom is a log problem. If you want one slider to run from a grain of dust to a galaxy, you move in powers, not in steps.',
+  idea:[
+   'A power counts repeated multiplication: 2⁵ = 32. The rules all come straight from that — 2³·2² means three twos next to two twos, which is five twos, so you add the exponents. A negative exponent means divide: 2⁻³ = 1/8. A fractional exponent is a root: 9^(1/2) = 3.',
+   'A logarithm answers the reverse question: 2 to what power gives 32? Answer 5, written log₂32 = 5. So a log is an exponent in disguise, which is why log(a·b) = log a + log b — multiplying inside becomes adding outside.',
+   'This is why a log scale is the right axis for anything spanning many orders of magnitude. Each equal step on the axis is one multiplication, not one addition, so 1, 10, 100, 1000 are evenly spaced and a whole universe fits on one screen.'
+  ],
+  symbols:[['xⁿ','x multiplied by itself n times'],['x^(1/2), √x','the number that squares to x'],['logb(y)','the power b needs to reach y'],['e','2.71828…, the natural growth base']],
+  dials:['xᵃ · xᵇ = x^(a+b)','(xᵃ)ᵇ = x^(ab)','x⁻ⁿ = 1 / xⁿ','logb(xy) = logb x + logb y'],
+  examples:[{q:'Solve 10ˣ = 4500 to two decimals.',
+    steps:['take log base 10 of both sides','x = log₁₀(4500)','4500 is between 10³ and 10⁴, so x is between 3 and 4','log₁₀(4.5) ≈ 0.653, and 4500 = 4.5 × 10³'],a:'x ≈ 3.65'}],
+  viz:'logscale',
+  params:[{k:'a',label:'base',min:2,max:10,step:1,v:10},{k:'b',label:'exponent',min:-4,max:8,step:.1,v:3},{k:'c',label:'axis mode (0 linear, 1 log)',min:0,max:1,step:1,v:1}],
+  formula:p=>`${p.a}^${r2(p.b)} = ${Number(Math.pow(p.a,p.b).toPrecision(6))}\nlog${p.a}( that ) = ${r2(p.b)}`,
+  hint:'Flip the axis to linear and try to see 10⁻² and 10⁶ at once. You cannot. That is the argument for log scales in one move.'
+}
+]},
+
+{
+ id:'wavestage', name:'STAGE 3 — ROTATION AND WAVES',
+ blurb:'Everything Interference Lab runs on lives here.',
+ nodes:[
+
+{ id:'coords2d', n:'Coordinates and distance',
+  one:'Two numbers pin a point; Pythagoras measures the gap.',
+  why:'Distance from a source is the one quantity an interference pattern actually depends on. Get this and the ripple tank stops being magic.',
+  idea:[
+   'A point is an address: x across, y up. The distance between two points is the hypotenuse of the right triangle they make, so d = √((x₂−x₁)² + (y₂−y₁)²). This single formula is doing the work in collision checks, in nearest-neighbour searches, and in every wave front you draw.',
+   'A circle is the set of points at a fixed distance r from a centre: (x−h)² + (y−k)² = r². Read it as the distance formula with the square root removed from both sides. A ripple leaving a source is that equation with r growing over time.',
+   'Squaring hides the sign, which is why distance is never negative and why comparing squared distances is faster than comparing distances — you can skip the square root when you only need to know which is bigger.'
+  ],
+  symbols:[['(x, y)','across, up'],['d','distance between two points'],['r','radius — a fixed distance from a centre'],['|v|','the length of something']],
+  dials:['d = √((Δx)² + (Δy)²)','(x−h)² + (y−k)² = r²  — circle of radius r about (h,k)','r = v·t  — a ripple front, radius growing with time'],
+  examples:[{q:'Distance from (2, 3) to (9, 27)?',
+    steps:['Δx = 9 − 2 = 7','Δy = 27 − 3 = 24','d = √(49 + 576) = √625'],a:'25'}],
+  viz:'distance',
+  params:[{k:'a',label:'point B — x',min:-10,max:10,step:.5,v:7},{k:'b',label:'point B — y',min:-10,max:10,step:.5,v:4},{k:'c',label:'show circle of radius',min:0,max:10,step:.5,v:0}],
+  formula:p=>`A = (0, 0)   B = (${r2(p.a)}, ${r2(p.b)})\nd = √(${r2(p.a)}² + ${r2(p.b)}²) = ${r3(Math.hypot(p.a,p.b))}`,
+  hint:'Raise the circle radius until it touches B. You have just solved the distance equation by eye.'
+},
+
+{ id:'trig', n:'Angles and the unit circle',
+  one:'Sine and cosine are the shadow of a spinning point.',
+  why:'This is the hinge of the whole roadmap. Rotation, waves, phase, complex numbers and 3D orbit cameras are all this one picture reused.',
+  idea:[
+   'Put a point on a circle of radius 1 and spin it. Its height above the centre is sin θ, its distance across is cos θ. Nothing else. Every identity you have ever seen is a fact about that picture — sin²θ + cos²θ = 1 is Pythagoras on the radius.',
+   'Radians measure angle by arc length instead of by an arbitrary 360 slices. A full turn is 2π, half is π, a right angle is π/2. Code always uses radians, so degrees × π/180 becomes a reflex.',
+   'Now let the point keep spinning and plot its height against time instead of against angle. The circle unrolls into a sine wave. A wave is not a different object from a rotation; it is a rotation seen from the side.'
+  ],
+  symbols:[['θ','angle, measured anticlockwise from the x-axis'],['sin θ','height of the point on the unit circle'],['cos θ','horizontal position of that point'],['tan θ','sin θ / cos θ — the slope of the radius'],['rad','1 full turn = 2π rad = 360°']],
+  dials:['(cos θ, sin θ)  — the point itself','sin²θ + cos²θ = 1','θ in rad = degrees × π/180','sin(θ + π) = −sin θ  — half a turn flips it'],
+  examples:[{q:'What are cos and sin at θ = 120°, and what is that in radians?',
+    steps:['120° × π/180 = 2π/3 rad','120° is 30° past the vertical, in the second quadrant','cos is negative there, sin positive','cos 120° = −1/2,  sin 120° = √3/2 ≈ 0.866'],a:'2π/3 rad,  (−0.5, 0.866)'}],
+  viz:'unitcircle',
+  params:[{k:'a',label:'angle (degrees)',min:0,max:720,step:1,v:60},{k:'b',label:'spin speed',min:0,max:2,step:.1,v:.6},{k:'c',label:'radius',min:.2,max:1.6,step:.1,v:1}],
+  formula:p=>{const t=p.a*Math.PI/180;return `θ = ${p.a}° = ${r3(t)} rad\ncos θ = ${r3(Math.cos(t))}   sin θ = ${r3(Math.sin(t))}`},
+  hint:'Let it spin and watch the two traces. The circle on the left is producing the wave on the right in real time.'
+},
+
+{ id:'waves', n:'The wave equation',
+  one:'Four dials: how tall, how tight, how fast, how far along.',
+  why:'y = A sin(kx − ωt + φ) is the single line Interference Lab is built on. Every control in that app is one letter in it.',
+  idea:[
+   'Start from a spinning point and give the angle a job: it should grow as you move along space (x) and as time passes (t). That gives y = A sin(kx − ωt + φ). A is amplitude, the height. k is the wavenumber, how many radians of phase per metre. ω is angular frequency, radians per second. φ is the head start.',
+   'The everyday quantities fall straight out: wavelength λ = 2π/k is the distance for one full cycle; period T = 2π/ω is the time for one; frequency f = 1/T; and the crest travels at v = ω/k = f·λ. The minus sign in front of ωt is what makes it move rightwards — flip it to −(kx + ωt) and it travels left.',
+   'Phase φ is the quiet one that matters most later. Two identical waves with φ differing by π cancel completely; differing by 2π they are indistinguishable. Interference is entirely a story about phase differences.'
+  ],
+  symbols:[['A','amplitude — peak height'],['k','wavenumber, 2π/λ'],['ω','angular frequency, 2πf'],['φ','phase offset in radians'],['λ','wavelength'],['T','period, seconds per cycle'],['v','speed = fλ = ω/k']],
+  dials:['y = A sin(kx − ωt + φ)','λ = 2π/k    T = 2π/ω    f = 1/T    v = fλ','φ += π  flips crest to trough'],
+  examples:[{q:'A wave has λ = 0.5 m and f = 680 Hz. Find v, k and ω.',
+    steps:['v = f·λ = 680 × 0.5 = 340 m/s','k = 2π/λ = 2π/0.5 ≈ 12.57 rad/m','ω = 2πf = 2π × 680 ≈ 4272.6 rad/s'],a:'v = 340 m/s,  k ≈ 12.57,  ω ≈ 4273'}],
+  viz:'wave',
+  params:[{k:'a',label:'A  amplitude',min:0,max:2,step:.05,v:1},{k:'b',label:'k  wavenumber',min:.2,max:6,step:.1,v:1.5},{k:'c',label:'ω  angular frequency',min:0,max:6,step:.1,v:2},{k:'d',label:'φ  phase (rad)',min:0,max:6.28,step:.05,v:0}],
+  formula:p=>`y = ${r2(p.a)} sin(${r2(p.b)}x − ${r2(p.c)}t + ${r2(p.d)})\nλ = 2π/k = ${r3(2*Math.PI/(p.b||.001))}   v = ω/k = ${r3(p.c/(p.b||.001))}`,
+  hint:'Set ω to 0. The wave freezes in space — you are now looking at a photograph instead of a film.'
+},
+
+{ id:'interference', n:'Superposition and interference',
+  one:'Two waves in one place simply add, point by point.',
+  why:'The whole pattern in Interference Lab comes from one rule and one quantity: add the waves, and the only thing that decides the result is the difference in distance travelled.',
+  idea:[
+   'Superposition is the entire mechanism: where two waves overlap, the displacement is the sum of the two displacements. No special rule for "cancelling" — cancelling is just adding +1 and −1.',
+   'Whether they add or cancel at a point depends on path difference. If the extra distance from one source is a whole number of wavelengths, the crests line up and you get a bright fringe: Δ = mλ. If it is a half wavelength off, crest meets trough and you get darkness: Δ = (m + ½)λ.',
+   'For two sources a distance d apart, that path difference is d·sin θ at angle θ. So bright fringes sit at d sin θ = mλ, with m = 0, ±1, ±2. Bigger λ or smaller d spreads the pattern out, which is exactly what you see when you drag the separation slider.'
+  ],
+  symbols:[['Δ','path difference — extra distance travelled'],['m','order: 0, ±1, ±2 …'],['d','separation between the two sources'],['θ','angle from the centre line'],['y ≈ mλL/d','fringe position on a screen at distance L']],
+  dials:['y_total = y₁ + y₂  (always, everywhere)','bright:  d sin θ = mλ','dark:  d sin θ = (m + ½)λ','fringe spacing on a screen ≈ λL/d'],
+  examples:[{q:'Two slits 0.20 mm apart, light of 600 nm. At what angle is the first bright fringe?',
+    steps:['d sin θ = mλ  with m = 1','sin θ = λ/d = 600e−9 / 0.20e−3','sin θ = 0.003','θ = arcsin(0.003) ≈ 0.003 rad'],a:'θ ≈ 0.17°'}],
+  viz:'interference',
+  params:[{k:'a',label:'source separation d',min:.4,max:6,step:.1,v:2.4},{k:'b',label:'wavelength λ',min:.3,max:2.5,step:.05,v:1},{k:'c',label:'phase offset of source 2',min:0,max:6.28,step:.05,v:0},{k:'d',label:'sources (2 or 3)',min:2,max:3,step:1,v:2}],
+  formula:p=>{const s=p.b/p.a;const ang=Math.abs(s)<=1?r2(Math.asin(s)*180/Math.PI)+'°':'none (λ > d)';
+    return `d = ${r2(p.a)}   λ = ${r2(p.b)}   Δφ = ${r2(p.c)} rad\nfirst bright fringe: sin θ = λ/d = ${r3(s)}  →  θ = ${ang}`},
+  hint:'Push λ above d. The first-order fringe has nowhere to go and the pattern collapses to a single central blob.'
+},
+
+{ id:'complex', n:'Complex numbers as rotation',
+  one:'i is not imaginary; it is a quarter turn.',
+  why:'Adding two waves with different phases by hand is painful. Adding two arrows is easy. Phasors turn wave arithmetic into vector arithmetic.',
+  idea:[
+   'Multiplying by −1 turns the number line 180°. Ask what turns it 90° and you need something that, applied twice, gives −1. That is i, with i² = −1. So a complex number a + bi is a point: a across, b up.',
+   'Multiplying two complex numbers multiplies their lengths and adds their angles. That one sentence is the whole reason engineers use them for waves: changing phase is multiplication by a unit-length number, and it never distorts the amplitude.',
+   'Euler ties it together: e^(iθ) = cos θ + i sin θ, the point on the unit circle at angle θ. A wave written A·e^(i(kx − ωt + φ)) is a spinning arrow, and its shadow on the real axis is the sine wave you actually see. Two waves interfering is just two arrows added tip to tail.'
+  ],
+  symbols:[['i','i² = −1; a 90° turn'],['a + bi','the point (a, b)'],['|z|','length, √(a² + b²)'],['arg z','angle from the positive real axis'],['e^(iθ)','cos θ + i sin θ']],
+  dials:['(a+bi)(c+di) = (ac − bd) + (ad + bc)i','|z₁z₂| = |z₁||z₂|   and   arg(z₁z₂) = arg z₁ + arg z₂','e^(iπ) = −1  — half a turn'],
+  examples:[{q:'Multiply (3 + 2i)(1 + 4i), then give the length of the result.',
+    steps:['3·1 = 3','3·4i = 12i','2i·1 = 2i','2i·4i = 8i² = −8','real: 3 − 8 = −5;  imaginary: 12 + 2 = 14','|−5 + 14i| = √(25 + 196) = √221'],a:'−5 + 14i,  length ≈ 14.87'}],
+  viz:'phasor',
+  params:[{k:'a',label:'arrow 1 length',min:0,max:2,step:.05,v:1},{k:'b',label:'arrow 2 length',min:0,max:2,step:.05,v:1},{k:'c',label:'phase gap (rad)',min:0,max:6.28,step:.05,v:1.05},{k:'d',label:'spin speed',min:0,max:2,step:.1,v:.6}],
+  formula:p=>{const R=Math.sqrt(p.a*p.a+p.b*p.b+2*p.a*p.b*Math.cos(p.c));
+    return `z = ${r2(p.a)}e^(iθ) + ${r2(p.b)}e^(i(θ+${r2(p.c)}))\nresultant length = ${r3(R)}   (max ${r2(p.a+p.b)}, min ${r2(Math.abs(p.a-p.b))})`},
+  hint:'Set the phase gap to π (3.14) with equal lengths. The arrows point opposite ways, the sum is zero — that is destructive interference, drawn.'
+}
+]},
+
+{
+ id:'space', name:'STAGE 4 — SPACE',
+ blurb:'Where the 3D in your apps actually comes from.',
+ nodes:[
+
+{ id:'space3d', n:'Three dimensions',
+  one:'Add a third address, keep every rule you already had.',
+  why:'Number Field going to a sphere or cube, and the world layer with its star and black-hole nodes, all live in this coordinate system.',
+  idea:[
+   'A point becomes (x, y, z). Distance keeps the same shape it had in 2D: d = √(Δx² + Δy² + Δz²). Pythagoras applied twice — once in the floor plane, once up the vertical — which is worth deriving on paper once so it never looks arbitrary again.',
+   'A plane is the 3D version of a line: ax + by + cz = d. Its numbers (a, b, c) are the direction it faces, which you will meet again as a normal vector.',
+   'Solids give you the volume formulas worth knowing by heart: sphere 4/3 πr³, cylinder πr²h, cone one third of that cylinder. Notice each is an area swept through a distance — that idea becomes integration in the last stage.'
+  ],
+  symbols:[['(x,y,z)','across, up, toward you'],['d','√(Δx² + Δy² + Δz²)'],['ax+by+cz=d','a plane'],['V','volume']],
+  dials:['sphere:  V = 4/3 πr³,  surface = 4πr²','cylinder:  V = πr²h','scaling r by 2 scales volume by 8 — cubes grow fast'],
+  examples:[{q:'Distance from (1, 2, 3) to (4, 6, 15)?',
+    steps:['Δ = (3, 4, 12)','3² + 4² = 25','25 + 144 = 169','√169'],a:'13'}],
+  viz:'solid3d',
+  params:[{k:'a',label:'radius',min:.3,max:3,step:.1,v:1.6},{k:'b',label:'shape (0 sphere, 1 cube, 2 cylinder)',min:0,max:2,step:1,v:0},{k:'c',label:'turn speed',min:0,max:2,step:.1,v:.5}],
+  formula:p=>{const r=p.a;const v=p.b===0?4/3*Math.PI*r**3:(p.b===1?(2*r)**3:Math.PI*r*r*2*r);
+    return `r = ${r2(r)}\nvolume = ${r3(v)}   surface distance from centre stays ${r2(r)} for the sphere`},
+  hint:'Every vertex is being rotated and projected by the maths in topic 14. Nothing here is a library call.'
+},
+
+{ id:'vectors', n:'Vectors',
+  one:'An arrow with a length and a direction, stored as a list of numbers.',
+  why:'Gravity in the world layer, the direction from a source to a point, the normal of a surface, camera orientation — all vectors, all the same four operations.',
+  idea:[
+   'A vector is a displacement: (3, 4) means three across and four up, from wherever you start. Adding vectors is tip to tail. Multiplying by a number scales the arrow without turning it. Dividing a vector by its own length gives a unit vector — direction only, length 1, which is what you want whenever you need "which way" without "how far".',
+   'The dot product a·b = axbx + ayby + azbz collapses two vectors to a single number, and it equals |a||b|cos θ. So it tells you how much two directions agree: positive means broadly the same way, zero means perpendicular, negative means opposing. Lighting, shadowing and angle-finding all come from this.',
+   'The cross product a×b gives a new vector perpendicular to both, with length |a||b|sin θ. It is how you find the normal of a surface, and how you get a torque or an orbital axis. It only exists in 3D, and swapping the order flips it.'
+  ],
+  symbols:[['v = (x,y,z)','components'],['|v|','length √(x²+y²+z²)'],['v̂','unit vector, v / |v|'],['a·b','dot — a number; |a||b|cos θ'],['a×b','cross — a vector perpendicular to both']],
+  dials:['|v| = √(x² + y² + z²)','cos θ = (a·b) / (|a||b|)','a·b = 0  ⇔  perpendicular','|a×b| = area of the parallelogram they span'],
+  examples:[{q:'a = (2, 3, 6), b = (0, 0, 1). Find |a|, a·b and the angle between them.',
+    steps:['|a| = √(4 + 9 + 36) = √49 = 7','a·b = 2·0 + 3·0 + 6·1 = 6','cos θ = 6 / (7 × 1) = 0.857','θ = arccos(0.857)'],a:'|a| = 7,  a·b = 6,  θ ≈ 31°'}],
+  viz:'vectors3d',
+  params:[{k:'a',label:'vector A — x',min:-3,max:3,step:.1,v:2},{k:'b',label:'vector A — y',min:-3,max:3,step:.1,v:1},{k:'c',label:'vector B — z',min:-3,max:3,step:.1,v:2},{k:'d',label:'turn speed',min:0,max:2,step:.1,v:.4}],
+  formula:p=>{const A=[p.a,p.b,0],B=[0,1,p.c];const dot=A[0]*B[0]+A[1]*B[1]+A[2]*B[2];
+    const la=Math.hypot(...A),lb=Math.hypot(...B);const ang=la&&lb?r2(Math.acos(Math.max(-1,Math.min(1,dot/(la*lb))))*180/Math.PI):0;
+    return `A = (${r2(p.a)}, ${r2(p.b)}, 0)   B = (0, 1, ${r2(p.c)})\nA·B = ${r2(dot)}   angle ≈ ${ang}°   A×B drawn in violet`},
+  hint:'Make A·B zero. The two arrows lock at a right angle and the violet cross product reaches its longest.'
+},
+
+{ id:'matrices', n:'Matrices and transformation',
+  one:'A grid of numbers that moves every point at once.',
+  why:'This file has no 3D library in it. The rotation and projection you are watching in the panel are the four lines of matrix maths in this topic.',
+  idea:[
+   'A matrix is a machine that takes a vector in and gives a vector out. Each column of the matrix says where one of the basis directions lands. If you know where x̂ and ŷ end up, you know where every point ends up, because every point is a combination of them.',
+   'Rotation by θ in 2D is [[cos θ, −sin θ], [sin θ, cos θ]]. Look at the first column: x̂ = (1,0) lands on (cos θ, sin θ) — a point on the unit circle. The matrix is just the unit circle written as a table.',
+   'Multiplying matrices means doing one transformation after another, and order matters: rotate-then-move is not move-then-rotate. Perspective is the last step — divide x and y by depth, so distant things shrink. That single division is what makes a flat canvas look like a room.'
+  ],
+  symbols:[['M','a transformation'],['Mv','apply M to vector v'],['I','identity — changes nothing'],['det M','how much area/volume it scales by'],['M⁻¹','the transformation that undoes M']],
+  dials:['rotate:  [[cos θ, −sin θ], [sin θ, cos θ]]','scale:  [[sx, 0], [0, sy]]','perspective:  x_screen = f·x/z,  y_screen = f·y/z','det = 0  means the shape got flattened and cannot be undone'],
+  examples:[{q:'Rotate the point (3, 0) by 90°.',
+    steps:['cos 90° = 0, sin 90° = 1','x′ = x cos θ − y sin θ = 3·0 − 0·1 = 0','y′ = x sin θ + y cos θ = 3·1 + 0·0 = 3'],a:'(0, 3)'}],
+  viz:'cube3d',
+  params:[{k:'a',label:'yaw (deg)',min:0,max:360,step:1,v:35},{k:'b',label:'pitch (deg)',min:-80,max:80,step:1,v:20},{k:'c',label:'scale',min:.3,max:2,step:.05,v:1},{k:'d',label:'perspective strength',min:1,max:12,step:.2,v:5}],
+  formula:p=>`yaw ${p.a}°  pitch ${p.b}°  scale ${r2(p.c)}\nRy = [[cos, 0, sin],[0,1,0],[−sin, 0, cos]]  then  x/z, y/z divide`,
+  hint:'Drop the perspective strength to 1. The cube goes flat and wrong-looking — that divide by depth is doing all the realism.'
+},
+
+{ id:'parametric', n:'Parametric surfaces',
+  one:'Two knobs in, a point in space out; sweep them and you get a skin.',
+  why:'This is how any surface in a 3D app gets built, including the sphere and torus formats you want for Number Field.',
+  idea:[
+   'Instead of describing a surface by an equation the points satisfy, you describe it by a recipe: give me u and v, I hand back (x, y, z). Sweep u and v across their ranges and the returned points form a sheet.',
+   'A sphere of radius R uses two angles: x = R cos u sin v, y = R sin u sin v, z = R cos v, with u going round the equator and v from pole to pole. A torus wraps a small circle of radius r around a big circle of radius R. A height field is the easy case: x = u, y = v, z = f(u,v).',
+   'The payoff is that you can deform anything by editing the recipe. Add a sin term to the radius and the sphere ripples. Multiply v by two and it winds twice. The rendering code never changes — only the function does.'
+  ],
+  symbols:[['u, v','the two input knobs, usually 0…1 or 0…2π'],['S(u,v)','the point returned'],['R, r','major and minor radius'],['height field','z = f(x, y), the simplest surface']],
+  dials:['sphere: (R cos u sin v, R sin u sin v, R cos v)','torus: ((R + r cos v)cos u, (R + r cos v)sin u, r sin v)','ripple: z = A sin(k·√(x²+y²) − ωt)'],
+  examples:[{q:'On a sphere of radius 2, where is the point u = 0, v = π/2?',
+    steps:['sin(π/2) = 1, cos(π/2) = 0','x = 2 cos 0 · 1 = 2','y = 2 sin 0 · 1 = 0','z = 2 cos(π/2) = 0'],a:'(2, 0, 0) — on the equator, facing +x'}],
+  viz:'surface3d',
+  params:[{k:'a',label:'shape (0 ripple, 1 sphere, 2 torus)',min:0,max:2,step:1,v:0},{k:'b',label:'amplitude / minor radius',min:.1,max:2,step:.05,v:.6},{k:'c',label:'frequency / winding',min:.5,max:6,step:.1,v:2},{k:'d',label:'turn speed',min:0,max:2,step:.1,v:.35}],
+  formula:p=>p.a===0?`z = ${r2(p.b)} · sin(${r2(p.c)}·√(x²+y²) − t)`:(p.a===1?`sphere R = 1.6, ripple ${r2(p.b)} at ${r2(p.c)} waves round`:`torus R = 1.6, r = ${r2(p.b)}, winding ${r2(p.c)}`),
+  hint:'The ripple shape is an interference pattern from stage 3, lifted into a third dimension. Same equation, new axis.'
+}
+]},
+
+{
+ id:'change', name:'STAGE 5 — CHANGE AND FIELDS',
+ blurb:'Rates, totals, and the maths of a space that pulls on things.',
+ nodes:[
+
+{ id:'derivatives', n:'Rates of change',
+  one:'The slope of a curve at one instant.',
+  why:'Velocity, wave steepness, the direction water runs downhill in a field — all derivatives. Also every "how fast is this changing" readout you will ever put in an app.',
+  idea:[
+   'Take two points on a curve and the slope between them is (change in y)/(change in x). Slide the second point toward the first and that slope settles on a value: the slope of the tangent, written f′(x) or dy/dx. The limit is doing one job — making "at a point" mean something for a quantity that needs two points to define.',
+   'The power rule falls out of that process: the derivative of xⁿ is n·x^(n−1). So x³ → 3x², and a constant → 0, because a flat line has no slope. Sine and cosine cycle into each other: sin′ = cos, cos′ = −sin, which is the rotation picture again.',
+   'Read the sign and you read the shape. Positive derivative means rising, negative means falling, zero means a crest, trough or flat spot. Setting f′(x) = 0 is how you find peaks — that is the whole of optimisation in one line.'
+  ],
+  symbols:[['f′(x), dy/dx','rate of change of f at x'],['lim','the value something settles on'],['Δ','a finite change; d is the shrunk version'],['f″','derivative of the derivative — curvature']],
+  dials:['d/dx (xⁿ) = n x^(n−1)','d/dx (sin x) = cos x,   d/dx (cos x) = −sin x','f′(x) = 0  at peaks and troughs','slope between two points → tangent as they merge'],
+  examples:[{q:'f(x) = x³ − 6x. Find f′(x) and locate the peaks and troughs.',
+    steps:['d/dx x³ = 3x²','d/dx (−6x) = −6','f′(x) = 3x² − 6','set 3x² − 6 = 0  →  x² = 2','x = ±√2 ≈ ±1.414'],a:'f′(x) = 3x² − 6,  turning points at x ≈ ±1.41'}],
+  viz:'tangent',
+  params:[{k:'a',label:'x position of the tangent',min:-3,max:3,step:.05,v:1},{k:'b',label:'curve: cubic term',min:-2,max:2,step:.1,v:1},{k:'c',label:'curve: linear term',min:-8,max:8,step:.2,v:-6},{k:'d',label:'gap between the two points',min:0,max:2,step:.02,v:1}],
+  formula:p=>{const f=x=>p.b*x**3+p.c*x;const d=p.d||0.0001;const sec=(f(p.a+d)-f(p.a))/d;const tan=3*p.b*p.a*p.a+p.c;
+    return `f(x) = ${r2(p.b)}x³ + ${r2(p.c)}x\nslope over gap ${r2(p.d)}: ${r3(sec)}   true slope f′(${r2(p.a)}) = ${r3(tan)}`},
+  hint:'Shrink the gap toward zero and watch the two slope numbers converge. That convergence is what "limit" means.'
+},
+
+{ id:'integrals', n:'Accumulation',
+  one:'Adding up infinitely many thin slices.',
+  why:'Total energy in a wave, mass of a body, area under any curve your app plots. It is also the honest way to explain what your renderer does when it averages.',
+  idea:[
+   'Slice the region under a curve into rectangles, add their areas, then make the slices thinner. The number those sums approach is the integral. The symbol ∫ is a stretched S for sum, and dx is the width of a slice that has shrunk to nothing.',
+   'Integration undoes differentiation. Since d/dx(x⁴/4) = x³, the integral of x³ is x⁴/4 + C. That C exists because any constant would have vanished when differentiating — you lost that information and cannot recover it from the slope alone.',
+   'For a definite integral you evaluate the antiderivative at both ends and subtract. Under the hood, that is the fundamental theorem of calculus: accumulating a rate of change gives you back the total change.'
+  ],
+  symbols:[['∫ f(x) dx','the accumulated total of f'],['∫ₐᵇ','accumulate from a to b'],['+ C','the constant you cannot recover'],['dx','an infinitely thin slice width']],
+  dials:['∫ xⁿ dx = x^(n+1)/(n+1) + C   (n ≠ −1)','∫ₐᵇ f = F(b) − F(a)','more slices → closer to the true area','area below the axis counts as negative'],
+  examples:[{q:'Evaluate ∫₀³ (x² + 2) dx',
+    steps:['antiderivative: x³/3 + 2x','at x = 3:  27/3 + 6 = 9 + 6 = 15','at x = 0:  0','subtract'],a:'15'}],
+  viz:'riemann',
+  params:[{k:'a',label:'number of slices',min:1,max:80,step:1,v:8},{k:'b',label:'left edge a',min:-3,max:2,step:.1,v:0},{k:'c',label:'right edge b',min:-2,max:4,step:.1,v:3},{k:'d',label:'curve: x² coefficient',min:-1,max:2,step:.1,v:1}],
+  formula:p=>{const f=x=>p.d*x*x+2;const a=p.b,b=p.c,n=Math.max(1,Math.round(p.a));const h=(b-a)/n;let s=0;
+    for(let i=0;i<n;i++)s+=f(a+h*(i+0.5))*h;const F=x=>p.d*x**3/3+2*x;
+    return `∫ from ${r2(a)} to ${r2(b)} of ${r2(p.d)}x² + 2 dx\n${n} slices give ${r3(s)}   exact value ${r3(F(b)-F(a))}`},
+  hint:'Drag the slice count up. The staircase disappears into the curve and the two numbers below agree to three decimals.'
+},
+
+{ id:'fields', n:'Fields, gradients and wells',
+  one:'A value at every point in space, and the direction it climbs fastest.',
+  why:'This is the world layer: adjustable gravity, curvature, star and black-hole nodes. A well in a scalar field is a mass; the gradient is the force that pulls things into it.',
+  idea:[
+   'A scalar field gives one number at every point — height, temperature, potential. A vector field gives an arrow at every point — flow, force, wind. Most physics is one producing the other.',
+   'The gradient ∇f collects the partial derivatives: how fast f changes if you move only in x, only in y, only in z. As a vector it points in the direction of steepest increase, and its length says how steep that is. Force is the negative gradient of potential — things roll downhill, so the arrow that matters points the other way.',
+   'A point mass makes a potential well shaped like −Gm/r, which gets infinitely deep as r → 0. That is why your black-hole node needs a cutoff radius in code: the maths is honest about the singularity and your renderer cannot be. Two wells side by side add, and the ridge between them is where the pull cancels.'
+  ],
+  symbols:[['f(x,y)','a scalar field — one number per point'],['∂f/∂x','rate of change in x alone'],['∇f','gradient: (∂f/∂x, ∂f/∂y)'],['F = −∇V','force is downhill from potential'],['V = −Gm/r','the well around a mass']],
+  dials:['∇f for f = ax² + by²  is  (2ax, 2by)','|∇f| large = steep, 0 = flat spot or peak','two wells add:  V = V₁ + V₂','clamp r to a minimum or the well divides by zero'],
+  examples:[{q:'f(x, y) = 3x² + 2y². Find ∇f and its value at (2, −1).',
+    steps:['∂f/∂x = 6x','∂f/∂y = 4y','∇f = (6x, 4y)','at (2, −1):  (12, −4)','steepness = √(144 + 16) ≈ 12.65'],a:'∇f = (6x, 4y);  at (2,−1) it is (12, −4)'}],
+  viz:'field',
+  params:[{k:'a',label:'mass of well 1',min:0,max:3,step:.05,v:1.4},{k:'b',label:'mass of well 2',min:0,max:3,step:.05,v:.8},{k:'c',label:'separation',min:0,max:6,step:.1,v:3},{k:'d',label:'show arrows (0 off, 1 on)',min:0,max:1,step:1,v:1}],
+  formula:p=>`V(x,y) = −${r2(p.a)}/r₁ − ${r2(p.b)}/r₂ ,  wells at ±${r2(p.c/2)}\nF = −∇V  drawn as arrows; brightness is depth of the well`,
+  hint:'Set one mass to zero. A single well is perfectly radial; two wells make a saddle between them, and that saddle is a Lagrange point.'
+}
+]}
+];
+
+/* ============================================================
+   2) PRACTICE — real generators, one per topic
+   ============================================================ */
+const S = {easy:0, medium:1, hard:2};
+const PRACTICE = {
+
+arithmetic(L){
+  const a=ri(2,9+L*6), b=ri(2,6+L*4), c=ri(3,9+L*5), d=ri(1,c-1), pw=L?2:1;
+  const inner=c-d, val=a+b*Math.pow(inner,pw);
+  return {q:`Evaluate  ${a} + ${b} × (${c} − ${d})${pw===2?'²':''}`,
+    steps:[`bracket: ${c} − ${d} = ${inner}`, pw===2?`power: ${inner}² = ${inner*inner}`:`no power to apply`,
+      `multiply: ${b} × ${Math.pow(inner,pw)} = ${b*Math.pow(inner,pw)}`,`add: ${a} + ${b*Math.pow(inner,pw)}`],
+    a:String(val), num:val};
+},
+
+multiples(L){
+  const k=ri(2,4+L*3), a=k*ri(2,9+L*5), b=k*ri(2,9+L*5);
+  const g=gcd(a,b), l=lcm(a,b);
+  if(L===0) return {q:`List every divisor of ${a}.`, steps:[`test 1 up to √${a} ≈ ${Math.floor(Math.sqrt(a))}`,`pair each hit with ${a} ÷ it`],
+    a:(()=>{const d=[];for(let i=1;i<=a;i++)if(a%i===0)d.push(i);return d.join(', ')})()};
+  return {q:`Find gcd(${a}, ${b}) and lcm(${a}, ${b}). Enter the gcd.`,
+    steps:[`break both into primes`,`gcd = product of the shared primes = ${g}`,`gcd × lcm = ${a} × ${b} = ${a*b}`,`lcm = ${a*b} ÷ ${g} = ${l}`],
+    a:`gcd = ${g},  lcm = ${l}`, num:g};
+},
+
+mod(L){
+  const m=ri(3,7+L*6), a=ri(m+3,60+L*140)*(L===2&&Math.random()<.4?-1:1);
+  const r=((a%m)+m)%m;
+  return {q:`Compute ${a} mod ${m}.`,
+    steps:[`${a} ÷ ${m} = ${Math.floor(a/m)} remainder ${r}`,`${m} × ${Math.floor(a/m)} = ${m*Math.floor(a/m)}`,`${a} − ${m*Math.floor(a/m)} = ${r}`,
+      a<0?`negatives: keep adding ${m} until the answer sits in 0…${m-1}`:`remainder always sits in 0…${m-1}`],
+    a:String(r), num:r};
+},
+
+expressions(L){
+  const a=ri(2,5+L*4)*(Math.random()<.3?-1:1), x=ri(-4-L*4,9+L*6), b=ri(-15,15);
+  const c=a*x+b, neg=v=>v<0?'−'+Math.abs(v):String(v);
+  return {q:`Solve for x:   ${neg(a)}x ${b<0?'−':'+'} ${Math.abs(b)} = ${neg(c)}`,
+    steps:[`${b<0?'add':'subtract'} ${Math.abs(b)} on both sides:  ${neg(a)}x = ${neg(c-b)}`,`divide by ${neg(a)}:  x = ${neg(c-b)} / ${neg(a)}`],
+    a:`x = ${neg(x)}`, num:x};
+},
+
+functions(L){
+  const a=ri(1,3+L), c=ri(-4,5), d=ri(-5,6), x=ri(-3,7);
+  const val=a*Math.pow(x-c,2)+d;
+  return {q:`f(x) = x².  For g(x) = ${a}·f(x − ${c}) + ${d}, find g(${x}).`,
+    steps:[`inside first: ${x} − ${c} = ${x-c}`,`square it: ${(x-c)**2}`,`multiply by ${a}: ${a*(x-c)**2}`,`add ${d}`,
+      `(the vertex of g sits at (${c}, ${d}))`],
+    a:String(val), num:val};
+},
+
+powers(L){
+  if(L===0){const b=2,m=ri(2,6),n=ri(2,6);return {q:`Simplify to a single power, then give its value:  ${b}^${m} · ${b}^${n}`,
+    steps:[`same base, so add the exponents: ${m} + ${n} = ${m+n}`,`${b}^${m+n}`],a:`2^${m+n} = ${2**(m+n)}`, num:2**(m+n)};}
+  const base=pick([2,3,10]), e=ri(2,5), val=Math.pow(base,e);
+  return {q:`Solve ${base}^x = ${val}${L===2?`  (then give log${base} of ${val*base})`:''}`,
+    steps:[`ask: how many ${base}s multiply to ${val}?`,`${base}^${e} = ${val}`, L===2?`one more factor of ${base} adds 1 to the exponent`:''].filter(Boolean),
+    a:L===2?`x = ${e},  and log${base}(${val*base}) = ${e+1}`:`x = ${e}`, num:e};
+},
+
+coords2d(L){
+  const trip=pick([[3,4,5],[5,12,13],[8,15,17],[7,24,25],[9,40,41]]);
+  const x1=ri(-6,6), y1=ri(-6,6), dx=trip[0]*(Math.random()<.5?-1:1), dy=trip[1]*(Math.random()<.5?-1:1);
+  return {q:`Distance from (${x1}, ${y1}) to (${x1+dx}, ${y1+dy})?`,
+    steps:[`Δx = ${dx}, Δy = ${dy}`,`${Math.abs(dx)}² + ${Math.abs(dy)}² = ${dx*dx} + ${dy*dy} = ${dx*dx+dy*dy}`,`√${dx*dx+dy*dy}`],
+    a:String(trip[2]), num:trip[2]};
+},
+
+trig(L){
+  const deg=pick(L===0?[0,30,45,60,90]:[120,135,150,180,210,240,270,300,330]);
+  const rad=deg*Math.PI/180;
+  return {q:`Give sin and cos of ${deg}°, and ${deg}° in radians (2 dp).`,
+    steps:[`${deg}° × π/180 = ${r3(rad)} rad`,`reference angle: ${deg%90===0?deg:deg%90 || 90}°`,
+      `cos = x-coordinate on the unit circle = ${r3(Math.cos(rad))}`,`sin = y-coordinate = ${r3(Math.sin(rad))}`],
+    a:`sin ≈ ${r3(Math.sin(rad))},  cos ≈ ${r3(Math.cos(rad))},  ${r2(rad)} rad`, num:r2(rad), tol:0.02};
+},
+
+waves(L){
+  const lam=pick([0.25,0.5,2,4,0.02]), f=pick([50,120,340,680,1000]);
+  const v=lam*f;
+  return {q:`A wave has λ = ${lam} m and f = ${f} Hz. Find its speed v in m/s.`,
+    steps:[`v = f · λ`,`v = ${f} × ${lam}`, `k = 2π/λ ≈ ${r2(2*Math.PI/lam)} rad/m`, `ω = 2πf ≈ ${r2(2*Math.PI*f)} rad/s`],
+    a:`v = ${r2(v)} m/s`, num:r2(v), tol:0.01};
+},
+
+interference(L){
+  const lamnm=pick([450,500,550,600,650]), dmm=pick([0.1,0.2,0.25,0.5]), m=L===0?1:ri(1,3);
+  const s=(lamnm*1e-9*m)/(dmm*1e-3);
+  const th=Math.asin(Math.min(1,s))*180/Math.PI;
+  return {q:`Two slits ${dmm} mm apart, wavelength ${lamnm} nm. Find the angle of the order-${m} bright fringe, in degrees.`,
+    steps:[`bright fringes: d sin θ = mλ`,`sin θ = ${m} × ${lamnm}e−9 / ${dmm}e−3 = ${r3(s)}`,`θ = arcsin(${r3(s)})`],
+    a:`θ ≈ ${r3(th)}°`, num:r3(th), tol:0.02};
+},
+
+complex(L){
+  const a=ri(-4,5),b=ri(1,5),c=ri(-4,5),d=ri(1,5);
+  const re=a*c-b*d, im=a*d+b*c;
+  return {q:`Multiply (${a} + ${b}i)(${c} + ${d}i). Enter the real part.`,
+    steps:[`${a}·${c} = ${a*c}`,`${a}·${d}i = ${a*d}i`,`${b}i·${c} = ${b*c}i`,`${b}i·${d}i = ${b*d}i² = ${-b*d}`,
+      `real: ${a*c} − ${b*d} = ${re}`,`imaginary: ${a*d} + ${b*c} = ${im}`,`length = √(${re}² + ${im}²) ≈ ${r3(Math.hypot(re,im))}`],
+    a:`${re} ${im<0?'−':'+'} ${Math.abs(im)}i,  length ≈ ${r3(Math.hypot(re,im))}`, num:re};
+},
+
+space3d(L){
+  if(L===0){const r=ri(1,6);return {q:`Volume of a sphere with r = ${r}? (2 dp)`,
+    steps:[`V = 4/3 π r³`,`r³ = ${r**3}`,`4/3 × π × ${r**3}`],a:String(r2(4/3*Math.PI*r**3)), num:r2(4/3*Math.PI*r**3), tol:0.05};}
+  const q=pick([[1,2,2,3],[2,3,6,7],[1,4,8,9],[2,6,9,11],[4,4,7,9]]);
+  const x=ri(-5,5),y=ri(-5,5),z=ri(-5,5);
+  return {q:`Distance from (${x}, ${y}, ${z}) to (${x+q[0]}, ${y+q[1]}, ${z+q[2]})?`,
+    steps:[`Δ = (${q[0]}, ${q[1]}, ${q[2]})`,`${q[0]}² + ${q[1]}² = ${q[0]**2+q[1]**2}`,
+      `+ ${q[2]}² = ${q[0]**2+q[1]**2+q[2]**2}`,`√${q[0]**2+q[1]**2+q[2]**2}`],
+    a:String(q[3]), num:q[3]};
+},
+
+vectors(L){
+  const A=[ri(-4,5),ri(-4,5),ri(-4,5)], B=[ri(-4,5),ri(-4,5),ri(-4,5)];
+  const dot=A[0]*B[0]+A[1]*B[1]+A[2]*B[2];
+  const la=Math.hypot(...A), lb=Math.hypot(...B);
+  const ang=r2(Math.acos(Math.max(-1,Math.min(1,dot/((la*lb)||1))))*180/Math.PI);
+  if(L===2){const cr=[A[1]*B[2]-A[2]*B[1], A[2]*B[0]-A[0]*B[2], A[0]*B[1]-A[1]*B[0]];
+    return {q:`a = (${A.join(', ')}), b = (${B.join(', ')}). Find a × b, then a · b (enter the dot product).`,
+      steps:[`cross x = aybz − azby = ${A[1]}·${B[2]} − ${A[2]}·${B[1]} = ${cr[0]}`,
+        `cross y = azbx − axbz = ${cr[1]}`,`cross z = axby − aybx = ${cr[2]}`,`dot = ${A[0]}·${B[0]} + ${A[1]}·${B[1]} + ${A[2]}·${B[2]} = ${dot}`],
+      a:`a × b = (${cr.join(', ')}),  a · b = ${dot}`, num:dot};}
+  return {q:`a = (${A.join(', ')}), b = (${B.join(', ')}). Find a · b.`,
+    steps:[`multiply matching components: ${A[0]}·${B[0]} = ${A[0]*B[0]}, ${A[1]}·${B[1]} = ${A[1]*B[1]}, ${A[2]}·${B[2]} = ${A[2]*B[2]}`,
+      `add them: ${dot}`,`|a| = ${r3(la)}, |b| = ${r3(lb)}`,`angle = arccos(${dot} / ${r3(la*lb)}) ≈ ${ang}°`],
+    a:`a · b = ${dot}  (angle ≈ ${ang}°)`, num:dot};
+},
+
+matrices(L){
+  const deg=pick(L===0?[90,180,270]:[30,45,60,120,135]);
+  const t=deg*Math.PI/180, x=ri(-5,6), y=ri(-5,6);
+  const nx=x*Math.cos(t)-y*Math.sin(t), ny=x*Math.sin(t)+y*Math.cos(t);
+  return {q:`Rotate the point (${x}, ${y}) by ${deg}°. Enter the new x (2 dp).`,
+    steps:[`x′ = x cos θ − y sin θ`,`y′ = x sin θ + y cos θ`,`cos ${deg}° = ${r3(Math.cos(t))}, sin ${deg}° = ${r3(Math.sin(t))}`,
+      `x′ = ${x}·${r3(Math.cos(t))} − ${y}·${r3(Math.sin(t))} = ${r3(nx)}`,`y′ = ${r3(ny)}`],
+    a:`(${r2(nx)}, ${r2(ny)})`, num:r2(nx), tol:0.02};
+},
+
+parametric(L){
+  const R=ri(1,5), uDeg=pick([0,30,45,60,90,180]), vDeg=pick([30,45,60,90,120]);
+  const u=uDeg*Math.PI/180, v=vDeg*Math.PI/180;
+  const x=R*Math.cos(u)*Math.sin(v), y=R*Math.sin(u)*Math.sin(v), z=R*Math.cos(v);
+  return {q:`Sphere of radius ${R}. Find the point at u = ${uDeg}°, v = ${vDeg}°. Enter z (2 dp).`,
+    steps:[`x = R cos u sin v = ${R}·${r3(Math.cos(u))}·${r3(Math.sin(v))} = ${r3(x)}`,
+      `y = R sin u sin v = ${r3(y)}`,`z = R cos v = ${R}·${r3(Math.cos(v))} = ${r3(z)}`,
+      `check: √(x²+y²+z²) should be ${R} → ${r3(Math.hypot(x,y,z))}`],
+    a:`(${r2(x)}, ${r2(y)}, ${r2(z)})`, num:r2(z), tol:0.02};
+},
+
+derivatives(L){
+  const a=ri(1,4), n=ri(2,3+L), b=ri(-8,8), x=ri(-3,4);
+  const dv=a*n*Math.pow(x,n-1)+b;
+  return {q:`f(x) = ${a}x^${n} ${b<0?'−':'+'} ${Math.abs(b)}x.  Find f′(${x}).`,
+    steps:[`d/dx of ${a}x^${n} = ${a*n}x^${n-1}`,`d/dx of ${b}x = ${b}`,`f′(x) = ${a*n}x^${n-1} ${b<0?'−':'+'} ${Math.abs(b)}`,
+      `at x = ${x}:  ${a*n}·${Math.pow(x,n-1)} ${b<0?'−':'+'} ${Math.abs(b)}`],
+    a:String(dv), num:dv};
+},
+
+integrals(L){
+  const a=ri(1,4), n=ri(1,2+L), c=ri(0,5), b=ri(1,4);
+  const F=x=>a*Math.pow(x,n+1)/(n+1)+c*x;
+  const val=F(b)-F(0);
+  return {q:`Evaluate ∫ from 0 to ${b} of (${a}x^${n} ${c?`+ ${c}`:''}) dx.  (2 dp)`,
+    steps:[`antiderivative: ${a}x^${n+1}/${n+1}${c?` + ${c}x`:''}`,
+      `at x = ${b}: ${r3(a*Math.pow(b,n+1)/(n+1))}${c?` + ${c*b}`:''} = ${r3(F(b))}`,`at x = 0: 0`,`subtract`],
+    a:String(r2(val)), num:r2(val), tol:0.02};
+},
+
+fields(L){
+  const a=ri(1,5), b=ri(1,5), x=ri(-4,4), y=ri(-4,4);
+  const gx=2*a*x, gy=2*b*y;
+  return {q:`f(x,y) = ${a}x² + ${b}y².  Find ∇f at (${x}, ${y}). Enter the x-component.`,
+    steps:[`∂f/∂x = ${2*a}x  (treat y as a constant)`,`∂f/∂y = ${2*b}y`,`at (${x}, ${y}): (${gx}, ${gy})`,
+      `steepness |∇f| = √(${gx}² + ${gy}²) ≈ ${r3(Math.hypot(gx,gy))}`],
+    a:`∇f = (${gx}, ${gy}),  |∇f| ≈ ${r3(Math.hypot(gx,gy))}`, num:gx};
+}
+};
+
+/* ============================================================
+   3) APP
+   ============================================================ */
+const NODES=[]; STAGES.forEach(s=>s.nodes.forEach(n=>{n.stage=s.name;NODES.push(n)}));
+const done=new Set();
+let cur=NODES[0], P={}, playing=true, T=0, currentProblem=null;
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function buildMap(){
+  let i=0, html='';
+  STAGES.forEach(s=>{
+    html+=`<div class="stage"><h2>${esc(s.name)}</h2><p>${esc(s.blurb)}</p>`;
+    s.nodes.forEach(n=>{
+      i++;
+      html+=`<div class="node" tabindex="0" role="button" data-id="${n.id}">
+        <span class="num">${String(i).padStart(2,'0')}</span><span>${esc(n.n)}</span><span class="dot"></span></div>`;
+    });
+    html+='</div>';
+  });
+  $('map').innerHTML=html;
+  $('totalCount').textContent=NODES.length;
+  $('map').querySelectorAll('.node').forEach(el=>{
+    const go=()=>{select(el.dataset.id); if(window.innerWidth<=980){$('map').classList.remove('open'); $('lesson').scrollIntoView({behavior:'smooth'})}};
+    el.addEventListener('click',go);
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}});
+  });
+  paintMap();
+}
+function paintMap(){
+  $('map').querySelectorAll('.node').forEach(el=>{
+    el.classList.toggle('on', el.dataset.id===cur.id);
+    el.classList.toggle('done', done.has(el.dataset.id));
+  });
+  $('doneCount').textContent=done.size;
+}
+
+function lessonHTML(n){
+  const idx=NODES.indexOf(n)+1;
+  const prev=NODES[idx-2], next=NODES[idx];
+  return `<div class="lesson-inner">
+    <div class="eyebrow">${esc(n.stage)} · topic ${String(idx).padStart(2,'0')} of ${NODES.length}</div>
+    <h2>${esc(n.n)}</h2>
+    <p class="one">${esc(n.one)}</p>
+    <p class="why"><b>Why it matters to you:</b> ${esc(n.why)}</p>
+
+    <h3>The idea</h3>
+    ${n.idea.map(p=>`<p>${esc(p)}</p>`).join('')}
+
+    <h3>Notation</h3>
+    <table class="sym">${n.symbols.map(s=>`<tr><td>${esc(s[0])}</td><td>${esc(s[1])}</td></tr>`).join('')}</table>
+
+    <h3>Forms worth keeping</h3>
+    <ul class="dials">${n.dials.map(d=>`<li>${esc(d)}</li>`).join('')}</ul>
+
+    <h3>Worked through</h3>
+    ${n.examples.map(e=>`<div class="ex"><div class="q">${esc(e.q)}</div>
+      <ol>${e.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
+      <div class="a">answer: ${esc(e.a)}</div></div>`).join('')}
+
+    <h3>Your turn</h3>
+    <div class="practice">
+      <div class="bar">
+        <select id="lvl"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select>
+        <button class="key" id="newQ">New problem</button>
+        <span id="markState"></span>
+      </div>
+      <div id="pbody"></div>
+    </div>
+
+    <h3>Ask about this</h3>
+    <div class="tutor">
+      <div class="head">
+        <span style="font-size:13.5px;color:#9aa3b6">Tutor sees this topic, your dial settings and the problem above.</span>
+        <span class="status" id="aiStatus"></span>
+      </div>
+      <div id="thread"></div>
+      <div class="quick" id="quick"></div>
+      <div class="askrow">
+        <input id="askBox" placeholder="Ask anything about ${esc(n.n.toLowerCase())}…">
+        <button class="key" id="askBtn">Ask</button>
+      </div>
+      <details class="aiset" id="aiset">
+        <summary>Connection settings</summary>
+        <div class="body">
+          <p>Opened inside Claude, this works with nothing to set up. Opened as a file on your computer, it needs your own Anthropic API key — the key stays in this tab, is never saved to disk, and goes only to api.anthropic.com.</p>
+          <label>API key<input type="password" id="aiKey" placeholder="sk-ant-…" value="${esc(AI.key)}"></label>
+          <label>Model<input type="text" id="aiModel" value="${esc(AI.model)}"></label>
+          <p style="color:#6d7689">Get a key at console.anthropic.com. Usage is billed to that key.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="ai">
+      <h3>Offline prompt</h3>
+      <p>No key handy? Copy this and paste it into a chat with me anywhere.</p>
+      <textarea id="aiPrompt" readonly>${esc(aiPrompt(n))}</textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button id="copyPrompt">Copy prompt</button>
+        <button id="markBtn">${done.has(n.id)?'Unmark this topic':'Mark this topic learned'}</button>
+      </div>
+    </div>
+
+    <div class="nav">
+      <span>${prev?`<button data-go="${prev.id}" class="goBtn">← ${esc(prev.n)}</button>`:''}</span>
+      <span>${next?`<button data-go="${next.id}" class="goBtn">${esc(next.n)} →</button>`:''}</span>
+    </div>
+  </div>`;
+}
+
+function aiPrompt(n){
+  return `Topic: ${n.n} (${n.one})
+Where I am: I understand it at the level of "${n.idea[0].slice(0,90)}..."
+Do three things:
+1. Push the idea one level deeper than a first course would, and show me where it breaks or gets surprising.
+2. Give me 3 problems that get harder, with full worked solutions afterwards, not before.
+3. Write a small self-contained JavaScript function I can drop into a single-file HTML canvas app that demonstrates it visually, with 2-3 parameters I can expose as sliders. No libraries.`;
+}
+
+function select(id){
+  const n=NODES.find(x=>x.id===id); if(!n) return;
+  cur=n; P={}; n.params.forEach(p=>P[p.k]=p.v);
+  $('lesson').innerHTML=lessonHTML(n);
+  $('lesson').scrollTop=0;
+  buildDials(); newProblem(); paintMap(); T=0;
+  $('vizHint').textContent=n.hint||'';
+  wireLesson();
+  drawFormula();
+}
+
+function wireLesson(){
+  $('newQ').onclick=newProblem;
+  $('lvl').onchange=newProblem;
+  $('markBtn').onclick=()=>{
+    done.has(cur.id)?done.delete(cur.id):done.add(cur.id);
+    $('markBtn').textContent=done.has(cur.id)?'Unmark this topic':'Mark this topic learned';
+    paintMap();
+  };
+  $('copyPrompt').onclick=()=>{
+    const ta=$('aiPrompt'); ta.select(); ta.setSelectionRange(0,99999);
+    let ok=false;
+    try{ok=document.execCommand('copy')}catch(e){}
+    if(navigator.clipboard&&!ok){navigator.clipboard.writeText(ta.value).catch(()=>{});ok=true}
+    $('copyPrompt').textContent=ok?'Copied':'Select and copy manually';
+    setTimeout(()=>$('copyPrompt').textContent='Copy prompt',1600);
+  };
+  document.querySelectorAll('.goBtn').forEach(b=>b.onclick=()=>select(b.dataset.go));
+  wireTutor();
+}
+
+function newProblem(){
+  const gen=PRACTICE[cur.id];
+  const L=S[$('lvl').value];
+  currentProblem = gen?gen(L):{q:`In your own words: what is ${cur.n.toLowerCase()} for?`,steps:[cur.one],a:cur.why};
+  const p=currentProblem;
+  $('pbody').innerHTML=`
+    <div class="pq">${esc(p.q)}</div>
+    ${p.num!==undefined?`<div class="pin"><input id="ans" placeholder="your answer" inputmode="decimal">
+      <button id="checkBtn">Check</button></div><div class="verdict" id="verdict"></div>`:''}
+    <details class="sol"><summary>Show the working</summary>
+      <ol style="font-family:var(--mono);font-size:13.5px;padding:6px 14px 8px 34px;line-height:1.75">
+        ${p.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
+      <div class="a" style="border-top:1px solid var(--line)">answer: ${esc(p.a)}</div>
+    </details>`;
+  if(p.num!==undefined){
+    const check=()=>{
+      const v=parseFloat($('ans').value.replace(/[^0-9eE.+-]/g,''));
+      const tol=p.tol!==undefined?p.tol:1e-9;
+      const el=$('verdict');
+      if(isNaN(v)){el.className='verdict no';el.textContent='Type a number first.';return}
+      if(Math.abs(v-p.num)<=tol){el.className='verdict ok';el.textContent='Correct.'}
+      else{el.className='verdict no';el.textContent='Not that one. Open the working, or try again.'}
+    };
+    $('checkBtn').onclick=check;
+    $('ans').addEventListener('keydown',e=>{if(e.key==='Enter')check()});
+  }
+}
+
+function buildDials(){
+  $('dials').innerHTML=cur.params.map(p=>`
+    <div class="dial">
+      <label for="d_${p.k}">${esc(p.label)} <b id="v_${p.k}">${P[p.k]}</b></label>
+      <input type="range" id="d_${p.k}" min="${p.min}" max="${p.max}" step="${p.step}" value="${P[p.k]}">
+    </div>`).join('');
+  cur.params.forEach(p=>{
+    $('d_'+p.k).addEventListener('input',e=>{
+      P[p.k]=parseFloat(e.target.value);
+      $('v_'+p.k).textContent=P[p.k];
+      drawFormula();
+    });
+  });
+}
+
+function drawFormula(){ try{$('formula').textContent=cur.formula(P)}catch(e){$('formula').textContent=''} }
+
+$('playBtn').onclick=()=>{playing=!playing;$('playBtn').textContent=playing?'Pause':'Play'};
+$('resetBtn').onclick=()=>{cur.params.forEach(p=>P[p.k]=p.v);buildDials();drawFormula();T=0};
+$('menuBtn').onclick=()=>$('map').classList.toggle('open');
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  const i=NODES.indexOf(cur);
+  if(e.key==='ArrowRight'&&i<NODES.length-1) select(NODES[i+1].id);
+  if(e.key==='ArrowLeft'&&i>0) select(NODES[i-1].id);
+});
+
+/* ============================================================
+   4) DRAWING ENGINE — plain canvas, no libraries.
+      The 3D views use the rotation + perspective maths from topic 14.
+   ============================================================ */
+const CV=$('cv'), g=CV.getContext('2d');
+const C={bg:'#080a10',grid:'#171d2b',axis:'#38415a',text:'#7e879c',
+  brass:'#e0a458',lilac:'#9b8cf0',sea:'#54b8a4',rose:'#d8748a',pale:'#c9cfdd',dim:'#4a5470'};
+let W=800,H=600;
+
+function fit(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const wrap=$('stage-wrap');
+  const cssW=Math.max(260,wrap.clientWidth);
+  const cssH=Math.round(cssW*0.78);
+  CV.style.height=cssH+'px';
+  CV.width=Math.round(cssW*dpr); CV.height=Math.round(cssH*dpr);
+  g.setTransform(dpr,0,0,dpr,0,0);
+  W=cssW; H=cssH;
+}
+window.addEventListener('resize',fit);
+
+function clear(){g.fillStyle=C.bg;g.fillRect(0,0,W,H)}
+function line(x1,y1,x2,y2,col,wid){g.strokeStyle=col;g.lineWidth=wid||1;g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke()}
+function dot(x,y,r,col){g.fillStyle=col;g.beginPath();g.arc(x,y,r,0,6.2832);g.fill()}
+function label(txt,x,y,col,size,align){g.fillStyle=col||C.text;g.font=(size||11)+'px ui-monospace, monospace';g.textAlign=align||'left';g.fillText(txt,x,y);g.textAlign='left'}
+function arrow(x1,y1,x2,y2,col,wid){
+  line(x1,y1,x2,y2,col,wid||1.6);
+  const a=Math.atan2(y2-y1,x2-x1), s=7;
+  g.fillStyle=col;g.beginPath();
+  g.moveTo(x2,y2);g.lineTo(x2-s*Math.cos(a-.4),y2-s*Math.sin(a-.4));g.lineTo(x2-s*Math.cos(a+.4),y2-s*Math.sin(a+.4));
+  g.closePath();g.fill();
+}
+function grid2d(cx,cy,u,span){
+  g.strokeStyle=C.grid;g.lineWidth=1;
+  for(let i=-span;i<=span;i++){
+    g.beginPath();g.moveTo(cx+i*u,0);g.lineTo(cx+i*u,H);g.stroke();
+    g.beginPath();g.moveTo(0,cy+i*u);g.lineTo(W,cy+i*u);g.stroke();
+  }
+  line(0,cy,W,cy,C.axis,1.4); line(cx,0,cx,H,C.axis,1.4);
+}
+function plot(f,cx,cy,u,col,wid){
+  g.strokeStyle=col;g.lineWidth=wid||2;g.beginPath();
+  let started=false;
+  for(let px=0;px<=W;px+=2){
+    const x=(px-cx)/u, y=f(x);
+    if(!isFinite(y)){started=false;continue}
+    const py=cy-y*u;
+    if(py<-2000||py>2000){started=false;continue}
+    started?g.lineTo(px,py):g.moveTo(px,py); started=true;
+  }
+  g.stroke();
+}
+
+/* ---- tiny 3D: rotate, then divide by depth ---- */
+function proj(pt,yaw,pitch,u,cx,cy,persp){
+  let [x,y,z]=pt;
+  const cy_=Math.cos(yaw), sy_=Math.sin(yaw);
+  let x1=x*cy_ - z*sy_, z1=x*sy_ + z*cy_;
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  let y1=y*cp - z1*sp, z2=y*sp + z1*cp;
+  const d=persp||6, f=d/(d+z2);
+  return [cx+x1*u*f, cy-y1*u*f, z2, f];
+}
+function axes3(yaw,pitch,u,cx,cy,persp,len){
+  const L=len||2.2;
+  const o=proj([0,0,0],yaw,pitch,u,cx,cy,persp);
+  [[ [L,0,0],'x',C.rose],[ [0,L,0],'y',C.sea],[ [0,0,L],'z',C.lilac]].forEach(a=>{
+    const e=proj(a[0],yaw,pitch,u,cx,cy,persp);
+    line(o[0],o[1],e[0],e[1],a[2],1.2); label(a[1],e[0]+4,e[1],a[2],11);
+  });
+}
+function floor3(yaw,pitch,u,cx,cy,persp,n){
+  n=n||3;g.strokeStyle=C.grid;g.lineWidth=1;
+  for(let i=-n;i<=n;i++){
+    let a=proj([i,-1.6,-n],yaw,pitch,u,cx,cy,persp), b=proj([i,-1.6,n],yaw,pitch,u,cx,cy,persp);
+    line(a[0],a[1],b[0],b[1],C.grid,1);
+    a=proj([-n,-1.6,i],yaw,pitch,u,cx,cy,persp); b=proj([n,-1.6,i],yaw,pitch,u,cx,cy,persp);
+    line(a[0],a[1],b[0],b[1],C.grid,1);
+  }
+}
+
+/* ---- offscreen buffer for pixel fields ---- */
+const buf=document.createElement('canvas'), bg2=buf.getContext('2d');
+
+const VIZ={
+
+numberline(p,t){
+  const cy=H*0.5, u=W/26, cx=W/2;
+  line(20,cy,W-20,cy,C.axis,1.5);
+  for(let i=-12;i<=12;i++){
+    const x=cx+i*u;
+    line(x,cy-5,x,cy+5,i===0?C.pale:C.grid,i===0?1.6:1);
+    if(i%2===0) label(String(i),x,cy+20,C.text,10,'center');
+  }
+  let pos=p.a;
+  dot(cx+pos*u,cy,4,C.dim);
+  const steps=Math.round(p.c);
+  for(let i=0;i<steps;i++){
+    const from=p.a+i*p.b, to=from+p.b;
+    const y=cy-18-i*13;
+    arrow(cx+from*u,y,cx+to*u,y,i===steps-1?C.brass:C.lilac,1.4);
+  }
+  const end=p.a+steps*p.b;
+  dot(cx+end*u,cy,5,C.brass);
+  label(`${p.a} → ${end}`,cx+end*u,cy+38,C.brass,12,'center');
+  label('each arrow is one step of '+p.b,20,H-16,C.text,11);
+},
+
+multiples(p,t){
+  const cols=Math.max(2,Math.round(p.c)), rows=Math.min(40,Math.ceil(60/cols)+1);
+  const pad=26, cell=Math.min((W-pad*2)/cols,(H-pad*2)/rows);
+  const ox=(W-cell*cols)/2, oy=(H-cell*rows)/2;
+  const A=Math.round(p.a), B=Math.round(p.b), L=lcm(A,B);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const n=r*cols+c+1;
+    const x=ox+c*cell, y=oy+r*cell;
+    const isA=n%A===0, isB=n%B===0;
+    g.fillStyle= isA&&isB? 'rgba(224,164,88,.85)' : isA? 'rgba(155,140,240,.35)' : isB? 'rgba(84,184,164,.3)' : '#0e1220';
+    g.fillRect(x+1,y+1,cell-2,cell-2);
+    g.strokeStyle='#161c2b';g.lineWidth=1;g.strokeRect(x+1,y+1,cell-2,cell-2);
+    if(cell>17) label(String(n),x+cell/2,y+cell/2+4,isA&&isB?'#2a1c05':(isA||isB?'#d7dcea':'#3d465e'),Math.min(11,cell*0.42),'center');
+  }
+  label(`violet = ×${A}   green = ×${B}   brass = both, every ${L}`,ox,oy-8,C.text,11);
+},
+
+modclock(p,t){
+  const m=Math.max(2,Math.round(p.b)), cx=W*0.5, cy=H*0.52, R=Math.min(W,H)*0.32;
+  g.strokeStyle=C.axis;g.lineWidth=1.4;g.beginPath();g.arc(cx,cy,R,0,6.2832);g.stroke();
+  for(let i=0;i<m;i++){
+    const a=-Math.PI/2+i*2*Math.PI/m;
+    const x=cx+Math.cos(a)*R, y=cy+Math.sin(a)*R;
+    dot(x,y,3,C.dim); label(String(i),cx+Math.cos(a)*(R+16),cy+Math.sin(a)*(R+16)+4,C.text,11,'center');
+  }
+  const N=Math.round(p.a), trail=Math.round(p.c);
+  for(let k=Math.max(0,N-trail);k<=N;k++){
+    const r=((k%m)+m)%m, a=-Math.PI/2+r*2*Math.PI/m;
+    const fade=(k-(N-trail))/(trail||1);
+    const x=cx+Math.cos(a)*R, y=cy+Math.sin(a)*R;
+    if(k>Math.max(0,N-trail)){
+      const rp=(((k-1)%m)+m)%m, ap=-Math.PI/2+rp*2*Math.PI/m;
+      g.globalAlpha=.15+.5*fade;
+      line(cx+Math.cos(ap)*R,cy+Math.sin(ap)*R,x,y,C.lilac,1.2);
+      g.globalAlpha=1;
+    }
+    if(k===N){dot(x,y,7,C.brass);label(String(N),x,y-14,C.brass,12,'center')}
+  }
+  label(`${N} mod ${m} = ${((N%m)+m)%m}`,cx,H-18,C.brass,13,'center');
+},
+
+solve(p,t){
+  const cx=W*0.5, cy=H*0.5, u=Math.min(W,H)/22;
+  grid2d(cx,cy,u,30);
+  plot(x=>p.a*x+p.b,cx,cy,u,C.brass,2);
+  line(0,cy-p.c*u,W,cy-p.c*u,C.sea,1.4);
+  label(`y = ${p.c}`,W-8,cy-p.c*u-6,C.sea,11,'right');
+  if(p.a!==0){
+    const xs=(p.c-p.b)/p.a;
+    const px=cx+xs*u, py=cy-p.c*u;
+    dot(px,py,6,C.rose);
+    line(px,py,px,cy,C.rose,1);
+    label(`x = ${r3(xs)}`,px+8,cy+16,C.rose,12);
+  } else label('a = 0: the line is flat, no single solution',14,24,C.rose,12);
+  label(`y = ${p.a}x + ${p.b}`,14,H-14,C.brass,12);
+},
+
+transform(p,t){
+  const cx=W*0.5, cy=H*0.62, u=Math.min(W,H)/13;
+  grid2d(cx,cy,u,30);
+  plot(x=>x*x,cx,cy,u,'#2f3852',1.6);
+  plot(x=>p.a*Math.pow(p.b*(x-p.c),2)+p.d,cx,cy,u,C.brass,2.4);
+  const vx=cx+p.c*u, vy=cy-p.d*u; dot(vx,vy,5,C.rose);
+  label('vertex',vx+7,vy-6,C.rose,11);
+  label('grey: f(x) = x²   brass: transformed',14,18,C.text,11);
+},
+
+logscale(p,t){
+  const pad=44, y0=H-pad, x0=pad;
+  line(x0,y0,W-14,y0,C.axis,1.3); line(x0,14,x0,y0,C.axis,1.3);
+  const logMode=p.c>0.5, base=Math.round(p.a);
+  const vals=[]; for(let e=-4;e<=8;e++) vals.push(e);
+  const val=Math.pow(base,p.b);
+  const lo=-4, hi=8;
+  vals.forEach(e=>{
+    let fx;
+    if(logMode) fx=(e-lo)/(hi-lo);
+    else fx=Math.pow(base,e)/Math.pow(base,hi);
+    if(fx<0||fx>1.02) return;
+    const x=x0+fx*(W-pad-24);
+    line(x,y0,x,y0-8,C.grid,1);
+    if(e%2===0||logMode) label(base+'^'+e,x,y0+16,C.text,10,'center');
+  });
+  let fxv = logMode? (p.b-lo)/(hi-lo) : val/Math.pow(base,hi);
+  fxv=Math.max(0,Math.min(1.02,fxv));
+  const x=x0+fxv*(W-pad-24);
+  line(x,y0,x,40,C.brass,2); dot(x,40,5,C.brass);
+  label(`${base}^${r2(p.b)} = ${Number(val.toPrecision(6))}`,W/2,26,C.brass,13,'center');
+  label(logMode?'log axis — each tick is one multiplication':'linear axis — small values collapse onto the origin',x0,H-10,C.text,11);
+},
+
+distance(p,t){
+  const cx=W*0.5, cy=H*0.5, u=Math.min(W,H)/22;
+  grid2d(cx,cy,u,30);
+  const bx=cx+p.a*u, by=cy-p.b*u;
+  if(p.c>0){g.strokeStyle=C.lilac;g.lineWidth=1.2;g.setLineDash([4,4]);g.beginPath();g.arc(cx,cy,p.c*u,0,6.2832);g.stroke();g.setLineDash([])}
+  line(cx,cy,bx,cy,C.sea,1.4); line(bx,cy,bx,by,C.sea,1.4);
+  label('Δx = '+r2(p.a),(cx+bx)/2,cy+16,C.sea,11,'center');
+  label('Δy = '+r2(p.b),bx+8,(cy+by)/2,C.sea,11);
+  arrow(cx,cy,bx,by,C.brass,2);
+  dot(cx,cy,4,C.pale); dot(bx,by,5,C.brass);
+  label('d = '+r3(Math.hypot(p.a,p.b)),(cx+bx)/2-10,(cy+by)/2-10,C.brass,13);
+},
+
+unitcircle(p,t){
+  const R=Math.min(W*0.28,H*0.36), cx=W*0.28, cy=H*0.5;
+  const ang=p.a*Math.PI/180 + t*p.b;
+  g.strokeStyle=C.axis;g.lineWidth=1.2;g.beginPath();g.arc(cx,cy,R*p.c,0,6.2832);g.stroke();
+  line(cx-R-10,cy,cx+R+10,cy,C.grid,1); line(cx,cy-R-10,cx,cy+R+10,C.grid,1);
+  const x=Math.cos(ang)*R*p.c, y=Math.sin(ang)*R*p.c;
+  line(cx,cy,cx+x,cy,C.rose,1.6); label('cos',cx+x/2,cy+14,C.rose,11,'center');
+  line(cx+x,cy,cx+x,cy-y,C.sea,1.6); label('sin',cx+x+6,cy-y/2,C.sea,11);
+  arrow(cx,cy,cx+x,cy-y,C.brass,1.8);
+  dot(cx+x,cy-y,4,C.brass);
+  const gx0=cx+R+26, gw=W-gx0-12;
+  line(gx0,cy,W-8,cy,C.grid,1);
+  g.strokeStyle=C.sea;g.lineWidth=2;g.beginPath();
+  for(let i=0;i<=gw;i++){
+    const a2=ang-i*0.02;
+    const py=cy-Math.sin(a2)*R*p.c;
+    i?g.lineTo(gx0+i,py):g.moveTo(gx0,py);
+  }
+  g.stroke();
+  line(gx0,cy-R*p.c,gx0,cy+R*p.c,C.grid,1);
+  dot(gx0,cy-y,4,C.sea);
+  label('the circle on the left is drawing this',gx0,H-14,C.text,11);
+  label(`${r2(ang*180/Math.PI%360)}°`,cx,cy+R+28,C.brass,12,'center');
+},
+
+wave(p,t){
+  const cy=H*0.5, u=Math.min(W,H)/6;
+  line(0,cy,W,cy,C.grid,1);
+  const f=(x,shift)=>p.a*Math.sin(p.b*x - p.c*t + p.d + (shift||0));
+  g.strokeStyle=C.brass;g.lineWidth=2.2;g.beginPath();
+  for(let px=0;px<=W;px++){
+    const x=(px-20)/u*2, y=cy-f(x)*u*0.7;
+    px?g.lineTo(px,y):g.moveTo(px,y);
+  }
+  g.stroke();
+  const lam=2*Math.PI/(p.b||.001);
+  const x0=20, x1=20+lam/2*u;
+  if(x1-x0<W){
+    line(x0,cy+u*1.0,x1,cy+u*1.0,C.lilac,1.4);
+    line(x0,cy+u*0.9,x0,cy+u*1.1,C.lilac,1.4); line(x1,cy+u*0.9,x1,cy+u*1.1,C.lilac,1.4);
+    label('λ = '+r2(lam),(x0+x1)/2,cy+u*1.0+16,C.lilac,11,'center');
+  }
+  line(14,cy,14,cy-p.a*u*0.7,C.sea,1.4);
+  label('A',20,cy-p.a*u*0.35,C.sea,11);
+  label(`y = ${r2(p.a)} sin(${r2(p.b)}x − ${r2(p.c)}t + ${r2(p.d)})`,14,20,C.brass,12);
+},
+
+interference(p,t){
+  const rw=Math.max(120,Math.round(W/3)), rh=Math.round(rw*H/W);
+  buf.width=rw; buf.height=rh;
+  const img=bg2.createImageData(rw,rh), d=img.data;
+  const k=2*Math.PI/(p.b||.001), n=Math.round(p.d);
+  const src=[];
+  for(let i=0;i<n;i++){
+    const off=(i-(n-1)/2)*p.a;
+    src.push({x:-3.2,y:off,ph:i===1?p.c:0});
+  }
+  const scale=8/rw;
+  for(let py=0;py<rh;py++)for(let px=0;px<rw;px++){
+    const wx=(px-rw*0.5)*scale*1.9, wy=(py-rh*0.5)*scale*1.9*(H/W)*(rw/rh);
+    let s=0;
+    for(const S2 of src){
+      const r=Math.hypot(wx-S2.x,wy-S2.y);
+      s+=Math.sin(k*r - 2.2*t + S2.ph)/Math.sqrt(0.4+r);
+    }
+    const v=s*1.3;
+    const i4=(py*rw+px)*4;
+    const pos=Math.max(0,v), neg=Math.max(0,-v);
+    d[i4]=Math.min(255, 18+pos*180+neg*40);
+    d[i4+1]=Math.min(255, 20+pos*140+neg*90);
+    d[i4+2]=Math.min(255, 30+pos*70+neg*190);
+    d[i4+3]=255;
+  }
+  bg2.putImageData(img,0,0);
+  g.imageSmoothingEnabled=true;
+  g.drawImage(buf,0,0,W,H);
+  src.forEach(S2=>{
+    const sx=W*0.5+S2.x/(8*1.9)*W, sy=H*0.5+S2.y/(8*1.9)*W;
+    dot(sx,sy,4,'#ffffff');
+  });
+  const s=p.b/p.a;
+  if(Math.abs(s)<=1){
+    const th=Math.asin(s);
+    const cxp=W*0.5-3.2/(8*1.9)*W, cyp=H*0.5;
+    [1,-1].forEach(sg=>{
+      const L=W;
+      line(cxp,cyp,cxp+Math.cos(sg*th)*L,cyp-Math.sin(sg*th)*L,'rgba(224,164,88,.55)',1.2);
+    });
+    line(cxp,cyp,W,cyp,'rgba(255,255,255,.25)',1);
+    label('θ = '+r2(th*180/Math.PI)+'°',W-10,cyp-8,C.brass,11,'right');
+  }
+  label('brass lines: first bright fringe  ·  white dots: sources',10,H-12,'#c9cfdd',11);
+},
+
+phasor(p,t){
+  const cx=W*0.33, cy=H*0.5, u=Math.min(W,H)*0.16;
+  g.strokeStyle=C.grid;g.lineWidth=1;g.beginPath();g.arc(cx,cy,u*(p.a+p.b),0,6.2832);g.stroke();
+  line(cx-u*2.4,cy,cx+u*2.4,cy,C.grid,1); line(cx,cy-u*2.4,cx,cy+u*2.4,C.grid,1);
+  label('real',cx+u*2.4-16,cy-6,C.text,10); label('i',cx+6,cy-u*2.4+10,C.text,10);
+  const th=t*p.d;
+  const a1x=Math.cos(th)*p.a*u, a1y=Math.sin(th)*p.a*u;
+  const a2x=Math.cos(th+p.c)*p.b*u, a2y=Math.sin(th+p.c)*p.b*u;
+  arrow(cx,cy,cx+a1x,cy-a1y,C.sea,1.8);
+  arrow(cx+a1x,cy-a1y,cx+a1x+a2x,cy-a1y-a2y,C.lilac,1.8);
+  arrow(cx,cy,cx+a1x+a2x,cy-a1y-a2y,C.brass,2.4);
+  const R=Math.hypot(a1x+a2x,a1y+a2y)/u;
+  label('sum = '+r3(R),cx,cy+u*2.4+18,C.brass,12,'center');
+  const gx=W*0.66, gw=W-gx-10;
+  line(gx,cy,W-8,cy,C.grid,1);
+  g.strokeStyle=C.brass;g.lineWidth=2;g.beginPath();
+  for(let i=0;i<=gw;i++){
+    const a=th-i*0.03;
+    const y=cy-(p.a*Math.sin(a)+p.b*Math.sin(a+p.c))*u*0.8;
+    i?g.lineTo(gx+i,y):g.moveTo(gx,y);
+  }
+  g.stroke();
+  label('shadow of the brass arrow = the combined wave',gx-4,H-12,C.text,10);
+},
+
+solid3d(p,t){
+  const yaw=t*p.c, pitch=0.5, u=Math.min(W,H)*0.22, cx=W*0.5, cy=H*0.55;
+  floor3(yaw,pitch,u,cx,cy,6); axes3(yaw,pitch,u,cx,cy,6);
+  const shape=Math.round(p.b), R=p.a;
+  g.strokeStyle='rgba(224,164,88,.75)';g.lineWidth=1;
+  if(shape===0){
+    for(let i=0;i<=8;i++){
+      const v=i/8*Math.PI; g.beginPath();
+      for(let j=0;j<=36;j++){const uu=j/36*2*Math.PI;
+        const q=proj([R*Math.cos(uu)*Math.sin(v),R*Math.cos(v),R*Math.sin(uu)*Math.sin(v)],yaw,pitch,u,cx,cy,6);
+        j?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);}
+      g.stroke();
+    }
+    for(let j=0;j<12;j++){
+      const uu=j/12*2*Math.PI; g.beginPath();
+      for(let i=0;i<=24;i++){const v=i/24*Math.PI;
+        const q=proj([R*Math.cos(uu)*Math.sin(v),R*Math.cos(v),R*Math.sin(uu)*Math.sin(v)],yaw,pitch,u,cx,cy,6);
+        i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);}
+      g.stroke();
+    }
+  } else if(shape===1){
+    const s=R, V=[[-s,-s,-s],[s,-s,-s],[s,s,-s],[-s,s,-s],[-s,-s,s],[s,-s,s],[s,s,s],[-s,s,s]];
+    const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    E.forEach(e=>{const a=proj(V[e[0]],yaw,pitch,u,cx,cy,6),b=proj(V[e[1]],yaw,pitch,u,cx,cy,6);
+      line(a[0],a[1],b[0],b[1],C.brass,1.3)});
+  } else {
+    const h=R;
+    [-h,h].forEach(zz=>{g.beginPath();
+      for(let j=0;j<=48;j++){const a=j/48*2*Math.PI;
+        const q=proj([R*Math.cos(a),zz,R*Math.sin(a)],yaw,pitch,u,cx,cy,6); j?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);}
+      g.stroke()});
+    for(let j=0;j<12;j++){const a=j/12*2*Math.PI;
+      const p1=proj([R*Math.cos(a),-h,R*Math.sin(a)],yaw,pitch,u,cx,cy,6);
+      const p2=proj([R*Math.cos(a),h,R*Math.sin(a)],yaw,pitch,u,cx,cy,6);
+      line(p1[0],p1[1],p2[0],p2[1],'rgba(224,164,88,.6)',1)}
+  }
+  label(['sphere','cube','cylinder'][shape]+'  ·  r = '+r2(R),12,20,C.brass,12);
+},
+
+vectors3d(p,t){
+  const yaw=t*p.d+0.6, pitch=0.45, u=Math.min(W,H)*0.2, cx=W*0.5, cy=H*0.55;
+  floor3(yaw,pitch,u,cx,cy,6); axes3(yaw,pitch,u,cx,cy,6,2.6);
+  const A=[p.a,p.b,0], B=[0,1,p.c];
+  const cr=[A[1]*B[2]-A[2]*B[1], A[2]*B[0]-A[0]*B[2], A[0]*B[1]-A[1]*B[0]];
+  const o=proj([0,0,0],yaw,pitch,u,cx,cy,6);
+  const pa=proj(A,yaw,pitch,u,cx,cy,6), pb=proj(B,yaw,pitch,u,cx,cy,6), pc=proj(cr,yaw,pitch,u,cx,cy,6);
+  g.fillStyle='rgba(224,164,88,.12)';
+  const pab=proj([A[0]+B[0],A[1]+B[1],A[2]+B[2]],yaw,pitch,u,cx,cy,6);
+  g.beginPath();g.moveTo(o[0],o[1]);g.lineTo(pa[0],pa[1]);g.lineTo(pab[0],pab[1]);g.lineTo(pb[0],pb[1]);g.closePath();g.fill();
+  arrow(o[0],o[1],pa[0],pa[1],C.brass,2); label('A',pa[0]+5,pa[1],C.brass,12);
+  arrow(o[0],o[1],pb[0],pb[1],C.sea,2); label('B',pb[0]+5,pb[1],C.sea,12);
+  arrow(o[0],o[1],pc[0],pc[1],C.lilac,2); label('A×B',pc[0]+5,pc[1],C.lilac,12);
+  label('shaded area = |A×B|',12,H-14,C.text,11);
+},
+
+cube3d(p,t){
+  const yaw=p.a*Math.PI/180, pitch=p.b*Math.PI/180, u=Math.min(W,H)*0.2*p.c, cx=W*0.5, cy=H*0.52;
+  floor3(yaw,pitch,u,cx,cy,p.d); axes3(yaw,pitch,u,cx,cy,p.d);
+  const s=1.2, V=[[-s,-s,-s],[s,-s,-s],[s,s,-s],[-s,s,-s],[-s,-s,s],[s,-s,s],[s,s,s],[-s,s,s]];
+  const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const P2=V.map(v=>proj(v,yaw,pitch,u,cx,cy,p.d));
+  E.forEach(e=>{
+    const a=P2[e[0]], b=P2[e[1]];
+    const near=(a[3]+b[3])/2;
+    g.globalAlpha=Math.max(.25,Math.min(1,near));
+    line(a[0],a[1],b[0],b[1],C.brass,1.6); g.globalAlpha=1;
+  });
+  P2.forEach(q=>dot(q[0],q[1],2.5,C.pale));
+  const c=Math.cos(yaw), s2=Math.sin(yaw);
+  label('Ry =',12,H-52,C.text,11);
+  label(`[ ${r2(c)}  0  ${r2(s2)} ]`,52,H-52,C.lilac,11);
+  label(`[   0   1   0  ]`,52,H-38,C.lilac,11);
+  label(`[ ${r2(-s2)}  0  ${r2(c)} ]`,52,H-24,C.lilac,11);
+  label('then x/z and y/z',12,H-8,C.text,11);
+},
+
+surface3d(p,t){
+  const yaw=t*p.d+0.7, pitch=0.55, u=Math.min(W,H)*0.2, cx=W*0.5, cy=H*0.52;
+  const N=26, mode=Math.round(p.a);
+  const pts=[];
+  for(let i=0;i<=N;i++){
+    pts[i]=[];
+    for(let j=0;j<=N;j++){
+      let P3;
+      if(mode===0){
+        const x=(i/N-.5)*4.4, z=(j/N-.5)*4.4, r=Math.hypot(x,z);
+        P3=[x, p.b*Math.sin(p.c*r - t*1.6), z];
+      } else if(mode===1){
+        const uu=i/N*2*Math.PI, v=j/N*Math.PI, R=1.6+p.b*0.35*Math.sin(p.c*uu+t);
+        P3=[R*Math.cos(uu)*Math.sin(v), R*Math.cos(v), R*Math.sin(uu)*Math.sin(v)];
+      } else {
+        const uu=i/N*2*Math.PI, v=j/N*2*Math.PI, R=1.6, r=p.b;
+        P3=[(R+r*Math.cos(v))*Math.cos(uu), r*Math.sin(v), (R+r*Math.cos(v))*Math.sin(uu*Math.max(1,Math.round(p.c)/2))];
+      }
+      pts[i][j]=proj(P3,yaw,pitch,u,cx,cy,7);
+    }
+  }
+  for(let i=0;i<=N;i++)for(let j=0;j<=N;j++){
+    const a=pts[i][j];
+    if(i<N){const b=pts[i+1][j];g.globalAlpha=Math.max(.15,Math.min(.9,a[3]));line(a[0],a[1],b[0],b[1],C.brass,1)}
+    if(j<N){const b=pts[i][j+1];g.globalAlpha=Math.max(.12,Math.min(.7,a[3]));line(a[0],a[1],b[0],b[1],C.lilac,1)}
+  }
+  g.globalAlpha=1;
+  label(['ripple height field','sphere','torus'][mode]+'  ·  u and v swept '+(N+1)+'×'+(N+1),12,20,C.brass,12);
+},
+
+tangent(p,t){
+  const cx=W*0.5, cy=H*0.55, u=Math.min(W,H)/9;
+  grid2d(cx,cy,u,30);
+  const f=x=>p.b*x*x*x+p.c*x;
+  plot(f,cx,cy,u,C.brass,2.2);
+  const x0=p.a, y0=f(x0), h=p.d;
+  const x1=x0+h, y1=f(x1);
+  const sec=h!==0?(y1-y0)/h:(3*p.b*x0*x0+p.c);
+  const tan=3*p.b*x0*x0+p.c;
+  g.strokeStyle=C.sea;g.lineWidth=1.4;g.beginPath();
+  g.moveTo(0,cy-(y0+sec*((0-cx)/u-x0))*u); g.lineTo(W,cy-(y0+sec*((W-cx)/u-x0))*u); g.stroke();
+  g.strokeStyle=C.rose;g.lineWidth=1.8;g.setLineDash([5,4]);g.beginPath();
+  g.moveTo(0,cy-(y0+tan*((0-cx)/u-x0))*u); g.lineTo(W,cy-(y0+tan*((W-cx)/u-x0))*u); g.stroke();g.setLineDash([]);
+  dot(cx+x0*u,cy-y0*u,5,C.rose); dot(cx+x1*u,cy-y1*u,4,C.sea);
+  label('secant slope '+r3(sec),12,20,C.sea,12);
+  label('tangent slope '+r3(tan),12,36,C.rose,12);
+},
+
+riemann(p,t){
+  const cx=W*0.32, cy=H*0.72, u=Math.min(W,H)/7;
+  grid2d(cx,cy,u,30);
+  const f=x=>p.d*x*x+2;
+  const a=p.b,b=p.c,n=Math.max(1,Math.round(p.a)),h=(b-a)/n;
+  let sum=0;
+  for(let i=0;i<n;i++){
+    const xm=a+h*(i+0.5), y=f(xm); sum+=y*h;
+    const px=cx+(a+i*h)*u, pw=h*u, py=cy-y*u;
+    g.fillStyle='rgba(224,164,88,.22)';g.fillRect(px,py,pw,cy-py);
+    g.strokeStyle='rgba(224,164,88,.7)';g.lineWidth=1;g.strokeRect(px,py,pw,cy-py);
+  }
+  plot(f,cx,cy,u,C.sea,2.2);
+  const F=x=>p.d*x*x*x/3+2*x;
+  label(`${n} slices: ${r3(sum)}`,12,20,C.brass,12);
+  label(`exact: ${r3(F(b)-F(a))}`,12,36,C.sea,12);
+},
+
+field(p,t){
+  const rw=Math.max(110,Math.round(W/3.4)), rh=Math.round(rw*H/W);
+  buf.width=rw;buf.height=rh;
+  const img=bg2.createImageData(rw,rh), d=img.data;
+  const sep=p.c/2;
+  const V=(x,y)=>{
+    const r1=Math.max(.35,Math.hypot(x+sep,y)), r2_=Math.max(.35,Math.hypot(x-sep,y));
+    return -p.a/r1 - p.b/r2_;
+  };
+  for(let py=0;py<rh;py++)for(let px=0;px<rw;px++){
+    const x=(px/rw-.5)*10, y=(py/rh-.5)*10*(H/W)*(rw/rh);
+    const v=-V(x,y);
+    const s=Math.min(1,v/3);
+    const i4=(py*rw+px)*4;
+    d[i4]=10+s*230; d[i4+1]=12+s*150; d[i4+2]=26+s*70; d[i4+3]=255;
+  }
+  bg2.putImageData(img,0,0);
+  g.imageSmoothingEnabled=true; g.drawImage(buf,0,0,W,H);
+  if(p.d>0.5){
+    const step=Math.max(34,Math.round(W/11));
+    for(let px=step/2;px<W;px+=step)for(let py=step/2;py<H;py+=step){
+      const x=(px/W-.5)*10, y=(py/H-.5)*10*(H/W);
+      const e=.05;
+      const gx=(V(x+e,y)-V(x-e,y))/(2*e), gy=(V(x,y+e)-V(x,y-e))/(2*e);
+      const fx=-gx, fy=-gy;
+      const m=Math.hypot(fx,fy)||1;
+      const L=Math.min(step*0.42, 5+m*6);
+      arrow(px,py,px+fx/m*L,py+fy/m*L,'rgba(201,207,221,.75)',1.2);
+    }
+  }
+  const s1x=W*0.5-sep/10*W, s2x=W*0.5+sep/10*W;
+  if(p.a>0) dot(s1x,H*0.5,4,'#fff');
+  if(p.b>0) dot(s2x,H*0.5,4,'#fff');
+  label('arrows point downhill: F = −∇V',10,H-12,'#c9cfdd',11);
+}
+};
+
+/* ============================================================
+   5) TUTOR — asks Claude about the topic you are looking at.
+      Two ways in:
+        · open this file inside Claude  -> no key needed
+        · open it from your own machine -> paste an API key below
+      The key lives in this tab only; nothing is written to disk.
+   ============================================================ */
+const AI={key:'', model:'claude-sonnet-5', threads:{}, busy:false, state:'unknown'};
+
+function setStatus(){
+  const el=$('aiStatus'); if(!el) return;
+  const map={unknown:['ready','' ],live:['connected','live'],needkey:['needs an API key','off'],error:['connection failed','off']};
+  const m=map[AI.state]||map.unknown;
+  el.textContent=m[0]; el.className='status '+m[1];
+}
+
+function aiContext(n){
+  const dials=n.params.map(p=>`${p.label} = ${P[p.k]}`).join(', ');
+  let live=''; try{live=n.formula(P)}catch(e){}
+  let prob='';
+  if(currentProblem){
+    const typed=$('ans')?$('ans').value.trim():'';
+    prob=`\nThe problem on screen right now: ${currentProblem.q}\nThe correct answer: ${currentProblem.a}`+
+         (typed?`\nWhat the learner typed as their answer: ${typed}`:'');
+  }
+  return `You are a maths tutor built into a single-page app called Field Notes. The learner is teaching himself maths so he can build browser apps: single-file HTML tools with canvas visuals, 3D rendering, audio and physics. He learns by turning parameters and seeing what moves.
+
+The topic on screen is "${n.n}" — ${n.one}
+How the app explains it: ${n.idea.join(' ')}
+Notation in use here: ${n.symbols.map(x=>x[0]+' = '+x[1]).join('; ')}
+Live model settings: ${dials}
+Live readout: ${live.replace(/\n/g,' | ')}${prob}
+
+How to answer:
+- Plain language first, then the maths. Short sentences. No throat-clearing.
+- Use plain unicode notation (√, π, θ, ∫, x²) — LaTeX does not render here.
+- Show working line by line when you calculate. Never skip a step because it is obvious.
+- Tie the idea back to something he could build or see on a canvas whenever it is honest to do so.
+- If he asks for code, give a small dependency-free JavaScript function, nothing more.
+- If he got an answer wrong, find the exact step where it went wrong instead of restating the solution.
+- Keep it under about 250 words unless he asks for more.`;
+}
+
+async function callClaude(system, messages){
+  const keyed=!!AI.key;
+  const headers={'content-type':'application/json'};
+  if(keyed){
+    headers['x-api-key']=AI.key;
+    headers['anthropic-version']='2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access']='true';
+  }
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST', headers,
+    body:JSON.stringify({
+      model: keyed? AI.model : 'claude-sonnet-4-6',
+      max_tokens: keyed? 1400 : 1000,
+      system, messages
+    })
+  });
+  if(!res.ok){
+    let msg=res.status+' '+(res.statusText||'');
+    try{const j=await res.json(); if(j&&j.error&&j.error.message) msg=j.error.message}catch(e){}
+    const err=new Error(msg); err.status=res.status; throw err;
+  }
+  const data=await res.json();
+  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim()||'(empty reply)';
+}
+
+function md(t){
+  let x=esc(t);
+  x=x.replace(/```[a-z]*\n?([\s\S]*?)```/g,(m,c)=>'\u0001PRE'+btoa(unescape(encodeURIComponent(c.replace(/\s+$/,''))))+'\u0001');
+  x=x.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  x=x.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  x=x.replace(/^#{1,4}\s*(.*)$/gm,'<b>$1</b>');
+  x=x.replace(/^\s*[-*]\s+/gm,'• ');
+  x=x.split(/\n{2,}/).map(p=>'<p>'+p.replace(/\n/g,'<br>')+'</p>').join('');
+  x=x.replace(/\u0001PRE([A-Za-z0-9+/=]*)\u0001/g,(m,b)=>{
+    let c=''; try{c=decodeURIComponent(escape(atob(b)))}catch(e){c=b}
+    return '<pre class="code">'+c+'</pre>';
+  });
+  return x;
+}
+
+function renderThread(){
+  const box=$('thread'); if(!box) return;
+  const th=AI.threads[cur.id]||[];
+  if(!th.length){
+    box.innerHTML='<div class="msg wait">Ask a question, or tap one below. The tutor already knows which topic you are on and where your dials are set.</div>';
+    return;
+  }
+  box.innerHTML=th.map(m=>{
+    if(m.role==='user') return '<div class="msg you">'+esc(m.content)+'</div>';
+    if(m.role==='error') return '<div class="msg err">'+esc(m.content)+'</div>';
+    if(m.role==='wait') return '<div class="msg wait">'+esc(m.content)+'</div>';
+    return '<div class="msg bot">'+md(m.content)+'</div>';
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+
+function quickList(){
+  const q=['Explain this another way','Where does this show up in code?','Give me a harder problem','What should I learn next?'];
+  if(currentProblem) q.splice(2,0,'Check my working on this problem');
+  return q;
+}
+
+async function ask(text){
+  if(!text||AI.busy) return;
+  const th=AI.threads[cur.id]||(AI.threads[cur.id]=[]);
+  th.push({role:'user',content:text});
+  th.push({role:'wait',content:'thinking…'});
+  AI.busy=true; renderThread();
+  if($('askBtn')) $('askBtn').textContent='…';
+  const history=th.filter(m=>m.role==='user'||m.role==='assistant').slice(-10);
+  try{
+    const reply=await callClaude(aiContext(cur),history);
+    th.pop(); th.push({role:'assistant',content:reply});
+    AI.state='live';
+  }catch(e){
+    th.pop();
+    const noKey=!AI.key;
+    if(noKey){
+      AI.state='needkey';
+      th.push({role:'error',content:'Could not reach Claude without a key ('+e.message+'). Open Connection settings below and paste an Anthropic API key, or use the offline prompt.'});
+      if($('aiset')) $('aiset').open=true;
+    }else{
+      AI.state='error';
+      th.push({role:'error',content:'API error: '+e.message});
+    }
+  }
+  AI.busy=false;
+  if($('askBtn')) $('askBtn').textContent='Ask';
+  renderThread(); setStatus();
+}
+
+function wireTutor(){
+  renderThread(); setStatus();
+  const qbox=$('quick');
+  if(qbox){
+    qbox.innerHTML=quickList().map(q=>'<button data-q="'+esc(q)+'">'+esc(q)+'</button>').join('');
+    qbox.querySelectorAll('button').forEach(b=>b.onclick=()=>ask(b.dataset.q));
+  }
+  const box=$('askBox'), btn=$('askBtn');
+  if(btn) btn.onclick=()=>{const v=box.value.trim(); if(v){box.value=''; ask(v)}};
+  if(box) box.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault(); const v=box.value.trim(); if(v){box.value=''; ask(v)}}
+  });
+  const k=$('aiKey'), m=$('aiModel');
+  if(k) k.addEventListener('input',e=>{AI.key=e.target.value.trim(); AI.state=AI.key?'unknown':'unknown'; setStatus()});
+  if(m) m.addEventListener('input',e=>{AI.model=e.target.value.trim()||'claude-sonnet-5'});
+}
+
+/* ---- loop ---- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  if(playing) T+=dt;
+  clear();
+  const fn=VIZ[cur.viz];
+  if(fn){ try{ fn(P,T) }catch(e){ label('viz error: '+e.message,12,20,C.rose,12) } }
+  requestAnimationFrame(frame);
+}
+
+/* ---- boot ---- */
+buildMap(); fit(); select(NODES[0].id);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

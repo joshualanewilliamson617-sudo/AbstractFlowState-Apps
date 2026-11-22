@@ -1,0 +1,1223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slipstream — wind tunnel lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#e6eaed; --panel:#f4f6f7; --ink:#18232d; --muted:#5b6873; --line:#c5cdd3;
+  --steel:#8a98a3; --signal:#e0a800; --signal-ink:#1b1400; --field-frame:#26313b;
+  --drag:#e2553b; --lift:#2fa36b; --weight:#e0a800;
+  --font-d:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --font-b:"Barlow","Segoe UI",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131a21; --panel:#1a232c; --ink:#e3e8ec; --muted:#8d9aa5; --line:#2c3843;
+    --steel:#5f6e7a; --signal:#f2c230; --signal-ink:#1b1400; --field-frame:#0c1116;
+    --drag:#ff6a4d; --lift:#4fd18f; --weight:#f2c230;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131a21; --panel:#1a232c; --ink:#e3e8ec; --muted:#8d9aa5; --line:#2c3843;
+  --steel:#5f6e7a; --signal:#f2c230; --signal-ink:#1b1400; --field-frame:#0c1116;
+  --drag:#ff6a4d; --lift:#4fd18f; --weight:#f2c230;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+.app{max-width:1720px;margin:0 auto;padding:14px 16px 28px;display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}
+header.top{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;justify-content:space-between}
+.brand h1{font-family:var(--font-d);font-weight:700;font-size:34px;line-height:1;margin:0;letter-spacing:.01em}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.modes{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.modes button{border:0;background:none;padding:9px 16px;cursor:pointer;font-family:var(--font-d);font-weight:600;font-size:17px;letter-spacing:.02em;color:var(--muted)}
+.modes button+button{border-left:1px solid var(--line)}
+.modes button[aria-pressed="true"]{background:var(--signal);color:var(--signal-ink)}
+.stage-col{min-width:0}
+.tunnel{position:relative;background:var(--field-frame);border-radius:4px;padding:14px 10px;display:flex;justify-content:center}
+/* test-section frame: hazard ticks along the top and bottom rails */
+.tunnel::before,.tunnel::after{content:"";position:absolute;left:10px;right:10px;height:5px;
+  background:repeating-linear-gradient(90deg,var(--signal) 0 10px,transparent 10px 22px);opacity:.55}
+.tunnel::before{top:4px}.tunnel::after{bottom:4px}
+.tunnel.fall::before,.tunnel.fall::after{opacity:.25}
+canvas#view{display:block;border-radius:2px;cursor:crosshair;touch-action:none}
+canvas#view.locked{cursor:default;touch-action:auto}
+.hud{position:absolute;left:18px;top:20px;display:flex;flex-direction:column;gap:2px;pointer-events:none;
+  color:#e9eef2;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000a}
+.hud .big{font-family:var(--font-d);font-size:30px;font-weight:600;line-height:1}
+.hud .small{font-size:13px;opacity:.85}
+.flowdir{position:absolute;right:18px;top:20px;color:#e9eef2;opacity:.7;font-size:13px;pointer-events:none;text-shadow:0 1px 2px #000a}
+canvas#mini{position:absolute;right:16px;bottom:18px;width:110px;height:110px;border-radius:4px;background:#0009;border:1px solid #fff2;display:none}
+.toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:var(--signal);color:var(--signal-ink);padding:8px 14px;border-radius:4px;font-weight:600;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:7px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--steel)}
+.btn.primary{background:var(--signal);color:var(--signal-ink);border-color:var(--signal);font-weight:600}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.stat{background:var(--panel);padding:8px 10px;outline:1px solid var(--line)}
+.stat .k{font-size:12.5px;color:var(--muted)}
+.stat .v{font-family:var(--font-d);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat.warn .v{color:var(--drag)}
+.chartbox{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:8px 10px}
+.chartbox .legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin-bottom:4px}
+.chartbox .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+canvas#chart{width:100%;height:90px;display:block}
+aside.controls{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 14px 14px}
+.group{padding:12px 0;border-bottom:1px solid var(--line)}
+.group:last-child{border-bottom:0}
+.group h2{font-family:var(--font-d);font-weight:600;font-size:19px;margin:0 0 8px;letter-spacing:.01em}
+.group.dim{opacity:.45}
+.group .note{font-size:13px;color:var(--muted);margin:6px 0 0}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.tools{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.tools button{border:0;background:none;padding:8px 13px;cursor:pointer;font-weight:500;font-size:14.5px;display:flex;gap:6px;align-items:center}
+.tools button+button{border-left:1px solid var(--line)}
+.tools button svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tools button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.tools button:disabled{opacity:.3;cursor:not-allowed}
+.toolhint{font-size:13.5px;color:var(--muted);flex:1;min-width:180px}
+.app.focus{grid-template-columns:1fr;max-width:none}
+.app.focus aside.controls,.app.focus header.top .brand p{display:none}
+.presets{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px}
+.presets button{border:1px solid var(--line);background:var(--bg);border-radius:4px;padding:6px 2px;font-size:12.5px;cursor:pointer}
+.presets button:hover{border-color:var(--signal)}
+label.slider{display:block;margin-top:9px;font-size:13.5px}
+label.slider .lab{display:flex;justify-content:space-between;color:var(--muted)}
+label.slider .lab b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--signal);margin:4px 0 0}
+label.check{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:8px;cursor:pointer}
+input[type=checkbox]{accent-color:var(--signal);width:16px;height:16px}
+select{border:1px solid var(--line);background:var(--bg);border-radius:4px;padding:6px 8px;width:100%}
+.seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg button{border:0;background:var(--bg);padding:6px 4px;cursor:pointer;font-size:13.5px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+details.learn{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px}
+details.learn summary{cursor:pointer;font-family:var(--font-d);font-weight:600;font-size:19px}
+details.learn p{max-width:72ch;margin:8px 0;color:var(--ink)}
+details.learn p b{font-weight:600}
+@media (max-width:900px){
+  .tools button span{display:none}
+  .tools button{padding:9px 11px}
+  .app{grid-template-columns:1fr;padding:10px 10px 24px}
+  .brand h1{font-size:28px}
+}
+@media (max-width:600px){.hud{left:14px;top:16px}.hud .big{font-size:21px}.hud .small{font-size:11.5px}.hud .small+.big~.small{display:none}.flowdir{display:none}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Slipstream</h1>
+      <p>Draw anything, then put it in moving air.</p>
+    </div>
+    <div class="modes" role="group" aria-label="Experiment">
+      <button id="m-tunnel" aria-pressed="true">Wind tunnel</button>
+      <button id="m-fall" aria-pressed="false">Drop it</button>
+      <button id="m-zerog" aria-pressed="false">Zero gravity</button>
+    </div>
+  </header>
+
+  <main class="stage-col">
+    <div class="toolbar">
+      <div class="tools" id="tools" role="group" aria-label="What your pointer does">
+        <button data-tool="draw" title="Draw a solid shape"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg><span>Draw</span></button>
+        <button data-tool="erase" title="Erase part of the shape"><svg viewBox="0 0 24 24"><path d="M9 20h11M4 15l8-8 6 6-6 6H9z"/></svg><span>Erase</span></button>
+        <button data-tool="move" title="Drag the shape through the air"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg><span>Move</span></button>
+        <button data-tool="fling" title="Drag to throw the object"><svg viewBox="0 0 24 24"><path d="M5 19L19 5M19 5h-7M19 5v7"/></svg><span>Throw</span></button>
+        <button data-tool="stir" title="Push the air with your finger"><svg viewBox="0 0 24 24"><path d="M3 8c3-3 6 3 9 0s6-3 9 0M3 16c3-3 6 3 9 0s6-3 9 0"/></svg><span>Stir air</span></button>
+        <button data-tool="dye" title="Paint smoke into the air"><svg viewBox="0 0 24 24"><path d="M8 18c-3 0-5-2-5-4.5S5 9 8 9c.5-3 3-5 6-5s5.5 2.5 5.5 5.5C21.5 10 23 12 23 14s-2 4-4.5 4z"/></svg><span>Smoke</span></button>
+        <button data-tool="probe" title="Place a probe that reads speed and pressure"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span>Probe</span></button>
+      </div>
+      <span class="toolhint" id="toolhint"></span>
+      <button class="btn" id="bigview" aria-pressed="false">Big view</button>
+    </div>
+    <div class="tunnel" id="tunnel">
+      <canvas id="view" aria-label="Airflow simulation. Draw here in wind tunnel mode."></canvas>
+      <div class="hud" id="hud"></div>
+      <div class="flowdir" id="flowdir"></div>
+      <canvas id="mini" aria-label="Flight path"></canvas>
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+    <div class="bar">
+      <button class="btn primary" id="play">Pause</button>
+      <button class="btn" id="restart">Restart</button>
+      <button class="btn" id="kick" hidden>Throw into the wind</button>
+      <button class="btn" id="spin" hidden>Add spin</button>
+      <span style="flex:1"></span>
+      <div class="seg" style="width:330px;max-width:100%" role="group" aria-label="Field shown">
+        <button data-field="smoke" aria-pressed="true">Smoke</button>
+        <button data-field="speed" aria-pressed="false">Speed</button>
+        <button data-field="vort" aria-pressed="false">Swirl</button>
+        <button data-field="press" aria-pressed="false">Pressure</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="chartbox">
+      <div class="legend" id="legend"></div>
+      <canvas id="chart"></canvas>
+    </div>
+    <details class="learn">
+      <summary>How the physics works</summary>
+      <p><b>The air is real fluid math.</b> The tunnel is a grid of cells, and each cell holds nine packets of air density moving in different directions. Every tick they collide (relax toward balance) and stream to neighboring cells. This is the lattice Boltzmann method, and when you average it, it obeys the Navier–Stokes equations — the same equations that govern real air. Wakes, vortices and pressure are not animated; they emerge. A Smagorinsky turbulence model keeps fast, thin-air flows stable.</p>
+      <p><b>Drag is measured, not guessed.</b> Every time a packet of air bounces off your drawing, the momentum it hands over is added up. That total is the force. The drag coefficient is Cd = drag ÷ (½ · ρ · U² · L), where U is air speed and L is how wide your shape looks to the oncoming air. A flat plate sits near 2, a cylinder near 1.3, a good airfoil far lower.</p>
+      <p><b>Every number on screen is in real units.</b> You set the fluid, the object's real size, the wind speed, the material it is made of and the gravity. From those, the app works out how many metres one grid cell stands for and how many seconds one simulation tick lasts, then reports speeds in m/s (or km/h or mph), distances in metres, time in seconds and forces in newtons. Because the simulation is a 2D slice, forces are given per metre of span: a value of 12 N/m means a 2 metre length of that shape feels about 24 N. The clock shows real elapsed seconds, and the playback readout tells you whether you are watching at real speed or in slow motion, because fast air needs far more ticks per second than a browser can run.</p>
+      <p><b>Reynolds number is the key to scale.</b> Re = U · L ÷ ν compares momentum to stickiness (viscosity ν). Two flows with the same shape and the same Re behave identically, whether it is a model in a tunnel or a full-size wing. That is why Cd and Re are shown here instead of meters per second. Low Re (under ~40) gives smooth, symmetric flow. Above ~50 the wake starts shedding vortices in a zig-zag street. Push higher and it turns chaotic.</p>
+      <p><b>Falling uses the rider's view.</b> The camera travels with the object. Instead of moving the shape through still air, the air moves past it at the object's speed — physically identical (Galilean relativity). While it speeds up, the air also feels the opposite of that acceleration, which produces the extra "added mass" push real objects feel. Speed stops rising at terminal velocity, where drag equals weight minus buoyancy. Heavier (denser) or narrower shapes fall faster.</p>
+      <p><b>Zero gravity</b> removes weight. The wind grabs the object and accelerates it until it moves with the air; relative speed and drag fade to zero. Throw it into the wind and watch drag brake it.</p>
+      <p><b>Honest limits.</b> This is a 2D slice: your drawing is treated as an endlessly long extruded shape, so a circle behaves like a cylinder, not a ball. Air is modelled far below the speed of sound. A shape filling more than about 15% of the tunnel's width reads a little high on drag (blockage). And a grid this size cannot resolve every eddy of a very high Reynolds number flow: above roughly Re 20,000 the tunnel runs at the highest Reynolds number it can resolve and says so in the readouts. Drag coefficients for blunt shapes barely change across that range, so the numbers stay close to reality, but the sudden drag drop that real spheres and cylinders show near Re 300,000 will not appear here.</p>
+    </details>
+  </main>
+
+  <aside class="controls">
+    <section class="group" id="g-shape">
+      <h2>Shape</h2>
+      <label class="slider" style="margin-top:0"><span class="lab">Brush size <b id="brush-v"></b></span><input type="range" id="brush" min="1.5" max="9" step="0.5" value="3"></label>
+      <div class="presets" id="presets"></div>
+      <label class="slider"><span class="lab">Preset size <b id="size-v"></b></span><input type="range" id="size" min="0.08" max="0.4" step="0.01" value="0.15"></label>
+      <div class="row" style="margin-top:9px">
+        <button class="btn" id="rot-l" aria-label="Rotate shape left 5 degrees">↺ 5°</button>
+        <button class="btn" id="rot-r" aria-label="Rotate shape right 5 degrees">↻ 5°</button>
+        <span id="angle-v" style="color:var(--muted);font-size:13.5px;margin-left:4px"></span>
+        <span style="flex:1"></span>
+        <button class="btn" id="t-fill">Fill holes</button>
+        <button class="btn" id="clear">Clear</button>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="btn" id="import" style="flex:1">Import a drawing…</button>
+        <input type="file" id="file" accept="image/*" hidden>
+      </div>
+      <label class="check"><input type="checkbox" id="imp-fill" checked> Fill enclosed outlines</label>
+      <label class="check"><input type="checkbox" id="imp-inv"> Invert (light shape on dark)</label>
+      <p class="note" id="shape-note"></p>
+    </section>
+
+    <section class="group">
+      <h2>Real conditions</h2>
+      <label class="slider"><span class="lab">Fluid <b id="fluid-v"></b></span><select id="fluid"></select></label>
+      <label class="slider"><span class="lab">Object size, longest side <b id="objsize-v"></b></span><input type="range" id="objsize" min="-2.3" max="0.7" step="0.01" value="-0.7"></label>
+      <label class="slider"><span class="lab"><span id="wind-l">Wind speed</span> <b id="wind-v"></b></span><input type="range" id="wind" min="0" max="45" step="0.25" value="10"></label>
+      <label class="check"><input type="checkbox" id="gusty"> Gusty wind</label>
+      <label class="slider"><span class="lab">Show speeds in</span>
+        <select id="units"><option>m/s</option><option>km/h</option><option>mph</option></select>
+      </label>
+      <p class="note" id="scale-note"></p>
+    </section>
+
+    <section class="group" id="g-body">
+      <h2>Object</h2>
+      <label class="slider"><span class="lab">Material <b id="mat-v"></b></span><select id="material"></select></label>
+      <label class="slider" id="grav-wrap"><span class="lab">Gravity</span><select id="gravity"></select></label>
+      <label class="slider"><span class="lab">Drop starts</span>
+        <select id="dropstart">
+          <option value="auto">Automatic</option>
+          <option value="rest">From rest (watch it speed up)</option>
+          <option value="terminal">At terminal speed</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="rotate" checked> Let it tumble (air torque turns it)</label>
+      <p class="note" id="body-note">Used in Drop it and Zero gravity.</p>
+    </section>
+
+    <section class="group">
+      <h2>Display</h2>
+      <label class="check"><input type="checkbox" id="rake" checked> Smoke rake (streaks from the inlet)</label>
+      <label class="check"><input type="checkbox" id="dots"> Tracer dots</label>
+      <button class="btn" id="clear-probes" style="margin-top:8px">Remove probes and smoke</button>
+      <label class="check"><input type="checkbox" id="arrows" checked> Force arrows</label>
+      <label class="check"><input type="checkbox" id="rt" checked> Lock to real time when possible</label>
+      <p class="note">Fast air needs thousands of ticks per second, so the tunnel often runs in slow motion. Lower wind speeds, a lower resolution, or water instead of air get you closer to real time.</p>
+      <label class="slider"><span class="lab">Resolution</span>
+        <select id="quality">
+          <option value="240x120">Fast (240 × 120)</option>
+          <option value="320x160">Balanced (320 × 160)</option>
+          <option value="440x220">Large (440 × 220)</option>
+          <option value="560x280">Huge (560 × 280)</option>
+          <option value="720x360">Giant (720 × 360, needs a fast computer)</option>
+        </select>
+      </label>
+    </section>
+  </aside>
+</div>
+
+<script>
+// ====== CORE START ======
+const CX=[0,1,0,-1,0,1,-1,-1,1], CY=[0,0,1,0,-1,1,1,-1,-1];
+const WT=[4/9,1/9,1/9,1/9,1/9,1/36,1/36,1/36,1/36];
+const OPP=[0,3,4,1,2,7,8,5,6];
+
+function createSim(W,H){
+  const N=W*H;
+  const S={W,H,N,nu:0.02,smagCs:0.15,uinf:[0.1,0],frameA:[0,0],center:[0,0],omega:0,F:[0,0],T:0};
+  let f=new Float64Array(9*N), g=new Float64Array(9*N);
+  const rho=new Float32Array(N), ux=new Float32Array(N), uy=new Float32Array(N);
+  const solid=new Uint8Array(N);
+  const eq=new Float64Array(9);
+  S.rho=rho; S.ux=ux; S.uy=uy; S.solid=solid;
+
+  function setEq(k,r,u,v){
+    const usq=1.5*(u*u+v*v);
+    for(let i=0;i<9;i++){const cu=3*(CX[i]*u+CY[i]*v); f[i*N+k]=WT[i]*r*(1+cu+0.5*cu*cu-usq);}
+    rho[k]=r; ux[k]=u; uy[k]=v;
+  }
+  S.init=function(noise){
+    noise=noise||0;
+    for(let k=0;k<N;k++){
+      if(solid[k]){rho[k]=1;ux[k]=0;uy[k]=0;continue;}
+      setEq(k,1,S.uinf[0],S.uinf[1]+noise*(Math.random()-0.5));
+    }
+  };
+  S.setSolid=function(k,v){
+    if(solid[k]===v) return;
+    solid[k]=v;
+    if(!v){
+      const x=k%W, y=(k/W)|0;
+      const rx=x-S.center[0], ry=y-S.center[1];
+      setEq(k,1,-S.omega*ry,S.omega*rx);
+    } else { ux[k]=0; uy[k]=0; rho[k]=1; }
+  };
+  S.clearSolids=function(){ for(let k=0;k<N;k++) if(solid[k]){ solid[k]=0; setEq(k,1,S.uinf[0],S.uinf[1]); } };
+
+  // Push the air: blend local velocity toward (vx,vy) inside radius R
+  S.pushAir=function(cx,cy,R,vx,vy,strength){
+    const x0=Math.max(1,Math.floor(cx-R)), x1=Math.min(W-2,Math.ceil(cx+R));
+    const y0=Math.max(1,Math.floor(cy-R)), y1=Math.min(H-2,Math.ceil(cy+R));
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+      const k=y*W+x; if(solid[k]) continue;
+      const d=Math.hypot(x-cx,y-cy); if(d>R) continue;
+      const w=strength*(1-d/R);
+      const r=Math.min(1.15,Math.max(0.85,rho[k]));
+      setEq(k,r,ux[k]+(vx-ux[k])*w,uy[k]+(vy-uy[k])*w);
+    }
+  };
+  S.collide=function(){
+    const tau0=3*S.nu+0.5, C=18*Math.SQRT2*S.smagCs*S.smagCs;
+    const fx=-S.frameA[0], fy=-S.frameA[1];
+    const N1=N,N2=2*N,N3=3*N,N4=4*N,N5=5*N,N6=6*N,N7=7*N,N8=8*N;
+    const F=f;
+    for(let k=0;k<N;k++){
+      if(solid[k]) continue;
+      const f0=F[k],f1=F[N1+k],f2=F[N2+k],f3=F[N3+k],f4=F[N4+k],f5=F[N5+k],f6=F[N6+k],f7=F[N7+k],f8=F[N8+k];
+      const r=f0+f1+f2+f3+f4+f5+f6+f7+f8;
+      const ir=1/r;
+      const u=(f1-f3+f5-f6-f7+f8)*ir, v=(f2-f4+f5+f6-f7-f8)*ir;
+      const pxx=f1+f3+f5+f6+f7+f8-r*(1/3+u*u);
+      const pyy=f2+f4+f5+f6+f7+f8-r*(1/3+v*v);
+      const pxy=f5-f6+f7-f8-r*u*v;
+      const Q=Math.sqrt(pxx*pxx+pyy*pyy+2*pxy*pxy);
+      const tau=0.5*(tau0+Math.sqrt(tau0*tau0+C*Q*ir));
+      const om=1/tau;
+      const ue=u+tau*fx, ve=v+tau*fy;
+      rho[k]=r; ux[k]=u+0.5*fx; uy[k]=v+0.5*fy;
+      const usq=1.5*(ue*ue+ve*ve);
+      const r0=r*4/9, r1=r/9, r2=r/36;
+      let cu;
+      F[k]=f0+om*(r0*(1-usq)-f0);
+      cu=3*ue;       F[N1+k]=f1+om*(r1*(1+cu+0.5*cu*cu-usq)-f1);
+      cu=3*ve;       F[N2+k]=f2+om*(r1*(1+cu+0.5*cu*cu-usq)-f2);
+      cu=-3*ue;      F[N3+k]=f3+om*(r1*(1+cu+0.5*cu*cu-usq)-f3);
+      cu=-3*ve;      F[N4+k]=f4+om*(r1*(1+cu+0.5*cu*cu-usq)-f4);
+      cu=3*(ue+ve);  F[N5+k]=f5+om*(r2*(1+cu+0.5*cu*cu-usq)-f5);
+      cu=3*(ve-ue);  F[N6+k]=f6+om*(r2*(1+cu+0.5*cu*cu-usq)-f6);
+      cu=-3*(ue+ve); F[N7+k]=f7+om*(r2*(1+cu+0.5*cu*cu-usq)-f7);
+      cu=3*(ue-ve);  F[N8+k]=f8+om*(r2*(1+cu+0.5*cu*cu-usq)-f8);
+    }
+  };
+
+  S.stream=function(){
+    let Fx=0,Fy=0,T=0;
+    const cxC=S.center[0], cyC=S.center[1], om=S.omega;
+    const F=f, G=g;
+    for(let y=1;y<H-1;y++){
+      for(let x=1;x<W-1;x++){
+        const k=y*W+x;
+        if(solid[k]) continue;
+        G[k]=F[k];
+        for(let i=1;i<9;i++){
+          const src=k-CX[i]-CY[i]*W;
+          if(solid[src]){
+            const j=OPP[i];
+            const fj=F[j*N+k];
+            let fi=fj;
+            const rx=x+0.5*CX[j]-cxC, ry=y+0.5*CY[j]-cyC;
+            if(om!==0){ fi=fj-6*WT[j]*rho[k]*(CX[j]*(-om*ry)+CY[j]*(om*rx)); }
+            G[i*N+k]=fi;
+            const s=fj+fi, dFx=CX[j]*s, dFy=CY[j]*s;
+            Fx+=dFx; Fy+=dFy; T+=rx*dFy-ry*dFx;
+          } else G[i*N+k]=F[i*N+src];
+        }
+      }
+    }
+    // far-field / outlet edges
+    const u0=S.uinf[0], v0=S.uinf[1], th=0.004;
+    const usq=1.5*(u0*u0+v0*v0);
+    for(let i=0;i<9;i++){const cu=3*(CX[i]*u0+CY[i]*v0); eq[i]=WT[i]*(1+cu+0.5*cu*cu-usq);}
+    const outL=u0<-th, outR=u0>th, outT=v0<-th, outB=v0>th;
+    const put=(k,src)=>{ if(src>=0){for(let i=0;i<9;i++) G[i*N+k]=G[i*N+src];} else {for(let i=0;i<9;i++) G[i*N+k]=eq[i];} };
+    for(let y=0;y<H;y++){
+      const kl=y*W, kr=y*W+W-1;
+      put(kl, outL? kl+1 : -1);
+      put(kr, outR? kr-1 : -1);
+    }
+    for(let x=0;x<W;x++){
+      const kt=x, kb=(H-1)*W+x;
+      put(kt, outT? kt+W : -1);
+      put(kb, outB? kb-W : -1);
+    }
+    f=G; g=F;
+    S.F[0]=Fx; S.F[1]=Fy; S.T=T;
+  };
+  S.step=function(){ S.collide(); S.stream(); };
+  return S;
+}
+
+// Build a rigid body from a design mask
+function buildBody(design,W,H,rhoR){
+  let cnt=0,sx=0,sy=0;
+  for(let k=0;k<design.length;k++) if(design[k]){cnt++; sx+=k%W; sy+=(k/W)|0;}
+  if(!cnt) return null;
+  const cx=sx/cnt, cy=sy/cnt;
+  let R2=0, I=0;
+  for(let k=0;k<design.length;k++) if(design[k]){
+    const dx=k%W-cx, dy=((k/W)|0)-cy; const d2=dx*dx+dy*dy; I+=d2; if(d2>R2) R2=d2;
+  }
+  const R=Math.ceil(Math.sqrt(R2))+1, M=2*R+1;
+  const mask=new Uint8Array(M*M);
+  for(let k=0;k<design.length;k++) if(design[k]){
+    const dx=Math.round(k%W-cx), dy=Math.round(((k/W)|0)-cy);
+    mask[(dy+R)*M+dx+R]=1;
+  }
+  const Lmax=2*Math.sqrt(R2)+1, b=Lmax/2;
+  return {cx,cy,R,M,mask,area:cnt,rhoR,m:rhoR*cnt,I:rhoR*(I+cnt/6),Lmax,
+    ma:Math.PI*b*b+cnt, Ia:Math.PI*Math.pow(b,4)/8+I, cells:[]};
+}
+function rasterizeBody(S,body,Cx,Cy,theta,flag){
+  const W=S.W,H=S.H, c=Math.cos(theta), s=Math.sin(theta), R=body.R, M=body.M, mask=body.mask;
+  const x0=Math.max(2,Math.floor(Cx-R-1)), x1=Math.min(W-3,Math.ceil(Cx+R+1));
+  const y0=Math.max(2,Math.floor(Cy-R-1)), y1=Math.min(H-3,Math.ceil(Cy+R+1));
+  const next=[];
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+    const dx=x-Cx, dy=y-Cy;
+    const ix=Math.round(c*dx+s*dy)+R, iy=Math.round(-s*dx+c*dy)+R;
+    if(ix>=0&&iy>=0&&ix<M&&iy<M&&mask[iy*M+ix]){ const k=y*W+x; next.push(k); flag[k]=1; }
+  }
+  for(const k of body.cells) if(!flag[k]) S.setSolid(k,0);
+  for(const k of next){ S.setSolid(k,1); flag[k]=0; }
+  body.cells=next;
+}
+// ====== CORE END ======
+
+// ====== APP ======
+const $=id=>document.getElementById(id);
+const UMAX=0.17;
+let W,H,sim,design,designBase,designAngle=0,flag;
+let mode='tunnel', running=true, field='smoke', tool='draw';
+let gusty=false, gustT=0, dye=null, dye2=null, probes=[], bigView=false;
+let ptr={down:false};
+const TOOLS={
+  draw:'Paint a solid shape straight into the air. The flow reacts as you draw.',
+  erase:'Scrub away part of the shape.',
+  move:'Grab the shape and drag it through the air. Watch the wake whip around.',
+  fling:'Drag in any direction and let go to throw the object that way.',
+  stir:'Swipe to push the air with your finger. Try flicking a gust at the object.',
+  dye:'Paint smoke into the air and watch the flow carry it.',
+  probe:'Tap to drop a probe that reads local speed and pressure. Tap it again to remove it.'
+};
+const TUNNEL_TOOLS=['draw','erase','move','stir','dye','probe'], FREE_TOOLS=['fling','stir','dye','probe'];
+let body=null, st=null, anchor=[0,0];
+let allowRot=true;
+// ---- real-world mapping ----
+const FLUIDS={air:{n:'Air, 20 °C',rho:1.204,nu:1.511e-5},water:{n:'Water, 20 °C',rho:998,nu:1.004e-6},oil:{n:'Olive oil, 20 °C',rho:911,nu:8.0e-5}};
+const MATERIALS=[['Styrofoam',25],['Balsa wood',160],['Cork',240],['Pine wood',500],['Paper / card',800],['Ice',917],['Rubber',1100],['PVC plastic',1400],['Concrete',2400],['Glass',2500],['Aluminium',2700],['Steel',7850],['Lead',11340]];
+const GRAVS=[['Earth — 9.81 m/s²',9.81],['Moon — 1.62 m/s²',1.62],['Mars — 3.72 m/s²',3.72],['Jupiter — 24.8 m/s²',24.79]];
+let fluid='air', sizePhys=0.2, windPhys=10, crossPhys=0, matRho=800, gPhys=9.81, units='m/s', rtLock=true, nuBoost=1;
+let scale={dx:0.005,dt:4e-5,nuLat:0.02,gLat:1e-6,rhoR:665,under:false,ReCap:0};
+let simTime=0, playRate=1, lastWall=performance.now(), retunes=0, capTicks=0;
+let dropStart='auto', solveTicks=0;
+const MPS=v=>units==='km/h'?v*3.6:units==='mph'?v*2.236936:v;
+function speedTxt(v,d){ const x=MPS(v); const dd=d!==undefined?d:(Math.abs(x)<10?2:1); return x.toFixed(dd)+' '+units; }
+function lenTxt(m){ const x=Math.abs(m); return x<0.01?(m*1000).toFixed(1)+' mm':x<1?(m*100).toFixed(1)+' cm':x<1000?m.toFixed(2)+' m':(m/1000).toFixed(2)+' km'; }
+function timeTxt(t){ return t<10?t.toFixed(2)+' s':t<600?t.toFixed(1)+' s':(t/60).toFixed(1)+' min'; }
+function forceTxt(f){ const x=Math.abs(f); return (x<1?f.toFixed(3):x<100?f.toFixed(2):f.toFixed(0))+' N/m'; }
+function toPhysSpeed(uLat){ return uLat*scale.dx/scale.dt; }
+function computeScale(cdHint){
+  const F=FLUIDS[fluid];
+  const span=Math.max(6,info.span||20);
+  const dx=sizePhys/span;
+  let Uref, uRef;
+  if(mode==='fall'){
+    const cd=clamp(cdHint||ema.cd||1.2,0.05,4);
+    const A=Math.max(1,info.area||span*span*0.5)*dx*dx;
+    const L=Math.max(frontL||span,3)*dx;
+    const dRho=Math.max(1e-3,Math.abs(matRho-F.rho));
+    Uref=Math.sqrt(2*dRho*A*gPhys/(F.rho*cd*L));
+    Uref=clamp(Math.max(Uref,Math.abs(crossPhys)*1.4,0.01),0.005,400);
+    uRef=0.07;
+  } else { Uref=Math.max(windPhys,0.05); uRef=0.08; }
+  const dt=uRef*dx/Uref;
+  const nuTrue=F.nu*dt/(dx*dx), nuFloor=2.5e-4*nuBoost;
+  const nuLat=Math.max(nuFloor,nuTrue);
+  scale={dx,dt,nuLat,gLat:gPhys*dt*dt/dx,rhoR:matRho/F.rho,under:nuTrue<nuFloor,
+    ReCap:uRef*span/nuLat, nuPhys:F.nu, rhoPhys:F.rho, uRef, Uterm:mode==='fall'?Uref:0,
+    tTerm:mode==='fall'?Uref/Math.max(0.01,gPhys*Math.abs(1-1/(matRho/F.rho))):0};
+  scale.ticksTerm=scale.tTerm/dt;
+  if(sim) sim.nu=nuLat;
+  $('scale-note').textContent=`1 cell = ${lenTxt(dx)} · 1 tick = ${scale.dt<1e-3?(scale.dt*1e6).toFixed(0)+' µs':(scale.dt*1e3).toFixed(2)+' ms'}`;
+}
+let stepsPerFrame=4, frameNo=0, stepsSec=0, stepCount=0, lastSecT=performance.now(), lastSecSteps=0;
+let info={cx:0,cy:0,cells:[]}, infoDirty=true;
+let frontL=20, frontDirty=true;
+let ema={cd:null,cl:null};
+let avgF=[0,0,0];
+let hist={a:[],b:[]}; let modeTicks=0; const HMAX=420;
+let trail=[];
+let s=3,k=3,dpr=1;
+const view=$('view'), ctx=view.getContext('2d');
+const off=document.createElement('canvas'), offCtx=off.getContext('2d');
+let img=null;
+let P=null, NP=0;
+
+// ---------- palettes ----------
+function makePal(stops){
+  const p=new Uint8Array(256*3);
+  for(let i=0;i<256;i++){
+    const t=i/255; let j=0; while(j<stops.length-2&&t>stops[j+1][0]) j++;
+    const a=stops[j], b=stops[j+1], u=(t-a[0])/(b[0]-a[0]);
+    for(let c=0;c<3;c++) p[i*3+c]=Math.round(a[1][c]+(b[1][c]-a[1][c])*u);
+  }
+  return p;
+}
+const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const PAL={
+  speed:makePal([[0,hex('#070b12')],[0.28,hex('#10304f')],[0.55,hex('#1f7f95')],[0.8,hex('#9fe6d4')],[1,hex('#fffbe8')]]),
+  vort:makePal([[0,hex('#58a6ff')],[0.3,hex('#163566')],[0.5,hex('#080b12')],[0.7,hex('#6e1c16')],[1,hex('#ff7a45')]]),
+  press:makePal([[0,hex('#9b7bff')],[0.3,hex('#2c2466')],[0.5,hex('#0a0d14')],[0.7,hex('#6b4a10')],[1,hex('#ffd166')]])
+};
+const BODY=hex('#efe8d8');
+
+// ---------- helpers ----------
+const frac=v=>v-Math.floor(v);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function inMargin(x,y){return x>=3&&y>=3&&x<W-3&&y<H-3;}
+let toastT=0;
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3200);}
+function windVec(){
+  const f=scale.dt/scale.dx;
+  let w=mode==='fall'?[0,crossPhys*f]:[windPhys*f,0];
+  if(gusty){
+    const t=gustT;
+    const g1=(Math.sin(t*0.0021)+0.6*Math.sin(t*0.0057+1.3)+0.35*Math.sin(t*0.0131+2.1))/1.95;
+    const g2=(Math.sin(t*0.0017+0.7)+0.5*Math.sin(t*0.0071+2.9))/1.5;
+    const amp=0.3*Math.max(Math.hypot(w[0],w[1]),0.05);
+    w=mode==='fall'?[amp*0.5*g1,w[1]+amp*g2]:[w[0]+amp*g1,amp*0.5*g2];
+    w=[clamp(w[0],-0.16,0.16),clamp(w[1],-0.16,0.16)];
+  }
+  return w;
+}
+
+// ---------- grid ----------
+function setupGrid(q){
+  const [w,h]=q.split('x').map(Number);
+  const old=designBase?{W,H,d:designBase}:null;
+  W=w;H=h; sim=createSim(W,H); sim.nu=scale.nuLat; flag=new Uint8Array(W*H);
+  design=new Uint8Array(W*H); designBase=new Uint8Array(W*H);
+  if(old){
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      if(!inMargin(x,y)) continue;
+      const ox=Math.floor(x*old.W/W), oy=Math.floor(y*old.H/H);
+      designBase[y*W+x]=old.d[oy*old.W+ox];
+    }
+  }
+  off.width=W; off.height=H; img=offCtx.createImageData(W,H);
+  for(let i=3;i<img.data.length;i+=4) img.data[i]=255;
+  NP=Math.round(W*H/28); P=new Float32Array(NP*5);
+  dye=new Float32Array(W*H); dye2=new Float32Array(W*H); probes=[];
+  applyRotation(false);
+  enterMode(mode);
+}
+
+// ---------- design ----------
+function computeInfo(){
+  let n=0,sx=0,sy=0; const cells=[];
+  for(let i=0;i<design.length;i++) if(design[i]){cells.push(i);n++;sx+=i%W;sy+=(i/W)|0;}
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  for(const i of cells){const x=i%W, y=(i/W)|0; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;}
+  info={cx:n?sx/n:W*0.28, cy:n?sy/n:H/2, cells, area:n, span:n?Math.max(x1-x0,y1-y0)+1:20};
+  infoDirty=false; frontDirty=true;
+}
+function applyRotation(sync=true){
+  if(designAngle===0){ design.set(designBase); }
+  else{
+    design.fill(0);
+    let n=0,sx=0,sy=0,R2=0;
+    for(let i=0;i<designBase.length;i++) if(designBase[i]){n++;sx+=i%W;sy+=(i/W)|0;}
+    if(n){
+      const cx=sx/n, cy=sy/n;
+      for(let i=0;i<designBase.length;i++) if(designBase[i]){const dx=i%W-cx,dy=((i/W)|0)-cy;R2=Math.max(R2,dx*dx+dy*dy);}
+      const R=Math.ceil(Math.sqrt(R2))+2, a=designAngle*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+      for(let y=Math.max(3,Math.floor(cy-R));y<=Math.min(H-4,Math.ceil(cy+R));y++)
+        for(let x=Math.max(3,Math.floor(cx-R));x<=Math.min(W-4,Math.ceil(cx+R));x++){
+          const dx=x-cx, dy=y-cy;
+          const bx=Math.round(cx+c*dx+sn*dy), by=Math.round(cy-sn*dx+c*dy);
+          if(bx>=0&&by>=0&&bx<W&&by<H&&designBase[by*W+bx]) design[y*W+x]=1;
+        }
+    }
+  }
+  infoDirty=true;
+  $('angle-v').textContent=designAngle?`Turned ${designAngle>0?'+':''}${designAngle}°`:'';
+  if(sync) designChanged();
+}
+function bake(){ if(designAngle!==0){ designBase.set(design); designAngle=0; $('angle-v').textContent=''; } }
+function designChanged(){
+  computeInfo(); retunes=0; computeScale();
+  if(mode==='tunnel'){
+    sim.center=[info.cx,info.cy];
+    for(let i=0;i<design.length;i++) sim.setSolid(i,design[i]);
+    ema={cd:null,cl:null};
+  } else enterMode(mode);
+}
+
+const PRESETS=[
+  ['Cylinder',(x,y,L)=>x*x+y*y<=(L/2)**2],
+  ['Square',(x,y,L)=>Math.abs(x)<=L/2&&Math.abs(y)<=L/2],
+  ['Flat plate',(x,y,L)=>Math.abs(x)<=Math.max(1.6,L*0.05)&&Math.abs(y)<=L/2],
+  ['Airfoil',(x,y,L)=>{const c=1.6*L,xc=(x+c/2)/c; if(xc<0||xc>1) return false;
+    const yt=5*0.15*c*(0.2969*Math.sqrt(xc)-0.126*xc-0.3516*xc*xc+0.2843*xc**3-0.1036*xc**4); return Math.abs(y)<=Math.max(yt,0.6);},10],
+  ['Wedge',(x,y,L)=>x>=-L/2&&x<=L/2&&Math.abs(y)<=(x+L/2)*0.5],
+  ['Cup',(x,y,L)=>{const r=Math.hypot(x,y);return r>=0.36*L&&r<=0.5*L&&x>=0;}],
+  ['Leaf',(x,y,L)=>(x/(0.5*L))**2+(y/(0.13*L))**2<=1],
+  ['Star',(x,y,L)=>{const r=Math.hypot(x,y),a=Math.atan2(y,x);return r<=L/2*(0.6+0.4*Math.cos(5*(a+Math.PI/2)));}],
+  ['Car',(x,y,L)=>{
+    if(x>=-0.8*L&&x<=0.8*L&&y>=-0.05*L&&y<=0.22*L) return true;
+    if(y>=-0.3*L&&y<-0.05*L){const t=(y+0.3*L)/(0.25*L);const xl=-0.3*L-0.25*L*t,xr=0.22*L+0.28*L*t;return x>=xl&&x<=xr;}
+    return Math.hypot(x-0.5*L,y-0.25*L)<=0.14*L||Math.hypot(x+0.5*L,y-0.25*L)<=0.14*L;}],
+  ['Parachute',(x,y,L)=>{
+    const r=Math.hypot(x,y+0.1*L); if(r>=0.42*L&&r<=0.5*L&&y<=-0.1*L) return true;
+    if(Math.abs(x)<=0.09*L&&Math.abs(y-0.55*L)<=0.09*L) return true;
+    const seg=(ax,ay,bx,by)=>{const vx=bx-ax,vy=by-ay,t=clamp(((x-ax)*vx+(y-ay)*vy)/(vx*vx+vy*vy),0,1);return Math.hypot(x-ax-vx*t,y-ay-vy*t);};
+    return seg(-0.46*L,-0.1*L,0,0.5*L)<=1.1||seg(0.46*L,-0.1*L,0,0.5*L)<=1.1;}]
+];
+function stampPreset(i){
+  const [,fn,ang]=PRESETS[i];
+  designBase.fill(0);
+  const L=+$('size').value*H, cx=Math.round(W*0.28), cy=H/2+0.3;
+  const R=Math.ceil(L*1.2);
+  for(let y=Math.max(3,Math.floor(cy-R));y<=Math.min(H-4,Math.ceil(cy+R));y++)
+    for(let x=Math.max(3,cx-R);x<=Math.min(W-4,cx+R);x++)
+      if(fn(x-cx,y-cy,L)) designBase[y*W+x]=1;
+  designAngle=ang||0;
+  applyRotation(true);
+}
+function floodFillHoles(arr){
+  const seen=new Uint8Array(W*H), q=new Int32Array(W*H); let h=0,t=0;
+  const push=i=>{if(!seen[i]&&!arr[i]){seen[i]=1;q[t++]=i;}};
+  for(let x=0;x<W;x++){push(x);push((H-1)*W+x);}
+  for(let y=0;y<H;y++){push(y*W);push(y*W+W-1);}
+  while(h<t){const i=q[h++],x=i%W,y=(i/W)|0;
+    if(x>0)push(i-1); if(x<W-1)push(i+1); if(y>0)push(i-W); if(y<H-1)push(i+W);}
+  for(let i=0;i<W*H;i++) if(!seen[i]&&!arr[i]&&inMargin(i%W,(i/W)|0)) arr[i]=1;
+}
+
+// ---------- import ----------
+function importImage(file){
+  const url=URL.createObjectURL(file); const im=new Image();
+  im.onload=()=>{
+    const longest=clamp(+$('size').value*H*1.9,24,H*0.85);
+    const sc=longest/Math.max(im.width,im.height);
+    const w=Math.max(4,Math.round(im.width*sc)), h=Math.max(4,Math.round(im.height*sc));
+    const c=document.createElement('canvas'); c.width=w; c.height=h; const cx2=c.getContext('2d');
+    cx2.drawImage(im,0,0,w,h);
+    const d=cx2.getImageData(0,0,w,h).data;
+    let transp=0; for(let i=3;i<d.length;i+=4) if(d[i]<200) transp++;
+    const useAlpha=transp>w*h*0.05, inv=$('imp-inv').checked;
+    bake(); designBase.fill(0);
+    const ox=Math.round(W*0.28-w/2), oy=Math.round(H/2-h/2);
+    const tmp=new Uint8Array(W*H);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const p=(y*w+x)*4; const lum=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];
+      let on=useAlpha? d[p+3]>110 : (inv? lum>110 : lum<170);
+      const X=ox+x, Y=oy+y; if(on&&inMargin(X,Y)) tmp[Y*W+X]=1;
+    }
+    // thicken by one cell so thin pencil strokes form a watertight wall
+    for(let y=3;y<H-3;y++)for(let x=3;x<W-3;x++){const i=y*W+x;
+      if(tmp[i]||tmp[i-1]||tmp[i+1]||tmp[i-W]||tmp[i+W]) designBase[i]=1;}
+    if($('imp-fill').checked) floodFillHoles(designBase);
+    URL.revokeObjectURL(url);
+    applyRotation(true);
+    toast('Drawing placed in the tunnel.');
+  };
+  im.onerror=()=>toast('That file could not be read as an image. Try PNG or JPG.');
+  im.src=url;
+}
+
+// ---------- modes ----------
+function enterMode(m){
+  mode=m;
+  ['tunnel','fall','zerog'].forEach(n=>$('m-'+n).setAttribute('aria-pressed',n===m));
+  if(infoDirty) computeInfo();
+  sim.solid.fill(0); sim.omega=0; sim.frameA=[0,0];
+  hist={a:[],b:[]}; trail=[]; ema={cd:null,cl:null}; frontDirty=true; modeTicks=0; dye.fill(0); probes=[];
+  simTime=0; capTicks=0; lastWall=performance.now(); computeScale();
+  if(m==='tunnel'){
+    body=null; st=null; sim.uinf=windVec(); sim.center=[info.cx,info.cy];
+    for(let i=0;i<design.length;i++) sim.solid[i]=design[i];
+    sim.init(0.004);
+  } else {
+    body=buildBody(design,W,H,scale.rhoR);
+    if(!body){ toast('Draw or pick a shape first.'); return enterMode('tunnel'); }
+    if(body.Lmax>H-10) toast('This shape is almost as wide as the tunnel. A smaller size gives truer drag.');
+    const th0=m==='fall'?Math.PI/2:0;
+    const ax=Math.max(body.R+4,Math.round((m==='fall'?0.26:0.3)*W));
+    anchor=[ax+frac(body.cx), Math.round(H/2)+frac(body.cy)];
+    st={pos:[0,0],v:[0,0],a:[0,0],theta:th0,theta0:th0,omega:0,alpha:0,last:th0,ticks:0,capped:false,solve:false};
+    if(m==='fall'){
+      const quick=scale.ticksTerm<80000;
+      const start=dropStart==='auto'?(quick?'rest':'terminal'):dropStart;
+      if(start==='terminal'){
+        st.v[0]=(scale.rhoR<1?1:-1)*scale.uRef; st.solve=true; solveTicks=0;
+        toast(`Started at the predicted terminal speed of ${speedTxt(scale.Uterm)}; from rest it would take ${timeTxt(scale.tTerm)}.`);
+      }
+    }
+    const wv0=windVec();
+    sim.center=anchor; sim.uinf=[wv0[0]-st.v[0],wv0[1]-st.v[1]];
+    body.cells=[]; rasterizeBody(sim,body,anchor[0],anchor[1],th0,flag);
+    sim.init(0.004);
+  }
+  configureUI(); resizeView(); seedParticles();
+}
+function configureUI(){
+  const t=mode==='tunnel';
+  $('tunnel').classList.toggle('fall',mode==='fall');
+  $('kick').hidden=mode!=='zerog'; $('spin').hidden=t;
+  $('restart').textContent=t?'Reset air':mode==='fall'?'Drop again':'Release again';
+  $('grav-wrap').style.display=mode==='zerog'?'none':'';
+  $('g-body').classList.toggle('dim',t);
+  $('body-note').textContent=t?'These apply when you drop it or switch to zero gravity.'
+    :mode==='fall'?`Predicted terminal speed ${speedTxt(scale.Uterm)}, reached after about ${timeTxt(scale.tTerm)} of falling (${Math.round(scale.ticksTerm).toLocaleString()} ticks).`
+    :'No weight. Only the air can move it.';
+  $('shape-note').textContent=t?'Presets, turns and imports drop straight into the tunnel.':'Changing the shape here restarts the run. Switch to Wind tunnel to draw freehand.';
+  updateTools();
+  const w=$('wind');
+  if(mode==='fall'){ w.min=-12; w.max=12; w.step=0.25; w.value=crossPhys; $('wind-l').textContent='Crosswind'; }
+  else { w.min=0; w.max=45; w.step=0.25; w.value=windPhys; $('wind-l').textContent='Wind speed'; }
+  $('mini').style.display=t?'none':'block';
+  updateLabels();
+  const leg=$('legend');
+  const L=mode==='tunnel'?[['var(--drag)','Drag coefficient'],['var(--lift)','Lift coefficient']]
+    :mode==='fall'?[['var(--weight)','Fall speed ('+units+')'],['var(--lift)','Sideways drift']]
+    :[['var(--weight)','Object speed ('+units+')'],['var(--drag)','Air speed past it']];
+  leg.innerHTML=L.map(([c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join('');
+  const FN=FLUIDS[fluid].n.split(',')[0];
+  $('flowdir').innerHTML=(mode==='fall'?FN+' rushes past the '+(scale.rhoR<1?'rising':'falling')+' object':FN+' flows left to right')+
+    ($('arrows').checked?`<br><span style="color:var(--drag)">drag</span> &nbsp;<span style="color:var(--lift)">lift</span>${mode==='fall'?' &nbsp;<span style="color:var(--weight)">weight</span>':''}`:'');
+}
+
+// ---------- body dynamics (one lattice tick) ----------
+function bodyStep(){
+  const F=sim.F, b=body;
+  const gE=mode==='fall'?scale.gLat*(1-1/scale.rhoR):0;
+  let ax=(F[0]-b.m*gE+b.ma*st.a[0])/(b.m+b.ma);
+  let ay=(F[1]+b.ma*st.a[1])/(b.m+b.ma);
+  st.v[0]+=ax; st.v[1]+=ay;
+  const wv=windVec();
+  let rx=wv[0]-st.v[0], ry=wv[1]-st.v[1]; const sp=Math.hypot(rx,ry);
+  st.capped=false;
+  if(sp>UMAX){ rx*=UMAX/sp; ry*=UMAX/sp; st.v=[wv[0]-rx,wv[1]-ry]; ax=0; ay=0; st.capped=true; }
+  st.a=[ax,ay];
+  st.pos[0]+=st.v[0]; st.pos[1]+=st.v[1];
+  sim.uinf=[rx,ry]; sim.frameA=[ax,ay];
+  if(allowRot){
+    const al=(sim.T+b.Ia*st.alpha)/(b.I+b.Ia);
+    st.alpha=al; st.omega+=al;
+    const om=0.12/Math.max(4,b.Lmax/2); st.omega=clamp(st.omega,-om,om);
+    st.theta+=st.omega;
+    if(Math.abs(st.theta-st.last)>0.015){ sim.omega=st.omega; rasterizeBody(sim,b,anchor[0],anchor[1],st.theta,flag); st.last=st.theta; frontDirty=true; }
+  } else { st.omega=0; st.alpha=0; }
+  sim.omega=st.omega;
+  st.ticks++;
+}
+
+// ---------- particles ----------
+function spawn(i,anywhere){
+  const u=sim.uinf[0], v=sim.uinf[1];
+  const wl=Math.max(0,u)*H, wr=Math.max(0,-u)*H, wt=Math.max(0,v)*W, wb=Math.max(0,-v)*W, tot=wl+wr+wt+wb;
+  let x,y;
+  if(anywhere||tot<0.3){ x=1+Math.random()*(W-2); y=1+Math.random()*(H-2); }
+  else{ let r=Math.random()*tot;
+    if((r-=wl)<0){x=1.2;y=1+Math.random()*(H-2);}
+    else if((r-=wr)<0){x=W-1.2;y=1+Math.random()*(H-2);}
+    else if((r-=wt)<0){y=1.2;x=1+Math.random()*(W-2);}
+    else {y=H-1.2;x=1+Math.random()*(W-2);} }
+  const o=i*5; P[o]=x;P[o+1]=y;P[o+2]=x;P[o+3]=y;P[o+4]=Math.random()*200;
+}
+function seedParticles(){ for(let i=0;i<NP;i++) spawn(i,true); }
+function advanceParticles(n){
+  const ux=sim.ux, uy=sim.uy, sol=sim.solid, slow=Math.hypot(sim.uinf[0],sim.uinf[1])<0.01;
+  for(let i=0;i<NP;i++){
+    const o=i*5; let x=P[o], y=P[o+1];
+    P[o+2]=x; P[o+3]=y;
+    const kk=(y|0)*W+(x|0);
+    x+=ux[kk]*n; y+=uy[kk]*n; P[o+4]+=1;
+    if(x<1||y<1||x>=W-1||y>=H-1||sol[(y|0)*W+(x|0)]||(slow&&P[o+4]>400)){ spawn(i,slow); continue; }
+    P[o]=x; P[o+1]=y;
+  }
+}
+
+// ---------- view ----------
+function resizeView(){
+  const fall=mode==='fall';
+  const vw=fall?H:W, vh=fall?W:H;
+  const avail=$('tunnel').clientWidth-20;
+  const maxH=Math.max(280,window.innerHeight*(bigView?(fall?0.86:0.8):(fall?0.78:0.7)));
+  s=Math.min(avail/vw,maxH/vh);
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  view.style.width=(vw*s)+'px'; view.style.height=(vh*s)+'px';
+  view.width=Math.round(vw*s*dpr); view.height=Math.round(vh*s*dpr);
+  k=s*dpr;
+  const ch=$('chart'); ch.width=ch.clientWidth*dpr; ch.height=90*dpr;
+  const mn=$('mini'); mn.width=110*dpr; mn.height=110*dpr;
+}
+function setSimTransform(){
+  if(mode==='fall') ctx.setTransform(0,-k,k,0,0,k*W); else ctx.setTransform(k,0,0,k,0,0);
+}
+function toSim(e){
+  const r=view.getBoundingClientRect(); const px=(e.clientX-r.left)/s, py=(e.clientY-r.top)/s;
+  return mode==='fall'?[W-py,px]:[px,py];
+}
+function renderField(){
+  const d=img.data, ux=sim.ux, uy=sim.uy, rho=sim.rho, sol=sim.solid;
+  const U=Math.max(0.03,Math.hypot(sim.uinf[0],sim.uinf[1]));
+  const pal=PAL[field==='smoke'?'speed':field], smoke=field==='smoke', dy=dye;
+  const sv=255/(U*1.7), vv=127.5/(0.2*U+0.002), pv=127.5/(0.6*U*U);
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      const i=y*W+x, o=i*4;
+      if(sol[i]){ d[o]=BODY[0];d[o+1]=BODY[1];d[o+2]=BODY[2]; continue; }
+      let c;
+      if(smoke||field==='speed'){ c=Math.min(255,Math.hypot(ux[i],uy[i])*sv)|0; }
+      else if(field==='vort'){
+        if(x===0||y===0||x===W-1||y===H-1){c=128;}
+        else{ const w=(uy[i+1]-uy[i-1])-(ux[i+W]-ux[i-W]); c=clamp(127.5+w*vv*0.5,0,255)|0; }
+      } else { c=clamp(127.5+(rho[i]-1)/3*pv,0,255)|0; }
+      let r=pal[c*3], g=pal[c*3+1], b=pal[c*3+2];
+      if(smoke){ r=r*0.28+6; g=g*0.28+9; b=b*0.28+14; }
+      const a=dy[i];
+      if(a>0.01){ const t=Math.min(1,a)*(smoke?0.95:0.8); r+=(238-r)*t; g+=(242-g)*t; b+=(246-b)*t; }
+      d[o]=r; d[o+1]=g; d[o+2]=b;
+    }
+  }
+  offCtx.putImageData(img,0,0);
+}
+function arrow(x,y,dx,dy,color,w){
+  const len=Math.hypot(dx,dy); if(len<1.5) return;
+  const ux=dx/len, uy=dy/len, hx=x+dx, hy=y+dy, hs=Math.min(len*0.4,w*4);
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=w; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(hx-ux*hs*0.6,hy-uy*hs*0.6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-ux*hs-uy*hs*0.55,hy-uy*hs+ux*hs*0.55); ctx.lineTo(hx-ux*hs+uy*hs*0.55,hy-uy*hs-ux*hs*0.55); ctx.closePath(); ctx.fill();
+}
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let colors={};
+function refreshColors(){ colors={drag:css('--drag'),lift:css('--lift'),weight:css('--weight')}; }
+function render(){
+  renderField();
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,view.width,view.height);
+  setSimTransform();
+  ctx.imageSmoothingEnabled=true; ctx.drawImage(off,0,0);
+  // world reference dots: they slide past, showing the object's real motion
+  if(st){
+    const G=24; ctx.fillStyle='rgba(255,255,255,0.22)';
+    const ox=((anchor[0]-st.pos[0])%G+G)%G, oy=((anchor[1]-st.pos[1])%G+G)%G;
+    for(let x=ox;x<W;x+=G) for(let y=oy;y<H;y+=G) ctx.fillRect(x-0.5,y-0.5,1.1,1.1);
+  }
+  if($('dots').checked){
+    ctx.strokeStyle='rgba(235,245,255,0.55)'; ctx.lineWidth=1.1/s; ctx.beginPath();
+    for(let i=0;i<NP;i++){const o=i*5; ctx.moveTo(P[o+2],P[o+3]); ctx.lineTo(P[o]+0.02,P[o+1]);}
+    ctx.stroke();
+  }
+  if($('arrows').checked) drawArrows();
+  if(ptr.down&&ptr.tool==='fling'&&st){
+    const dx=ptr.cur[0]-ptr.start[0], dy2=ptr.cur[1]-ptr.start[1];
+    ctx.setLineDash([2,1.5]); arrow(anchor[0],anchor[1],dx,dy2,'#ffffff',Math.max(0.8,3/s)); ctx.setLineDash([]);
+  }
+  drawProbes();
+}
+function simToScreen(x,y){ return mode==='fall'?[y*k,(W-x)*k]:[x*k,y*k]; }
+function drawProbes(){
+  if(!probes.length) return;
+  ctx.setTransform(1,0,0,1,0,0);
+  const U=Math.max(0.005,Math.hypot(sim.uinf[0],sim.uinf[1]));
+  ctx.font=`600 ${12*dpr}px Barlow, sans-serif`; ctx.textBaseline='top';
+  probes.forEach((p,n)=>{
+    const [sx,sy]=simToScreen(p.x,p.y), kk=(p.y|0)*W+(p.x|0);
+    const inside=sim.solid[kk];
+    const sp=Math.hypot(sim.ux[kk],sim.uy[kk])/U, cp=((sim.rho[kk]-1)/3)/(0.5*U*U);
+    ctx.strokeStyle=colors.weight; ctx.lineWidth=2*dpr;
+    ctx.beginPath(); ctx.arc(sx,sy,6*dpr,0,7); ctx.moveTo(sx-10*dpr,sy); ctx.lineTo(sx+10*dpr,sy); ctx.moveTo(sx,sy-10*dpr); ctx.lineTo(sx,sy+10*dpr); ctx.stroke();
+    const l1=inside?'Inside the shape':`${speedTxt(toPhysSpeed(Math.hypot(sim.ux[kk],sim.uy[kk])))}  (${sp.toFixed(2)}× wind)`, l2=inside?'':`Pressure Cp ${cp>=0?'+':'−'}${Math.abs(cp).toFixed(2)}`;
+    const w=Math.max(ctx.measureText(l1).width,ctx.measureText(l2).width)+12*dpr, h=(l2?34:20)*dpr;
+    let bx=sx+12*dpr, by=sy+8*dpr; if(bx+w>view.width) bx=sx-12*dpr-w; if(by+h>view.height) by=sy-8*dpr-h;
+    ctx.fillStyle='rgba(10,14,20,0.82)'; ctx.fillRect(bx,by,w,h);
+    ctx.fillStyle='#fff'; ctx.fillText(l1,bx+6*dpr,by+4*dpr); if(l2){ ctx.fillStyle=colors.weight; ctx.fillText(l2,bx+6*dpr,by+18*dpr); }
+  });
+}
+let lastCoef={drag:0,lift:0,U:0,cd:NaN,cl:NaN,dirx:1,diry:0,L:20};
+function drawArrows(){
+  const c=lastCoef; if(!isFinite(c.drag)) return;
+  const cx=st?anchor[0]:info.cx, cy=st?anchor[1]:info.cy;
+  if(!st&&!info.cells.length) return;
+  const L=c.L, q=0.5*Math.max(c.U,0.02)**2*L, sc=L*0.6/q, cap=1.8*L, w=Math.max(0.8,1.6/s*2);
+  const lim=v=>clamp(v,-cap,cap);
+  const dl=lim(c.drag*sc), ll=lim(c.lift*sc);
+  arrow(cx,cy,c.dirx*dl,c.diry*dl,colors.drag,w);
+  arrow(cx,cy,c.diry*ll,-c.dirx*ll,colors.lift,w);
+  if(mode==='fall'){ const wt=lim(body.m*scale.gLat*(1-1/scale.rhoR)*sc); arrow(cx,cy,-wt,0,colors.weight,w); }
+}
+
+// ---------- stats ----------
+function frontalWidth(dx,dy){
+  const cells=st?body.cells:info.cells; if(!cells.length) return 1;
+  const nx=-dy, ny=dx; let mn=1e9,mx=-1e9;
+  for(const i of cells){const p=(i%W)*nx+((i/W)|0)*ny; if(p<mn)mn=p; if(p>mx)mx=p;}
+  return mx-mn+1;
+}
+function computeCoefs(){
+  const U=Math.hypot(sim.uinf[0],sim.uinf[1]);
+  const dx=U>1e-4?sim.uinf[0]/U:1, dy=U>1e-4?sim.uinf[1]/U:0;
+  if(frontDirty||frameNo%20===0){ frontL=frontalWidth(dx,dy); frontDirty=false; }
+  const drag=avgF[0]*dx+avgF[1]*dy, lift=avgF[0]*dy-avgF[1]*dx;
+  const q=0.5*U*U*frontL;
+  const cd=U>0.006?drag/q:NaN, cl=U>0.006?lift/q:NaN;
+  if(isFinite(cd)&&modeTicks>500){ ema.cd=ema.cd==null?cd:ema.cd+(cd-ema.cd)*0.015; ema.cl=ema.cl==null?cl:ema.cl+(cl-ema.cl)*0.015; }
+  lastCoef={drag,lift,U,cd,cl,dirx:dx,diry:dy,L:frontL};
+}
+const fmt=(v,d=2)=>Number.isFinite(v)?v.toFixed(d):'—';
+function pushHist(a,b){ hist.a.push(a); hist.b.push(b); if(hist.a.length>HMAX){hist.a.shift();hist.b.shift();} }
+function playTxt(){
+  if(!running) return 'paused';
+  if(playRate>0.85&&playRate<1.2) return 'real time';
+  if(playRate<1) return '1/'+Math.max(2,Math.round(1/playRate))+' speed';
+  return Math.round(playRate)+'× speed';
+}
+function updateStats(){
+  const c=lastCoef, hud=$('hud'), cells=[], F=FLUIDS[fluid];
+  const Uphys=toPhysSpeed(c.U), Lphys=c.L*scale.dx;
+  const Re=Uphys*Lphys/F.nu;
+  const q=0.5*F.rho*Uphys*Uphys*Lphys;
+  const cdS=Number.isFinite(ema.cd)?ema.cd:c.cd, clS=Number.isFinite(ema.cl)?ema.cl:c.cl;
+  const dragN=cdS*q, liftN=clS*q;
+  const blk=c.L/H;
+  if(mode==='tunnel'){
+    hud.innerHTML=`<span class="small">Drag coefficient</span><span class="big">Cd ${fmt(ema.cd)}</span><span class="small">Drag ${forceTxt(dragN)} of span</span><span class="small">Re ${Re>9999?(Re/1000).toFixed(0)+'k':fmt(Re,0)} · ${playTxt()}</span>`;
+    cells.push(['Drag coeff. (avg)',fmt(ema.cd)],['Lift coeff. (avg)',fmt(ema.cl)],
+      ['Drag force',forceTxt(dragN)],['Lift force',forceTxt(liftN)],
+      ['Wind speed',speedTxt(Uphys)],['Reynolds number',Re>9999?(Re/1000).toFixed(0)+'k':fmt(Re,0)],
+      ['Frontal width',lenTxt(Lphys)],['Blockage',`${fmt(blk*100,0)}%`,blk>0.15],
+      ['Clock',timeTxt(simTime)],['Playback',playTxt()]);
+  } else if(mode==='fall'){
+    const rising=scale.rhoR<1;
+    const wt=body.m*scale.gLat*(1-1/scale.rhoR), ratio=avgF[0]/wt;
+    const fallV=toPhysSpeed(-st.v[0]), side=toPhysSpeed(st.v[1]);
+        const massSpan=matRho*body.area*scale.dx*scale.dx;
+    hud.innerHTML=`<span class="small">${rising?'Rise speed':'Fall speed'}</span><span class="big">${speedTxt(Math.abs(fallV))}</span><span class="small">Drag is ${fmt(clamp(Math.abs(ratio),0,9)*100,0)}% of ${rising?'buoyancy':'weight'}${Math.abs(ratio)>0.95&&Math.abs(ratio)<1.05?' — terminal velocity':''}</span><span class="small">${timeTxt(simTime)} · ${playTxt()}</span>`;
+    cells.push([rising?'Rise speed':'Fall speed',speedTxt(Math.abs(fallV))],['Sideways drift',speedTxt(side)],
+      [rising?'Drag vs. buoyancy':'Drag vs. weight',`${fmt(clamp(Math.abs(ratio),0,9)*100,0)}%`],['Drag coeff.',fmt(ema.cd)],
+      ['Reynolds number',Re>9999?(Re/1000).toFixed(0)+'k':fmt(Re,0)],[rising?'Risen':'Fallen',lenTxt(Math.abs(st.pos[0]*scale.dx))],
+      ['Clock',timeTxt(simTime)],['Tilt',`${fmt(((st.theta-st.theta0)*180/Math.PI)%360,0)}°`],
+      ['Predicted terminal',speedTxt(scale.Uterm)],['Start',st.solve?'terminal speed':'from rest'],
+      ['Mass',`${massSpan<1?(massSpan*1000).toFixed(0)+' g/m':massSpan.toFixed(2)+' kg/m'}`],['Playback',playTxt()]);
+  } else {
+    const wv=windVec(), sp=toPhysSpeed(Math.hypot(st.v[0],st.v[1])), wind=toPhysSpeed(Math.hypot(wv[0],wv[1]));
+    hud.innerHTML=`<span class="small">Object speed</span><span class="big">${speedTxt(sp)}</span><span class="small">${FLUIDS[fluid].n.split(',')[0]} moves ${speedTxt(Uphys)} past it</span><span class="small">${timeTxt(simTime)} · ${playTxt()}</span>`;
+    cells.push(['Object speed',speedTxt(sp)],['Air speed past it',speedTxt(Uphys)],['Wind speed',speedTxt(wind)],
+      ['Drag coeff.',fmt(ema.cd)],['Drag force',forceTxt(dragN)],
+      ['Reynolds number',Re>9999?(Re/1000).toFixed(0)+'k':fmt(Re,0)],
+      ['Travelled',lenTxt(Math.hypot(st.pos[0],st.pos[1])*scale.dx)],['Clock',timeTxt(simTime)],['Playback',playTxt()]);
+  }
+  if(scale.under) cells.push(['Resolved Re',`${(scale.ReCap/1000).toFixed(0)}k of ${Re>9999?(Re/1000).toFixed(0)+'k':fmt(Re,0)}`,true]);
+  cells.push(['Tunnel grid',`${W} × ${H} cells`],['Sim speed',`${stepsSec} ticks/s`]);
+  $('stats').innerHTML=cells.map(([k2,v,w])=>`<div class="stat${w?' warn':''}"><div class="k">${k2}</div><div class="v">${v}</div></div>`).join('');
+}
+function drawChart(){
+  const ch=$('chart'), c=ch.getContext('2d'), w=ch.width, h=ch.height;
+  c.clearRect(0,0,w,h);
+  const A=hist.a, B=hist.b; if(A.length<2) return;
+  let mn=Infinity,mx=-Infinity;
+  for(const v of A.concat(B)) if(isFinite(v)){mn=Math.min(mn,v);mx=Math.max(mx,v);}
+  if(!isFinite(mn)) return;
+  mn=Math.min(mn,0); mx=Math.max(mx,0); if(mx-mn<1e-6){mx+=0.01;mn-=0.01;}
+  const pad=(mx-mn)*0.1; mn-=pad; mx+=pad;
+  const Y=v=>h-(v-mn)/(mx-mn)*h;
+  c.strokeStyle=css('--line'); c.lineWidth=dpr; c.beginPath(); c.moveTo(0,Y(0)); c.lineTo(w,Y(0)); c.stroke();
+  const line=(arr,col)=>{c.strokeStyle=col;c.lineWidth=1.8*dpr;c.beginPath();let on=false;
+    arr.forEach((v,i)=>{if(!isFinite(v)){on=false;return;}const x=i/(HMAX-1)*w;on?c.lineTo(x,Y(v)):c.moveTo(x,Y(v));on=true;});c.stroke();};
+  const cols=mode==='tunnel'?[colors.drag,colors.lift]:mode==='fall'?[colors.weight,colors.lift]:[colors.weight,colors.drag];
+  line(A,cols[0]); line(B,cols[1]);
+  c.fillStyle=css('--muted'); c.font=`${11*dpr}px Barlow, sans-serif`;
+  c.fillText(fmt(mx-pad,3),4*dpr,12*dpr); c.fillText(fmt(mn+pad,3),4*dpr,h-4*dpr);
+}
+function drawMini(){
+  if(!st) return;
+  const m=$('mini'), c=m.getContext('2d'), w=m.width, h=m.height;
+  c.clearRect(0,0,w,h);
+  const toScr=p=>mode==='fall'?[p[1],-p[0]]:[p[0],p[1]];
+  const pts=trail.map(toScr); const cur=toScr(st.pos); pts.push(cur);
+  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  for(const p of pts){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
+  const span=Math.max(x1-x0,y1-y0,body.Lmax*3), cx=(x0+x1)/2, cy=(y0+y1)/2, sc=(w*0.8)/span;
+  const T=p=>[w/2+(p[0]-cx)*sc,h/2+(p[1]-cy)*sc];
+  c.strokeStyle=colors.weight; c.lineWidth=1.5*dpr; c.beginPath();
+  pts.forEach((p,i)=>{const q=T(p); i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]);}); c.stroke();
+  const q=T(cur); c.fillStyle='#fff'; c.beginPath(); c.arc(q[0],q[1],3*dpr,0,7); c.fill();
+  c.fillStyle='#fffa'; c.font=`${10*dpr}px Barlow, sans-serif`; c.fillText('Flight path',5*dpr,12*dpr);
+}
+
+// ---------- smoke (passive dye carried by the flow) ----------
+function injectRake(){
+  if(!$('rake').checked) return;
+  const u=sim.uinf[0], v=sim.uinf[1], sp=Math.max(6,Math.round(H/16)), th=Math.max(0.004,0.35*Math.hypot(u,v));
+  if(u>th)  for(let y=2;y<H-2;y++) if(y%sp<2){ dye[y*W+1]=1; dye[y*W+2]=1; }
+  if(u<-th) for(let y=2;y<H-2;y++) if(y%sp<2){ dye[y*W+W-2]=1; dye[y*W+W-3]=1; }
+  if(v>th)  for(let x=2;x<W-2;x++) if(x%sp<2){ dye[W+x]=1; dye[2*W+x]=1; }
+  if(v<-th) for(let x=2;x<W-2;x++) if(x%sp<2){ dye[(H-2)*W+x]=1; dye[(H-3)*W+x]=1; }
+}
+function advectDye(n){
+  const ux=sim.ux, uy=sim.uy, sol=sim.solid, D=dye, O=dye2, decay=Math.pow(0.99985,n);
+  for(let y=1;y<H-1;y++){
+    for(let x=1;x<W-1;x++){
+      const i=y*W+x;
+      if(sol[i]){ O[i]=0; continue; }
+      let sx=x-ux[i]*n, sy=y-uy[i]*n;
+      sx=sx<0?0:sx>W-1.001?W-1.001:sx; sy=sy<0?0:sy>H-1.001?H-1.001:sy;
+      const x0=sx|0, y0=sy|0, fx=sx-x0, fy=sy-y0, j=y0*W+x0;
+      O[i]=((D[j]*(1-fx)+D[j+1]*fx)*(1-fy)+(D[j+W]*(1-fx)+D[j+W+1]*fx)*fy)*decay;
+    }
+  }
+  for(let x=0;x<W;x++){O[x]=0;O[(H-1)*W+x]=0;} for(let y=0;y<H;y++){O[y*W]=0;O[y*W+W-1]=0;}
+  dye=O; dye2=D;
+}
+function paintDye(x,y){
+  const r=+$('brush').value*1.6;
+  for(let j=Math.max(1,Math.floor(y-r));j<=Math.min(H-2,Math.ceil(y+r));j++) for(let i=Math.max(1,Math.floor(x-r));i<=Math.min(W-2,Math.ceil(x+r));i++)
+    if((i-x)**2+(j-y)**2<=r*r) dye[j*W+i]=1.4;
+}
+
+// ---------- main loop ----------
+function loop(){
+  if(running&&sim){
+    const wallNow=performance.now();
+    let wallDt=Math.min(0.25,(wallNow-lastWall)/1000); lastWall=wallNow;
+    let budget=stepsPerFrame;
+    if(rtLock) budget=clamp(Math.round(wallDt/scale.dt),1,stepsPerFrame);
+    const t0=performance.now(); let n=0, fx=0,fy=0,tq=0;
+    while(n<budget){
+      gustT++;
+      if(mode==='tunnel'&&gusty) sim.uinf=windVec();
+      sim.step(); fx+=sim.F[0]; fy+=sim.F[1]; tq+=sim.T;
+      if(st) bodyStep();
+      n++;
+    }
+    const per=(performance.now()-t0)/Math.max(n,1);
+    stepsPerFrame=clamp(Math.round(12/Math.max(per,0.05)),1,40);
+    stepCount+=n; modeTicks+=n; simTime+=n*scale.dt; avgF=[fx/n,fy/n,tq/n];
+    playRate=wallDt>0?(n*scale.dt)/wallDt:1;
+    if(!isFinite(fx)||!(sim.rho[(H>>1)*W+W-5]>0.3&&sim.rho[(H>>1)*W+W-5]<3)){
+      nuBoost*=2.5; computeScale();
+      toast('The flow could not be resolved at that setting, so the tunnel coarsened the smallest eddies.');
+      enterMode(mode); requestAnimationFrame(loop); return;
+    }
+    if(mode==='fall'&&st){
+      if(st.capped) capTicks+=n; else capTicks=Math.max(0,capTicks-n);
+      if(st.solve&&modeTicks>2500){
+        solveTicks+=n;
+        if(solveTicks>1200){
+          solveTicks=0;
+          const wt=body.m*scale.gLat*(1-1/scale.rhoR);
+          const ratio=Math.abs(wt)>1e-12?avgF[0]/wt:1;
+          if(isFinite(ratio)&&ratio>0.02&&Math.abs(ratio-1)>0.04){
+            const f=clamp(1/Math.sqrt(ratio),0.6,1.6);
+            st.v[0]*=f; st.a=[0,0];
+          }
+        }
+      }
+      const relLat=lastCoef.U;
+      if(retunes<3&&modeTicks>1200&&ema.cd&&(capTicks>500||relLat<0.012)){
+        retunes++; computeScale(ema.cd);
+        toast('Time scale re-tuned to the measured fall speed.');
+        enterMode('fall'); requestAnimationFrame(loop); return;
+      }
+    }
+    if($('dots').checked) advanceParticles(n);
+    injectRake(); advectDye(n);
+    computeCoefs();
+    if(mode==='tunnel'){ if(modeTicks>500) pushHist(lastCoef.cd,lastCoef.cl); }
+    else if(mode==='fall') pushHist(MPS(toPhysSpeed(-st.v[0])),MPS(toPhysSpeed(st.v[1])));
+    else pushHist(MPS(toPhysSpeed(Math.hypot(st.v[0],st.v[1]))),MPS(toPhysSpeed(lastCoef.U)));
+    if(st&&frameNo%3===0){ trail.push([st.pos[0],st.pos[1]]); if(trail.length>1500) trail.shift(); }
+  }
+  frameNo++;
+  const now=performance.now(); if(now-lastSecT>1000){ stepsSec=Math.round((stepCount-lastSecSteps)*1000/(now-lastSecT)); lastSecSteps=stepCount; lastSecT=now; }
+  if(sim){ render(); if(frameNo%10===0){ updateStats(); drawChart(); drawMini(); } }
+  requestAnimationFrame(loop);
+}
+
+// ---------- UI wiring ----------
+function updateLabels(){
+  $('brush-v').textContent=$('brush').value;
+  $('size-v').textContent=Math.round(+$('size').value*100)+'% of tunnel';
+  $('wind-v').textContent=speedTxt(+$('wind').value);
+  $('objsize-v').textContent=lenTxt(sizePhys);
+  $('fluid-v').textContent=(FLUIDS[fluid].rho<10?FLUIDS[fluid].rho.toFixed(2):FLUIDS[fluid].rho.toFixed(0))+' kg/m³';
+  $('mat-v').textContent=matRho.toFixed(0)+' kg/m³';
+}
+$('m-tunnel').onclick=()=>enterMode('tunnel');
+$('m-fall').onclick=()=>enterMode('fall');
+$('m-zerog').onclick=()=>enterMode('zerog');
+$('play').onclick=()=>{running=!running; $('play').textContent=running?'Pause':'Play';};
+$('restart').onclick=()=>enterMode(mode);
+$('kick').onclick=()=>{ if(st){ st.v[0]-=0.06; toast('Thrown into the wind. Watch drag brake it.'); } };
+$('spin').onclick=()=>{ if(st){ if(!allowRot){allowRot=true;$('rotate').checked=true;} st.omega+=0.04/Math.max(4,body.Lmax/2); } };
+document.querySelectorAll('[data-field]').forEach(b=>b.onclick=()=>{field=b.dataset.field;document.querySelectorAll('[data-field]').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+function toolAllowed(t){ return (mode==='tunnel'?TUNNEL_TOOLS:FREE_TOOLS).includes(t); }
+function setTool(t){
+  tool=t;
+  document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===t));
+  $('toolhint').textContent=TOOLS[t];
+  view.style.cursor={move:'grab',probe:'cell',fling:'crosshair'}[t]||'crosshair';
+}
+function updateTools(){
+  document.querySelectorAll('[data-tool]').forEach(b=>b.disabled=!toolAllowed(b.dataset.tool));
+  if(!toolAllowed(tool)) setTool(mode==='tunnel'?'draw':'fling'); else setTool(tool);
+}
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+$('gusty').onchange=()=>{ gusty=$('gusty').checked; if(mode==='tunnel') sim.uinf=windVec(); };
+$('clear-probes').onclick=()=>{ probes=[]; dye.fill(0); };
+$('bigview').onclick=()=>{ bigView=!bigView; document.querySelector('.app').classList.toggle('focus',bigView); $('bigview').setAttribute('aria-pressed',bigView); $('bigview').textContent=bigView?'Show controls':'Big view'; resizeView(); };
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'&&bigView) $('bigview').click(); });
+$('t-fill').onclick=()=>{bake();floodFillHoles(designBase);applyRotation(true);};
+$('clear').onclick=()=>{designBase.fill(0);designAngle=0;applyRotation(true);};
+$('rot-l').onclick=()=>{designAngle-=5;applyRotation(true);};
+$('rot-r').onclick=()=>{designAngle+=5;applyRotation(true);};
+$('import').onclick=()=>$('file').click();
+$('file').onchange=e=>{const f=e.target.files[0]; if(f) importImage(f); e.target.value='';};
+$('brush').oninput=updateLabels; $('size').oninput=updateLabels;
+$('wind').oninput=()=>{const v=+$('wind').value; if(mode==='fall') crossPhys=v; else windPhys=v; computeScale(); if(mode==='tunnel') sim.uinf=windVec(); updateLabels();};
+$('objsize').oninput=()=>{ sizePhys=Math.pow(10,+$('objsize').value); computeScale(); updateLabels(); };
+$('objsize').onchange=()=>{ if(mode!=='tunnel') enterMode(mode); };
+FLUIDS&&Object.entries(FLUIDS).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v.n;$('fluid').appendChild(o);});
+MATERIALS.forEach(([n,d])=>{const o=document.createElement('option');o.value=d;o.textContent=n;$('material').appendChild(o);});
+GRAVS.forEach(([n,g])=>{const o=document.createElement('option');o.value=g;o.textContent=n;$('gravity').appendChild(o);});
+$('material').value=800; $('fluid').value=fluid; $('units').value=units; $('gravity').value=gPhys;
+$('fluid').onchange=()=>{ fluid=$('fluid').value; nuBoost=1; retunes=0; computeScale(); updateLabels(); enterMode(mode); };
+$('material').onchange=()=>{ matRho=+$('material').value; retunes=0; computeScale(); updateLabels(); if(mode!=='tunnel') enterMode(mode); };
+$('gravity').onchange=()=>{ gPhys=+$('gravity').value; retunes=0; computeScale(); if(mode==='fall') enterMode(mode); };
+$('units').onchange=()=>{ units=$('units').value; updateLabels(); configureUI(); };
+$('rt').onchange=()=>{ rtLock=$('rt').checked; };
+$('rotate').onchange=()=>{allowRot=$('rotate').checked;};
+$('dropstart').onchange=()=>{ dropStart=$('dropstart').value; if(mode==='fall') enterMode('fall'); };
+$('arrows').onchange=configureUI;
+$('quality').onchange=()=>{ nuBoost=1; setupGrid($('quality').value); };
+const pr=$('presets');
+PRESETS.forEach((p,i)=>{const b=document.createElement('button');b.textContent=p[0];b.onclick=()=>stampPreset(i);pr.appendChild(b);});
+
+// drawing
+let drawing=false, lastPt=null;
+function paintAt(x,y){
+  const r=+$('brush').value, v=tool==='erase'?0:1;
+  for(let j=Math.floor(y-r);j<=Math.ceil(y+r);j++) for(let i=Math.floor(x-r);i<=Math.ceil(x+r);i++){
+    if(!inMargin(i,j)) continue; if((i+0.5-x)**2+(j+0.5-y)**2>r*r) continue;
+    const kk=j*W+i; designBase[kk]=v; design[kk]=v; sim.setSolid(kk,v);
+  }
+}
+function strokeTo(p){
+  if(!lastPt){paintAt(p[0],p[1]);lastPt=p;return;}
+  const d=Math.hypot(p[0]-lastPt[0],p[1]-lastPt[1]), n=Math.max(1,Math.ceil(d/0.8));
+  for(let i=1;i<=n;i++) paintAt(lastPt[0]+(p[0]-lastPt[0])*i/n,lastPt[1]+(p[1]-lastPt[1])*i/n);
+  lastPt=p;
+}
+let moveAcc=[0,0];
+function shiftDesign(dx,dy){
+  const nb=new Uint8Array(W*H);
+  for(let i=0;i<designBase.length;i++) if(designBase[i]){
+    const x=i%W+dx, y=((i/W)|0)+dy; if(inMargin(x,y)) nb[y*W+x]=1;
+  }
+  designBase.set(nb); design.set(nb);
+  for(let i=0;i<design.length;i++) sim.setSolid(i,design[i]);
+}
+function toggleProbe(p){
+  const i=probes.findIndex(q=>Math.hypot(q.x-p[0],q.y-p[1])<Math.max(5,8/s*3));
+  if(i>=0) probes.splice(i,1); else { if(probes.length>=5) probes.shift(); probes.push({x:clamp(p[0],1,W-2),y:clamp(p[1],1,H-2)}); }
+}
+view.addEventListener('pointerdown',e=>{
+  if(!toolAllowed(tool)) return;
+  const p=toSim(e);
+  ptr={down:true,tool,last:p,start:p,cur:p};
+  view.setPointerCapture(e.pointerId); e.preventDefault();
+  if(tool==='draw'||tool==='erase'){ bake(); lastPt=null; strokeTo(p); }
+  else if(tool==='move'){ bake(); moveAcc=[0,0]; view.style.cursor='grabbing'; }
+  else if(tool==='probe'){ toggleProbe(p); ptr.down=false; }
+  else if(tool==='dye'){ paintDye(p[0],p[1]); }
+});
+view.addEventListener('pointermove',e=>{
+  if(!ptr.down) return;
+  const p=toSim(e), last=ptr.last, dx=p[0]-last[0], dy=p[1]-last[1];
+  const t=ptr.tool;
+  if(t==='draw'||t==='erase') strokeTo(p);
+  else if(t==='move'){
+    moveAcc[0]+=dx; moveAcc[1]+=dy;
+    const ix=Math.trunc(moveAcc[0]), iy=Math.trunc(moveAcc[1]);
+    if(ix||iy){ shiftDesign(ix,iy); moveAcc[0]-=ix; moveAcc[1]-=iy; }
+  }
+  else if(t==='stir'){
+    const steps=Math.max(1,stepsPerFrame);
+    let vx=dx/steps, vy=dy/steps; const m=Math.hypot(vx,vy); if(m>0.15){vx*=0.15/m;vy*=0.15/m;}
+    const R=+$('brush').value*2.5+3, n=Math.max(1,Math.ceil(Math.hypot(dx,dy)/(R*0.5)));
+    for(let i=1;i<=n;i++) sim.pushAir(last[0]+dx*i/n,last[1]+dy*i/n,R,vx,vy,0.6);
+  }
+  else if(t==='dye'){
+    const n=Math.max(1,Math.ceil(Math.hypot(dx,dy)));
+    for(let i=1;i<=n;i++) paintDye(last[0]+dx*i/n,last[1]+dy*i/n);
+  }
+  ptr.cur=p; ptr.last=p;
+});
+function endPointer(){
+  if(!ptr.down) return;
+  const t=ptr.tool; ptr.down=false;
+  if(t==='draw'||t==='erase'||t==='move'){ lastPt=null; computeInfo(); sim.center=[info.cx,info.cy]; ema={cd:null,cl:null}; modeTicks=Math.min(modeTicks,300); if(t==='move') view.style.cursor='grab'; }
+  if(t==='fling'&&st){
+    const dx=ptr.cur[0]-ptr.start[0], dy=ptr.cur[1]-ptr.start[1];
+    if(Math.hypot(dx,dy)>2){ st.v[0]+=dx*0.0022; st.v[1]+=dy*0.0022; toast('Thrown. Drag takes over from here.'); }
+  }
+}
+view.addEventListener('pointerup',endPointer); view.addEventListener('pointercancel',endPointer);
+window.addEventListener('keydown',e=>{ if(e.code==='Space'&&e.target===document.body){ e.preventDefault(); $('play').click(); } });
+let rT=0; window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(resizeView,120);});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',refreshColors);
+
+// start
+refreshColors();
+$('quality').value=window.innerWidth<700?'240x120':window.innerWidth<1200?'320x160':'440x220';
+setupGrid($('quality').value);
+setTool('draw');
+stampPreset(0);
+updateLabels();
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

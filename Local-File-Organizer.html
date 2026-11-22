@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File Organizer</title>
+<style>
+:root{
+  --bg:#E2E5E8; --panel:#F4F5F6; --plate:#FFFFFF; --ink:#15181C; --muted:#56606A; --faint:#89919A;
+  --rule:#C6CCD2; --rule2:#E3E6E9;
+  --accent:#2350A8; --accent-ink:#FFFFFF; --accent-soft:#DCE5F5;
+  --warn:#8A5A00; --warn-soft:#F5EAD2; --danger:#A8261B; --danger-soft:#F6DEDB; --ok:#2B6E4B;
+  --steel-a:#D3D8DC; --steel-b:#BEC5CB; --drawer-a:#F0F2F4; --drawer-b:#DDE1E5; --drawer-edge:#A9B0B7; --label:#FBFBF8;
+  --font: Bahnschrift, "DIN Alternate", "Barlow", "Roboto Condensed", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#15171A; --panel:#1C1F23; --plate:#23272C; --ink:#E6E9EC; --muted:#A3ABB4; --faint:#747D87;
+    --rule:#353B42; --rule2:#2A2F35;
+    --accent:#86A8EC; --accent-ink:#0E1627; --accent-soft:#223352;
+    --warn:#E2B55E; --warn-soft:#382E1C; --danger:#F08A7E; --danger-soft:#3C2220; --ok:#7CC69B;
+    --steel-a:#2B3036; --steel-b:#23272C; --drawer-a:#3A4047; --drawer-b:#30353B; --drawer-edge:#4A5159; --label:#E8E6DF;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--font); font-size:15px; line-height:1.45; color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--faint)}
+code{font-family:Consolas, "Cascadia Mono", ui-monospace, monospace; font-size:.9em; background:var(--rule2); padding:1px 5px; border-radius:3px}
+[hidden]{display:none !important}
+
+/* chrome */
+.chrome{position:sticky; top:0; z-index:30}
+.top{display:flex; align-items:center; gap:16px; padding:10px 24px; background:var(--panel); border-bottom:1px solid var(--rule)}
+.brand{display:flex; gap:10px; align-items:center; font-weight:600; font-stretch:85%; font-size:19px; white-space:nowrap}
+.brand svg{flex:none}
+#hdr-folder{margin-left:auto; display:flex; gap:10px; align-items:center; min-width:0}
+.fname{font-weight:600; max-width:28ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.fstats{color:var(--muted); white-space:nowrap}
+.progress{background:var(--panel); border-bottom:1px solid var(--rule); padding:8px 24px}
+.prog-inner{max-width:1240px; margin:0 auto; display:flex; align-items:center; gap:14px; font-size:14px}
+.prog-inner .cur{color:var(--faint); max-width:40%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.heat{position:relative; flex:1; min-width:80px; height:6px; border-radius:3px; overflow:hidden;
+  background:linear-gradient(90deg,#D9C58B 0%,#C38B45 34%,#8B4F90 66%,#3F63B8 100%)}
+.heat .cover{position:absolute; right:0; top:0; bottom:0; background:var(--rule2); transition:width .2s linear}
+.heat.indeterminate{background-size:200% 100%; animation:heat 1.6s linear infinite}
+@keyframes heat{from{background-position:100% 0} to{background-position:-100% 0}}
+
+main{max-width:1240px; margin:0 auto; padding:24px}
+
+/* buttons */
+.btn{display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:8px 14px; border-radius:6px; border:1px solid var(--rule); background:var(--plate); color:var(--ink); cursor:pointer; white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--faint)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.big{font-size:17px; padding:12px 22px}
+.btn.small{padding:5px 10px; font-size:14px}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.ghost{background:none; border:0; color:var(--muted); cursor:pointer; padding:4px 8px; border-radius:4px; white-space:nowrap}
+.ghost:hover:not(:disabled){color:var(--ink); background:var(--rule2)}
+.ghost:disabled{opacity:.4; cursor:not-allowed}
+.ghost.danger{color:var(--danger)}
+label.btn input[type=file]{display:none}
+
+/* hero */
+.hero{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); gap:48px; align-items:center; padding:32px 0 40px}
+.hero h1{font-size:clamp(34px,5vw,56px); line-height:1.02; font-weight:600; font-stretch:80%; letter-spacing:-.01em; margin:0 0 16px; max-width:14ch}
+.lede{font-size:18px; color:var(--muted); max-width:46ch; margin:0 0 24px}
+.hint{font-size:14px; color:var(--faint); max-width:60ch; margin:14px 0 0}
+.notice{border-radius:6px; padding:12px 14px; margin:0 0 20px; max-width:56ch; font-size:14px}
+.notice.warn{background:var(--warn-soft); color:var(--ink); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent)}
+.notice strong{display:block; margin-bottom:2px}
+.cabinet{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:14px; border-radius:8px;
+  background:linear-gradient(var(--steel-a),var(--steel-b)); border:1px solid var(--drawer-edge)}
+.drawer{height:72px; border-radius:4px; border:1px solid var(--drawer-edge); background:linear-gradient(var(--drawer-a),var(--drawer-b));
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px}
+.drawer .label{font-weight:600; font-stretch:80%; font-size:14px; color:#1d2126; background:var(--label); padding:1px 9px 1px 7px;
+  border:1px solid #B7BDC3; border-left:4px solid var(--c); border-radius:2px; max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.drawer .pull{width:42px; height:7px; border-radius:4px; background:linear-gradient(#9CA4AC,#79818A)}
+.promises{display:grid; grid-template-columns:repeat(3,1fr); gap:28px; border-top:1px solid var(--rule); padding-top:24px}
+.promises h2{font-size:18px; font-stretch:85%; margin:0 0 4px}
+.promises p{margin:0; color:var(--muted); font-size:14px; max-width:36ch}
+
+/* workspace */
+.tabs{display:flex; gap:2px; border-bottom:1px solid var(--rule); margin-bottom:20px; overflow-x:auto}
+.tabs button{font-weight:600; font-stretch:88%; font-size:17px; padding:10px 14px; background:none; border:0; border-bottom:3px solid transparent; color:var(--muted); cursor:pointer; margin-bottom:-1px; white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected=true]{color:var(--ink); border-bottom-color:var(--accent)}
+.tabs .count{font-weight:400; color:var(--faint); margin-left:6px}
+.cols{display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:24px; align-items:start}
+.panel{min-width:0}
+.side{position:sticky; top:84px; background:var(--plate); border:1px solid var(--rule); border-radius:6px; display:flex; flex-direction:column; max-height:calc(100vh - 170px)}
+.side-head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--rule2)}
+.side-head h2{font-size:16px; font-stretch:88%; margin:0}
+.side-head .ghost{margin-left:auto; font-size:13px}
+.log{list-style:none; margin:0; padding:6px 12px 10px; overflow:auto; font-size:13px}
+.log li{display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px; padding:4px 0; border-bottom:1px solid var(--rule2); overflow-wrap:anywhere}
+.log time{color:var(--faint); font-variant-numeric:tabular-nums}
+.log .lg-error span{color:var(--danger)} .log .lg-warn span{color:var(--warn)} .log .lg-info span, .log .lg-plan span{color:var(--muted)}
+.log-empty{display:block !important; color:var(--faint); border:0 !important; padding:10px 0 !important}
+@media (max-width:980px){ .cols{grid-template-columns:1fr} .side{position:static; max-height:340px} }
+
+/* organize controls */
+.controls{display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px 28px; margin-bottom:16px}
+.ctl-label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+.seg{display:inline-flex; border:1px solid var(--rule); border-radius:6px; overflow:hidden; background:var(--plate)}
+.seg button{padding:7px 13px; border:0; background:none; color:var(--muted); cursor:pointer; border-right:1px solid var(--rule); white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed=true]{background:var(--ink); color:var(--bg)}
+.switches{display:flex; flex-wrap:wrap; gap:10px 20px; padding-bottom:6px}
+.switch{display:inline-flex; align-items:center; gap:8px; cursor:pointer; position:relative; white-space:nowrap}
+.switch input{position:absolute; opacity:0; width:1px; height:1px; margin:0}
+.track{width:34px; height:20px; border-radius:10px; background:var(--rule); position:relative; transition:background .15s; flex:none}
+.knob{position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transition:transform .15s}
+.switch input:checked + .track{background:var(--accent)}
+.switch input:checked + .track .knob{transform:translateX(14px)}
+.switch input:focus-visible + .track{outline:2px solid var(--accent); outline-offset:2px}
+.switch.is-off{opacity:.45; cursor:not-allowed}
+
+.subs{border:1px solid var(--rule); border-radius:6px; background:var(--plate); padding:10px 14px 12px; margin:0 0 18px}
+.subs legend{font-weight:600; padding:0 6px; font-stretch:90%}
+.sub-list{display:flex; flex-wrap:wrap; gap:6px 8px}
+.sub{display:inline-flex; align-items:center; gap:7px; padding:4px 10px 4px 8px; border:1px solid var(--rule2); border-radius:5px; cursor:pointer; font-size:14px; max-width:100%}
+.sub span:first-of-type{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.sub:has(input:not(:checked)){color:var(--faint)}
+.subs .hint{margin-top:8px}
+.tag{font-size:12px; color:var(--muted); border:1px solid var(--rule); border-radius:3px; padding:0 6px; white-space:nowrap}
+input[type=checkbox], input[type=radio]{accent-color:var(--accent); width:16px; height:16px; margin:0; cursor:pointer}
+
+.plan-head{display:flex; align-items:center; gap:14px; margin:6px 0 12px; flex-wrap:wrap}
+.plan-head h2, .panel-intro h2{font-size:24px; font-stretch:82%; font-weight:600; margin:0}
+.plan-head input[type=search]{margin-left:auto; width:min(300px,100%); padding:7px 11px; border:1px solid var(--rule); border-radius:6px; background:var(--plate)}
+
+/* bins */
+.bin, .dup, .run{background:var(--plate); border:1px solid var(--rule); border-radius:6px; margin-bottom:12px; overflow:hidden}
+.plate{display:flex; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid var(--rule2); flex-wrap:wrap}
+.is-collapsed .plate{border-bottom:0}
+.swatch{width:5px; height:24px; background:var(--c, var(--faint)); border-radius:2px; flex:none}
+.plate h3{font-size:20px; font-stretch:80%; font-weight:600; margin:0; line-height:1.1; overflow-wrap:anywhere}
+.plate .counts{color:var(--muted); font-size:14px}
+.plate .size{margin-left:auto; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums}
+.chk-spacer{width:16px; flex:none}
+.bin-note{margin:0; padding:8px 14px; background:var(--danger-soft); color:var(--ink); font-size:14px}
+.rows{list-style:none; margin:0; padding:4px 0}
+.row{display:grid; grid-template-columns:16px minmax(0,1fr) auto 70px 100px; gap:10px; align-items:center; padding:4px 12px; font-size:14px}
+.row:hover{background:var(--rule2)}
+.path{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.path .dir{color:var(--faint)}
+.meta{color:var(--muted); font-size:13px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+.note{font-size:13px; color:var(--warn); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch}
+.note.muted{color:var(--faint)}
+.note.keep{color:var(--ok); font-weight:600}
+.st-excluded .path{color:var(--faint); text-decoration:line-through; text-decoration-color:var(--rule)}
+.st-inplace .path, .st-blocked .path{color:var(--muted)}
+.more{display:block; width:100%; text-align:left; padding:8px 14px; border:0; border-top:1px solid var(--rule2); background:none; color:var(--accent); cursor:pointer; font-weight:600}
+.empty{color:var(--muted); padding:24px 0}
+.empty p{margin:0 0 12px}
+.foot-note{color:var(--faint); font-size:14px}
+@media (max-width:640px){ .row{grid-template-columns:16px minmax(0,1fr) auto} .row .meta{display:none} .top{padding:10px 14px} main{padding:16px} .hero{grid-template-columns:1fr; gap:28px} .promises{grid-template-columns:1fr} .fstats{display:none} }
+
+/* action bar */
+.bar{position:sticky; bottom:0; z-index:20; margin-top:18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:12px 16px; background:var(--panel); border:1px solid var(--rule); border-radius:6px; box-shadow:0 -6px 16px -12px rgba(0,0,0,.35)}
+.bar-text{display:flex; flex-direction:column; min-width:0; margin-right:auto}
+.bar-text span{color:var(--muted); font-size:14px}
+.dry{font-size:14px; color:var(--warn)}
+
+/* panels */
+.panel-intro{margin-bottom:18px}
+.panel-intro p{color:var(--muted); max-width:70ch; margin:6px 0 0}
+.row-actions{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px}
+.row-actions .hint{margin:0}
+.dup-summary{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:0 0 14px; padding:12px 14px; background:var(--plate); border:1px solid var(--rule); border-radius:6px}
+.dup-summary p{margin:0; margin-right:auto}
+.dup.is-skipped .rows{opacity:.45}
+.run{padding:12px 14px}
+.run-head{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.run-head h3{font-size:19px; font-stretch:82%; margin:0}
+.run-head time{color:var(--muted); font-size:14px}
+.run p{margin:6px 0 0; color:var(--muted)}
+.run.is-undone h3{color:var(--muted)}
+.run-actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
+.moves{margin:10px 0 0; padding:0 0 0 20px; font-size:13px; color:var(--muted); max-height:300px; overflow:auto}
+.moves li{overflow-wrap:anywhere; padding:1px 0}
+.moves .arrow{color:var(--faint); padding:0 6px}
+
+.cats{list-style:none; margin:0; padding:0}
+.cat{display:grid; grid-template-columns:40px minmax(0,1fr) auto; gap:12px; align-items:start; padding:12px; background:var(--plate); border:1px solid var(--rule); border-left:5px solid var(--c); border-radius:6px; margin-bottom:8px}
+.cat input[type=color]{width:36px; height:36px; padding:0; border:1px solid var(--rule); border-radius:5px; background:none; cursor:pointer}
+.cat-fields{display:flex; flex-direction:column; gap:6px; min-width:0}
+.cat-name{font-weight:600; font-size:17px; font-stretch:85%; padding:5px 9px; border:1px solid var(--rule); border-radius:5px; background:var(--panel); max-width:320px}
+.cat-exts{padding:6px 9px; border:1px solid var(--rule); border-radius:5px; background:var(--panel); resize:vertical; font-size:14px; min-height:40px}
+.cat-warn{margin:0; font-size:13px; color:var(--warn)}
+.cat-tools{display:flex; gap:2px; flex-wrap:wrap; justify-content:flex-end}
+@media (max-width:640px){ .cat{grid-template-columns:40px minmax(0,1fr)} .cat-tools{grid-column:1 / -1; justify-content:flex-start} }
+
+/* dialog */
+dialog{border:1px solid var(--rule); border-radius:8px; padding:0; max-width:500px; width:calc(100% - 32px); background:var(--plate); color:var(--ink); box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(18,21,25,.5)}
+.dlg{padding:22px 22px 18px; margin:0}
+.dlg h2{margin:0 0 8px; font-size:24px; font-stretch:82%; line-height:1.15}
+.dlg p{margin:0 0 8px; color:var(--muted)}
+.dlg ul{margin:6px 0 0; padding-left:18px; color:var(--muted)}
+.dlg li{margin:3px 0}
+.dlg-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px}
+
+@media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <header class="top">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3" width="19" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2.5 9.2h19M2.5 15h19" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 6.1h5M9.5 12.1h5M9.5 18h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      File Organizer
+    </div>
+    <div id="hdr-folder"></div>
+  </header>
+  <div class="progress" id="progress" hidden></div>
+</div>
+<main id="app"></main>
+<dialog id="dlg"></dialog>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants ---------- */
+const LOG_FILE = '.file-organizer.json';
+const HISTORY_KEEP = 25;
+const ROW_LIMIT = 60;
+const SAMPLE = 64 * 1024;
+const HAS_SUBTLE = !!(window.crypto && crypto.subtle);
+const PICKER = typeof window.showDirectoryPicker === 'function';
+const NATIVE_MOVE = (typeof FileSystemFileHandle !== 'undefined' && 'move' in FileSystemFileHandle.prototype) ||
+                    (typeof FileSystemHandle !== 'undefined' && 'move' in FileSystemHandle.prototype);
+let IN_FRAME = false; try { IN_FRAME = window.self !== window.top; } catch { IN_FRAME = true; }
+
+const MODES = [['type','Type'],['extension','Extension'],['date','Month modified'],['name','First letter']];
+const MODE_LABEL = Object.fromEntries(MODES);
+const SYSTEM_FILES = new Set(['desktop.ini','thumbs.db','ehthumbs.db','.ds_store','icon\r']);
+const SKIP_DIRS = new Set(['node_modules','$recycle.bin','system volume information','__pycache__']);
+const PROJECT_MARKERS = ['.git','.svn','.hg','package.json','node_modules','cargo.toml','go.mod','pyproject.toml','composer.json'];
+
+const DEFAULT_CATEGORIES = [
+  ['Images',      '#2F7D57', 'jpg jpeg jfif png gif webp svg bmp heic heif avif tif tiff ico'],
+  ['RAW photos',  '#6F7A1F', 'cr2 cr3 nef arw dng orf rw2 raf srw pef'],
+  ['Design',      '#A33B7E', 'psd psb ai eps indd xcf kra clip procreate afdesign afphoto sketch fig xd cdr'],
+  ['3D & CAD',    '#B4561E', 'stl obj fbx glb gltf blend 3mf step stp iges igs dxf dwg f3d skp 3ds dae ply usdz sldprt sldasm ipt iam gcode nc'],
+  ['Documents',   '#3E5C8A', 'pdf doc docx txt md rtf odt pages epub xls xlsx csv ods numbers ppt pptx odp key'],
+  ['Videos',      '#6B4BB0', 'mp4 mov avi mkv webm m4v flv wmv mpg mpeg 3gp'],
+  ['Audio',       '#A77C12', 'mp3 wav flac m4a aac ogg opus wma aiff mid midi'],
+  ['Fonts',       '#5A6570', 'ttf otf woff woff2 fon'],
+  ['Code',        '#1F7A86', 'js mjs ts jsx tsx html htm css json py java c cpp h cs go rs php sh bat ps1 yml yaml xml sql ipynb'],
+  ['Archives',    '#7A5238', 'zip rar 7z tar gz tgz bz2 xz'],
+  ['Installers',  '#8C2F39', 'exe msi dmg pkg apk appimage deb rpm iso'],
+].map(([name, color, exts]) => ({ name, color, exts: exts.split(' ') }));
+
+/* ---------- state ---------- */
+const S = {
+  root: null, rootName: '',
+  files: [], topDirs: [], projects: new Set(), excludedDirs: new Set(), seenDirs: new Set(),
+  skipped: null, scanning: false, scanCount: 0,
+  recursive: false, mode: 'type', dryRun: true, cleanup: true,
+  excluded: new Set(), expanded: new Set(), collapsed: new Set(), filter: '',
+  categories: clone(DEFAULT_CATEGORIES),
+  plan: null,
+  busy: null, progress: { done: 0, total: 0, label: '' },
+  log: [], history: { version: 1, runs: [] }, openRuns: new Set(),
+  tab: 'organize',
+  dupes: null, dupSkip: new Set(), dupPool: 0,
+  forceCopy: false, autoConfirm: false,
+};
+let EXT = extIndex();
+let scanToken = 0, planToken = 0;
+
+/* ---------- small utils ---------- */
+function clone(x){ return JSON.parse(JSON.stringify(x)); }
+const $ = (s, r = document) => r.querySelector(s);
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtSize(n){
+  if (!n) return '0 B';
+  const u = ['B','KB','MB','GB','TB']; const i = Math.min(u.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+  const v = n / Math.pow(1024, i); return (i === 0 ? v : v.toFixed(v < 10 ? 1 : 0)) + ' ' + u[i];
+}
+function fmtDate(t){ return new Date(t).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }); }
+function fmtTime(t){ return new Date(t).toLocaleString(undefined, { year:'numeric', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }
+function plural(n, one, many){ return `${n.toLocaleString()} ${n === 1 ? one : (many || one + 's')}`; }
+function splitExt(name){ const i = name.lastIndexOf('.'); return i <= 0 ? { base: name, ext: '' } : { base: name.slice(0, i), ext: name.slice(i + 1).toLowerCase() }; }
+function variant(name, n){ const i = name.lastIndexOf('.'); return i > 0 ? `${name.slice(0, i)} (${n})${name.slice(i)}` : `${name} (${n})`; }
+function nextFree(name, taken){ let n = 1, c; do { c = variant(name, n++); } while (taken.has(c.toLowerCase())); return c; }
+const dirname = p => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
+const basename = p => p.slice(p.lastIndexOf('/') + 1);
+function sanitizeFolder(name){
+  let s = String(name || '').replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-').replace(/\s+/g, ' ').trim().replace(/^\.+/, '').replace(/[. ]+$/, '');
+  if (!s) s = 'Unnamed';
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(s)) s += ' files';
+  return s.slice(0, 80);
+}
+function parseExts(text){
+  const out = [];
+  for (const raw of String(text).split(/[\s,;]+/)) {
+    const e = raw.trim().replace(/^\.+/, '').toLowerCase();
+    if (/^[a-z0-9_+\-]{1,15}$/.test(e) && !out.includes(e)) out.push(e);
+  }
+  return out;
+}
+function extIndex(){ const m = new Map(); for (const c of S?.categories || DEFAULT_CATEGORIES) for (const e of c.exts) if (!m.has(e)) m.set(e, c); return m; }
+function isDirExcluded(dir){
+  if (!dir) return false;
+  for (const ex of S.excludedDirs) if (dir === ex || dir.startsWith(ex + '/')) return true;
+  return false;
+}
+function log(msg, kind = 'info'){ S.log.unshift({ t: Date.now(), msg, kind }); if (S.log.length > 3000) S.log.length = 3000; schedule('log'); }
+
+/* ---------- file system helpers ---------- */
+async function entryExists(dir, name){
+  try { await dir.getFileHandle(name); return true; }
+  catch (e) { if (e.name === 'NotFoundError') return false; if (e.name === 'TypeMismatchError') return true; throw e; }
+}
+async function freeNameIn(dir, name){
+  if (!(await entryExists(dir, name))) return name;
+  for (let n = 1; n < 10000; n++) { const c = variant(name, n); if (!(await entryExists(dir, c))) return c; }
+  throw new Error('Could not find a free file name');
+}
+async function getDirIfExists(parent, name){
+  try { return await parent.getDirectoryHandle(name); }
+  catch (e) { if (e.name === 'NotFoundError') return null; throw e; }
+}
+function safeSegments(path){
+  const segs = String(path).split('/').filter(Boolean);
+  for (const s of segs) if (s === '.' || s === '..' || s.includes('\\')) throw new Error('Unsafe path in the undo record: ' + path);
+  return segs;
+}
+async function dirAt(path, create){
+  let d = S.root;
+  for (const s of safeSegments(path)) d = await d.getDirectoryHandle(s, create ? { create: true } : undefined);
+  return d;
+}
+
+// Moves one file. Never overwrites: callers pass a name that is free, and it is re-checked here.
+async function moveFile(handle, parent, destDir, destName){
+  const srcName = handle.name;
+  if (await entryExists(destDir, destName)) throw new Error(`"${destName}" already exists in the destination`);
+  if (NATIVE_MOVE && !S.forceCopy) {
+    try { await handle.move(destDir, destName); return 'native'; }
+    catch (err) {
+      const srcStill = await entryExists(parent, srcName).catch(() => true);
+      const destNow = await entryExists(destDir, destName).catch(() => false);
+      if (!srcStill && destNow) return 'native';
+      if (!srcStill) throw err;
+      if (destNow) throw new Error(`"${destName}" appeared in the destination while moving`);
+      // fall through to copy
+    }
+  }
+  const src = await handle.getFile();
+  const out = await destDir.getFileHandle(destName, { create: true });
+  try { const w = await out.createWritable(); await w.write(src); await w.close(); }
+  catch (e) { await destDir.removeEntry(destName).catch(() => {}); throw new Error('Copy failed: ' + (e.message || e.name)); }
+  const check = await out.getFile();
+  if (check.size !== src.size) { await destDir.removeEntry(destName).catch(() => {}); throw new Error('The copy came out the wrong size, so the original was kept'); }
+  try { await parent.removeEntry(srcName); }
+  catch (e) {
+    await destDir.removeEntry(destName).catch(() => {});
+    throw new Error("Couldn't remove the original, so it was left in place. It may be open in another program.");
+  }
+  return 'copy';
+}
+
+/* ---------- undo record (.file-organizer.json) ---------- */
+function cleanCategories(list){
+  if (!Array.isArray(list)) return null;
+  const out = list.filter(c => c && typeof c.name === 'string').slice(0, 60).map((c, i) => ({
+    name: c.name.slice(0, 60),
+    color: /^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color.toLowerCase() : DEFAULT_CATEGORIES[i % DEFAULT_CATEGORIES.length].color,
+    exts: parseExts(Array.isArray(c.exts) ? c.exts.join(' ') : c.exts || ''),
+  }));
+  return out.length ? out : null;
+}
+async function loadHistory(){
+  S.history = { version: 1, runs: [] };
+  try {
+    const fh = await S.root.getFileHandle(LOG_FILE);
+    const data = JSON.parse(await (await fh.getFile()).text());
+    if (data && Array.isArray(data.runs)) {
+      S.history.runs = data.runs.filter(r => r && Array.isArray(r.moves)).map(r => ({
+        ...r, moves: r.moves.filter(m => m && typeof m.from === 'string' && typeof m.to === 'string'),
+        createdFolders: Array.isArray(r.createdFolders) ? r.createdFolders : [],
+        failed: Array.isArray(r.failed) ? r.failed : [], counts: r.counts || { native: 0, copy: 0 },
+      }));
+    }
+    const cats = cleanCategories(data?.categories);
+    if (cats) { S.categories = cats; EXT = extIndex(); log('Loaded the categories saved in this folder.'); }
+    if (S.history.runs.length) log(`Found ${plural(S.history.runs.length, 'earlier run')} in the undo record.`);
+  } catch (e) {
+    if (e.name !== 'NotFoundError') log(`Couldn't read ${LOG_FILE}: ${e.message}. Undo for earlier runs isn't available.`, 'warn');
+  }
+}
+async function saveHistory(){
+  try {
+    S.history.runs = S.history.runs.slice(-HISTORY_KEEP);
+    const data = { app: 'File Organizer', version: 1, savedAt: new Date().toISOString(), categories: S.categories, runs: S.history.runs };
+    const fh = await S.root.getFileHandle(LOG_FILE, { create: true });
+    const w = await fh.createWritable(); await w.write(JSON.stringify(data, null, 1)); await w.close();
+    return true;
+  } catch (e) {
+    log(`Couldn't save the undo record: ${e.message}. Undo still works until you close this page.`, 'warn');
+    return false;
+  }
+}
+function newRun(type, label){
+  const run = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type, label, startedAt: Date.now(), finishedAt: null,
+    moves: [], moved: 0, failed: [], createdFolders: [], removedFolders: [], counts: { native: 0, copy: 0 }, undone: false };
+  S.history.runs.push(run);
+  return run;
+}
+
+/* ---------- scanning ---------- */
+function skipReason(name){
+  const l = name.toLowerCase();
+  if (l === LOG_FILE) return 'own';
+  if (name.startsWith('.')) return 'hidden';
+  if (SYSTEM_FILES.has(l)) return 'system';
+  if (name.startsWith('~$') || l.endsWith('.crswap') || l.endsWith('.tmp')) return 'temp';
+  if (/\.(crdownload|part|partial|download|opdownload)$/.test(l)) return 'partial';
+  return null;
+}
+async function scan(){
+  if (!S.root) return;
+  const token = ++scanToken;
+  S.scanning = true; S.scanCount = 0; S.dupes = null;
+  renderAll();
+  const files = [], topDirs = [], projects = [];
+  const skipped = { hidden: 0, system: 0, temp: 0, partial: 0, unreadable: 0, own: 0 };
+  const walk = async (dir, path, top) => {
+    const entries = [];
+    for await (const e of dir.values()) { if (token !== scanToken) return; entries.push(e); }
+    if (path) { const names = new Set(entries.map(e => e.name.toLowerCase())); if (PROJECT_MARKERS.some(m => names.has(m))) projects.push(path); }
+    for (const e of entries) {
+      if (token !== scanToken) return;
+      if (e.kind === 'file') {
+        const why = skipReason(e.name); if (why) { skipped[why]++; continue; }
+        let file; try { file = await e.getFile(); } catch { skipped.unreadable++; continue; }
+        const p = path ? path + '/' + e.name : e.name;
+        files.push({ id: p, name: e.name, ext: splitExt(e.name).ext, size: file.size, lastModified: file.lastModified, handle: e, parent: dir, dir: path, path: p, top });
+        if (++S.scanCount % 50 === 0) schedule('scan');
+      } else if (e.kind === 'directory') {
+        if (e.name.startsWith('.') || SKIP_DIRS.has(e.name.toLowerCase())) continue;
+        if (!path) topDirs.push({ name: e.name, handle: e });
+        if (S.recursive) await walk(e, path ? path + '/' + e.name : e.name, top || e);
+      }
+    }
+  };
+  try { await walk(S.root, '', null); }
+  catch (err) { if (token === scanToken) log(`Couldn't finish reading the folder: ${err.message}`, 'error'); }
+  if (token !== scanToken) return;
+  S.files = files; S.topDirs = topDirs; S.projects = new Set(projects); S.skipped = skipped;
+  for (const p of projects) if (!S.seenDirs.has(p)) { S.seenDirs.add(p); S.excludedDirs.add(p); }
+  for (const d of topDirs) if (!S.seenDirs.has(d.name)) { S.seenDirs.add(d.name); if (d.name.toLowerCase() === 'duplicates') S.excludedDirs.add(d.name); }
+  S.scanning = false;
+  const total = files.reduce((n, f) => n + f.size, 0);
+  const left = [];
+  if (skipped.hidden) left.push(plural(skipped.hidden, 'hidden file'));
+  if (skipped.system) left.push(plural(skipped.system, 'system file'));
+  if (skipped.temp) left.push(plural(skipped.temp, 'temporary file'));
+  if (skipped.partial) left.push(plural(skipped.partial, 'unfinished download'));
+  if (skipped.unreadable) left.push(plural(skipped.unreadable, 'unreadable file'));
+  log(`Read ${plural(files.length, 'file')} (${fmtSize(total)}) ${S.recursive ? 'including subfolders' : 'at the top level'}.` + (left.length ? ` Left alone: ${left.join(', ')}.` : ''));
+  if (projects.length) log(`Left out ${plural(projects.length, 'code project')} so ${projects.length === 1 ? 'it keeps' : 'they keep'} working: ${projects.join(', ')}. You can include ${projects.length === 1 ? 'it' : 'them'} under Subfolders.`, 'warn');
+  await buildPlan();
+  renderAll();
+}
+
+/* ---------- planning ---------- */
+function destFolderFor(f){
+  switch (S.mode) {
+    case 'extension': return f.ext ? sanitizeFolder(f.ext.toUpperCase() + ' files') : 'No extension';
+    case 'date': { const d = new Date(f.lastModified); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+    case 'name': { const ch = (f.name[0] || '').toUpperCase(); return /[A-Z]/.test(ch) ? ch : /[0-9]/.test(ch) ? '0-9' : '#'; }
+    default: { const c = EXT.get(f.ext); return c ? sanitizeFolder(c.name) : 'Other'; }
+  }
+}
+function colorFor(folder, sample){
+  if (S.mode === 'type') { const c = S.categories.find(c => sanitizeFolder(c.name) === folder); return c ? c.color : 'var(--faint)'; }
+  if (S.mode === 'extension') { const c = EXT.get(sample?.ext); return c ? c.color : 'var(--faint)'; }
+  return 'var(--accent)';
+}
+function folderOrder(a, b){
+  if (S.mode === 'date') return b.localeCompare(a);
+  if (S.mode === 'type') {
+    const ia = a === 'Other' ? 1e9 : S.categories.findIndex(c => sanitizeFolder(c.name) === a);
+    const ib = b === 'Other' ? 1e9 : S.categories.findIndex(c => sanitizeFolder(c.name) === b);
+    return ia - ib || a.localeCompare(b);
+  }
+  return a.localeCompare(b, undefined, { numeric: true });
+}
+async function buildPlan(){
+  if (!S.root || S.scanning) return;
+  const token = ++planToken;
+  const groups = new Map(); let dirExcluded = 0;
+  for (const f of S.files) {
+    if (isDirExcluded(f.dir)) { dirExcluded++; continue; }
+    const folder = destFolderFor(f);
+    if (!groups.has(folder)) groups.set(folder, []);
+    groups.get(folder).push(f);
+  }
+  const sameCache = new Map();
+  const out = [];
+  const totals = { move: 0, rename: 0, inplace: 0, excluded: 0, blocked: 0, folders: 0, newFolders: 0, dirExcluded };
+  for (const folder of [...groups.keys()].sort(folderOrder)) {
+    const list = groups.get(folder).sort((a, b) => a.path.localeCompare(b.path));
+    let existing = null, blocked = false; const taken = new Set();
+    try { existing = await getDirIfExists(S.root, folder); }
+    catch (e) { if (e.name === 'TypeMismatchError') blocked = true; else throw e; }
+    if (existing) for await (const e of existing.values()) taken.add(e.name.toLowerCase());
+    const entries = [];
+    for (const f of list) {
+      let status = 'move';
+      if (blocked) status = 'blocked';
+      else if (existing && f.top) {
+        // Anything already inside the destination folder (at any depth) stays where it is.
+        // isSameEntry also catches "images" vs "Images" on Windows, where they are the same folder.
+        const key = folder + '\n' + f.dir.split('/')[0];
+        if (!sameCache.has(key)) sameCache.set(key, await existing.isSameEntry(f.top).catch(() => false));
+        if (sameCache.get(key)) status = 'inplace';
+      }
+      if (status === 'move' && S.excluded.has(f.id)) status = 'excluded';
+      entries.push({ f, status, destName: f.name });
+    }
+    for (const e of entries) {
+      if (e.status !== 'move') continue;
+      if (taken.has(e.destName.toLowerCase())) { e.destName = nextFree(e.f.name, taken); e.status = 'rename'; }
+      taken.add(e.destName.toLowerCase());
+    }
+    const counts = { move: 0, rename: 0, inplace: 0, excluded: 0, blocked: 0 }; let moveSize = 0;
+    for (const e of entries) {
+      if (e.status === 'move' || e.status === 'rename') { counts.move++; moveSize += e.f.size; }
+      if (e.status !== 'move') counts[e.status]++;
+    }
+    for (const k of ['move','rename','inplace','excluded','blocked']) totals[k] += counts[k];
+    if (counts.move) { totals.folders++; if (!existing) totals.newFolders++; }
+    out.push({ folder, entries, exists: !!existing, blocked, counts, moveSize, color: colorFor(folder, list[0]) });
+    if (token !== planToken) return;
+  }
+  if (token !== planToken) return;
+  S.plan = { groups: out, totals };
+  renderPlanParts();
+}
+
+/* ---------- applying ---------- */
+async function simulate(){
+  const P = S.plan; if (!P) return;
+  let n = 0;
+  const lines = [];
+  for (const g of P.groups) for (const e of g.entries) {
+    if (e.status !== 'move' && e.status !== 'rename') continue;
+    if (++n <= 1000) lines.push(`Would move ${e.f.path} → ${g.folder}/${e.destName}` + (e.status === 'rename' ? ' (renamed so nothing is overwritten)' : ''));
+  }
+  for (const l of lines.reverse()) log(l, 'plan');
+  if (n > 1000) log(`…and ${(n - 1000).toLocaleString()} more.`, 'plan');
+  log(`Dry run: ${plural(n, 'file')} would move. Nothing was changed.`, 'warn');
+}
+async function applyPlan(){
+  const P = S.plan; if (!P || S.busy) return;
+  const todo = [];
+  for (const g of P.groups) for (const e of g.entries) if (e.status === 'move' || e.status === 'rename') todo.push({ g, e });
+  if (!todo.length) return;
+  const t = P.totals;
+  const ok = await confirmBox({
+    title: `Move ${plural(todo.length, 'file')}?`,
+    body: `<p>Files will go into ${plural(t.folders, 'folder')} inside <b>${esc(S.rootName)}</b>.</p><ul>` +
+      (t.newFolders ? `<li>${plural(t.newFolders, 'new folder')} will be created.</li>` : '') +
+      (t.rename ? `<li>${plural(t.rename, 'file')} will get a number added to its name so nothing is overwritten.</li>` : '') +
+      (t.excluded ? `<li>${plural(t.excluded, 'file')} you excluded will stay put.</li>` : '') +
+      (NATIVE_MOVE && !S.forceCopy ? `<li>Modified dates stay the same.</li>` : `<li>This browser can't move files directly, so each file is copied and the original removed. Modified dates will reset.</li>`) +
+      (S.recursive && S.cleanup ? `<li>Folders left empty afterwards will be removed.</li>` : '') +
+      `<li>You can undo this from the History tab.</li></ul>`,
+    ok: `Move ${plural(todo.length, 'file')}`,
+  });
+  if (!ok) return;
+  S.busy = 'apply'; S.progress = { done: 0, total: todo.length, label: '' }; renderAll();
+  const run = newRun('organize', `Sorted by ${MODE_LABEL[S.mode].toLowerCase()}`);
+  const dirCache = new Map(); let lastSave = Date.now();
+  for (const { g, e } of todo) {
+    const f = e.f; S.progress.label = f.path; schedule('progress');
+    try {
+      let dest = dirCache.get(g.folder);
+      if (!dest) {
+        const had = await getDirIfExists(S.root, g.folder);
+        dest = had || await S.root.getDirectoryHandle(g.folder, { create: true });
+        if (!had) run.createdFolders.push(g.folder);
+        dirCache.set(g.folder, dest);
+      }
+      const name = await freeNameIn(dest, e.destName);
+      const how = await moveFile(f.handle, f.parent, dest, name);
+      run.moves.push({ from: f.path, to: `${g.folder}/${name}` }); run.moved++; run.counts[how]++;
+      log(`Moved ${f.path} → ${g.folder}/${name}` + (name !== f.name ? ' (renamed)' : ''), 'ok');
+    } catch (err) {
+      run.failed.push({ path: f.path, error: err.message });
+      log(`Couldn't move ${f.path}: ${err.message}`, 'error');
+    }
+    S.progress.done++; schedule('progress');
+    if (Date.now() - lastSave > 3000) { await saveHistory(); lastSave = Date.now(); }
+  }
+  if (S.recursive && S.cleanup) await removeEmptied(run);
+  run.finishedAt = Date.now();
+  await saveHistory();
+  log(`Done: ${plural(run.moved, 'file')} moved` + (run.failed.length ? `, ${run.failed.length} couldn't be moved` : '') +
+      (run.counts.copy ? `. ${plural(run.counts.copy, 'file')} had to be copied, so ${run.counts.copy === 1 ? 'its date' : 'their dates'} reset` : '') +
+      (run.removedFolders.length ? `. Removed ${plural(run.removedFolders.length, 'empty folder')}` : '') + '.', run.failed.length ? 'warn' : 'ok');
+  S.busy = null;
+  await scan();
+}
+async function removeEmptied(run){
+  const dirs = new Set();
+  for (const m of run.moves) { let d = dirname(m.from); while (d) { dirs.add(d); d = dirname(d); } }
+  const order = [...dirs].sort((a, b) => b.split('/').length - a.split('/').length);
+  for (const d of order) {
+    try {
+      const parent = await dirAt(dirname(d), false);
+      await parent.removeEntry(basename(d)); // not recursive: fails if anything is still inside
+      run.removedFolders.push(d);
+    } catch {}
+  }
+}
+
+/* ---------- undo ---------- */
+async function undoRun(run){
+  if (!run || S.busy) return;
+  const n = run.moves.length;
+  const ok = await confirmBox({
+    title: `Undo “${run.label}”?`,
+    body: `<p>${plural(n, 'file')} will go back to where ${n === 1 ? 'it was' : 'they were'} before this run.</p><ul>
+      <li>If something new now has the original name, the returning file gets a number added.</li>
+      <li>Files you've moved or deleted since then are skipped.</li>
+      <li>Folders this run created are removed if they end up empty.</li></ul>`,
+    ok: 'Undo run',
+  });
+  if (!ok) return;
+  S.busy = 'undo'; S.progress = { done: 0, total: n, label: '' }; renderAll();
+  const remaining = []; let back = 0, missing = 0, failed = 0;
+  for (const m of [...run.moves].reverse()) {
+    S.progress.label = m.to; schedule('progress');
+    try {
+      let srcDir = null, fh = null;
+      try { srcDir = await dirAt(dirname(m.to), false); fh = await srcDir.getFileHandle(basename(m.to)); } catch {}
+      if (!fh) { missing++; log(`${m.to} isn't there anymore, so it was skipped.`, 'warn'); }
+      else {
+        const destDir = await dirAt(dirname(m.from), true);
+        const name = await freeNameIn(destDir, basename(m.from));
+        await moveFile(fh, srcDir, destDir, name); back++;
+        log(`Returned ${m.to} → ${m.from}` + (name !== basename(m.from) ? ` as ${name}` : ''), 'ok');
+      }
+    } catch (err) { failed++; remaining.push(m); log(`Couldn't return ${m.to}: ${err.message}`, 'error'); }
+    S.progress.done++; schedule('progress');
+  }
+  for (const folder of [...run.createdFolders].reverse()) {
+    try { const p = await dirAt(dirname(folder), false); await p.removeEntry(basename(folder)); } catch {}
+  }
+  run.moves = remaining.reverse();
+  run.undoResult = { back, missing, failed, at: Date.now() };
+  if (!remaining.length) { run.undone = true; run.undoneAt = Date.now(); }
+  await saveHistory();
+  log(`Undo finished: ${plural(back, 'file')} returned` + (missing ? `, ${missing} missing` : '') + (failed ? `, ${failed} couldn't be returned (try Undo again)` : '') + '.', failed ? 'warn' : 'ok');
+  S.busy = null;
+  await scan();
+}
+
+/* ---------- duplicates ---------- */
+function toHex(buf){ return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+async function fingerprint(f){
+  const file = await f.handle.getFile();
+  if (!HAS_SUBTLE) return 'x';
+  let buf;
+  if (file.size <= SAMPLE * 3) buf = await file.arrayBuffer();
+  else {
+    const mid = Math.floor(file.size / 2) - SAMPLE / 2;
+    const parts = await Promise.all([file.slice(0, SAMPLE), file.slice(mid, mid + SAMPLE), file.slice(file.size - SAMPLE)].map(b => b.arrayBuffer()));
+    const all = new Uint8Array(SAMPLE * 3); parts.forEach((p, i) => all.set(new Uint8Array(p), i * SAMPLE)); buf = all.buffer;
+  }
+  return toHex(await crypto.subtle.digest('SHA-256', buf));
+}
+function bufEq(x, y){
+  if (x.byteLength !== y.byteLength) return false;
+  const n = x.byteLength, a = new Uint32Array(x, 0, n >> 2), b = new Uint32Array(y, 0, n >> 2);
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  const a8 = new Uint8Array(x), b8 = new Uint8Array(y);
+  for (let i = a.length * 4; i < n; i++) if (a8[i] !== b8[i]) return false;
+  return true;
+}
+async function sameBytes(a, b){
+  const fa = await a.handle.getFile(), fb = await b.handle.getFile();
+  if (fa.size !== fb.size) return false;
+  const CH = 8 * 1024 * 1024;
+  for (let o = 0; o < fa.size; o += CH) {
+    const [x, y] = await Promise.all([fa.slice(o, o + CH).arrayBuffer(), fb.slice(o, o + CH).arrayBuffer()]);
+    if (!bufEq(x, y)) return false;
+  }
+  return true;
+}
+function pickKeeper(files){
+  const copyish = n => /\(\d+\)(\.[^.]*)?$|[ _-]copy\b|^copy of /i.test(n) ? 1 : 0;
+  return [...files].sort((a, b) =>
+    copyish(a.name) - copyish(b.name) ||
+    a.path.split('/').length - b.path.split('/').length ||
+    a.lastModified - b.lastModified ||
+    a.name.length - b.name.length)[0];
+}
+async function findDuplicates(){
+  if (S.busy || !S.files.length) return;
+  const pool = S.files.filter(f => f.size > 0 && !isDirExcluded(f.dir));
+  const bySize = new Map();
+  for (const f of pool) { if (!bySize.has(f.size)) bySize.set(f.size, []); bySize.get(f.size).push(f); }
+  const cands = [...bySize.values()].filter(a => a.length > 1);
+  S.busy = 'dupes'; S.progress = { done: 0, total: cands.reduce((n, a) => n + a.length, 0), label: '' }; renderAll();
+  const sets = [];
+  try {
+    for (const group of cands) {
+      const byFp = new Map();
+      for (const f of group) {
+        S.progress.label = f.path; schedule('progress');
+        try { const fp = await fingerprint(f); if (!byFp.has(fp)) byFp.set(fp, []); byFp.get(fp).push(f); }
+        catch { log(`Couldn't read ${f.path} while checking for duplicates.`, 'warn'); }
+        S.progress.done++;
+      }
+      for (const same of byFp.values()) {
+        if (same.length < 2) continue;
+        if (HAS_SUBTLE && same[0].size <= SAMPLE * 3) { sets.push(same); continue; }
+        const clusters = [];
+        for (const f of same) {
+          let placed = false;
+          for (const c of clusters) { if (await sameBytes(c[0], f).catch(() => false)) { c.push(f); placed = true; break; } }
+          if (!placed) clusters.push([f]);
+        }
+        for (const c of clusters) if (c.length > 1) sets.push(c);
+      }
+    }
+  } finally { S.busy = null; }
+  S.dupes = sets.map(files => ({ files, size: files[0].size, keep: pickKeeper(files).id }))
+    .sort((a, b) => b.size * (b.files.length - 1) - a.size * (a.files.length - 1));
+  S.dupSkip = new Set(); S.dupPool = pool.length;
+  const extra = S.dupes.reduce((n, d) => n + d.size * (d.files.length - 1), 0);
+  log(S.dupes.length ? `Found ${plural(S.dupes.length, 'set')} of duplicates. Extra copies take up ${fmtSize(extra)}.` : `No duplicates among ${plural(pool.length, 'file')}.`);
+  renderAll();
+}
+async function moveDupes(){
+  if (!S.dupes || S.busy) return;
+  const extras = [];
+  S.dupes.forEach((d, i) => { if (!S.dupSkip.has(i)) for (const f of d.files) if (f.id !== d.keep) extras.push(f); });
+  if (!extras.length) return;
+  const ok = await confirmBox({
+    title: `Move ${plural(extras.length, 'extra copy', 'extra copies')}?`,
+    body: `<p>They'll go into a <b>Duplicates</b> folder inside ${esc(S.rootName)}. Nothing is deleted.</p><ul>
+      <li>Look through the Duplicates folder, then delete it yourself when you're sure.</li>
+      <li>You can undo this from the History tab.</li></ul>`,
+    ok: `Move ${plural(extras.length, 'copy', 'copies')}`,
+  });
+  if (!ok) return;
+  S.busy = 'dupes-move'; S.progress = { done: 0, total: extras.length, label: '' }; renderAll();
+  const run = newRun('duplicates', 'Moved duplicate copies');
+  let dest = null;
+  try {
+    dest = await getDirIfExists(S.root, 'Duplicates');
+    if (!dest) { dest = await S.root.getDirectoryHandle('Duplicates', { create: true }); run.createdFolders.push('Duplicates'); }
+  } catch (e) {
+    log(`Couldn't create the Duplicates folder: ${e.name === 'TypeMismatchError' ? 'a file named Duplicates is in the way' : e.message}.`, 'error');
+    S.history.runs.pop(); S.busy = null; renderAll(); return;
+  }
+  S.seenDirs.add('Duplicates'); S.excludedDirs.add('Duplicates');
+  for (const f of extras) {
+    S.progress.label = f.path; schedule('progress');
+    try {
+      const name = await freeNameIn(dest, f.name);
+      const how = await moveFile(f.handle, f.parent, dest, name);
+      run.moves.push({ from: f.path, to: `Duplicates/${name}` }); run.moved++; run.counts[how]++;
+      log(`Moved duplicate ${f.path} → Duplicates/${name}`, 'ok');
+    } catch (err) { run.failed.push({ path: f.path, error: err.message }); log(`Couldn't move ${f.path}: ${err.message}`, 'error'); }
+    S.progress.done++; schedule('progress');
+  }
+  run.finishedAt = Date.now();
+  await saveHistory();
+  log(`Moved ${plural(run.moved, 'duplicate')} into Duplicates.`, 'ok');
+  S.busy = null; S.dupes = null;
+  await scan();
+}
+
+/* ---------- folder picking ---------- */
+async function pickFolder(){
+  if (!PICKER || S.busy) return;
+  let h;
+  try { h = await window.showDirectoryPicker({ mode: 'readwrite', id: 'file-organizer' }); }
+  catch (e) {
+    if (e.name === 'AbortError') return;
+    log(e.name === 'SecurityError' ? 'The folder picker is blocked here. Download this file and open it directly in Chrome or Edge.' : `Couldn't open the folder picker: ${e.message}`, 'error');
+    renderAll(); return;
+  }
+  if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') { log('Permission to change files was not granted, so nothing can be moved.', 'error'); renderAll(); return; }
+  await useHandle(h);
+}
+async function useHandle(h){
+  S.root = h; S.rootName = h.name || 'Folder';
+  S.excluded = new Set(); S.excludedDirs = new Set(); S.seenDirs = new Set(); S.expanded = new Set(); S.collapsed = new Set();
+  S.dupes = null; S.plan = null; S.filter = ''; S.openRuns = new Set();
+  log(`Opened ${S.rootName}.`);
+  await loadHistory();
+  await scan();
+}
+
+/* ---------- dialog ---------- */
+function confirmBox({ title, body, ok }){
+  if (S.autoConfirm) return Promise.resolve(true);
+  const dlg = $('#dlg');
+  dlg.innerHTML = `<form method="dialog" class="dlg"><h2>${esc(title)}</h2>${body}<div class="dlg-actions">
+    <button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok" autofocus>${esc(ok)}</button></div></form>`;
+  return new Promise(res => { dlg.onclose = () => res(dlg.returnValue === 'ok'); dlg.returnValue = ''; dlg.showModal(); });
+}
+
+/* ---------- rendering ---------- */
+let rafPending = false; const dirty = new Set();
+function schedule(...parts){
+  parts.forEach(p => dirty.add(p));
+  if (rafPending) return; rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false; const d = new Set(dirty); dirty.clear();
+    if (d.has('log')) renderLog();
+    if (d.has('progress') || d.has('scan')) renderProgress();
+  });
+}
+function renderHeader(){
+  const el = $('#hdr-folder');
+  if (!S.root) { el.innerHTML = ''; return; }
+  const total = S.files.reduce((n, f) => n + f.size, 0);
+  const dis = S.busy || S.scanning ? 'disabled' : '';
+  el.innerHTML = `<span class="fname" title="${esc(S.rootName)}">${esc(S.rootName)}</span>
+    <span class="fstats num">${S.scanning ? 'reading…' : `${plural(S.files.length, 'file')}, ${fmtSize(total)}`}</span>
+    <button class="btn small" data-act="rescan" data-key="rescan" ${dis}>Rescan</button>
+    <button class="btn small" data-act="pick" data-key="pick2" ${dis}>Change folder</button>`;
+}
+function busyLabel(){ return { apply: 'Moving files', undo: 'Undoing', dupes: 'Comparing files', 'dupes-move': 'Moving duplicates' }[S.busy] || 'Working'; }
+function renderProgress(){
+  const el = $('#progress');
+  if (S.scanning) {
+    el.hidden = false;
+    el.innerHTML = `<div class="prog-inner"><span>Reading ${esc(S.rootName)}: <span class="num">${S.scanCount.toLocaleString()}</span> files so far</span><div class="heat indeterminate"></div><button class="ghost" data-act="cancel-scan">Stop</button></div>`;
+  } else if (S.busy) {
+    const p = S.progress, pct = p.total ? p.done / p.total * 100 : 0;
+    el.hidden = false;
+    el.innerHTML = `<div class="prog-inner"><span>${busyLabel()} <span class="num">${p.done.toLocaleString()} of ${p.total.toLocaleString()}</span></span><div class="heat" role="progressbar" aria-valuemin="0" aria-valuemax="${p.total}" aria-valuenow="${p.done}"><span class="cover" style="width:${100 - pct}%"></span></div><span class="cur">${esc(p.label)}</span></div>`;
+  } else { el.hidden = true; el.innerHTML = ''; }
+}
+function renderLog(){
+  const el = $('#log'); if (!el) return;
+  const c = $('#logcount'); if (c) c.textContent = S.log.length ? S.log.length.toLocaleString() : '';
+  if (!S.log.length) { el.innerHTML = '<li class="log-empty">Moves, renames, and problems show up here.</li>'; return; }
+  el.innerHTML = S.log.slice(0, 400).map(l =>
+    `<li class="lg-${l.kind}"><time>${new Date(l.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</time><span>${esc(l.msg)}</span></li>`).join('');
+}
+function heroHTML(){
+  const warn = !PICKER
+    ? `<div class="notice warn"><strong>This browser can't open folders.</strong>Open this file in Chrome or Edge on a computer. Firefox, Safari, and phone browsers don't offer folder access.</div>`
+    : IN_FRAME ? `<div class="notice warn"><strong>Open this file directly.</strong>Folder access doesn't work inside a preview window. Download the file, then open it in Chrome or Edge.</div>` : '';
+  const moveNote = NATIVE_MOVE
+    ? 'Files are moved, not copied, so their modified dates stay the same.'
+    : 'This browser has to copy each file and remove the original, which resets modified dates.';
+  return `<section class="hero">
+    <div>
+      <h1>Sort a messy folder into tidy ones.</h1>
+      <p class="lede">Pick a folder and you'll see where every file would go before anything moves. It all happens on your computer. Nothing is uploaded.</p>
+      ${warn}
+      <button class="btn primary big" data-act="pick" data-key="pick" ${PICKER ? '' : 'disabled'}>Pick a folder</button>
+      <p class="hint">Chrome won't open some system folders directly, including Downloads. Pick a folder inside it, or make a new folder and drag in the files you want sorted.</p>
+    </div>
+    <div class="cabinet" aria-hidden="true">${[...S.categories.slice(0, 11), { name: 'Other', color: '#89919A' }].map(c => `<div class="drawer"><span class="label" style="--c:${c.color}">${esc(c.name)}</span><span class="pull"></span></div>`).join('')}</div>
+  </section>
+  <section class="promises">
+    <div><h2>Nothing gets overwritten</h2><p>If a name is already taken, the incoming file gets a number, like photo (1).jpg.</p></div>
+    <div><h2>Every run can be undone</h2><p>Moves are recorded in ${esc(LOG_FILE)} inside the folder, so Undo works even after you close the page.</p></div>
+    <div><h2>Dates stay put</h2><p>${moveNote}</p></div>
+  </section>`;
+}
+function sw(key, label, on, disabled){
+  return `<label class="switch ${disabled ? 'is-off' : ''}"><input type="checkbox" role="switch" data-act="toggle" data-v="${key}" data-key="sw-${key}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="track"><span class="knob"></span></span>${label}</label>`;
+}
+function subfolderItems(){
+  const counts = new Map();
+  for (const f of S.files) if (f.dir) { const t = f.dir.split('/')[0]; counts.set(t, (counts.get(t) || 0) + 1); }
+  const items = S.topDirs.map(d => ({ path: d.name, project: S.projects.has(d.name), count: counts.get(d.name) || 0 }));
+  for (const p of S.projects) if (p.includes('/')) items.push({ path: p, project: true, count: S.files.filter(f => f.dir === p || f.dir.startsWith(p + '/')).length });
+  return items.sort((a, b) => a.path.localeCompare(b.path));
+}
+function organizePanel(){
+  let h = `<div class="controls">
+    <div><span class="ctl-label" id="sortlbl">Sort into folders by</span>
+      <div class="seg" role="group" aria-labelledby="sortlbl">${MODES.map(([k, l]) => `<button data-act="mode" data-v="${k}" data-key="mode-${k}" aria-pressed="${S.mode === k}">${l}</button>`).join('')}</div></div>
+    <div class="switches">${sw('recursive', 'Include subfolders', S.recursive)}${sw('cleanup', 'Remove folders left empty', S.cleanup, !S.recursive)}${sw('dryRun', 'Dry run', S.dryRun)}</div>
+  </div>`;
+  const items = S.recursive ? subfolderItems() : [];
+  if (items.length) {
+    h += `<fieldset class="subs"><legend>Subfolders to include</legend><div class="sub-list">${items.map(it =>
+      `<label class="sub"><input type="checkbox" data-act="dir-toggle" data-path="${esc(it.path)}" ${S.excludedDirs.has(it.path) ? '' : 'checked'}><span>${esc(it.path)}</span><span class="muted num">${it.count.toLocaleString()}</span>${it.project ? '<span class="tag">code project</span>' : ''}</label>`).join('')}</div>
+      ${S.projects.size ? '<p class="hint">Code projects are left out by default so moving files around doesn\'t break them.</p>' : ''}</fieldset>`;
+  }
+  h += `<div class="plan-head"><h2>Where files will go</h2><input type="search" id="filter" data-key="filter" placeholder="Filter by name or path" value="${esc(S.filter)}" aria-label="Filter files"></div>
+    <div id="bins">${binsHTML()}</div>`;
+  return h;
+}
+function pathHTML(f){ return f.dir ? `<span class="dir">${esc(f.dir)}/</span>${esc(f.name)}` : esc(f.name); }
+function rowHTML(e){
+  const f = e.f, st = e.status;
+  const note = st === 'rename' ? `<span class="note" title="Renamed so nothing is overwritten">becomes ${esc(e.destName)}</span>`
+    : st === 'inplace' ? '<span class="note muted">already here</span>'
+    : st === 'excluded' ? '<span class="note muted">excluded</span>' : '<span></span>';
+  const box = (st === 'inplace' || st === 'blocked') ? '<span class="chk-spacer"></span>'
+    : `<input type="checkbox" data-act="file-toggle" data-id="${esc(f.id)}" ${st === 'excluded' ? '' : 'checked'} aria-label="Include ${esc(f.name)}">`;
+  return `<li class="row st-${st}">${box}<span class="path" title="${esc(f.path)}">${pathHTML(f)}</span>${note}<span class="meta">${fmtSize(f.size)}</span><span class="meta">${fmtDate(f.lastModified)}</span></li>`;
+}
+function binsHTML(){
+  if (S.scanning) return '<p class="empty">Reading the folder…</p>';
+  if (!S.files.length) return `<div class="empty"><p>No files to sort here${S.recursive ? '' : ' at the top level'}.</p>${S.recursive ? '' : '<button class="btn" data-act="go-recursive">Include subfolders</button>'}</div>`;
+  const P = S.plan; if (!P) return '<p class="empty">Working out the plan…</p>';
+  const q = S.filter.trim().toLowerCase();
+  let shownAny = false;
+  const html = P.groups.map((g, gi) => {
+    const rows = q ? g.entries.filter(e => e.f.path.toLowerCase().includes(q)) : g.entries;
+    if (!rows.length) return '';
+    shownAny = true;
+    const c = g.counts, collapsed = S.collapsed.has(g.folder);
+    const shown = (S.expanded.has(g.folder) || q) ? rows : rows.slice(0, ROW_LIMIT);
+    const selectable = g.entries.filter(e => e.status !== 'inplace' && e.status !== 'blocked');
+    const on = selectable.filter(e => e.status !== 'excluded').length;
+    const chk = !selectable.length ? '<span class="chk-spacer"></span>'
+      : `<input type="checkbox" data-act="bin-toggle" data-g="${gi}" ${on ? 'checked' : ''} ${on && on < selectable.length ? 'data-mixed="1"' : ''} aria-label="Include every file going to ${esc(g.folder)}">`;
+    const parts = [];
+    if (c.move) parts.push(`${c.move.toLocaleString()} moving` + (c.rename ? ` (${c.rename.toLocaleString()} renamed)` : ''));
+    if (c.inplace) parts.push(`${c.inplace.toLocaleString()} already here`);
+    if (c.excluded) parts.push(`${c.excluded.toLocaleString()} excluded`);
+    if (c.blocked) parts.push(`${c.blocked.toLocaleString()} blocked`);
+    return `<article class="bin ${collapsed ? 'is-collapsed' : ''}" style="--c:${g.color}">
+      <header class="plate">${chk}<span class="swatch"></span><h3>${esc(g.folder)}</h3>
+        <span class="tag">${g.blocked ? 'blocked' : g.exists ? 'existing folder' : 'new folder'}</span>
+        <span class="counts">${parts.join(', ')}</span>
+        <span class="size">${c.move ? fmtSize(g.moveSize) : ''}</span>
+        <button class="ghost" data-act="collapse" data-g="${gi}" aria-expanded="${!collapsed}">${collapsed ? 'Show' : 'Hide'}</button></header>
+      ${g.blocked ? `<p class="bin-note">A file named “${esc(g.folder)}” is already here, so a folder with that name can't be made. Rename that file, then rescan.</p>` : ''}
+      ${collapsed ? '' : `<ul class="rows">${shown.map(rowHTML).join('')}</ul>${shown.length < rows.length ? `<button class="more" data-act="expand" data-g="${gi}">Show all ${rows.length.toLocaleString()}</button>` : ''}`}
+    </article>`;
+  }).join('');
+  const foot = P.totals.dirExcluded ? `<p class="foot-note">${plural(P.totals.dirExcluded, 'file')} in excluded subfolders ${P.totals.dirExcluded === 1 ? 'is' : 'are'} left out.</p>` : '';
+  return (shownAny ? html : `<p class="empty">No files match “${esc(S.filter)}”.</p>`) + foot;
+}
+function barHTML(){
+  const P = S.plan;
+  if (S.scanning || !P) return `<div class="bar-text"><strong>${S.scanning ? 'Reading the folder…' : 'Working out the plan…'}</strong></div>`;
+  const t = P.totals;
+  if (!t.move) {
+    const bits = [];
+    if (t.inplace) bits.push(`${plural(t.inplace, 'file')} already in place.`);
+    if (t.excluded) bits.push(`${plural(t.excluded, 'file')} excluded.`);
+    return `<div class="bar-text"><strong>Nothing to move.</strong><span>${bits.join(' ')}</span></div>`;
+  }
+  const sub = [];
+  if (t.rename) sub.push(`${plural(t.rename, 'file')} will get a number added so nothing is overwritten.`);
+  if (t.excluded) sub.push(`${plural(t.excluded, 'file')} excluded.`);
+  if (t.blocked) sub.push(`${plural(t.blocked, 'file')} blocked by a name clash.`);
+  const dis = S.busy ? 'disabled' : '';
+  return `<div class="bar-text"><strong>${plural(t.move, 'file')} will move into ${plural(t.folders, 'folder')}${t.newFolders ? ` (${t.newFolders} new)` : ''}.</strong><span>${sub.join(' ')}</span></div>
+    ${S.dryRun ? `<span class="dry">Dry run is on, so nothing will move.</span><button class="btn" data-act="simulate" data-key="simulate" ${dis}>List moves in the log</button>`
+               : `<button class="btn primary" data-act="apply" data-key="apply" ${dis}>Move ${plural(t.move, 'file')}</button>`}`;
+}
+function dupesPanel(){
+  const dis = S.busy || S.scanning ? 'disabled' : '';
+  let h = `<div class="panel-intro"><h2>Duplicates</h2>
+    <p>Finds files with exactly the same contents, even when their names differ. You pick which copy to keep. The others move to a Duplicates folder instead of being deleted, so you can check them first.</p>
+    <div class="row-actions"><button class="btn ${S.dupes ? '' : 'primary'}" data-act="find-dupes" data-key="find-dupes" ${dis || (!S.files.length ? 'disabled' : '')}>${S.dupes ? 'Search again' : 'Find duplicates'}</button>
+    ${S.recursive ? '' : '<span class="hint">Only top-level files are checked. Turn on Include subfolders on the Organize tab to search deeper.</span>'}</div></div>`;
+  if (!S.dupes) return h;
+  if (!S.dupes.length) return h + `<p class="empty">No duplicates among ${plural(S.dupPool, 'file')}.</p>`;
+  let extraN = 0, extraSize = 0;
+  S.dupes.forEach((d, i) => { if (!S.dupSkip.has(i)) { extraN += d.files.length - 1; extraSize += d.size * (d.files.length - 1); } });
+  h += `<div class="dup-summary"><p><strong>${plural(S.dupes.length, 'set')} of duplicates.</strong> The extra copies you've selected take up ${fmtSize(extraSize)}.</p>
+    <button class="btn primary" data-act="move-dupes" data-key="move-dupes" ${extraN && !S.busy ? '' : 'disabled'}>Move ${plural(extraN, 'extra copy', 'extra copies')} to Duplicates</button></div>`;
+  h += S.dupes.slice(0, 300).map((d, i) => `<article class="dup ${S.dupSkip.has(i) ? 'is-skipped' : ''}">
+    <header class="plate"><input type="checkbox" data-act="dup-skip" data-d="${i}" ${S.dupSkip.has(i) ? '' : 'checked'} aria-label="Include this set">
+      <h3>${plural(d.files.length, 'identical file')}</h3><span class="counts">${fmtSize(d.size)} each</span></header>
+    <ul class="rows">${d.files.map(f => `<li class="row" style="grid-template-columns:16px minmax(0,1fr) auto 100px">
+      <input type="radio" name="keep-${i}" data-act="dup-keep" data-d="${i}" value="${esc(f.id)}" ${d.keep === f.id ? 'checked' : ''} aria-label="Keep ${esc(f.path)}">
+      <span class="path" title="${esc(f.path)}">${pathHTML(f)}</span>
+      <span class="note ${d.keep === f.id ? 'keep' : 'muted'}">${d.keep === f.id ? 'keep' : 'to Duplicates'}</span>
+      <span class="meta">${fmtDate(f.lastModified)}</span></li>`).join('')}</ul></article>`).join('');
+  if (S.dupes.length > 300) h += `<p class="foot-note">Showing the 300 largest sets. All ${S.dupes.length.toLocaleString()} are included when moving.</p>`;
+  return h;
+}
+function historyPanel(){
+  const runs = [...S.history.runs].reverse();
+  const latest = runs.find(r => !r.undone && r.moves.length);
+  let h = `<div class="panel-intro"><h2>History</h2>
+    <p>Each run is recorded in <code>${esc(LOG_FILE)}</code> inside ${esc(S.rootName)}, so you can undo it later, even after closing this page. Undo the newest run first.</p></div>`;
+  if (!runs.length) return h + '<p class="empty">No runs yet. When you move files, the run shows up here with an Undo button.</p>';
+  h += runs.map(r => {
+    const bits = [`${plural(r.moved ?? r.moves.length, 'file')} moved`];
+    if (r.failed?.length) bits.push(`${r.failed.length} couldn't be moved`);
+    if (r.counts?.copy) bits.push(`${plural(r.counts.copy, 'file')} copied, so ${r.counts.copy === 1 ? 'its date' : 'their dates'} reset`);
+    else if (r.moved) bits.push('dates kept');
+    if (r.removedFolders?.length) bits.push(`${plural(r.removedFolders.length, 'empty folder')} removed`);
+    let status = '';
+    if (r.undone) status = `<p>Undone ${fmtTime(r.undoneAt)}: ${plural(r.undoResult?.back || 0, 'file')} returned${r.undoResult?.missing ? `, ${r.undoResult.missing} missing` : ''}.</p>`;
+    else if (r.undoResult) status = `<p>Partly undone. ${plural(r.moves.length, 'file')} still to return.</p>`;
+    const open = S.openRuns.has(r.id);
+    const undoBtn = r === latest ? `<button class="btn" data-act="undo" data-run="${esc(r.id)}" data-key="undo-${esc(r.id)}" ${S.busy ? 'disabled' : ''}>Undo this run</button>`
+      : (!r.undone && r.moves.length ? '<span class="hint" style="margin:0">Undo newer runs first.</span>' : '');
+    return `<article class="run ${r.undone ? 'is-undone' : ''}">
+      <div class="run-head"><h3>${esc(r.label)}</h3><time>${fmtTime(r.startedAt)}</time>${r.undone ? '<span class="tag">undone</span>' : ''}</div>
+      <p>${bits.join(', ')}.</p>${status}
+      <div class="run-actions">${undoBtn}${r.moves.length ? `<button class="ghost" data-act="show-moves" data-run="${esc(r.id)}" aria-expanded="${open}">${open ? 'Hide moves' : 'Show moves'}</button>` : ''}</div>
+      ${open ? `<ol class="moves">${r.moves.slice(0, 500).map(m => `<li>${esc(m.from)}<span class="arrow" aria-hidden="true">→</span>${esc(m.to)}</li>`).join('')}${r.moves.length > 500 ? `<li>…and ${(r.moves.length - 500).toLocaleString()} more</li>` : ''}</ol>` : ''}
+    </article>`;
+  }).join('');
+  return h;
+}
+function categoriesPanel(){
+  const seen = new Map(), names = new Map();
+  const rows = S.categories.map((c, i) => {
+    const dup = c.exts.filter(e => { if (seen.has(e)) return true; seen.set(e, c.name); return false; });
+    const folder = sanitizeFolder(c.name), warns = [];
+    if (folder !== c.name.trim()) warns.push(`The folder will be named “${folder}”.`);
+    const k = folder.toLowerCase();
+    if (names.has(k)) warns.push(`Shares a folder with ${names.get(k)}.`); else names.set(k, c.name);
+    if (k === 'other') warns.push('Shares the folder used for unlisted files.');
+    if (dup.length) warns.push(`Already listed higher up: ${dup.join(', ')}. The higher category wins.`);
+    if (!c.exts.length) warns.push('No extensions yet, so nothing will go here.');
+    return `<li class="cat" style="--c:${c.color}">
+      <input type="color" data-act="cat-color" data-i="${i}" data-key="cc${i}" value="${esc(c.color)}" aria-label="Color for ${esc(c.name)}">
+      <div class="cat-fields">
+        <input class="cat-name" data-act="cat-name" data-i="${i}" data-key="cn${i}" value="${esc(c.name)}" aria-label="Category name">
+        <textarea class="cat-exts" data-act="cat-exts" data-i="${i}" data-key="ce${i}" rows="2" aria-label="Extensions for ${esc(c.name)}">${esc(c.exts.join(', '))}</textarea>
+        ${warns.length ? `<p class="cat-warn">${warns.map(esc).join(' ')}</p>` : ''}
+      </div>
+      <div class="cat-tools">
+        <button class="ghost" data-act="cat-up" data-i="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(c.name)} up">Up</button>
+        <button class="ghost" data-act="cat-down" data-i="${i}" ${i === S.categories.length - 1 ? 'disabled' : ''} aria-label="Move ${esc(c.name)} down">Down</button>
+        <button class="ghost danger" data-act="cat-remove" data-i="${i}">Remove</button>
+      </div></li>`;
+  }).join('');
+  return `<div class="panel-intro"><h2>Categories</h2>
+    <p>Used when sorting by type. Each file goes into the first category that lists its extension, and anything unlisted goes into Other. Separate extensions with commas or spaces.</p></div>
+    <ol class="cats">${rows}</ol>
+    <div class="row-actions">
+      <button class="btn" data-act="cat-add" data-key="cat-add">Add category</button>
+      <button class="btn" data-act="cat-save" data-key="cat-save" ${S.root && !S.busy ? '' : 'disabled'}>Save to this folder</button>
+      <button class="btn" data-act="cat-export" data-key="cat-export">Export</button>
+      <label class="btn" tabindex="0" data-key="cat-import">Import<input type="file" accept=".json,application/json" data-act="cat-import"></label>
+      <button class="ghost danger" data-act="cat-reset" data-key="cat-reset">Reset to defaults</button>
+    </div>
+    <p class="hint">Categories saved to a folder load automatically the next time you open it. Export them to reuse in other folders.</p>`;
+}
+function panelHTML(){
+  if (S.tab === 'dupes') return dupesPanel();
+  if (S.tab === 'history') return historyPanel();
+  if (S.tab === 'categories') return categoriesPanel();
+  return organizePanel();
+}
+function markMixed(root = document){ root.querySelectorAll('[data-mixed]').forEach(el => { el.indeterminate = true; }); }
+function renderAll(){
+  const ae = document.activeElement, key = ae?.dataset?.key;
+  const sel = key && typeof ae.selectionStart === 'number' ? [ae.selectionStart, ae.selectionEnd] : null;
+  renderHeader(); renderProgress();
+  const app = $('#app');
+  if (!S.root) { app.innerHTML = heroHTML(); }
+  else {
+    const tabs = [['organize', 'Organize', ''], ['dupes', 'Duplicates', S.dupes?.length ? S.dupes.length : ''], ['categories', 'Categories', S.categories.length], ['history', 'History', S.history.runs.length || '']];
+    app.innerHTML = `<nav class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" data-act="tab" data-v="${k}" data-key="tab-${k}" aria-selected="${S.tab === k}">${l}${n !== '' ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</nav>
+      <div class="cols"><section class="panel" id="panel">${panelHTML()}</section>
+        <aside class="side" aria-label="Activity log"><div class="side-head"><h2>Activity log</h2><span class="muted num" id="logcount"></span><button class="ghost" data-act="clear-log">Clear</button></div><ol class="log" id="log"></ol></aside></div>
+      ${S.tab === 'organize' ? `<div class="bar" id="bar">${barHTML()}</div>` : ''}`;
+    renderLog(); markMixed(app);
+  }
+  if (key) {
+    const n = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if (n) { n.focus({ preventScroll: true }); if (sel && n.setSelectionRange) try { n.setSelectionRange(sel[0], sel[1]); } catch {} }
+  }
+}
+function renderPlanParts(){
+  const bins = $('#bins'), bar = $('#bar');
+  if (!bins || S.tab !== 'organize') { if (S.tab !== 'organize' && S.root) return; return renderAll(); }
+  bins.innerHTML = binsHTML(); markMixed(bins);
+  if (bar) bar.innerHTML = barHTML();
+}
+
+/* ---------- events ---------- */
+const catsChanged = () => { EXT = extIndex(); if (S.root) { buildPlan(); } };
+document.addEventListener('click', async (ev) => {
+  const t = ev.target.closest('[data-act]');
+  if (!t || t.disabled || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return;
+  const act = t.dataset.act, v = t.dataset.v;
+  switch (act) {
+    case 'pick': return pickFolder();
+    case 'rescan': return scan();
+    case 'cancel-scan':
+      scanToken++; S.scanning = false; S.files = []; S.plan = null;
+      log('Stopped reading the folder. Press Rescan to try again.', 'warn'); return renderAll();
+    case 'tab': S.tab = v; return renderAll();
+    case 'mode': S.mode = v; renderAll(); return buildPlan();
+    case 'go-recursive': S.recursive = true; return scan();
+    case 'collapse': { const g = S.plan.groups[+t.dataset.g]; S.collapsed.has(g.folder) ? S.collapsed.delete(g.folder) : S.collapsed.add(g.folder); return renderPlanParts(); }
+    case 'expand': S.expanded.add(S.plan.groups[+t.dataset.g].folder); return renderPlanParts();
+    case 'simulate': return simulate();
+    case 'apply': return applyPlan();
+    case 'find-dupes': return findDuplicates();
+    case 'move-dupes': return moveDupes();
+    case 'undo': return undoRun(S.history.runs.find(r => r.id === t.dataset.run));
+    case 'show-moves': { const id = t.dataset.run; S.openRuns.has(id) ? S.openRuns.delete(id) : S.openRuns.add(id); return renderAll(); }
+    case 'clear-log': S.log = []; return renderLog();
+    case 'cat-add': S.categories.push({ name: 'New category', color: '#2350A8'.toLowerCase(), exts: [] }); renderAll(); catsChanged();
+      requestAnimationFrame(() => { const n = document.querySelector(`[data-key="cn${S.categories.length - 1}"]`); if (n) { n.focus(); n.select(); } }); return;
+    case 'cat-remove': S.categories.splice(+t.dataset.i, 1); renderAll(); return catsChanged();
+    case 'cat-up': case 'cat-down': {
+      const i = +t.dataset.i, j = act === 'cat-up' ? i - 1 : i + 1;
+      [S.categories[i], S.categories[j]] = [S.categories[j], S.categories[i]]; renderAll(); return catsChanged();
+    }
+    case 'cat-reset': {
+      const ok = await confirmBox({ title: 'Reset categories?', body: '<p>Your custom categories will be replaced with the defaults. This only affects this page until you save.</p>', ok: 'Reset' });
+      if (!ok) return; S.categories = clone(DEFAULT_CATEGORIES); renderAll(); return catsChanged();
+    }
+    case 'cat-save': if (await saveHistory()) log(`Saved categories to ${LOG_FILE} in ${S.rootName}.`, 'ok'); return;
+    case 'cat-export': {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'File Organizer', categories: S.categories }, null, 1)], { type: 'application/json' }));
+      a.download = 'file-organizer-categories.json'; document.body.append(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); return;
+    }
+  }
+});
+document.addEventListener('keydown', (ev) => {
+  const t = ev.target;
+  if (t.matches?.('label.btn[data-key="cat-import"]') && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); t.querySelector('input').click(); }
+});
+document.addEventListener('change', async (ev) => {
+  const t = ev.target, act = t.dataset?.act; if (!act) return;
+  switch (act) {
+    case 'toggle': {
+      S[t.dataset.v] = t.checked;
+      if (t.dataset.v === 'recursive') return scan();
+      return renderAll();
+    }
+    case 'file-toggle': t.checked ? S.excluded.delete(t.dataset.id) : S.excluded.add(t.dataset.id); return buildPlan();
+    case 'bin-toggle': {
+      const g = S.plan.groups[+t.dataset.g];
+      for (const e of g.entries) { if (e.status === 'inplace' || e.status === 'blocked') continue; t.checked ? S.excluded.delete(e.f.id) : S.excluded.add(e.f.id); }
+      return buildPlan();
+    }
+    case 'dir-toggle': t.checked ? S.excludedDirs.delete(t.dataset.path) : S.excludedDirs.add(t.dataset.path); S.dupes = null; return buildPlan();
+    case 'dup-keep': S.dupes[+t.dataset.d].keep = t.value; return renderAll();
+    case 'dup-skip': t.checked ? S.dupSkip.delete(+t.dataset.d) : S.dupSkip.add(+t.dataset.d); return renderAll();
+    case 'cat-name': case 'cat-exts': case 'cat-color': renderAll(); return catsChanged();
+    case 'cat-import': {
+      const file = t.files?.[0]; if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        const cats = cleanCategories(Array.isArray(data) ? data : data.categories);
+        if (!cats) throw new Error('no categories found');
+        S.categories = cats; log(`Imported ${plural(cats.length, 'category', 'categories')} from ${file.name}.`, 'ok');
+        renderAll(); catsChanged();
+      } catch (e) { log(`Couldn't import ${file.name}: ${e.message}.`, 'error'); }
+      t.value = ''; return;
+    }
+  }
+});
+document.addEventListener('input', (ev) => {
+  const t = ev.target;
+  if (t.id === 'filter') { S.filter = t.value; const b = $('#bins'); if (b) { b.innerHTML = binsHTML(); markMixed(b); } return; }
+  const i = +t.dataset?.i; const c = S.categories[i]; if (!c) return;
+  if (t.dataset.act === 'cat-name') c.name = t.value.slice(0, 60);
+  else if (t.dataset.act === 'cat-exts') c.exts = parseExts(t.value);
+  else if (t.dataset.act === 'cat-color') { c.color = t.value; t.closest('.cat').style.setProperty('--c', t.value); }
+});
+window.addEventListener('beforeunload', (ev) => { if (S.busy === 'apply' || S.busy === 'undo' || S.busy === 'dupes-move') { ev.preventDefault(); ev.returnValue = ''; } });
+
+renderAll();
+
+if (location.hash === '#selftest') {
+  S.autoConfirm = true;
+  window.__fo = { S, useHandle, scan, buildPlan, applyPlan, undoRun, findDuplicates, moveDupes, renderAll, NATIVE_MOVE };
+}
+})();
+</script>
+</body>
+</html>

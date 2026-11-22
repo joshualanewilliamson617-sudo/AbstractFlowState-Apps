@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Element Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --base:#12151A; --panel:#191D24; --panel2:#1F242C; --rule:#262D37; --rule2:#333C48;
+  --tx:#D2D7DE; --tx2:#8A94A2; --tx3:#5E6774;
+  --straw:#EBC96E; --bronze:#C97A3B; --violet:#8E5A9E; --heat:#4A79B5; --cyan:#57C9BC;
+  --sans:'Archivo',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  --cs:14px; --cz:9px; --cp:3px; --cg:2px; --tp:14px; --lg:12px; --heroS:clamp(46px,6.4vw,96px);
+}
+@media(max-height:900px){:root{--cs:12.5px;--cz:8px;--cp:2px;--cg:2px;--tp:10px;--lg:11px;--heroS:clamp(40px,5vw,72px)}}
+@media(max-height:800px){:root{--cs:11.5px;--cz:7.5px;--cp:1px;--cg:1.5px;--tp:8px;--lg:10.5px;--heroS:clamp(34px,4.4vw,60px)}}
+@media(max-height:700px){:root{--cs:10.5px;--cz:0px;--cp:1px;--cg:1.5px;--tp:6px;--lg:10px;--heroS:clamp(30px,4vw,50px)}
+  .cell .z{display:none} #legend{padding-bottom:7px}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--base);color:var(--tx);font-family:var(--sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--rule2);border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+#errBar{position:fixed;left:12px;right:12px;bottom:12px;z-index:99;background:#2A1712;border:1px solid #7A4028;
+  border-radius:8px;padding:11px 13px;display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#F0C3A8;
+  box-shadow:0 8px 28px rgba(0,0,0,.6)}
+#errBar[hidden]{display:none}
+#errMsg{flex:1;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;max-height:150px;overflow:auto}
+#errBar button{border:1px solid #7A4028;border-radius:5px;padding:4px 10px;font-size:12px;color:#F0C3A8;flex:none}
+#errBar button:hover{background:#3A2018}
+
+#app{display:flex;flex-direction:column;height:100%}
+
+/* ---- periodic table ---- */
+#tableWrap{border-bottom:1px solid var(--rule);background:var(--panel);flex:none;transition:max-height .28s ease;overflow:hidden;max-height:min(430px,44vh)}
+#tableWrap.closed{max-height:0;border-bottom-color:transparent}
+#ptable{display:grid;grid-template-columns:repeat(18,1fr);gap:var(--cg);padding:var(--tp) 18px 6px;max-width:1500px;margin:0 auto}
+.cell{border-radius:3px;padding:var(--cp) 0 calc(var(--cp) + 1px);text-align:center;line-height:1.05;cursor:pointer;border:1px solid transparent;transition:transform .1s}
+.cell .z{font-size:var(--cz);font-family:var(--mono);opacity:.6;line-height:1.1}
+.cell .sy{font-size:var(--cs);font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.cell:hover{transform:scale(1.14);z-index:5;position:relative;border-color:var(--tx)}
+.cell.on{border-color:var(--tx);box-shadow:0 0 0 2px var(--base),0 0 0 3px var(--tx)}
+.cell.dim{opacity:.15}
+.gap{grid-column:3;display:flex;align-items:center;justify-content:center;font-size:max(8px,var(--cz));font-family:var(--mono);color:var(--tx3);border:1px dashed var(--rule2);border-radius:3px}
+#legend{display:flex;flex-wrap:wrap;gap:2px 13px;padding:2px 18px 10px;max-width:1500px;margin:0 auto}
+.lgi{display:flex;align-items:center;gap:5px;font-size:var(--lg);color:var(--tx2);padding:1px 0}
+.lgi .sw{width:10px;height:10px;border-radius:2px}
+.lgi.on{color:var(--tx)}
+
+/* ---- header bar ---- */
+#bar{display:flex;align-items:center;gap:10px;padding:7px 16px;flex-wrap:wrap;border-bottom:1px solid var(--rule);flex:none;background:var(--panel)}
+#bar .brand{font-weight:600;letter-spacing:-.02em;font-size:16px}
+#bar .brand span{color:var(--tx3);font-weight:400}
+#search{flex:1;max-width:260px;background:var(--panel2);border:1px solid var(--rule2);border-radius:5px;padding:5px 10px;color:var(--tx);font-family:inherit;font-size:13px}
+#search::placeholder{color:var(--tx3)}
+.tbtn{padding:5px 11px;border:1px solid var(--rule2);border-radius:5px;font-size:13px;color:var(--tx2)}
+.tbtn:hover{color:var(--tx);border-color:var(--tx3)}
+.tbtn.on{color:var(--base);background:var(--tx);border-color:var(--tx)}
+
+/* ---- main split ---- */
+#main{flex:1;display:flex;min-height:0}
+#stage,#pane{min-height:230px}
+#stage{width:52%;min-width:300px;overflow:hidden;position:relative;background:radial-gradient(ellipse at 50% 45%,#1A1F27 0%,#0D1014 70%);display:flex;flex-direction:column}
+#canvasHost{flex:1;position:relative;min-height:140px}
+#canvasHost canvas{display:block;width:100%;height:100%}
+#hero{position:absolute;left:22px;top:14px;pointer-events:none;z-index:2}
+#hero .sym{font-size:var(--heroS);font-weight:600;line-height:.86;letter-spacing:-.05em}
+#hero .nm{font-size:19px;font-weight:500;margin-top:6px}
+#hero .meta{font-family:var(--mono);font-size:12px;color:var(--tx2);margin-top:2px}
+#modes{display:flex;gap:2px;padding:6px 10px;border-top:1px solid var(--rule);background:var(--panel);flex-wrap:wrap;flex:none}
+.mode{padding:4px 11px;border-radius:5px;font-size:13px;color:var(--tx2);white-space:nowrap}
+.mode:hover{color:var(--tx);background:var(--panel2)}
+.mode.on{color:var(--base);background:var(--straw);font-weight:500}
+#subMode{padding:0 10px 6px;background:var(--panel);flex:none}
+.subRow{display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scrollbar-width:thin}
+.subRow::-webkit-scrollbar{height:5px}
+.subLab{font-size:11px;color:var(--tx3);align-self:center;flex:none;margin-right:4px;min-width:58px}
+.sub{font-family:var(--mono);font-size:11px;padding:3px 8px;border:1px solid var(--rule2);border-radius:4px;color:var(--tx2);white-space:nowrap;flex:none}
+.sub.on{background:var(--rule2);color:var(--tx)}
+#stageNote{position:absolute;left:26px;right:14px;bottom:12px;font-size:11px;line-height:1.5;font-family:var(--mono);color:var(--tx3);text-align:left;pointer-events:none;white-space:pre-line;text-shadow:0 1px 3px #0B0E12,0 0 8px #0B0E12}
+
+/* ---- right pane ---- */
+#pane{flex:1;display:flex;flex-direction:column;border-left:1px solid var(--rule);min-width:0}
+#tabs{display:flex;gap:0;border-bottom:1px solid var(--rule);flex:none;background:var(--panel);overflow-x:auto}
+.tab{padding:9px 14px;font-size:14px;color:var(--tx2);border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--tx);border-bottom-color:var(--straw)}
+#paneBody{flex:1;overflow-y:auto;padding:20px 24px 56px}
+.view{display:none}
+.view.on{display:block}
+
+h2{font-size:19px;font-weight:600;letter-spacing:-.015em;margin:0 0 10px}
+h3{font-size:15px;font-weight:600;margin:26px 0 8px}
+h3:first-child{margin-top:0}
+p{margin:0 0 13px;max-width:74ch;color:#C3C9D1}
+.sec{margin-bottom:26px}
+.dim{color:var(--tx2)}
+.small{font-size:13px}
+
+/* facts grid */
+#facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:6px;overflow:hidden;margin-bottom:24px}
+.fact{background:var(--panel);padding:9px 11px}
+.fact .k{font-size:11px;color:var(--tx3);line-height:1.3}
+.fact .v{font-family:var(--mono);font-size:14px;color:var(--tx);margin-top:2px}
+.fact .v small{font-size:11px;color:var(--tx2)}
+
+/* controls */
+.ctl{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+.ctl label{font-size:13px;color:var(--tx2);flex:none;min-width:96px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;background:var(--rule2);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--tx);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--tx);cursor:pointer}
+.rd{font-family:var(--mono);font-size:13px;min-width:78px;text-align:right;flex:none}
+select,input[type=text]{background:var(--panel2);border:1px solid var(--rule2);border-radius:5px;padding:6px 9px;color:var(--tx);font-family:inherit;font-size:13px}
+.btn{padding:7px 14px;border:1px solid var(--rule2);border-radius:5px;font-size:13px;color:var(--tx)}
+.btn:hover{background:var(--panel2);border-color:var(--tx3)}
+.btn.pri{background:var(--straw);color:#1A1206;border-color:var(--straw);font-weight:500}
+.btn.pri:hover{background:#F2D583}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:15px 17px;margin-bottom:14px}
+.card h4{font-size:14px;font-weight:600;margin:0 0 7px}
+.err{color:#E0885F;font-size:13px}
+.pill{display:inline-block;font-size:11px;font-family:var(--mono);padding:2px 7px;border-radius:3px;border:1px solid var(--rule2);color:var(--tx2)}
+
+/* phase bar */
+#phaseBar{display:flex;height:26px;border-radius:5px;overflow:hidden;border:1px solid var(--rule2);margin:6px 0 4px;position:relative}
+#phaseBar>div{display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--mono);min-width:0;overflow:hidden}
+#phaseMark{position:absolute;top:-5px;bottom:-5px;width:2px;margin-left:-1px;background:var(--tx);box-shadow:0 0 0 1.5px var(--base);border-radius:1px}
+#spectrum,#thermoCv,#reactCv{width:100%;border-radius:6px;border:1px solid var(--rule);display:block;background:#07090C}
+
+/* loading */
+.load{display:inline-block;width:11px;height:11px;border:2px solid var(--rule2);border-top-color:var(--straw);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.skel{height:11px;background:linear-gradient(90deg,var(--rule) 25%,var(--rule2) 50%,var(--rule) 75%);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:3px;margin:9px 0}
+@keyframes sh{to{background-position:-200% 0}}
+
+@media(max-width:1040px){
+  #stage{width:45%;min-width:260px}
+  #search{max-width:180px}
+}
+@media(max-width:820px){
+  body{overflow:auto}
+  #app{height:auto;min-height:100%}
+  #main{flex-direction:column}
+  #stage{width:100%;height:auto;min-height:420px}
+  #canvasHost{height:340px;flex:none}
+  #pane{border-left:none;border-top:1px solid var(--rule);min-height:520px}
+  #paneBody{padding:18px;overflow:visible}
+  #tableWrap{max-height:none}
+  :root{--cs:11px;--cz:0px}
+  .cell .z{display:none}
+  #search{max-width:none;flex:1 1 140px;order:5}
+}
+@media(max-height:620px) and (min-width:821px){
+  body{overflow:auto}
+  #app{height:auto;min-height:100vh}
+  #main{min-height:520px}
+}
+</style>
+</head>
+<body>
+<div id="errBar" role="alert" hidden>
+  <div id="errMsg"></div>
+  <button id="errCopy">Copy</button><button id="errClose">Dismiss</button>
+</div>
+<div id="app">
+
+<div id="bar">
+  <div class="brand">Element Lab <span>· 118 elements</span></div>
+  <input id="search" type="text" placeholder="Search element, symbol, or number" autocomplete="off">
+  <button class="tbtn on" id="togTable">Periodic table</button>
+  <button class="tbtn" id="btnRandom">Surprise me</button>
+  <button class="tbtn" id="btnQuiz">Quiz me</button>
+  <span id="aiChip" class="pill" style="margin-left:auto;cursor:help">AI not checked</span>
+</div>
+
+<div id="tableWrap">
+  <div id="ptable"></div>
+  <div id="legend"></div>
+</div>
+
+<div id="main">
+  <div id="stage">
+    <div id="canvasHost">
+      <div id="hero">
+        <div class="sym" id="hSym">V</div>
+        <div class="nm" id="hName">Vanadium</div>
+        <div class="meta" id="hMeta">23 · 50.942 u</div>
+      </div>
+      <div id="stageNote"></div>
+    </div>
+    <div id="modes">
+      <button class="mode on" data-m="orbital">Orbitals</button>
+      <button class="mode" data-m="shell">Shells</button>
+      <button class="mode" data-m="nucleus">Nucleus</button>
+      <button class="mode" data-m="lattice">Crystal</button>
+      <button class="mode" data-m="specimen">Specimen</button>
+      <button class="mode" id="btnReset" style="margin-left:auto;color:var(--tx3)" title="Recentre the camera">Reset view</button>
+    </div>
+    <div id="subMode"></div>
+  </div>
+
+  <div id="pane">
+    <div id="tabs">
+      <button class="tab on" data-v="read">Read</button>
+      <button class="tab" data-v="data">Data</button>
+      <button class="tab" data-v="thermal">Heat &amp; cool</button>
+      <button class="tab" data-v="spectra">Spectrum</button>
+      <button class="tab" data-v="combine">Combine</button>
+      <button class="tab" data-v="react">Reactions</button>
+      <button class="tab" data-v="learn">Learn</button>
+    </div>
+    <div id="paneBody">
+      <div class="view on" id="v-read"></div>
+      <div class="view" id="v-data"></div>
+      <div class="view" id="v-thermal"></div>
+      <div class="view" id="v-spectra"></div>
+      <div class="view" id="v-combine"></div>
+      <div class="view" id="v-react"></div>
+      <div class="view" id="v-learn"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   DATA
+   sym|name|mass|cat|row|col|melt K|boil K|density|electroneg|hex|crystal|year
+   cat 1 alkali 2 alk-earth 3 transition 4 post-trans 5 metalloid
+       6 nonmetal 7 halogen 8 noble 9 lanthanide 10 actinide
+   year 0 = known since antiquity
+   ============================================================ */
+const CATN=["","Alkali metal","Alkaline earth metal","Transition metal","Post-transition metal","Metalloid","Reactive nonmetal","Halogen","Noble gas","Lanthanide","Actinide"];
+const CATC=["","#C25B5B","#C97A3B","#4A79B5","#4E9E8F","#7C9E4A","#8E5A9E","#C99A3B","#B05A8E","#6B7684","#8A6F5A"];
+const RAW=`H,Hydrogen,1.008,6,1,1,13.99,20.27,0.00008988,2.20,#E8F4FF,HEX,1766
+He,Helium,4.0026,8,1,18,0.95,4.22,0.0001785,,#E8F8FF,HCP,1868
+Li,Lithium,6.94,1,2,1,453.65,1603,0.534,0.98,#C8CDD6,BCC,1817
+Be,Beryllium,9.0122,2,2,2,1560,2742,1.85,1.57,#B8BCB0,HCP,1798
+B,Boron,10.81,5,2,13,2349,4200,2.34,2.04,#6B6560,RHO,1808
+C,Carbon,12.011,6,2,14,3823,4098,2.267,2.55,#2B2B2B,DC,0
+N,Nitrogen,14.007,6,2,15,63.15,77.36,0.0012506,3.04,#D6E9F5,HEX,1772
+O,Oxygen,15.999,6,2,16,54.36,90.20,0.001429,3.44,#BFE3FF,MON,1774
+F,Fluorine,18.998,7,2,17,53.53,85.03,0.001696,3.98,#E8F5D0,MON,1886
+Ne,Neon,20.180,8,2,18,24.56,27.07,0.0008999,,#FFB88A,FCC,1898
+Na,Sodium,22.990,1,3,1,370.94,1156,0.971,0.93,#CFD3D8,BCC,1807
+Mg,Magnesium,24.305,2,3,2,923,1363,1.738,1.31,#C4C6C2,HCP,1755
+Al,Aluminium,26.982,4,3,13,933.47,2792,2.70,1.61,#CED2D6,FCC,1825
+Si,Silicon,28.085,5,3,14,1687,3538,2.3296,1.90,#5A5F66,DC,1824
+P,Phosphorus,30.974,6,3,15,317.30,553.65,1.82,2.19,#EBC96E,ORT,1669
+S,Sulfur,32.06,6,3,16,388.36,717.87,2.067,2.58,#E3CF52,ORT,0
+Cl,Chlorine,35.45,7,3,17,171.6,239.11,0.003214,3.16,#D8E86A,ORT,1774
+Ar,Argon,39.95,8,3,18,83.80,87.30,0.0017837,,#C7A0FF,FCC,1894
+K,Potassium,39.098,1,4,1,336.53,1032,0.862,0.82,#CBD0D6,BCC,1807
+Ca,Calcium,40.078,2,4,2,1115,1757,1.54,1.00,#D2D4D0,FCC,1808
+Sc,Scandium,44.956,3,4,3,1814,3109,2.989,1.36,#C6C9CC,HCP,1879
+Ti,Titanium,47.867,3,4,4,1941,3560,4.506,1.54,#B4B8BC,HCP,1791
+V,Vanadium,50.942,3,4,5,2183,3680,6.11,1.63,#B6B9AF,BCC,1801
+Cr,Chromium,51.996,3,4,6,2180,2944,7.15,1.66,#C9CDD2,BCC,1797
+Mn,Manganese,54.938,3,4,7,1519,2334,7.21,1.55,#A9ACA8,BCC,1774
+Fe,Iron,55.845,3,4,8,1811,3134,7.874,1.83,#9FA4A9,BCC,0
+Co,Cobalt,58.933,3,4,9,1768,3200,8.90,1.88,#A7AAB5,HCP,1735
+Ni,Nickel,58.693,3,4,10,1728,3186,8.908,1.91,#B5B4A8,FCC,1751
+Cu,Copper,63.546,3,4,11,1357.77,2835,8.96,1.90,#C88B5A,FCC,0
+Zn,Zinc,65.38,3,4,12,692.68,1180,7.14,1.65,#B8BEC4,HCP,0
+Ga,Gallium,69.723,4,4,13,302.91,2673,5.91,1.81,#C3C7CC,ORT,1875
+Ge,Germanium,72.630,5,4,14,1211.40,3106,5.323,2.01,#7C8288,DC,1886
+As,Arsenic,74.922,5,4,15,1090,887,5.727,2.18,#8A8078,RHO,0
+Se,Selenium,78.971,6,4,16,494,958,4.81,2.55,#6B5A50,HEX,1817
+Br,Bromine,79.904,7,4,17,265.8,332.0,3.1028,2.96,#8C3A2A,ORT,1826
+Kr,Krypton,83.798,8,4,18,115.79,119.93,0.003733,3.00,#A8E8FF,FCC,1898
+Rb,Rubidium,85.468,1,5,1,312.46,961,1.532,0.82,#C9CDD3,BCC,1861
+Sr,Strontium,87.62,2,5,2,1050,1655,2.64,0.95,#C8CAC6,FCC,1790
+Y,Yttrium,88.906,3,5,3,1799,3609,4.472,1.22,#C0C4C8,HCP,1794
+Zr,Zirconium,91.224,3,5,4,2128,4682,6.52,1.33,#B8BCC0,HCP,1789
+Nb,Niobium,92.906,3,5,5,2750,5017,8.57,1.60,#B4B8BD,BCC,1801
+Mo,Molybdenum,95.95,3,5,6,2896,4912,10.28,2.16,#ACB0B6,BCC,1781
+Tc,Technetium,98,3,5,7,2430,4538,11.0,1.90,#A8ACB2,HCP,1937
+Ru,Ruthenium,101.07,3,5,8,2607,4423,12.45,2.20,#A5A9AE,HCP,1844
+Rh,Rhodium,102.91,3,5,9,2237,3968,12.41,2.28,#B6BABF,FCC,1803
+Pd,Palladium,106.42,3,5,10,1828.05,3236,12.023,2.20,#B9BDC2,FCC,1803
+Ag,Silver,107.87,3,5,11,1234.93,2435,10.49,1.93,#D6DADF,FCC,0
+Cd,Cadmium,112.41,3,5,12,594.22,1040,8.65,1.69,#B7BBC0,HCP,1817
+In,Indium,114.82,4,5,13,429.75,2345,7.31,1.78,#C2C6CB,TET,1863
+Sn,Tin,118.71,4,5,14,505.08,2875,7.287,1.96,#C5C9CE,TET,0
+Sb,Antimony,121.76,5,5,15,903.78,1860,6.685,2.05,#A4A8AD,RHO,0
+Te,Tellurium,127.60,5,5,16,722.66,1261,6.232,2.10,#9A9088,HEX,1782
+I,Iodine,126.90,7,5,17,386.85,457.4,4.933,2.66,#4B3B6B,ORT,1811
+Xe,Xenon,131.29,8,5,18,161.4,165.03,0.005887,2.60,#9FB8FF,FCC,1898
+Cs,Caesium,132.91,1,6,1,301.59,944,1.93,0.79,#E0C98A,BCC,1860
+Ba,Barium,137.33,2,6,2,1000,2170,3.51,0.89,#C6C8C4,BCC,1808
+La,Lanthanum,138.91,9,8,3,1193,3737,6.162,1.10,#BEC2C6,HEX,1839
+Ce,Cerium,140.12,9,8,4,1068,3716,6.770,1.12,#BEC2C6,FCC,1803
+Pr,Praseodymium,140.91,9,8,5,1208,3793,6.77,1.13,#C0C4C8,HEX,1885
+Nd,Neodymium,144.24,9,8,6,1297,3347,7.01,1.14,#C0C4C8,HEX,1885
+Pm,Promethium,145,9,8,7,1315,3273,7.26,1.13,#C0C4C8,HEX,1945
+Sm,Samarium,150.36,9,8,8,1345,2067,7.52,1.17,#C0C4C8,RHO,1879
+Eu,Europium,151.96,9,8,9,1099,1802,5.264,1.20,#C2C6CA,BCC,1901
+Gd,Gadolinium,157.25,9,8,10,1585,3546,7.90,1.20,#C0C4C8,HCP,1880
+Tb,Terbium,158.93,9,8,11,1629,3503,8.23,1.20,#C0C4C8,HCP,1843
+Dy,Dysprosium,162.50,9,8,12,1680,2840,8.540,1.22,#C0C4C8,HCP,1886
+Ho,Holmium,164.93,9,8,13,1734,2993,8.79,1.23,#C0C4C8,HCP,1878
+Er,Erbium,167.26,9,8,14,1802,3141,9.066,1.24,#C0C4C8,HCP,1843
+Tm,Thulium,168.93,9,8,15,1818,2223,9.32,1.25,#C0C4C8,HCP,1879
+Yb,Ytterbium,173.05,9,8,16,1097,1469,6.90,1.10,#C2C6CA,FCC,1878
+Lu,Lutetium,174.97,9,8,17,1925,3675,9.841,1.27,#C0C4C8,HCP,1907
+Hf,Hafnium,178.49,3,6,4,2506,4876,13.31,1.30,#B0B4B9,HCP,1923
+Ta,Tantalum,180.95,3,6,5,3290,5731,16.69,1.50,#ADB1B6,BCC,1802
+W,Tungsten,183.84,3,6,6,3695,5828,19.25,2.36,#A0A4A9,BCC,1783
+Re,Rhenium,186.21,3,6,7,3459,5869,21.02,1.90,#A8ACB1,HCP,1925
+Os,Osmium,190.23,3,6,8,3306,5285,22.59,2.20,#A9AFC0,HCP,1803
+Ir,Iridium,192.22,3,6,9,2719,4701,22.56,2.20,#BCC0C5,FCC,1803
+Pt,Platinum,195.08,3,6,10,2041.4,4098,21.45,2.28,#CBCFD4,FCC,1735
+Au,Gold,196.97,3,6,11,1337.33,3129,19.30,2.54,#D4AF37,FCC,0
+Hg,Mercury,200.59,3,6,12,234.32,629.88,13.534,2.00,#C2C6CB,RHO,0
+Tl,Thallium,204.38,4,6,13,577,1746,11.85,1.62,#C0C4C9,HCP,1861
+Pb,Lead,207.2,4,6,14,600.61,2022,11.34,1.87,#9EA3A9,FCC,0
+Bi,Bismuth,208.98,4,6,15,544.7,1837,9.78,2.02,#A89CA0,RHO,0
+Po,Polonium,209,4,6,16,527,1235,9.196,2.00,#A9ADB2,SC,1898
+At,Astatine,210,7,6,17,575,610,7.0,2.20,#8A8E93,FCC,1940
+Rn,Radon,222,8,6,18,202,211.5,0.00973,2.20,#FF9E9E,FCC,1900
+Fr,Francium,223,1,7,1,300,950,1.87,0.70,#C0C4C9,BCC,1939
+Ra,Radium,226,2,7,2,973,2010,5.5,0.90,#C6C8C4,BCC,1898
+Ac,Actinium,227,10,9,3,1323,3471,10.0,1.10,#B8BCC1,FCC,1899
+Th,Thorium,232.04,10,9,4,2115,5061,11.7,1.30,#B8BCC1,FCC,1829
+Pa,Protactinium,231.04,10,9,5,1841,4300,15.37,1.50,#B8BCC1,TET,1913
+U,Uranium,238.03,10,9,6,1405.3,4404,19.1,1.38,#A8ACA0,ORT,1789
+Np,Neptunium,237,10,9,7,917,4273,20.45,1.36,#B0B4B9,ORT,1940
+Pu,Plutonium,244,10,9,8,912.5,3501,19.816,1.28,#AEB2B7,MON,1940
+Am,Americium,243,10,9,9,1449,2880,12.0,1.13,#B8BCC1,HEX,1944
+Cm,Curium,247,10,9,10,1613,3383,13.51,1.28,#B8BCC1,HEX,1944
+Bk,Berkelium,247,10,9,11,1259,2900,14.78,1.30,#B8BCC1,HEX,1949
+Cf,Californium,251,10,9,12,1173,1743,15.1,1.30,#B8BCC1,HEX,1950
+Es,Einsteinium,252,10,9,13,1133,1269,8.84,1.30,#B8BCC1,FCC,1952
+Fm,Fermium,257,10,9,14,1800,,,1.30,#B8BCC1,,1952
+Md,Mendelevium,258,10,9,15,1100,,,1.30,#B8BCC1,,1955
+No,Nobelium,259,10,9,16,1100,,,1.30,#B8BCC1,,1966
+Lr,Lawrencium,266,10,9,17,1900,,,1.30,#B8BCC1,,1961
+Rf,Rutherfordium,267,3,7,4,2400,5800,23.2,,#B8BCC1,HCP,1964
+Db,Dubnium,268,3,7,5,,,29.3,,#B8BCC1,BCC,1967
+Sg,Seaborgium,269,3,7,6,,,35.0,,#B8BCC1,BCC,1974
+Bh,Bohrium,270,3,7,7,,,37.1,,#B8BCC1,HCP,1981
+Hs,Hassium,269,3,7,8,,,40.7,,#B8BCC1,HCP,1984
+Mt,Meitnerium,278,3,7,9,,,37.4,,#B8BCC1,FCC,1982
+Ds,Darmstadtium,281,3,7,10,,,34.8,,#B8BCC1,BCC,1994
+Rg,Roentgenium,282,3,7,11,,,28.7,,#B8BCC1,BCC,1994
+Cn,Copernicium,285,3,7,12,283,340,14.0,,#B8BCC1,HCP,1996
+Nh,Nihonium,286,4,7,13,700,1430,16.0,,#B8BCC1,HCP,2003
+Fl,Flerovium,289,4,7,14,200,380,14.0,,#B8BCC1,FCC,1998
+Mc,Moscovium,290,4,7,15,700,1400,13.5,,#B8BCC1,,2003
+Lv,Livermorium,293,4,7,16,700,1085,12.9,,#B8BCC1,,2000
+Ts,Tennessine,294,7,7,17,700,883,7.2,,#B8BCC1,,2010
+Og,Oganesson,294,8,7,18,325,450,5.0,,#B8BCC1,FCC,2002`;
+
+const EL=RAW.trim().split("\n").map((l,i)=>{
+  const p=l.split(",");
+  const n=v=>v===""||v===undefined?null:parseFloat(v);
+  return {z:i+1,sym:p[0],name:p[1],mass:p[2],cat:+p[3],row:+p[4],col:+p[5],
+          melt:n(p[6]),boil:n(p[7]),dens:n(p[8]),en:n(p[9]),hex:p[10],cry:p[11]||"",year:+p[12],
+          period:(+p[4]>7?(+p[4]===8?6:7):+p[4]),group:(+p[4]>7?null:+p[5])};
+});
+const BYSYM={}; EL.forEach(e=>BYSYM[e.sym]=e);
+const ABUND={O:461000,Si:282000,Al:82300,Fe:56300,Ca:41500,Na:23600,Mg:23300,K:20900,Ti:5650,
+H:1400,P:1050,Mn:950,F:585,Ba:425,Sr:370,S:350,C:200,Zr:165,Cl:145,V:120,Cr:102,Rb:90,Ni:84,
+Zn:70,Ce:66.5,Cu:60,Nd:41.5,La:39,Y:33,Co:25,Sc:22,Li:20,Nb:20,N:19,Ga:19,Pb:14,B:10,Th:9.6,
+Pr:9.2,Sm:7.05,Gd:6.2,Dy:5.2,Er:3.5,Ar:3.5,Yb:3.2,Hf:3,Cs:3,Be:2.8,U:2.7,Br:2.4,Sn:2.3,Ta:2,
+Eu:2,As:1.8,Ge:1.5,Ho:1.3,W:1.25,Mo:1.2,Tb:1.2,Tl:0.85,Lu:0.8,Tm:0.52,I:0.45,In:0.25,Sb:0.2,
+Cd:0.15,Hg:0.085,Ag:0.075,Se:0.05,Pd:0.015,He:0.008,Bi:0.0085,Pt:0.005,Au:0.004,Os:0.0015,
+Re:0.0007,Te:0.001,Ru:0.001,Rh:0.001,Ir:0.001,Kr:0.0001,Ne:0.00005,Xe:0.00003,
+Pa:0.0000014,Ac:5.5e-10,Ra:9e-7,Po:2e-10,Rn:4e-13,Fr:1e-18,At:3e-20};
+const abundText=sy=>{
+  const a=ABUND[sy];
+  if(a===undefined) return null;
+  if(a>=10000) return [a,"one of the most abundant elements in the crust"];
+  if(a>=100) return [a,"common — comparable to the ordinary industrial metals"];
+  if(a>=1) return [a,"uncommon but not rare"];
+  if(a>=0.01) return [a,"genuinely rare"];
+  return [a,"vanishingly rare in nature"];
+};
+
+/* ============================================================
+   ELECTRON CONFIGURATION
+   ============================================================ */
+const AUFBAU=[["1s",2],["2s",2],["2p",6],["3s",2],["3p",6],["4s",2],["3d",10],["4p",6],
+  ["5s",2],["4d",10],["5p",6],["6s",2],["4f",14],["5d",10],["6p",6],["7s",2],["5f",14],["6d",10],["7p",6]];
+const NOBLE=[[2,"He"],[10,"Ne"],[18,"Ar"],[36,"Kr"],[54,"Xe"],[86,"Rn"]];
+const CFGEX={24:"1s2 2s2 2p6 3s2 3p6 3d5 4s1",29:"1s2 2s2 2p6 3s2 3p6 3d10 4s1",
+41:"[Kr] 4d4 5s1",42:"[Kr] 4d5 5s1",44:"[Kr] 4d7 5s1",45:"[Kr] 4d8 5s1",46:"[Kr] 4d10",
+47:"[Kr] 4d10 5s1",57:"[Xe] 5d1 6s2",58:"[Xe] 4f1 5d1 6s2",64:"[Xe] 4f7 5d1 6s2",
+78:"[Xe] 4f14 5d9 6s1",79:"[Xe] 4f14 5d10 6s1",89:"[Rn] 6d1 7s2",90:"[Rn] 6d2 7s2",
+91:"[Rn] 5f2 6d1 7s2",92:"[Rn] 5f3 6d1 7s2",93:"[Rn] 5f4 6d1 7s2",96:"[Rn] 5f7 6d1 7s2",
+103:"[Rn] 5f14 7s2 7p1"};
+
+function configOf(z){
+  let rem=z,out=[];
+  for(const [orb,cap] of AUFBAU){ if(rem<=0)break; const k=Math.min(cap,rem); out.push([orb,k]); rem-=k; }
+  if(CFGEX[z]){
+    const s=CFGEX[z].replace(/\[(\w+)\]\s*/,(m,sy)=>{
+      const zc=NOBLE.find(n=>n[1]===sy)[0];
+      return configOf(zc).map(o=>o[0]+o[1]).join(" ")+" ";
+    });
+    out=s.trim().split(/\s+/).map(t=>[t.slice(0,2),parseInt(t.slice(2))]);
+  }
+  return out;
+}
+const OKEY=o=>parseInt(o[0])*10+"spdf".indexOf(o[1]);
+const sortOrb=a=>a.slice().sort((x,y)=>OKEY(x[0])-OKEY(y[0]));
+function configStr(z,shortForm){
+  const full=configOf(z);
+  if(shortForm){
+    let core=null;
+    for(let i=NOBLE.length-1;i>=0;i--) if(NOBLE[i][0]<z){core=NOBLE[i];break;}
+    if(core){
+      const cm={}; configOf(core[0]).forEach(o=>cm[o[0]]=(cm[o[0]]||0)+o[1]);
+      const rest=[];
+      full.forEach(o=>{ const take=Math.min(cm[o[0]]||0,o[1]); cm[o[0]]=(cm[o[0]]||0)-take;
+        if(o[1]-take>0) rest.push([o[0],o[1]-take]); });
+      return "["+core[1]+"] "+sortOrb(rest).map(o=>o[0]+o[1]).join(" ");
+    }
+  }
+  return sortOrb(full).map(o=>o[0]+o[1]).join(" ");
+}
+function shellsOf(z){
+  const sh=[0,0,0,0,0,0,0];
+  configOf(z).forEach(([orb,k])=>{ sh[parseInt(orb[0])-1]+=k; });
+  return sh.filter(x=>x>0);
+}
+function valenceOf(z){
+  const cfg=configOf(z), maxN=Math.max(...cfg.map(o=>parseInt(o[0][0])));
+  return cfg.filter(o=>parseInt(o[0][0])===maxN||(o[0][1]==="d"&&parseInt(o[0][0])===maxN-1&&o[1]<10))
+            .reduce((a,o)=>a+o[1],0);
+}
+function BLOCK(z){
+  const e=EL[z-1];
+  if(z===2) return "s";
+  if(e.cat===9||e.cat===10) return "f";
+  if(e.group<=2) return "s";
+  if(e.group<=12) return "d";
+  return "p";
+}
+
+/* most abundant isotope mass number where round(mass) is wrong */
+const ISO={3:7,5:11,35:79,17:35,18:40,20:40,22:48,23:51,24:52,28:58,29:63,30:64,31:69,32:74,34:80,
+36:84,37:85,38:88,39:89,40:90,41:93,42:98,44:102,46:106,47:107,48:114,49:115,50:120,51:121,
+52:130,54:132,56:138,58:140,60:142,62:152,63:153,64:158,66:164,68:166,70:174,72:180,74:184,
+75:187,76:192,77:193,78:195,80:202,81:205,82:208};
+const massNum=e=>ISO[e.z]||Math.round(parseFloat(e.mass));
+/* valley-of-stability trend estimate */
+function stabilityGuess(z,n){
+  const target=z<=20? z*1.0 : z*(1+0.0072*Math.pow(z,0.86))*1.0;
+  const d=n-target;
+  const w=Math.max(1.6,z*0.075);
+  if(z>82) return {label:"radioactive",note:"every isotope above bismuth decays"};
+  if(Math.abs(d)<=w*0.55) return {label:"likely stable",note:"sits near the valley of stability"};
+  if(Math.abs(d)<=w*1.4) return {label:"unstable",note:d>0?"neutron-rich — beta minus decay":"proton-rich — beta plus or electron capture"};
+  return {label:"very unstable",note:d>0?"far neutron-rich — short half-life":"far proton-rich — short half-life"};
+}
+
+/* ============================================================
+   EMISSION SPECTRA — principal visible lines, nm
+   ============================================================ */
+const SPEC={
+H:[656.3,486.1,434.0,410.2],
+He:[447.1,471.3,492.2,501.6,587.6,667.8,706.5],
+Li:[413.3,460.3,610.4,670.8],
+Be:[436.1,457.3,467.3,527.1],
+B:[412.2,470.0,494.0,499.6,563.2,586.0],
+C:[426.7,477.2,505.2,538.0,601.3,658.8],
+N:[399.5,444.7,463.1,500.5,567.6,648.2,661.1],
+O:[394.7,436.8,441.5,464.9,533.1,615.8,645.6,777.2],
+F:[623.9,634.9,641.4,685.6,690.2,703.7],
+Ne:[540.1,585.2,588.2,594.5,607.4,614.3,621.7,640.2,650.7,659.9,692.9,703.2],
+Na:[498.3,568.8,589.0,589.6,615.4],
+Mg:[470.3,516.7,517.3,518.4,552.8],
+Al:[394.4,396.2,466.3,559.3,669.6],
+Si:[390.6,500.6,504.1,505.6,634.7,637.1],
+P:[602.4,603.4,604.3,608.8,616.4],
+S:[469.4,543.3,545.4,550.0,564.0,605.3],
+Cl:[452.6,481.0,489.7,507.9,542.3,754.7],
+Ar:[415.9,420.1,425.9,427.2,433.4,696.5,706.7,727.3,738.4,750.4,763.5,772.4,794.8,811.5],
+K:[404.4,404.7,580.2,766.5,769.9],
+Ca:[422.7,430.3,443.5,445.5,616.2,646.3],
+Ti:[453.3,498.2,499.1,500.7,501.4],
+V:[411.2,437.9,438.5,439.0,440.9,487.9],
+Cr:[425.4,427.5,428.9,520.4,520.6,520.8,540.0],
+Mn:[403.1,403.3,403.4,475.4,478.3,482.4],
+Fe:[404.6,427.2,432.6,438.4,440.5,495.8,516.7,526.9,532.8,537.1],
+Co:[399.5,481.5,486.4,547.0,550.7],
+Ni:[471.4,480.0,508.1,547.7],
+Cu:[402.3,406.3,427.5,465.1,510.6,515.3,521.8,570.0,578.2],
+Zn:[468.0,472.2,481.1,636.2],
+Br:[470.5,478.6,481.7,518.2,533.0,614.4],
+Kr:[427.4,431.9,435.5,446.4,450.2,557.0,587.1,605.6,758.7],
+Rb:[420.2,421.6,572.4,620.6,629.8,780.0,794.8],
+Sr:[460.7,481.2,487.2,496.2,550.4,640.8,650.4,687.8,707.0],
+Mo:[386.4,390.3,550.6,553.3,557.0],
+Ag:[405.5,421.1,466.8,520.9,546.5,547.2],
+Cd:[467.8,480.0,508.6,643.8],
+In:[410.2,451.1,325.6],
+Sn:[452.5,556.2,563.2,645.4],
+Sb:[404.1,421.6,505.3,528.4],
+I:[511.9,516.1,533.8,546.5,561.4,804.4],
+Xe:[413.0,418.0,428.6,450.1,462.4,467.1,473.4,484.3,492.3,823.2],
+Cs:[455.5,459.3,566.4,584.5,621.3,852.1,894.3],
+Ba:[455.4,493.4,553.5,577.8,614.2,649.9,659.5],
+W:[400.9,429.5,484.4,505.3,522.5],
+Pt:[423.0,439.7,442.5,454.5,466.5],
+Au:[406.5,479.3,583.7,627.8],
+Hg:[404.7,435.8,546.1,577.0,579.1,615.0],
+Tl:[377.6,535.0,655.0],
+Pb:[405.8,500.5,520.1,522.0,600.2],
+Bi:[422.8,472.3,620.0,646.3],
+Rn:[434.9,705.5,745.0]
+};
+const FLAME={Li:["Crimson","#D8443C"],Na:["Intense yellow","#F0C020"],K:["Pale lilac","#B487D4"],
+Rb:["Red-violet","#C4487F"],Cs:["Blue-violet","#6A6FD0"],Ca:["Orange-red","#E0703A"],
+Sr:["Crimson red","#D93B4A"],Ba:["Pale green","#8FCB55"],Cu:["Blue-green","#3FBFA8"],
+B:["Bright green","#6ECB4A"],Pb:["Grey-blue white","#9FB6D0"],Zn:["Blue-green","#5CC6B0"],
+Mn:["Yellow-green","#B8CB4A"],Fe:["Gold sparks","#D9A03C"],Mg:["Brilliant white","#F2F2F2"],
+In:["Indigo blue","#5560C8"],Tl:["Pure green","#3FC24A"],Sb:["Pale green","#9FC46A"]};
+
+/* ============================================================
+   CURATED COMPOUNDS — key is the two symbols sorted alphabetically
+   ============================================================ */
+const COMP={
+"H,O":{f:"H₂O",n:"Water",b:"Polar covalent",g:"bent",d:"Two hydrogens at about 104.5° on an oxygen. The bend plus the electronegativity gap makes the molecule polar, which is the origin of nearly every strange thing water does — high boiling point, ice floating, dissolving salts."},
+"Cl,Na":{f:"NaCl",n:"Sodium chloride",b:"Ionic",g:"lattice",d:"Sodium hands its lone outer electron to chlorine outright. The result is not molecules but a cubic lattice of alternating ions held by electrostatic attraction, which is why it is hard, brittle, and melts at 801 °C."},
+"C,O":{f:"CO₂",n:"Carbon dioxide",b:"Polar covalent bonds, nonpolar molecule",g:"linear",d:"Two double bonds pointing in exactly opposite directions. Each bond is polar but they cancel, so the molecule has no net dipole — which is why it does not dissolve in water nearly as well as you might expect."},
+"H,N":{f:"NH₃",n:"Ammonia",b:"Polar covalent",g:"pyramidal",d:"Three hydrogens and a lone pair on nitrogen, pushed into a pyramid. That lone pair is what makes ammonia a base and lets it grab a proton to become ammonium."},
+"C,H":{f:"CH₄",n:"Methane",b:"Covalent",g:"tetrahedral",d:"Four identical bonds at 109.5°, the most symmetrical arrangement four things can take around a centre. Perfectly nonpolar, which is why it will not mix with water."},
+"Fe,O":{f:"Fe₂O₃",n:"Iron(III) oxide — rust",b:"Ionic",g:"lattice",d:"The reason steel needs coating. Unlike aluminium oxide, rust does not form a sealed layer — it flakes, exposing fresh metal underneath, so corrosion keeps eating inward instead of stopping."},
+"Al,O":{f:"Al₂O₃",n:"Aluminium oxide — alumina",b:"Ionic",g:"lattice",d:"The opposite behaviour to rust. It grows a dense, tightly bonded film a few nanometres thick that seals the surface and stops further attack. It is also corundum — sapphire and ruby are this with trace impurities."},
+"O,Si":{f:"SiO₂",n:"Silicon dioxide — silica",b:"Covalent network",g:"lattice",d:"Not molecules at all but one continuous covalent network. Every silicon is tetrahedrally bonded to four oxygens, endlessly. That is why quartz is hard and why glass, its disordered form, has no sharp melting point."},
+"Ca,O":{f:"CaO",n:"Calcium oxide — quicklime",b:"Ionic",g:"lattice",d:"Made by roasting limestone. Add water and it reacts hard enough to boil, giving slaked lime. This reaction is the basis of mortar and has been for several thousand years."},
+"C,Fe":{f:"Fe₃C",n:"Cementite",b:"Metallic/interstitial",g:"lattice",d:"The carbide that governs steel. Carbon atoms wedge into gaps in the iron lattice and block dislocations from sliding, which is exactly what hardness is. How fast you cool it decides whether you get pearlite, bainite or martensite."},
+"H,S":{f:"H₂S",n:"Hydrogen sulfide",b:"Polar covalent",g:"bent",d:"Water's ugly cousin — same shape, sulfur instead of oxygen. Weaker hydrogen bonding means it is a gas at room temperature rather than a liquid. Toxic, and it deadens your sense of smell at dangerous concentrations."},
+"O,S":{f:"SO₂",n:"Sulfur dioxide",b:"Polar covalent",g:"bent",d:"The first step in making sulfuric acid, and the thing scrubbers pull out of flue gas. Oxidise it over a vanadium pentoxide catalyst and you get SO₃."},
+"N,O":{f:"NO₂",n:"Nitrogen dioxide",b:"Polar covalent",g:"bent",d:"A brown gas with an odd number of electrons, which makes it a radical and unusually reactive. It is the visible colour in photochemical smog and it forms in any hot combustion where air is present — including a welding arc."},
+"Cl,H":{f:"HCl",n:"Hydrogen chloride",b:"Polar covalent",g:"linear",d:"A gas as a pure substance, hydrochloric acid once dissolved in water. The bond is polar enough that water pulls it apart completely into ions."},
+"Cu,O":{f:"CuO",n:"Copper(II) oxide",b:"Ionic",g:"lattice",d:"The black scale that forms on copper when you heat it in air. Its red cousin Cu₂O is the copper(I) form, and the green patina on old roofs is a carbonate, not this."},
+"C,Si":{f:"SiC",n:"Silicon carbide",b:"Covalent network",g:"lattice",d:"Nearly as hard as diamond, and the standard abrasive in grinding wheels and cut-off discs. It is also a wide-bandgap semiconductor now used in high-power electronics."},
+"C,W":{f:"WC",n:"Tungsten carbide",b:"Covalent/metallic",g:"lattice",d:"The tooling material. Extremely hard and stiff, and sintered with cobalt as a binder it becomes carbide inserts and burr bits. It holds an edge at temperatures that would soften tool steel."},
+"N,Ti":{f:"TiN",n:"Titanium nitride",b:"Covalent/metallic",g:"lattice",d:"The gold-coloured coating on drill bits and end mills. A few microns of it cuts friction and roughly doubles tool life. The colour is genuine, not a dye."},
+"Cr,O":{f:"Cr₂O₃",n:"Chromium(III) oxide",b:"Ionic",g:"lattice",d:"The reason stainless steel is stainless. Above about 10.5% chromium, this oxide forms a passive film that seals the surface and rebuilds itself if scratched."},
+"O,Ti":{f:"TiO₂",n:"Titanium dioxide",b:"Ionic",g:"lattice",d:"The whitest common substance, and the pigment in most white paint, sunscreen and paper. It also catalyses reactions under UV light, which is used in self-cleaning glass."},
+"H,Li":{f:"LiH",n:"Lithium hydride",b:"Ionic",g:"lattice",d:"One of the few compounds where hydrogen takes an electron rather than giving one up, existing as H⁻. It reacts violently with water."},
+"C,Ca":{f:"CaC₂",n:"Calcium carbide",b:"Ionic",g:"lattice",d:"Drop it in water and it gives off acetylene. This is how oxy-acetylene gas was made before it came in cylinders, and how carbide lamps lit mines."},
+"O,Pb":{f:"PbO",n:"Lead(II) oxide — litharge",b:"Ionic",g:"lattice",d:"Used for centuries in glazes and leaded glass for its high refractive index. Now largely designed out because of toxicity."},
+"Mg,O":{f:"MgO",n:"Magnesium oxide",b:"Ionic",g:"lattice",d:"The white ash left when magnesium burns. Very high melting point, so it lines furnaces and forms the insulating core of tubular heating elements."},
+"F,H":{f:"HF",n:"Hydrogen fluoride",b:"Polar covalent",g:"linear",d:"The only acid that attacks glass. Unusually, it is a weak acid in water despite fluorine's extreme electronegativity, because the bond is so strong. Dangerous — it penetrates skin and goes after the calcium in your bones."},
+"Ag,Cl":{f:"AgCl",n:"Silver chloride",b:"Ionic",g:"lattice",d:"Insoluble, and it darkens in light as silver ions are reduced to metal. That light sensitivity is the whole basis of film photography."},
+"H,K":{f:"KH",n:"Potassium hydride",b:"Ionic",g:"lattice",d:"A powerful base used to strip protons in organic synthesis. Reacts with water and with air."},
+"Cl,K":{f:"KCl",n:"Potassium chloride",b:"Ionic",g:"lattice",d:"Same structure as table salt, tastes bitter rather than salty. Used as a salt substitute and as potash fertiliser."},
+"N,Si":{f:"Si₃N₄",n:"Silicon nitride",b:"Covalent network",g:"lattice",d:"A structural ceramic that survives thermal shock better than most. Used for bearings, turbine parts, and the balls in high-speed hybrid bearings."},
+"B,N":{f:"BN",n:"Boron nitride",b:"Covalent network",g:"lattice",d:"Comes in two forms that mirror carbon exactly — a soft slippery layered form like graphite, and a cubic form second only to diamond in hardness."},
+"Ni,Ti":{f:"NiTi",n:"Nitinol",b:"Intermetallic",g:"lattice",d:"A shape-memory alloy. Deform it cold and it snaps back to its original shape when heated, because the crystal structure flips between two arrangements. Used in stents and eyeglass frames."},
+"Cu,Zn":{f:"CuZn",n:"Brass",b:"Metallic (substitutional alloy)",g:"lattice",d:"Not a compound but a solid solution — zinc atoms simply sit in copper lattice sites. Zinc content sets everything: under 37% gives ductile alpha brass that cold-works well, above that gives harder, more brittle alpha-beta brass."},
+"C,N":{f:"C₂N₂",n:"Cyanogen",b:"Covalent",g:"linear",d:"A linear molecule that burns in oxygen at one of the highest flame temperatures known for a chemical flame, above 4500 °C."},
+"O,Zn":{f:"ZnO",n:"Zinc oxide",b:"Ionic",g:"lattice",d:"The white fume that comes off galvanised steel when you weld it — the cause of metal fume fever. Also a semiconductor, a sunscreen, and a rubber additive."},
+"O,V":{f:"V₂O₅",n:"Vanadium pentoxide",b:"Ionic/covalent",g:"lattice",d:"Orange-yellow, and the catalyst in the contact process that makes sulfuric acid. It works by cycling between V(V) and V(IV), handing oxygen to SO₂ and then taking it back from air."},
+"Na,O":{f:"Na₂O",n:"Sodium oxide",b:"Ionic",g:"lattice",d:"A strong base that reacts with water to give sodium hydroxide. In glassmaking it is the network modifier that lowers silica's melting point to something workable."},
+"H,I":{f:"HI",n:"Hydrogen iodide",b:"Polar covalent",g:"linear",d:"The strongest of the hydrohalic acids in water, because the long bond to iodine is the weakest and breaks most readily."},
+"Br,K":{f:"KBr",n:"Potassium bromide",b:"Ionic",g:"lattice",d:"Transparent across the infrared, so it is pressed into windows and pellets for IR spectroscopy."},
+"C,Ti":{f:"TiC",n:"Titanium carbide",b:"Covalent/metallic",g:"lattice",d:"Extremely hard refractory carbide used in cutting tools and wear coatings, often alongside tungsten carbide."},
+"Mo,S":{f:"MoS₂",n:"Molybdenum disulfide",b:"Covalent layered",g:"lattice",d:"A dry lubricant. The layers shear past each other almost frictionlessly, so it works where oil would burn off or attract grit."}
+};
+
+/* ============================================================
+   REACTIVITY RULES
+   ============================================================ */
+function reactRule(e,medium){
+  const c=e.cat, g=e.group;
+  const V=(v,t,x)=>({vigor:v,title:t,text:x});
+  if(medium==="water"){
+    if(c===1) return V(e.z>=19?5:(e.z>=11?4:3),"Reacts vigorously",
+      "Alkali metals displace hydrogen from water, producing the hydroxide and hydrogen gas. Reactivity climbs sharply down the group as the outer electron gets further from the nucleus and easier to lose — lithium fizzes, sodium melts into a ball and skitters, potassium ignites the hydrogen, caesium is explosive on contact.");
+    if(c===2) return V(e.z>=38?3:(e.z>=20?2:1),"Slow to moderate",
+      "Alkaline earth metals react with water but far less dramatically than group 1. Magnesium barely touches cold water and needs steam; calcium fizzes steadily; strontium and barium react briskly. All give the hydroxide plus hydrogen.");
+    if(c===7) return V(3,"Dissolves and reacts","Halogens dissolve in water and partly react to give a mix of the hydrohalic acid and the hypohalous acid. Chlorine water is the classic disinfectant chemistry.");
+    if(c===8) return V(0,"No reaction","Noble gases have full outer shells and do not react with water. They dissolve very slightly, and that is all.");
+    if(c===3||c===4) return V(1,"Little to none","Most transition and post-transition metals are unreactive with water at room temperature. Iron will slowly corrode if oxygen is also present — rusting is a water-plus-oxygen process, not water alone.");
+    return V(1,"Little to none","No significant reaction with water under ordinary conditions.");
+  }
+  if(medium==="acid"){
+    if(c===1||c===2) return V(5,"Violent","Reactive metals attack acid faster than they attack water — the same displacement reaction with a much higher concentration of hydrogen ions. Do not do this deliberately with group 1.");
+    if(c===8) return V(0,"No reaction","Noble gases are inert to acids.");
+    if(["Au","Pt","Ir","Rh","Ru","Os"].includes(e.sym)) return V(0,"Resists",
+      "Noble metals sit below hydrogen in the reactivity series and are not attacked by single acids. Gold and platinum need aqua regia — nitric plus hydrochloric — where the chloride ions stabilise the dissolved metal and let the reaction proceed.");
+    if(c===3||c===4) return V(3,"Dissolves with hydrogen","Metals above hydrogen in the reactivity series displace it from acid, giving the salt and hydrogen gas. Rate depends on how far above hydrogen the metal sits.");
+    return V(1,"Little effect","Nonmetals generally do not react with dilute acids this way.");
+  }
+  if(medium==="air"){
+    if(c===1) return V(4,"Tarnishes instantly","Cut a piece of sodium or potassium and the bright surface clouds over in seconds. These metals are stored under oil precisely because air attacks them that fast.");
+    if(c===8) return V(0,"Inert","No reaction with oxygen or nitrogen.");
+    if(e.sym==="Al"||e.sym==="Cr"||e.sym==="Ti") return V(2,"Passivates",
+      "Reacts immediately with oxygen but the oxide it forms is dense and tightly bonded, sealing the surface after a few nanometres. This self-limiting film is why these metals behave as if they were unreactive.");
+    if(e.sym==="Fe") return V(3,"Corrodes progressively","With moisture present, iron oxidises to hydrated iron(III) oxide. Rust occupies more volume than the metal it came from, so it flakes off and exposes fresh surface — corrosion continues instead of stopping.");
+    if(c===3||c===4) return V(2,"Slow oxidation","Forms an oxide layer over time. Whether that layer protects or flakes decides the metal's corrosion behaviour.");
+    return V(1,"Varies","Behaviour in air depends on the specific element and conditions.");
+  }
+  if(medium==="flame"){
+    const f=FLAME[e.sym];
+    if(f) return V(3,"Distinct flame colour",
+      "Heat drives outer electrons to higher orbitals; they fall back and release the energy difference as light at fixed wavelengths. For "+e.name+" the visible result is "+f[0].toLowerCase()+". This is the same physics as the emission spectrum, just seen by eye instead of through a grating.");
+    if(c===8) return V(1,"Glows under discharge","Noble gases do not burn, but pass a current through them at low pressure and they glow with their characteristic colour.");
+    return V(1,"No characteristic colour","No strong visible flame test — either the emission lines fall outside the visible band or they are too weak to see against the flame.");
+  }
+  return V(0,"","");
+}
+
+/* ============================================================
+   CLAUDE API LAYER
+   ============================================================ */
+const AICACHE={};
+let AI_STATE="unknown", AI_DIAG="";
+function setAIState(st,diag){
+  AI_STATE=st; AI_DIAG=diag||"";
+  const c=document.getElementById("aiChip"); if(!c)return;
+  c.textContent=st==="ok"?"AI connected":(st==="off"?"AI unavailable":"AI not checked");
+  c.style.color=st==="ok"?"#6FCBB4":(st==="off"?"#D98A6A":"var(--tx3)");
+  c.style.borderColor=st==="ok"?"#2F5E52":(st==="off"?"#6B4030":"var(--rule2)");
+  c.title=diag||"";
+}
+async function callAPI(body,extraHeaders){
+  const h={"Content-Type":"application/json"};
+  if(extraHeaders){ h["anthropic-version"]="2023-06-01"; h["anthropic-dangerous-direct-browser-access"]="true"; }
+  let r;
+  try{ r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:h,body:JSON.stringify(body)}); }
+  catch(e){ const err=new Error("NETWORK"); err.detail=e.message; throw err; }
+  if(!r.ok){
+    let t=""; try{ t=(await r.text()).slice(0,300); }catch(e){}
+    const err=new Error("HTTP "+r.status); err.detail=t; err.status=r.status; throw err;
+  }
+  return r.json();
+}
+async function askClaude(prompt,maxTok){
+  if(AICACHE[prompt]) return AICACHE[prompt];
+  const body={model:"claude-sonnet-4-6",max_tokens:maxTok||1000,messages:[{role:"user",content:prompt}]};
+  let d;
+  try{ d=await callAPI(body,false); }
+  catch(e1){
+    try{ d=await callAPI(body,true); }
+    catch(e2){
+      const why = e1.message==="NETWORK"
+        ? "The page could not reach api.anthropic.com. This usually means the file is open outside Claude \u2014 the generated writeups only work while it runs inside a Claude artifact."
+        : "The API returned "+e1.message+(e1.detail?" \u2014 "+e1.detail:"");
+      setAIState("off",why);
+      const err=new Error(why); err.offline=true; throw err;
+    }
+  }
+  setAIState("ok","");
+  const txt=d.content.filter(c=>c.type==="text").map(c=>c.text).join("\n").trim();
+  AICACHE[prompt]=txt; return txt;
+}
+async function askClaudeJSON(prompt){
+  const t=await askClaude(prompt);
+  const clean=t.replace(/```json/g,"").replace(/```/g,"").trim();
+  const st=clean.indexOf("{"),e2=clean.lastIndexOf("}");
+  return JSON.parse(st>=0?clean.slice(st,e2+1):clean);
+}
+const VOICE=`Write in clear, plain, direct prose for a curious adult with a hands-on background in welding and metal fabrication. No bullet points, no headings, no markdown. Short paragraphs. Concrete and specific — real numbers, real places, real uses. Include the odd or surprising detail rather than the obvious one. Never pad, never use phrases like "it is worth noting" or "fascinatingly". Do not open by restating the question.`;
+function mdToHtml(t){
+  return t.split(/\n\s*\n/).map(p=>"<p>"+p.replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\n/g," ")+"</p>").join("");
+}
+/* ============================================================
+   3D STAGE
+   ============================================================ */
+const ERRS=[];
+function showErr(msg){
+  ERRS.push(msg);
+  const bar=document.getElementById("errBar"), m=document.getElementById("errMsg");
+  if(!bar||!m) return;
+  m.textContent=ERRS.slice(-4).join("\n\n");
+  bar.hidden=false;
+}
+addEventListener("error",e=>{
+  const m=e.message||"";
+  /* browsers fire this benign notice when an observer callback changes layout */
+  if(/ResizeObserver loop/i.test(m)) return;
+  showErr("Error: "+m+(e.filename?"\nline "+e.lineno+":"+e.colno:""));
+});
+addEventListener("unhandledrejection",e=>{
+  const r=e.reason;
+  showErr("Unhandled: "+((r&&r.message)||r));
+});
+document.getElementById("errClose").onclick=()=>{document.getElementById("errBar").hidden=true};
+document.getElementById("errCopy").onclick=()=>{
+  const t=ERRS.join("\n\n");
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(
+    ()=>{document.getElementById("errCopy").textContent="Copied"},
+    ()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);
+      ta.select();try{document.execCommand("copy");document.getElementById("errCopy").textContent="Copied"}catch(x){}
+      ta.remove();});
+};
+
+const host=document.getElementById("canvasHost");
+let HAS3D=false,renderer=null,scene=null,camera=null,root=null;
+let camDist=26,camYaw=0.6,camPitch=0.35,tYaw=0.6,tPitch=0.35,tDist=26,autoSpin=true;
+let tickers=[];
+
+function no3D(why){
+  HAS3D=false;
+  showErr("3D viewport unavailable: "+why);
+  if(!document.getElementById("no3d")){
+    const d=document.createElement("div"); d.id="no3d";
+    d.style.cssText="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"+
+      "text-align:center;padding:24px;color:#8A94A2;font-size:13px;line-height:1.6;pointer-events:none";
+    d.innerHTML="The 3D viewport could not start.<br>Data, Heat &amp; cool, Spectrum, Combine, Reactions, Learn and the written descriptions all still work.";
+    host.appendChild(d);
+  }
+}
+
+try{
+  if(typeof THREE==="undefined"||!THREE) throw new Error("three.js did not load from the network");
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  if(THREE.sRGBEncoding!==undefined) renderer.outputEncoding=THREE.sRGBEncoding;
+  if(THREE.ACESFilmicToneMapping!==undefined){ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; }
+  host.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(45,1,0.1,4000);
+  root=new THREE.Group(); scene.add(root);
+  const kL=new THREE.DirectionalLight(0xfff2dd,2.1); kL.position.set(4,6,5); scene.add(kL);
+  const fL=new THREE.DirectionalLight(0x88aaff,0.75); fL.position.set(-6,-1,-3); scene.add(fL);
+  const rL=new THREE.DirectionalLight(0xffd9a0,1.1); rL.position.set(-2,3,-7); scene.add(rL);
+  scene.add(new THREE.HemisphereLight(0x8899bb,0x14171a,0.55));
+  scene.add(new THREE.AmbientLight(0xffffff,0.16));
+  HAS3D=true;
+}catch(e){ no3D(e.message); }
+
+/* Each scene sets its own framing distance. Easing from the previous one can
+   leave the camera inside the new object, so snap on rebuild and only ease
+   for user-driven zoom. */
+function snapCam(){ camDist=tDist; }
+function resetView(){ tYaw=0.6; tPitch=0.35; camYaw=0.6; camPitch=0.35; autoSpin=true; snapCam(); }
+function placeCam(){
+  camYaw+=(tYaw-camYaw)*.12; camPitch+=(tPitch-camPitch)*.12; camDist+=(tDist-camDist)*.1;
+  camera.position.set(camDist*Math.cos(camPitch)*Math.sin(camYaw),camDist*Math.sin(camPitch),
+                      camDist*Math.cos(camPitch)*Math.cos(camYaw));
+  camera.lookAt(0,0,0);
+}
+
+if(HAS3D){
+  const cv=renderer.domElement;
+  let drag=false,px=0,py=0;
+  cv.style.cursor="grab";
+  cv.addEventListener("pointerdown",e=>{drag=true;autoSpin=false;px=e.clientX;py=e.clientY;
+    try{cv.setPointerCapture(e.pointerId)}catch(x){} cv.style.cursor="grabbing"});
+  cv.addEventListener("pointerup",()=>{drag=false;cv.style.cursor="grab"});
+  cv.addEventListener("pointercancel",()=>{drag=false;cv.style.cursor="grab"});
+  cv.addEventListener("pointermove",e=>{ if(!drag)return;
+    tYaw-=(e.clientX-px)*0.008; tPitch=Math.max(-1.45,Math.min(1.45,tPitch+(e.clientY-py)*0.006));
+    px=e.clientX; py=e.clientY; });
+  cv.addEventListener("wheel",e=>{e.preventDefault();
+    tDist=Math.max(4,Math.min(260,tDist*(1+Math.sign(e.deltaY)*0.11)))},{passive:false});
+  cv.addEventListener("webglcontextlost",e=>{ e.preventDefault(); HAS3D=false;
+    showErr("The graphics context was lost — this usually happens after a long idle or a GPU driver reset."); });
+  cv.addEventListener("webglcontextrestored",()=>{ HAS3D=true; rebuild(); });
+  window.__dragging=()=>drag;
+}
+
+/* Resize is coalesced into one animation frame so an observer callback can never
+   trigger another synchronous layout pass. */
+function applyResize(){
+  try{
+    if(!HAS3D||!renderer||!camera) return;
+    const w=host.clientWidth,h=host.clientHeight;
+    if(!w||!h||!isFinite(w)||!isFinite(h)) return;
+    if(renderer.domElement.width===Math.floor(w*renderer.getPixelRatio())&&
+       renderer.domElement.height===Math.floor(h*renderer.getPixelRatio())) return;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h;
+    camera.updateProjectionMatrix();
+  }catch(e){ showErr("Resize failed: "+e.message); }
+}
+/* cancel-and-reschedule, so a frame that never arrives cannot strand the handler */
+let rzId=0;
+function resize(){
+  if(rzId) cancelAnimationFrame(rzId);
+  rzId=requestAnimationFrame(()=>{ rzId=0; applyResize(); });
+}
+if(typeof ResizeObserver!=="undefined"){
+  try{ new ResizeObserver(()=>resize()).observe(host); }
+  catch(e){ showErr("ResizeObserver unavailable: "+e.message); }
+}
+
+function clearRoot(){
+  if(!root) return;
+  while(root.children.length){
+    const c=root.children.pop();
+    c.traverse&&c.traverse(o=>{o.geometry&&o.geometry.dispose();
+      if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m&&m.dispose&&m.dispose());}});
+  }
+}
+
+let frameErr=false;
+function animate(t){
+  requestAnimationFrame(animate);
+  if(!HAS3D||frameErr) return;
+  try{
+    applyResize();
+    if(autoSpin&&!(window.__dragging&&window.__dragging())) tYaw+=0.0022;
+    placeCam();
+    for(const f of tickers) f(t*0.001);
+    renderer.render(scene,camera);
+  }catch(e){
+    frameErr=true;
+    showErr("3D render loop stopped: "+e.message+"\nEverything outside the viewport still works.");
+  }
+}
+requestAnimationFrame(animate);
+
+/* ---------- math for orbitals ---------- */
+function laguerre(k,a,x){
+  if(k===0)return 1; if(k===1)return 1+a-x;
+  let l0=1,l1=1+a-x;
+  for(let i=1;i<k;i++){ const l2=((2*i+1+a-x)*l1-(i+a)*l0)/(i+1); l0=l1; l1=l2; }
+  return l1;
+}
+function radial(n,l,r){
+  const rho=2*r/n;
+  return Math.pow(rho,l)*Math.exp(-rho/2)*laguerre(n-l-1,2*l+1,rho);
+}
+const ANG={
+  "s":[["s",(th,ph)=>1]],
+  "p":[["pz",(t,p)=>Math.cos(t)],["px",(t,p)=>Math.sin(t)*Math.cos(p)],["py",(t,p)=>Math.sin(t)*Math.sin(p)]],
+  "d":[["dz²",(t,p)=>3*Math.cos(t)**2-1],["dxz",(t,p)=>Math.sin(t)*Math.cos(t)*Math.cos(p)],
+       ["dyz",(t,p)=>Math.sin(t)*Math.cos(t)*Math.sin(p)],["dx²-y²",(t,p)=>Math.sin(t)**2*Math.cos(2*p)],
+       ["dxy",(t,p)=>Math.sin(t)**2*Math.sin(2*p)]],
+  "f":[["fz³",(t,p)=>Math.cos(t)*(5*Math.cos(t)**2-3)],
+       ["fxz²",(t,p)=>Math.sin(t)*Math.cos(p)*(5*Math.cos(t)**2-1)],
+       ["fyz²",(t,p)=>Math.sin(t)*Math.sin(p)*(5*Math.cos(t)**2-1)],
+       ["fz(x²-y²)",(t,p)=>Math.sin(t)**2*Math.cos(t)*Math.cos(2*p)],
+       ["fxyz",(t,p)=>Math.sin(t)**2*Math.cos(t)*Math.sin(2*p)],
+       ["fx(x²-3y²)",(t,p)=>Math.sin(t)**3*Math.cos(3*p)],
+       ["fy(3x²-y²)",(t,p)=>Math.sin(t)**3*Math.sin(3*p)]]
+};
+const LNUM={s:0,p:1,d:2,f:3};
+
+function buildOrbital(n,lch,which){
+  const l=LNUM[lch], fn=ANG[lch][Math.min(which,ANG[lch].length-1)][1];
+  const Rmax=n*n*3.2+6, N=17000, BINS=900;
+  const pos=new Float32Array(N*3), col=new Float32Array(N*3);
+  const cA=new THREE.Color(0x8A6A22), cB=new THREE.Color(0x24466F);
+  /* exact radial CDF: P(r) proportional to R(r)^2 r^2 */
+  const cdf=new Float32Array(BINS+1); let acc=0;
+  for(let i=0;i<BINS;i++){
+    const r=(i+0.5)*Rmax/BINS, R=radial(n,l,r);
+    acc+=R*R*r*r; cdf[i+1]=acc;
+  }
+  for(let i=0;i<=BINS;i++) cdf[i]/=acc;
+  const sampleR=()=>{
+    const u=Math.random(); let lo=0,hi=BINS;
+    while(lo<hi){ const mid=(lo+hi)>>1; if(cdf[mid]<u) lo=mid+1; else hi=mid; }
+    return (lo-Math.random())*Rmax/BINS;
+  };
+  /* angular rejection only: |Y|^2, peak found by scan */
+  let aPeak=0;
+  for(let i=0;i<3000;i++){
+    const v=Math.abs(fn(Math.acos(2*Math.random()-1),Math.random()*6.283));
+    if(v>aPeak)aPeak=v;
+  }
+  aPeak=aPeak*aPeak*1.02||1;
+  let k=0,guard=0;
+  while(k<N&&guard<N*80){
+    guard++;
+    const th=Math.acos(2*Math.random()-1), ph=Math.random()*6.283;
+    const a=fn(th,ph);
+    if(Math.random()*aPeak>a*a) continue;
+    const r=sampleR(), st=Math.sin(th);
+    pos[k*3]=r*st*Math.cos(ph); pos[k*3+1]=r*Math.cos(th); pos[k*3+2]=r*st*Math.sin(ph);
+    const c=(radial(n,l,r)*a)>=0?cA:cB;
+    col[k*3]=c.r; col[k*3+1]=c.g; col[k*3+2]=c.b;
+    k++;
+  }
+  const rs=[]; for(let i=0;i<k;i++) rs.push(Math.hypot(pos[i*3],pos[i*3+1],pos[i*3+2]));
+  rs.sort((a,b)=>a-b);
+  const r92=rs[Math.floor(k*0.985)]||Rmax;
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(pos.slice(0,k*3),3));
+  g.setAttribute("color",new THREE.BufferAttribute(col.slice(0,k*3),3));
+  const m=new THREE.PointsMaterial({size:0.21,vertexColors:true,transparent:true,opacity:0.55,
+    blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true});
+  const pts=new THREE.Points(g,m);
+  root.add(pts);
+  const nuc=new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.25,r92*0.035),24,18),
+    new THREE.MeshBasicMaterial({color:0xffffff}));
+  root.add(nuc);
+  m.size=Math.max(0.09,r92*0.021);
+  tDist=r92*3.7;
+  return r92;
+}
+
+/* ---------- shells (Bohr) ---------- */
+function buildShells(e){
+  const sh=shellsOf(e.z);
+  const nuc=new THREE.Mesh(new THREE.SphereGeometry(1.15,32,24),
+    new THREE.MeshStandardMaterial({color:0xEBC96E,emissive:0x8a5f10,emissiveIntensity:.5,roughness:.35,metalness:.2}));
+  root.add(nuc);
+  const orbs=[];
+  sh.forEach((cnt,i)=>{
+    const R=3.4+i*2.7;
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,8,140),
+      new THREE.MeshBasicMaterial({color:0x3E4854}));
+    ring.rotation.x=Math.PI/2; root.add(ring);
+    const grp=new THREE.Group(); root.add(grp);
+    const tilt=(i%3)*0.42-0.42; grp.rotation.z=tilt; grp.rotation.x=(i%2)*0.3;
+    for(let j=0;j<cnt;j++){
+      const a=(j/cnt)*Math.PI*2;
+      const el=new THREE.Mesh(new THREE.SphereGeometry(0.34,16,12),
+        new THREE.MeshStandardMaterial({color:0x57C9BC,emissive:0x1c5f58,emissiveIntensity:.8,roughness:.4}));
+      el.position.set(R*Math.cos(a),0,R*Math.sin(a));
+      grp.add(el);
+    }
+    orbs.push({grp,sp:0.55/(i+1)*(i%2?-1:1)});
+  });
+  tickers.push(t=>orbs.forEach(o=>o.grp.rotation.y=t*o.sp));
+  tDist=3.4+sh.length*2.7+14;
+}
+
+/* ---------- nucleus ---------- */
+let nucState={extra:0};
+function buildNucleus(e,A){
+  const Z=e.z, N=Math.max(0,A-Z), tot=Z+N;
+  const R=1.16*Math.pow(tot,1/3);
+  const pM=new THREE.MeshStandardMaterial({color:0xC9553F,roughness:.42,metalness:.12});
+  const nM=new THREE.MeshStandardMaterial({color:0x6E7A88,roughness:.5,metalness:.1});
+  const geo=new THREE.SphereGeometry(0.62,18,14);
+  const pI=new THREE.InstancedMesh(geo,pM,Z), nI=new THREE.InstancedMesh(geo,nM,N);
+  const d=new THREE.Object3D();
+  const pts=[];
+  for(let i=0;i<tot;i++){
+    const u=(i+0.5)/tot, r=R*Math.cbrt(u);
+    const ga=Math.PI*(3-Math.sqrt(5))*i, z=1-2*u, s=Math.sqrt(Math.max(0,1-z*z));
+    pts.push([r*s*Math.cos(ga)*1.02,r*z*1.02,r*s*Math.sin(ga)*1.02]);
+  }
+  for(let i=pts.length-1;i>0;i--){const j=(i*2654435761)%(i+1);[pts[i],pts[j]]=[pts[j],pts[i]];}
+  let pi=0,ni=0;
+  pts.forEach((p,i)=>{
+    d.position.set(p[0],p[1],p[2]); d.updateMatrix();
+    if(i%tot<Z && pi<Z){ pI.setMatrixAt(pi++,d.matrix);} else if(ni<N){ nI.setMatrixAt(ni++,d.matrix);} else if(pi<Z){pI.setMatrixAt(pi++,d.matrix);}
+  });
+  pI.count=pi; nI.count=ni;
+  root.add(pI); root.add(nI);
+  tDist=R*5.2+9;
+}
+
+/* ---------- crystal lattice ---------- */
+const CELLS={
+  SC:[[0,0,0]],
+  BCC:[[0,0,0],[.5,.5,.5]],
+  FCC:[[0,0,0],[.5,.5,0],[.5,0,.5],[0,.5,.5]],
+  DC:[[0,0,0],[.5,.5,0],[.5,0,.5],[0,.5,.5],[.25,.25,.25],[.75,.75,.25],[.75,.25,.75],[.25,.75,.75]],
+  HCP:[[0,0,0],[.5,.5,0],[.25,.1667,.5],[.75,.6667,.5]],
+  HEX:[[0,0,0],[.5,.5,0]],
+  TET:[[0,0,0],[.5,.5,.5]],
+  ORT:[[0,0,0],[.5,.5,.5]],
+  RHO:[[0,0,0],[.5,.5,.5]],
+  MON:[[0,0,0],[.5,.5,.5]]
+};
+function buildLattice(e,reps){
+  const type=CELLS[e.cry]?e.cry:"FCC";
+  const base=CELLS[type];
+  const a=4.2, n=reps||3;
+  const R=type==="DC"?0.88:1.12;
+  const col=new THREE.Color(e.hex);
+  const metal=e.cat<=4||e.cat>=9?0.92:0.25;
+  const mat=new THREE.MeshStandardMaterial({color:col,metalness:metal,roughness:e.cat===3?0.24:0.38,
+    envMapIntensity:1.4});
+  const pos=[];
+  for(let x=0;x<n;x++)for(let y=0;y<n;y++)for(let z=0;z<n;z++)
+    base.forEach(b=>pos.push([(x+b[0])*a,(y+b[1])*a,(z+b[2])*a]));
+  const off=(n-1)*a/2+a*0.25;
+  const geo=new THREE.SphereGeometry(R,26,20);
+  const im=new THREE.InstancedMesh(geo,mat,pos.length);
+  const d=new THREE.Object3D();
+  pos.forEach((p,i)=>{ d.position.set(p[0]-off,p[1]-off,p[2]-off); d.updateMatrix(); im.setMatrixAt(i,d.matrix); });
+  root.add(im);
+  /* bonds */
+  const link=[];
+  const maxD=type==="DC"?a*0.46:(type==="BCC"?a*0.90:a*0.76);
+  for(let i=0;i<pos.length;i++)for(let j=i+1;j<pos.length;j++){
+    const dx=pos[i][0]-pos[j][0],dy=pos[i][1]-pos[j][1],dz=pos[i][2]-pos[j][2];
+    const dd=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(dd<maxD) link.push([pos[i],pos[j],dd]);
+  }
+  if(link.length&&link.length<3000){
+    const bg=new THREE.CylinderGeometry(0.13,0.13,1,7);
+    const bm=new THREE.MeshStandardMaterial({color:0x4A5462,metalness:.5,roughness:.5});
+    const bi=new THREE.InstancedMesh(bg,bm,link.length);
+    const o=new THREE.Object3D(), up=new THREE.Vector3(0,1,0);
+    link.forEach((L,i)=>{
+      const A=new THREE.Vector3(L[0][0]-off,L[0][1]-off,L[0][2]-off);
+      const B=new THREE.Vector3(L[1][0]-off,L[1][1]-off,L[1][2]-off);
+      o.position.copy(A).add(B).multiplyScalar(.5);
+      o.quaternion.setFromUnitVectors(up,B.clone().sub(A).normalize());
+      o.scale.set(1,L[2],1); o.updateMatrix(); bi.setMatrixAt(i,o.matrix);
+    });
+    root.add(bi);
+  }
+  tDist=n*a*2.3+8;
+}
+
+/* ---------- specimen: what it actually looks like ---------- */
+function buildSpecimen(e,tempK){
+  const T=tempK||293;
+  const phase=T<(e.melt||1e9)?"solid":(T<(e.boil||1e9)?"liquid":"gas");
+  const col=new THREE.Color(e.hex);
+  if(phase==="gas"){
+    const N=9000, pos=new Float32Array(N*3), c2=new Float32Array(N*3);
+    for(let i=0;i<N;i++){
+      const r=7*Math.cbrt(Math.random()), th=Math.acos(2*Math.random()-1), ph=Math.random()*6.283;
+      pos[i*3]=r*Math.sin(th)*Math.cos(ph); pos[i*3+1]=r*Math.cos(th)*0.8; pos[i*3+2]=r*Math.sin(th)*Math.sin(ph);
+      const f=0.55+Math.random()*0.45;
+      c2[i*3]=col.r*f; c2[i*3+1]=col.g*f; c2[i*3+2]=col.b*f;
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute("position",new THREE.BufferAttribute(pos,3));
+    g.setAttribute("color",new THREE.BufferAttribute(c2,3));
+    const pts=new THREE.Points(g,new THREE.PointsMaterial({size:.22,vertexColors:true,
+      transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false}));
+    root.add(pts);
+    tickers.push(t=>{pts.rotation.y=t*.12;pts.rotation.x=Math.sin(t*.2)*.1});
+    tDist=26; return;
+  }
+  const geo=new THREE.IcosahedronGeometry(6,phase==="liquid"?5:6);
+  const p=geo.attributes.position;
+  const v=new THREE.Vector3();
+  const amp=phase==="liquid"?0.18:1.0;
+  for(let i=0;i<p.count;i++){
+    v.fromBufferAttribute(p,i);
+    const n1=Math.sin(v.x*0.9)*Math.cos(v.y*0.75)*Math.sin(v.z*0.62);
+    const n2=0.45*Math.sin(v.x*2.3+1.1)*Math.cos(v.z*1.9)*Math.sin(v.y*2.1);
+    const n3=0.18*Math.sin(v.x*5.7+2.4)*Math.cos(v.y*6.3)*Math.sin(v.z*5.1);
+    const n4=0.07*Math.sin(v.x*13.1)*Math.cos(v.z*11.7)*Math.sin(v.y*12.3);
+    v.multiplyScalar(1+(n1+n2+n3+n4)*amp*0.075);
+    p.setXYZ(i,v.x,v.y,v.z);
+  }
+  geo.computeVertexNormals();
+  const isMetal=e.cat<=4||e.cat===9||e.cat===10;
+  const mat=new THREE.MeshStandardMaterial({
+    color:col,
+    metalness:isMetal?(phase==="liquid"?1.0:0.95):0.08,
+    roughness:phase==="liquid"?0.05:(isMetal?0.31:0.64)
+  });
+  /* incandescent glow above ~800 K */
+  if(T>800){
+    const g2=blackbody(T);
+    mat.emissive=new THREE.Color(g2[0]/255,g2[1]/255,g2[2]/255);
+    mat.emissiveIntensity=Math.min(2.4,(T-800)/1400);
+  }
+  const m=new THREE.Mesh(geo,mat); root.add(m);
+  tDist=20;
+}
+
+/* blackbody colour approximation (Tanner Helland) */
+function blackbody(K){
+  const t=Math.max(1000,Math.min(12000,K))/100;
+  let r,g,b;
+  if(t<=66){ r=255; g=99.47*Math.log(t)-161.12; }
+  else { r=329.7*Math.pow(t-60,-0.1332); g=288.12*Math.pow(t-60,-0.0755); }
+  if(t>=66) b=255; else if(t<=19) b=0; else b=138.52*Math.log(t-10)-305.04;
+  const c=x=>Math.max(0,Math.min(255,Math.round(x)));
+  return [c(r),c(g),c(b)];
+}
+/* wavelength (nm) -> rgb */
+function wl2rgb(w){
+  let r=0,g=0,b=0;
+  if(w>=380&&w<440){r=-(w-440)/60;b=1}
+  else if(w<490){g=(w-440)/50;b=1}
+  else if(w<510){g=1;b=-(w-510)/20}
+  else if(w<580){r=(w-510)/70;g=1}
+  else if(w<645){r=1;g=-(w-645)/65}
+  else if(w<=780){r=1}
+  else if(w<380){b=1;r=.4}
+  else {r=.5}
+  let f=1;
+  if(w>=380&&w<420)f=.3+.7*(w-380)/40;
+  else if(w>700&&w<=780)f=.3+.7*(780-w)/80;
+  else if(w<380||w>780)f=.35;
+  const c=x=>Math.round(255*Math.pow(Math.max(0,x)*f,0.8));
+  return [c(r),c(g),c(b)];
+}
+/* ============================================================
+   STATE + TABLE
+   ============================================================ */
+let CUR=BYSYM["V"], MODE="orbital", SUB=null, TAB="read", showingCompound=false;
+const $=id=>document.getElementById(id)||{style:{},classList:{add(){},remove(){},toggle(){}},
+  querySelectorAll:()=>[],querySelector:()=>null,appendChild(){},insertBefore(){},addEventListener(){},
+  set textContent(v){},get textContent(){return ""},set innerHTML(v){},get innerHTML(){return ""},
+  set value(v){},get value(){return ""},set disabled(v){},get disabled(){return false},focus(){},scrollIntoView(){}};
+const done={};
+
+function buildTable(){
+  const t=$("ptable");
+  EL.forEach(e=>{
+    const b=document.createElement("button");
+    b.className="cell"; b.dataset.z=e.z; b.dataset.cat=e.cat;
+    b.style.background=CATC[e.cat]+"33"; b.style.color=CATC[e.cat];
+    b.style.gridRow=e.row+(e.row>7?1:0); b.style.gridColumn=e.col;
+    b.innerHTML='<div class="z">'+e.z+'</div><div class="sy">'+e.sym+'</div>';
+    b.title=e.name;
+    b.onclick=()=>select(e.z);
+    t.appendChild(b);
+  });
+  [[6,"57–71"],[7,"89–103"]].forEach(([r,lab])=>{
+    const d=document.createElement("div"); d.className="gap";
+    d.style.gridRow=r; d.textContent=lab; t.appendChild(d);
+  });
+  const sp=document.createElement("div"); sp.style.cssText="grid-row:8;grid-column:1/19;height:7px"; t.appendChild(sp);
+
+  const lg=$("legend");
+  let act=0;
+  for(let i=1;i<=10;i++){
+    const b=document.createElement("button"); b.className="lgi";
+    b.innerHTML='<span class="sw" style="background:'+CATC[i]+'"></span>'+CATN[i];
+    b.onclick=()=>{ act=act===i?0:i;
+      document.querySelectorAll(".lgi").forEach((x,j)=>x.classList.toggle("on",act===j+1));
+      document.querySelectorAll(".cell").forEach(c=>c.classList.toggle("dim",act>0&&+c.dataset.cat!==act));
+    };
+    lg.appendChild(b);
+  }
+}
+
+function select(z){
+  CUR=EL[z-1]; SUB=null;
+  document.querySelectorAll(".cell").forEach(c=>c.classList.toggle("on",+c.dataset.z===z));
+  $("hSym").textContent=CUR.sym; $("hSym").style.color=CATC[CUR.cat];
+  $("hName").textContent=CUR.name;
+  $("hMeta").textContent=CUR.z+" · "+CUR.mass+" u · "+CATN[CUR.cat].toLowerCase();
+  for(const k in done) delete done[k];
+  buildSub(); rebuild(); renderTab();
+  const el=document.querySelector('.cell[data-z="'+z+'"]');
+  el&&el.scrollIntoView({block:"nearest"});
+}
+
+/* ---------- mode / submodes ---------- */
+const NOTES={
+  orbital:"Point cloud sampled from |ψ|². Gold and blue are opposite phases of the wavefunction. Drag to rotate, scroll to zoom.",
+  shell:"Bohr model — electron counts per shell are real, the tidy circular orbits are not. Useful for bonding, wrong about position.",
+  nucleus:"Protons red, neutrons grey. Packing is illustrative; the real nucleus is a quantum fluid, not a bag of marbles.",
+  lattice:"Unit cell repeated in 3D. Structure is the element's room-temperature phase.",
+  specimen:"Rendered from the element's real appearance colour and phase at the set temperature."
+};
+function buildSub(){
+  const c=$("subMode"); c.innerHTML="";
+  const row=lab=>{ const d=document.createElement("div"); d.className="subRow";
+    if(lab){const l=document.createElement("span");l.className="subLab";l.textContent=lab;d.appendChild(l);}
+    c.appendChild(d); return d; };
+  const add=(par,lab,i,on)=>{ const b=document.createElement("button");
+    b.className="sub"+(on?" on":""); b.textContent=lab;
+    b.onclick=()=>{SUB=i;buildSub();rebuild()}; par.appendChild(b); return b; };
+  if(MODE==="orbital"){
+    const occ=configOf(CUR.z);
+    let si,oj;
+    if(SUB===null){ si=occ.length-1; oj=0; } else { si=Math.floor(SUB/100); oj=SUB%100; }
+    si=Math.min(si,occ.length-1);
+    const r1=row("subshell");
+    occ.forEach((o,i)=>{
+      const b=add(r1,o[0]+" ("+o[1]+"e)",i*100,i===si);
+      if(i===si) setTimeout(()=>b.scrollIntoView({block:"nearest",inline:"center"}),0);
+    });
+    const l=occ[si][0][1];
+    if(ANG[l].length>1){
+      const r2=row("shape");
+      ANG[l].forEach((a,j)=>add(r2,a[0],si*100+j,j===Math.min(oj,ANG[l].length-1)));
+    }
+  } else if(MODE==="lattice"){
+    const r=row("repeat"); ["2\u00d72\u00d72","3\u00d73\u00d73","4\u00d74\u00d74"]
+      .forEach((l,i)=>add(r,l,i,SUB===i||(SUB===null&&i===1)));
+  } else if(MODE==="nucleus"){
+    const A=massNum(CUR), r=row("isotope");
+    [-4,-2,0,2,4].forEach((d,i)=>add(r,CUR.sym+"-"+(A+d),i,SUB===i||(SUB===null&&d===0)));
+  } else if(MODE==="specimen"){
+    const r=row("state");
+    [[80,"cryogenic"],[293,"room temp"],[1200,"red hot"],[2200,"white hot"],[9999,"vapour"]]
+      .forEach((p,i)=>add(r,p[1],i,SUB===i||(SUB===null&&i===1)));
+  }
+}
+function rebuild(){
+  if(!HAS3D){ $("stageNote").textContent=""; return; }
+  clearRoot(); tickers=[]; autoSpin=true; showingCompound=false;
+  $("stageNote").textContent=NOTES[MODE];
+  if(MODE==="orbital"){
+    const occ=configOf(CUR.z);
+    let i,j;
+    if(SUB===null){ i=occ.length-1; j=0; } else { i=Math.floor(SUB/100); j=SUB%100; }
+    i=Math.min(i,occ.length-1);
+    const orb=occ[i], nn=parseInt(orb[0][0]), l=orb[0][1];
+    j=Math.min(j,ANG[l].length-1);
+    buildOrbital(nn,l,j);
+    const rn=nn-LNUM[l]-1, an=LNUM[l], pl=(v,w)=>v+" "+w+(v===1?"":"s");
+    $("stageNote").textContent=orb[0]+" "+ANG[l][j][0]+"  ·  "+pl(rn,"radial node")+", "+pl(an,"angular node")+
+      "\nGold and blue are opposite phases of ψ. Drag to rotate, scroll to zoom.";
+  }
+  else if(MODE==="shell") buildShells(CUR);
+  else if(MODE==="nucleus"){ const A=massNum(CUR)+[-4,-2,0,2,4][SUB===null?2:SUB]; buildNucleus(CUR,A); }
+  else if(MODE==="lattice"){ buildLattice(CUR,[2,3,4][SUB===null?1:SUB]);
+    $("stageNote").textContent=({BCC:"Body-centred cubic",FCC:"Face-centred cubic",HCP:"Hexagonal close-packed",
+      DC:"Diamond cubic",SC:"Simple cubic",HEX:"Hexagonal",TET:"Tetragonal",ORT:"Orthorhombic",
+      RHO:"Rhombohedral",MON:"Monoclinic"}[CUR.cry]||"Structure unknown — showing FCC")+"\n"+NOTES.lattice; }
+  else if(MODE==="specimen") buildSpecimen(CUR,[80,293,1200,2200,9999][SUB===null?1:SUB]);
+  snapCam();
+  resize();
+}
+
+/* ============================================================
+   OFFLINE CONTENT — composed from the stored data, no network
+   ============================================================ */
+const NOTE={
+H:["The lightest and most abundant element in the universe, though on Earth almost all of it is locked up in water and hydrocarbons rather than floating free.","Industrially it comes from steam reforming of natural gas, and it is central to ammonia production for fertiliser. In welding it is the H in oxy-hydrogen and a shielding-gas addition that boosts arc heat in stainless TIG."],
+C:["Sits at the centre of organic chemistry because it bonds to itself indefinitely in chains and rings. Its allotropes span the extremes of hardness — diamond and graphite are the same element in different arrangements.","In steel it is the single most important alloying element. Carbon content is what separates mild steel from tool steel, and it is why preheat and cooling rate matter so much on anything above about 0.3 percent."],
+N:["Makes up 78 percent of the atmosphere, held almost inert by a triple bond that takes enormous energy to break.","Liquid nitrogen is the standard industrial cryogen, and nitrogen gas is used as a purge and backing gas when welding stainless and duplex to keep oxygen away from the root."],
+O:["The most abundant element in the crust and the one that makes combustion and corrosion possible.","In fabrication it is both tool and enemy — the oxidiser in an oxy-fuel flame and in cutting, and the thing shielding gas exists to keep out of a weld pool."],
+Al:["Light, soft and extremely reactive, but it forms a self-sealing oxide film a few nanometres thick that stops corrosion dead.","Refined by electrolysis of alumina in molten cryolite, which is why aluminium production is essentially a way of storing electricity. Welding it means dealing with that oxide layer, which melts at a far higher temperature than the metal underneath."],
+Si:["A metalloid and the second most abundant element in the crust, the backbone of rock, sand, glass and every silicon chip.","In cast iron and steel it acts as a deoxidiser and raises fluidity, which is why it shows up in most filler wire specifications."],
+S:["Yellow, brittle and one of the few elements found native in usable quantities.","In steel it is usually an impurity to be minimised — it causes hot shortness and weld cracking — except in free-machining grades where it is added deliberately to break up chips."],
+Ti:["Nearly as strong as steel at a bit over half the density, and it passivates like aluminium.","Extracted by the Kroll process, which is slow and expensive and the main reason titanium costs what it does. It must be welded under full inert shielding front and back, since it grabs oxygen and nitrogen hungrily above about 500 °C."],
+Cr:["Hard, bright and highly polished when clean. Above about 10.5 percent in steel it forms the passive oxide film that makes stainless stainless.","Also the basis of chrome plating and of hexavalent chromium, the reason stainless welding fume needs proper extraction."],
+Mn:["Brittle and hard on its own, but indispensable in steel — it ties up sulfur as manganese sulfide and prevents hot cracking.","Hadfield manganese steel work-hardens dramatically under impact, which is why it is used for crusher jaws and rail crossings."],
+Fe:["The most used metal by a very wide margin, and the heaviest element that stellar fusion produces at a net energy gain.","Its usefulness comes from polymorphism — it changes crystal structure with temperature, which is what makes heat treatment possible at all."],
+Ni:["Tough, corrosion-resistant and ferromagnetic. In stainless it stabilises the austenitic structure, which is what makes 304 and 316 non-magnetic and formable.","Also the base of Inconel and Monel, the alloys used where heat or seawater would destroy stainless."],
+Cu:["Second only to silver in electrical conductivity, and far cheaper.","One of the first metals worked by humans because it occurs native. Its high thermal conductivity is exactly why it is difficult to weld — heat runs away from the joint faster than you can put it in."],
+Zn:["Low melting, and it protects steel by corroding sacrificially rather than by forming a barrier.","Galvanised coatings are its main use. Welding through zinc releases zinc oxide fume and causes metal fume fever, which is the specific reason galvanising should be ground off the joint first."],
+Ag:["The best electrical and thermal conductor of any element, and the most reflective.","Silver brazing alloys flow at far lower temperatures than the parent metals and are the standard for joining dissimilar metals and for HVAC pipework."],
+W:["The highest melting point of any metal at 3695 K, and among the densest.","That melting point is why it makes the non-consumable electrode in TIG welding and the filament in incandescent lamps. As tungsten carbide it is the standard cutting tool material."],
+Au:["Chemically the most inert of the common metals — it does not tarnish, oxidise or react with single acids.","Almost all gold ever mined still exists. Its industrial use is mainly thin plating on electrical contacts, where inertness matters more than conductivity."],
+Hg:["The only metal liquid at room temperature, because its outermost electrons are held so tightly by relativistic effects that metallic bonding stays weak.","Its vapour is cumulatively toxic, which has driven it out of thermometers and switches almost everywhere."],
+Pb:["Soft, dense and very low melting, worked since antiquity because it is so easy to shape.","Radiation shielding and lead-acid batteries are what remain of its uses. Lead-free solder replaced it in electronics, which raised working temperatures noticeably."],
+U:["The heaviest element that occurs naturally in useful quantity, and the densest common material after tungsten.","Natural uranium is over 99 percent U-238, which will not sustain a chain reaction. Enrichment means raising the U-235 fraction, and that separation is the whole technical difficulty of nuclear fuel."],
+Na:["Soft enough to cut with a knife and reactive enough that it has to be stored under oil.","Sodium vapour lamps produce that distinctive orange from a single pair of emission lines, which is why they render colour so badly."],
+Ca:["The metal behind limestone, cement, plaster and bone.","In steelmaking it is injected to modify inclusions, turning brittle alumina stringers into rounder calcium aluminates that do less damage to toughness."],
+Mg:["The lightest structural metal, about two-thirds the density of aluminium.","It burns with a brilliant white light that water will not extinguish, since it strips oxygen straight out of H₂O."],
+He:["Inert, second lightest, and the only substance that will not freeze at any temperature under ordinary pressure.","In welding it is used as a shielding gas or argon addition where a hotter, deeper-penetrating arc is wanted, particularly on aluminium and copper."],
+Ar:["Inert, cheap and heavier than air, which is exactly what a shielding gas needs to be.","It makes up about one percent of the atmosphere and is recovered as a byproduct of separating oxygen and nitrogen from liquid air."],
+Cl:["A green-yellow gas, highly reactive, and one of the most industrially important nonmetals.","Its main uses are water treatment and PVC production. As hydrochloric acid it is the standard pickling acid for descaling steel."],
+Mo:["Very high melting point and it raises strength and creep resistance in steel at elevated temperature.","Chromoly tubing — 4130 — takes its name from the chromium and molybdenum in it, and that combination is why it is the standard for roll cages and aircraft frames."],
+Co:["Ferromagnetic with a Curie point far above iron's, so it holds magnetism where iron would lose it.","It is the binder that holds tungsten carbide grains together in cutting tools, and the cobalt in Stellite makes hardfacing alloys that keep their hardness red hot."],
+Sn:["Low melting, soft and the reason bronze age metallurgy happened.","Tin plating on steel makes tinplate, and tin is the base of nearly all soft solder. Below 13 °C it can slowly transform into a crumbling grey allotrope."],
+Pt:["Extremely unreactive, very dense and an outstanding catalyst.","Catalytic converters are its largest use. It resists attack by single acids and needs aqua regia to dissolve."],
+Li:["The lightest metal, light enough to float on water — while reacting with it.","Lithium-ion batteries are its dominant use now. It is also used in some aluminium alloys to cut density further."],
+K:["More reactive than sodium and soft enough to deform in your fingers.","Essentially all of it goes to potash fertiliser. It is one of the elements essential to nerve function in living things."],
+B:["A hard, dark metalloid that in tiny quantities dramatically increases the hardenability of steel.","Boron steels need only a few parts per million to work, and boron's neutron absorption makes it useful in reactor control rods."],
+V:["Hard, corrosion resistant, and named after a Norse goddess for the colours of its compounds.","In steel it forms fine carbides that pin grain boundaries, raising strength and toughness at fractions of a percent. It is also the working element in redox flow batteries."],
+Nb:["Also called columbium in older American steel specifications.","Micro-alloyed with niobium, HSLA steels get strength from grain refinement rather than carbon, which is what lets pipeline steel stay weldable while getting stronger."],
+Zr:["Corrosion resistant and almost transparent to neutrons, which is a rare and valuable combination.","Zircaloy cladding holds nuclear fuel pellets. Zirconia ceramics are used where thermal shock would destroy other ceramics."],
+Ta:["Extremely corrosion resistant, to the point of being used for chemical plant lining and surgical implants.","Its main use is in capacitors, where its oxide layer makes an exceptionally thin and stable dielectric."]
+};
+function offlineRead(e,part){
+  const T=293, ph=e.melt===null?null:(T<e.melt?"solid":(e.boil&&T<e.boil?"liquid":"gas"));
+  const meltRank=EL.filter(x=>x.melt&&e.melt&&x.melt>e.melt).length;
+  const densCmp=e.dens===null?null:
+    e.dens<0.01?"lighter than air":
+    e.dens<1?"less dense than water — it would float":
+    e.dens<3?"light for a solid, in the range of aluminium":
+    e.dens<8?"around the density of iron":
+    e.dens<12?"noticeably denser than iron":"one of the densest materials there is";
+  const n=NOTE[e.sym]||[];
+  const P=[];
+  if(part===0){
+    let a=[];
+    if(n[0]) a.push(n[0]);
+    a.push("It is a "+CATN[e.cat].toLowerCase()+
+      (e.group?", sitting in group "+e.group+" of period "+e.period:" in period "+e.period)+
+      ", which puts "+valenceOf(e.z)+" electron"+(valenceOf(e.z)===1?"":"s")+" in its outer region. That count is what governs how it bonds.");
+    if(ph) a.push("At room temperature it is a "+ph+"."+
+      (e.melt!==null?" It melts at "+e.melt.toFixed(0)+" K, or "+K2C(e.melt).toFixed(0)+" °C, which makes it higher-melting than "+
+        (118-meltRank-1)+" of the other elements and lower than "+meltRank+".":""));
+    if(densCmp) a.push("At "+e.dens+" g/cm³ it is "+densCmp+".");
+    if(e.cry) a.push("Its atoms pack in a "+({BCC:"body-centred cubic",FCC:"face-centred cubic",HCP:"hexagonal close-packed",DC:"diamond cubic",SC:"simple cubic",HEX:"hexagonal",TET:"tetragonal",ORT:"orthorhombic",RHO:"rhombohedral",MON:"monoclinic"}[e.cry]||e.cry)+" arrangement.");
+    P.push(a.join(" "));
+    const b=[];
+    b.push(e.year===0?"It has been known and worked since antiquity, long before anyone understood what an element was."
+      :"It was identified in "+e.year+".");
+    if(e.en!==null) b.push("Its electronegativity of "+e.en+(e.en>=3?" is among the highest in the table, so it pulls hard on shared electrons and tends to take them outright."
+      :e.en<=1?" is very low, so it gives electrons up readily — the defining behaviour of a reactive metal.":" is middling, so it shares electrons rather than seizing or surrendering them."));
+    b.push("Its electron configuration is "+configStr(e.z,true)+".");
+    if(CFGEX[e.z]) b.push("It breaks the simple filling order, because a half-filled or filled subshell turns out to be more stable than the naive prediction.");
+    P.push(b.join(" "));
+  }
+  if(part===1){
+    const ab=abundText(e.sym);
+    const a=[];
+    if(ab){ a.push("In the earth's crust it runs at about "+(ab[0]>=1?ab[0].toLocaleString():ab[0].toExponential(1))+" parts per million, which makes it "+ab[1]+".");
+      const rank=Object.keys(ABUND).filter(k=>ABUND[k]>ab[0]).length+1;
+      a.push("That puts it roughly "+rank+(rank===1?"st":rank===2?"nd":rank===3?"rd":"th")+" among the elements with measurable crustal abundance."); }
+    else a.push("It has no meaningful natural abundance. Every atom of it that exists has been made in a reactor or an accelerator, usually a few at a time.");
+    if(e.cat===8) a.push("As a noble gas it is recovered from the atmosphere by fractional distillation of liquid air rather than mined from rock.");
+    else if(e.cat===1||e.cat===2) a.push("Being this reactive, it is never found as the free metal. It occurs only as compounds, and getting the metal out takes electrolysis of a molten salt rather than simple smelting.");
+    else if(e.cat===9) a.push("Lanthanides occur together in the same few minerals — monazite and bastnäsite mainly — and separating them from each other is the hard and expensive part, because chemically they behave almost identically.");
+    else if(e.cat===10) a.push("Actinides are radioactive, and beyond uranium they are essentially all synthetic, made by bombarding lighter actinides with neutrons or ions.");
+    else if(e.z>=104) a.push("It is produced by fusing lighter nuclei in an accelerator. Only a handful of atoms have ever existed, and they decayed within seconds or less.");
+    P.push(a.join(" "));
+    if(n[1]) P.push(n[1]);
+    else if(ab&&ab[0]<1) P.push("At this level it is almost always recovered as a byproduct of refining something more common, rather than mined on its own account. That is the usual economics of scarce elements — the cost of processing the ore is already being paid for another metal.");
+  }
+  if(part===2){
+    const comps=Object.keys(COMP).filter(k=>k.split(",").includes(e.sym));
+    const a=[];
+    if(comps.length){
+      a.push("Compounds of it stored in this app: "+comps.map(k=>COMP[k].f+" ("+COMP[k].n.split(" — ")[0]+")").join(", ")+". Open the Combine tab to see how each one bonds and what it is used for.");
+    }
+    const r=reactRule(e,"water"), rf=reactRule(e,"flame");
+    a.push("Put in water, the behaviour is: "+r.title.toLowerCase()+". "+r.text);
+    P.push(a.join(" "));
+    const b=[];
+    if(FLAME[e.sym]) b.push("In a flame it burns "+FLAME[e.sym][0].toLowerCase()+", which is the visible form of its emission spectrum. "+rf.text);
+    if(SPEC[e.sym]) b.push("Its principal visible emission lines are stored here — "+SPEC[e.sym].length+" of them — so the Spectrum tab will show the real pattern rather than an approximation.");
+    if(b.length) P.push(b.join(" "));
+    P.push("This description was assembled from the measured data stored in this file. The fuller written account — history, mining, industry, biology — is generated live and needs the app running inside Claude.");
+  }
+  return P.join("\n\n");
+}
+
+/* ============================================================
+   READ
+   ============================================================ */
+const READ_PARTS=[
+ ["What it is","Write 2 short paragraphs about the element "+"{N}"+" ("+"{S}"+", atomic number {Z}). First: what it physically is — appearance, hardness, density, how it behaves, what group it belongs to and what that means for its chemistry. Second: how it was discovered and named, with names and dates and any oddity in that story."],
+ ["Where it comes from","Write 2 short paragraphs on where {N} comes from. Which minerals or ores, whether it is mined directly or recovered as a byproduct of something else, which countries produce most of it, how abundant it is in the earth's crust, and anything unusual about how it is extracted or purified."],
+ ["What it is used for","Write 3 short paragraphs on what {N} is used for. Lead with the largest use by volume and say roughly what share that is. Cover industrial, structural or metallurgical uses, then technology or energy uses, then close with any biological role or genuinely strange fact about it. If it has a role in steel, alloys, welding or fabrication, say so specifically."]
+];
+async function renderRead(){
+  const v=$("v-read");
+  if(done.read===CUR.z) return;
+  done.read=CUR.z;
+  v.innerHTML='<div class="sec"><h2>'+CUR.name+'</h2>'+
+    '<p class="dim small">'+CATN[CUR.cat]+' · '+(CUR.group?'group '+CUR.group:'f-block')+', period '+CUR.period+
+    (CUR.group?' · '+BLOCK(CUR.z)+'-block':'')+(CUR.year===0?" · known since antiquity":" · identified "+CUR.year)+'</p></div>'+
+    '<div id="readBody"></div>'+
+    '<div class="card" style="margin-top:22px"><h4>Ask about '+CUR.sym+'</h4>'+
+    '<div class="row"><input type="text" id="qIn" placeholder="Why is it used in tool steel?" style="flex:1;min-width:180px">'+
+    '<button class="btn pri" id="qGo">Ask</button></div><div id="qOut" style="margin-top:12px"></div></div>';
+  const body=$("readBody");
+  $("qGo").onclick=async()=>{
+    const q=$("qIn").value.trim();
+    if(!q){ $("qOut").innerHTML='<div class="err">Type a question first.</div>'; return; }
+    $("qOut").innerHTML='<span class="load"></span> <span class="dim small">Thinking…</span>';
+    try{ const a=await askClaude(VOICE+"\n\nQuestion about the element "+CUR.name+" ("+CUR.sym+"): "+q+"\n\nAnswer in at most 3 short paragraphs.");
+      $("qOut").innerHTML=mdToHtml(a);
+    }catch(err){ $("qOut").innerHTML='<div class="err">'+err.message+'</div>'; }
+  };
+  $("qIn").addEventListener("keydown",e=>{if(e.key==="Enter")$("qGo").click()});
+
+  for(let pi=0;pi<READ_PARTS.length;pi++){
+    const [head,tpl]=READ_PARTS[pi];
+    const sec=document.createElement("div"); sec.className="sec";
+    sec.innerHTML="<h3>"+head+"</h3><div class='skel'></div><div class='skel' style='width:88%'></div><div class='skel' style='width:62%'></div>";
+    body.appendChild(sec);
+    const target=CUR;
+    try{
+      const txt=await askClaude(VOICE+"\n\n"+tpl.replace(/\{N\}/g,target.name).replace(/\{S\}/g,target.sym).replace(/\{Z\}/g,target.z));
+      if(CUR!==target) return;
+      sec.innerHTML="<h3>"+head+"</h3>"+mdToHtml(txt);
+    }catch(err){
+      if(CUR!==target) return;
+      sec.innerHTML="<h3>"+head+"</h3>"+mdToHtml(offlineRead(target,pi));
+      for(let pj=pi+1;pj<READ_PARTS.length;pj++){
+        const s2=document.createElement("div"); s2.className="sec";
+        s2.innerHTML="<h3>"+READ_PARTS[pj][0]+"</h3>"+mdToHtml(offlineRead(target,pj));
+        body.appendChild(s2);
+      }
+      const w=document.createElement("div"); w.className="card aiWarn";
+      w.style.borderColor="#6B4030";
+      w.innerHTML='<h4 style="color:#E09A6A">Showing stored descriptions</h4>'+
+        '<p class="small" style="margin:0 0 8px">'+AI_DIAG+'</p>'+
+        '<p class="small dim" style="margin:0 0 10px">Everything else works without a connection — the periodic table, all five 3D modes, heat and cool, spectra, the built-in compounds and reactions. Only the generated writeups and the free-text questions need one.</p>'+
+        '<button class="btn" id="aiRetry">Try connecting again</button>';
+      body.insertBefore(w,body.firstChild);
+      document.getElementById("aiRetry").onclick=()=>{ for(const k in AICACHE) delete AICACHE[k];
+        done.read=null; setAIState("unknown",""); renderRead(); };
+      break;
+    }
+  }
+}
+
+/* ============================================================
+   DATA
+   ============================================================ */
+const K2C=k=>k===null?null:k-273.15;
+function fmt(v,d,u){ return v===null||v===undefined?'<span class="dim">unknown</span>':v.toFixed(d)+(u?' <small>'+u+'</small>':''); }
+function renderData(){
+  const e=CUR, sh=shellsOf(e.z);
+  const st=stabilityGuess(e.z,massNum(e)-e.z);
+  const F=(k,v)=>'<div class="fact"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>';
+  $("v-data").innerHTML=
+   '<h2>Measured properties</h2>'+
+   '<div id="facts">'+
+    F("Atomic number",e.z)+
+    F("Atomic mass",e.mass+' <small>u</small>')+
+    F("Melting point",e.melt===null?'<span class="dim">unknown</span>':e.melt.toFixed(1)+' <small>K / '+K2C(e.melt).toFixed(0)+'°C</small>')+
+    F("Boiling point",e.boil===null?'<span class="dim">unknown</span>':e.boil.toFixed(1)+' <small>K / '+K2C(e.boil).toFixed(0)+'°C</small>')+
+    F("Density",fmt(e.dens,e.dens&&e.dens<0.01?5:3,"g/cm³"))+
+    F("Electronegativity",e.en===null?'<span class="dim">none</span>':e.en.toFixed(2)+' <small>Pauling</small>')+
+    F("Crystal structure",e.cry||'<span class="dim">unknown</span>')+
+    F("Group",e.group?e.group:'<span class="dim">f-block</span>')+
+    F("Common isotope",e.sym+"-"+massNum(e))+
+    F("Neutrons",massNum(e)-e.z)+
+    F("Valence electrons",valenceOf(e.z))+
+    F("Block",BLOCK(e.z)+"-block")+
+    F("Discovered",e.year===0?"antiquity":e.year)+
+    F("Crustal abundance",ABUND[e.sym]===undefined?'<span class="dim">negligible</span>':
+      (ABUND[e.sym]>=1?ABUND[e.sym].toLocaleString():ABUND[e.sym].toExponential(1))+' <small>ppm</small>')+
+   '</div>'+
+   '<h3>Electron configuration</h3>'+
+   '<p style="font-family:var(--mono);font-size:14px">'+configStr(e.z,true)+'</p>'+
+   '<p class="dim small" style="font-family:var(--mono)">'+configStr(e.z,false)+'</p>'+
+   '<p class="small dim">Electrons per shell: '+sh.join(" · ")+
+     (CFGEX[e.z]?'<br>This element breaks the simple filling order — a half-full or full subshell is more stable than the naive prediction.':'')+'</p>'+
+   '<h3>Nucleus</h3>'+
+   '<p class="small">'+e.z+' protons, '+(massNum(e)-e.z)+' neutrons in the most common isotope. '+
+     'Trend estimate: <span class="pill">'+st.label+'</span> — '+st.note+'.</p>'+
+   '<p class="small dim">Stability here is estimated from the valley-of-stability trend, not read from a nuclide table. Treat it as a rule of thumb.</p>'+
+   '<h3>Position in the table</h3>'+
+   '<p class="small">'+trendText(e)+'</p>';
+}
+function trendText(e){
+  const bits=[];
+  if(e.group) bits.push("Group "+e.group+" means "+valenceOf(e.z)+" electrons in the outer region, which is what sets its bonding behaviour.");
+  bits.push("Period "+e.period+" means the outermost electrons sit in shell "+e.period+".");
+  if(e.en!==null){
+    if(e.en>=3.0) bits.push("An electronegativity of "+e.en+" is high — this element pulls hard on shared electrons and tends to take them outright.");
+    else if(e.en<=1.0) bits.push("An electronegativity of "+e.en+" is very low — it gives electrons up readily, which is what makes it reactive as a metal.");
+    else bits.push("An electronegativity of "+e.en+" is middling — it shares electrons rather than taking or surrendering them.");
+  }
+  return bits.join(" ");
+}
+
+/* ============================================================
+   HEAT & COOL
+   ============================================================ */
+let thermoRAF=null;
+function renderThermal(){
+  const e=CUR;
+  if(e.melt===null){ $("v-thermal").innerHTML='<h2>Heat &amp; cool</h2><p>No measured melting or boiling point exists for '+e.name+'. For the heaviest synthetic elements only a handful of atoms have ever been made, and they decay in milliseconds — there is no bulk sample to melt.</p>'; return; }
+  const maxT=Math.min(7000,Math.max(1200,(e.boil||1500)*1.35));
+  $("v-thermal").innerHTML=
+   '<h2>Heat &amp; cool</h2>'+
+   '<p class="small dim">Drag the temperature. The simulation below shows how the atoms behave, and the sample colour is the real blackbody colour a body at that temperature glows.</p>'+
+   '<div class="ctl"><label>Temperature</label><input type="range" id="tSl" min="1" max="'+Math.round(maxT)+'" value="293" step="1"><div class="rd" id="tRd">293 K</div></div>'+
+   '<div id="phaseBar"></div>'+
+   '<div class="row small dim" style="justify-content:space-between;margin-bottom:14px"><span>0 K</span><span>'+Math.round(maxT)+' K</span></div>'+
+   '<canvas id="thermoCv" height="200"></canvas>'+
+   '<div class="card" style="margin-top:14px"><h4 id="phTitle">Solid</h4><p class="small" id="phText"></p></div>'+
+   '<h3>Fixed points</h3>'+
+   '<p class="small">Melts at '+e.melt.toFixed(1)+' K ('+K2C(e.melt).toFixed(0)+' °C). '+
+     (e.boil?'Boils at '+e.boil.toFixed(1)+' K ('+K2C(e.boil).toFixed(0)+' °C). ':'')+
+     'That is a liquid range of '+(e.boil?Math.round(e.boil-e.melt)+' K':'unknown width')+'.</p>'+
+   '<p class="small dim" id="cmp"></p>';
+
+  const bar=$("phaseBar");
+  const mp=e.melt/maxT*100, bp=Math.min(100,(e.boil||maxT)/maxT*100);
+  bar.innerHTML='<div style="width:'+mp+'%;background:#2E3C50;color:#9FB4CC">solid</div>'+
+    '<div style="width:'+(bp-mp)+'%;background:#7A4A2A;color:#F0C9A8">liquid</div>'+
+    '<div style="width:'+(100-bp)+'%;background:#4A3560;color:#D0B4E8">gas</div><div id="phaseMark"></div>';
+
+  const cv=$("thermoCv"), ctx=cv.getContext("2d");
+  const N=170, P=[];
+  for(let i=0;i<N;i++) P.push({x:Math.random(),y:Math.random(),vx:0,vy:0,hx:0,hy:0});
+  const cols=Math.ceil(Math.sqrt(N));
+  P.forEach((p,i)=>{ p.hx=(i%cols+.5)/cols; p.hy=(Math.floor(i/cols)+.5)/cols; p.x=p.hx; p.y=p.hy; });
+
+  let T=293;
+  const sl=$("tSl");
+  function upd(){
+    T=+sl.value; $("tRd").textContent=T+" K";
+    $("phaseMark").style.left=(T/maxT*100)+"%";
+    const ph=T<e.melt?"solid":(e.boil&&T<e.boil?"liquid":"gas");
+    $("phTitle").textContent=ph==="solid"?"Solid":(ph==="liquid"?"Liquid":"Gas");
+    $("phText").textContent=
+      ph==="solid"?"Atoms are locked into lattice sites. They still vibrate — amplitude rises with temperature — but they cannot swap places. That fixed arrangement is what gives a solid its shape and stiffness."
+      :ph==="liquid"?"Atoms still touch but no longer hold their positions. Bonds break and reform constantly, so the material flows while staying almost as dense as the solid. Melting takes energy without raising temperature — the latent heat goes into breaking the lattice, not into motion."
+      :(e.boil?"Atoms have enough kinetic energy to escape each other entirely. Spacing goes up by roughly a factor of ten in each direction, so the volume increases about a thousandfold at atmospheric pressure.":"Above the melting point there is no measured boiling point for this element — only a handful of atoms have ever existed at once, so nobody has boiled a sample of it.");
+    const c=$("cmp");
+    const hotter=EL.filter(x=>x.melt&&x.melt>e.melt).length;
+    c.textContent="Of the 118 elements, "+hotter+" melt at a higher temperature than "+e.name+" and "+
+      EL.filter(x=>x.melt&&x.melt<e.melt).length+" melt lower.";
+  }
+  sl.oninput=upd; upd();
+
+  if(thermoRAF) cancelAnimationFrame(thermoRAF);
+  function draw(){
+    const w=cv.width=cv.clientWidth, h=cv.height;
+    const ph=T<e.melt?0:(e.boil&&T<e.boil?1:2);
+    const heat=Math.min(1,T/(e.boil||e.melt*2));
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle="#07090C"; ctx.fillRect(0,0,w,h);
+    const bb=blackbody(Math.max(1000,T));
+    const glow=T>800?Math.min(1,(T-800)/1800):0;
+    const base=e.hex;
+    P.forEach(p=>{
+      if(ph===0){
+        const a=heat*0.055;
+        p.x=p.hx+(Math.random()-.5)*a; p.y=p.hy+(Math.random()-.5)*a;
+      } else if(ph===1){
+        p.vx+=(Math.random()-.5)*0.004; p.vy+=(Math.random()-.5)*0.004;
+        p.vx+=(0.5-p.x)*0.0016; p.vy+=(0.62-p.y)*0.004;
+        p.vx*=0.97; p.vy*=0.97;
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.y>0.97){p.y=0.97;p.vy*=-0.4} if(p.y<0.30){p.y=0.30;p.vy*=-0.4}
+        if(p.x<0.02){p.x=0.02;p.vx*=-1} if(p.x>0.98){p.x=0.98;p.vx*=-1}
+      } else {
+        if(Math.abs(p.vx)<0.0005){p.vx=(Math.random()-.5)*0.02;p.vy=(Math.random()-.5)*0.02}
+        p.x+=p.vx*(0.5+heat); p.y+=p.vy*(0.5+heat);
+        if(p.x<0||p.x>1)p.vx*=-1; if(p.y<0||p.y>1)p.vy*=-1;
+        p.x=Math.max(0,Math.min(1,p.x)); p.y=Math.max(0,Math.min(1,p.y));
+      }
+      const r=ph===2?1.8:3.1;
+      ctx.beginPath(); ctx.arc(p.x*w,p.y*h,r,0,6.283);
+      ctx.fillStyle=glow>0?'rgb('+bb[0]+','+bb[1]+','+bb[2]+')':base;
+      ctx.globalAlpha=ph===2?0.55:0.92;
+      ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    thermoRAF=requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ============================================================
+   SPECTRUM
+   ============================================================ */
+function drawSpectrum(lines,label){
+  const cv=$("spectrum"); if(!cv)return;
+  const w=cv.width=cv.clientWidth, h=cv.height=150;
+  const ctx=cv.getContext("2d");
+  ctx.fillStyle="#050608"; ctx.fillRect(0,0,w,h);
+  const lo=380,hi=750;
+  /* faint continuous reference strip */
+  for(let x=0;x<w;x++){
+    const wl=lo+(hi-lo)*x/w, c=wl2rgb(wl);
+    ctx.fillStyle='rgba('+c[0]+','+c[1]+','+c[2]+',0.15)';
+    ctx.fillRect(x,h-24,1,16);
+  }
+  lines.filter(l=>l>=lo&&l<=hi).forEach(l=>{
+    const x=(l-lo)/(hi-lo)*w, c=wl2rgb(l);
+    const grd=ctx.createLinearGradient(x-3,0,x+3,0);
+    grd.addColorStop(0,'rgba('+c[0]+','+c[1]+','+c[2]+',0)');
+    grd.addColorStop(.5,'rgb('+c[0]+','+c[1]+','+c[2]+')');
+    grd.addColorStop(1,'rgba('+c[0]+','+c[1]+','+c[2]+',0)');
+    ctx.fillStyle=grd; ctx.fillRect(x-2,16,4,h-42);
+    ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')'; ctx.fillRect(x-0.5,16,1,h-42);
+  });
+  ctx.font="10px 'IBM Plex Mono',monospace"; ctx.fillStyle="#6B7480"; ctx.textAlign="center";
+  [400,450,500,550,600,650,700].forEach(t=>{
+    const x=(t-lo)/(hi-lo)*w; ctx.fillText(t,x,h-3);
+  });
+  ctx.textAlign="left"; ctx.fillStyle="#99A3B0"; ctx.fillText(label||"",6,11);
+}
+function renderSpectra(){
+  const e=CUR;
+  const have=SPEC[e.sym];
+  const f=FLAME[e.sym];
+  $("v-spectra").innerHTML=
+   '<h2>Emission spectrum</h2>'+
+   '<p class="small dim">Excite the atoms and their electrons jump to higher orbitals, then fall back. Each fall releases exactly one photon whose wavelength equals the energy gap. The gaps are fixed by the element, so the pattern of lines is a fingerprint nothing else shares.</p>'+
+   '<canvas id="spectrum"></canvas>'+
+   '<div class="row small dim" style="margin:6px 0 18px"><span>Wavelength in nanometres · violet left, red right</span></div>'+
+   (f?'<div class="card"><h4>Flame test</h4><div class="row" style="align-items:center"><div style="width:34px;height:34px;border-radius:6px;background:'+f[1]+'"></div><div><div style="font-weight:500">'+f[0]+'</div><div class="small dim">What you see when a sample is held in a burner flame</div></div></div></div>':'')+
+   '<div id="specNotes"></div>'+
+   '<div id="specAI"></div>';
+  if(have){
+    drawSpectrum(have,e.sym+" — principal visible lines");
+    $("specNotes").innerHTML='<h3>Lines shown</h3><p class="small" style="font-family:var(--mono)">'+
+      have.map(l=>l.toFixed(1)).join(" · ")+' nm</p>'+
+      '<p class="small dim">Principal lines in and near the visible band. A real spectrograph resolves many more, most of them in the ultraviolet and infrared where your eye cannot follow.</p>'+
+      (e.sym==="H"?'<p class="small">Hydrogen is the clean case: these four are the Balmer series, electrons falling to shell 2 from shells 3, 4, 5 and 6. Every other element is a messier version of the same idea.</p>':'')+
+      (e.sym==="Na"?'<p class="small">The two lines at 589.0 and 589.6 nm are the sodium D doublet — the yellow of a street lamp. They are split because the electron\'s spin can align with or against its orbital motion, and those two states differ very slightly in energy.</p>':'');
+  } else {
+    drawSpectrum([], e.sym);
+    $("specNotes").innerHTML='<p class="small dim">No curated line list is stored for '+e.name+'.</p>'+
+      '<button class="btn pri" id="specGet">Look up its principal lines</button>';
+    $("specGet").onclick=async()=>{
+      $("specGet").disabled=true;
+      $("specAI").innerHTML='<span class="load"></span> <span class="dim small">Retrieving…</span>';
+      try{
+        const d=await askClaudeJSON('Return ONLY JSON, no markdown, no preamble. For the element '+e.name+' ('+e.sym+') give its principal emission lines in the visible range 380-750 nm. Shape: {"lines":[nm numbers],"note":"one sentence, plain prose, about how well characterised this element\'s spectrum is"}. If the element has no meaningfully characterised visible spectrum because it is synthetic or extremely short-lived, return {"lines":[],"note":"explain that in one sentence"}.');
+        if(d.lines&&d.lines.length){ drawSpectrum(d.lines,e.sym+" — principal visible lines");
+          $("specAI").innerHTML='<p class="small" style="font-family:var(--mono)">'+d.lines.map(x=>(+x).toFixed(1)).join(" · ")+' nm</p><p class="small dim">'+d.note+'</p>';
+        } else $("specAI").innerHTML='<p class="small dim">'+(d.note||"No visible lines available.")+'</p>';
+      }catch(err){ $("specAI").innerHTML='<div class="err">'+err.message+'</div>'; $("specGet").disabled=false; }
+    };
+  }
+}
+/* ============================================================
+   MOLECULE RENDERING (used by Combine)
+   ============================================================ */
+const GEOM={
+  linear:[[0,0,0],[1,0,0],[-1,0,0]],
+  bent:[[0,0,0],[0.94,0.34,0],[-0.94,0.34,0]],
+  pyramidal:[[0,0,0],[0.94,-0.33,0],[-0.47,-0.33,0.82],[-0.47,-0.33,-0.82]],
+  tetrahedral:[[0,0,0],[0.58,0.58,0.58],[-0.58,-0.58,0.58],[-0.58,0.58,-0.58],[0.58,-0.58,-0.58]],
+  planar:[[0,0,0],[1,0,0],[-0.5,0.87,0],[-0.5,-0.87,0]]
+};
+function buildMolecule(centre,outer,count,geo){
+  if(!HAS3D) return;
+  clearRoot(); tickers=[]; autoSpin=true; showingCompound=true;
+  const g=GEOM[geo]||GEOM.tetrahedral;
+  const scale=4.4;
+  const rad=e=>Math.max(1.0,Math.min(2.3,0.55+ (e.z<=2?0.6:(e.z<=10?1.0:(e.z<=18?1.35:1.6)))));
+  const mk=(e,p,r)=>{
+    const m=new THREE.Mesh(new THREE.SphereGeometry(r,40,30),
+      new THREE.MeshStandardMaterial({color:new THREE.Color(e.hex),
+        metalness:e.cat<=4?0.8:0.15,roughness:e.cat<=4?0.3:0.45}));
+    m.position.set(p[0]*scale,p[1]*scale,p[2]*scale); root.add(m); return m;
+  };
+  const c0=mk(centre,g[0],rad(centre)*1.15);
+  const bm=new THREE.MeshStandardMaterial({color:0x5A6472,metalness:.4,roughness:.5});
+  for(let i=1;i<=Math.min(count,g.length-1);i++){
+    const p=g[i]; mk(outer,p,rad(outer));
+    const A=new THREE.Vector3(0,0,0), B=new THREE.Vector3(p[0]*scale,p[1]*scale,p[2]*scale);
+    const len=A.distanceTo(B);
+    const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,len,14),bm);
+    cyl.position.copy(A).add(B).multiplyScalar(.5);
+    cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize());
+    root.add(cyl);
+  }
+  tDist=20; snapCam(); resize();
+}
+
+/* ============================================================
+   COMBINE
+   ============================================================ */
+function renderCombine(){
+  const e=CUR;
+  const opts=EL.map(x=>'<option value="'+x.sym+'">'+x.z+" · "+x.name+'</option>').join("");
+  $("v-combine").innerHTML=
+   '<h2>Combine</h2>'+
+   '<p class="small dim">Put '+e.name+' together with a second element and see what forms, how the bond works, and what the shape of the result is.</p>'+
+   '<div class="row" style="margin-bottom:16px">'+
+     '<span class="pill" style="font-size:14px;padding:6px 12px;border-color:'+CATC[e.cat]+';color:'+CATC[e.cat]+'">'+e.sym+'</span>'+
+     '<span class="dim">+</span><select id="cSel">'+opts+'</select>'+
+     '<button class="btn pri" id="cGo">Combine</button></div>'+
+   '<div id="cOut"></div>';
+  $("cGo").onclick=()=>doCombine(e,BYSYM[$("cSel").value]);
+  const def=e.sym==="O"?"H":"O"; $("cSel").value=def; doCombine(e,BYSYM[def]);
+}
+async function doCombine(a,b){
+  const out=$("cOut");
+  if(a.sym===b.sym){ out.innerHTML='<p class="small dim">Pick a different second element.</p>'; return; }
+  const k=[a.sym,b.sym].sort().join(",");
+  const local=COMP[k];
+  const show=(d,src)=>{
+    const dEN=(a.en!==null&&b.en!==null)?Math.abs(a.en-b.en).toFixed(2):null;
+    out.innerHTML=
+     '<div class="card"><h4 style="font-size:24px;letter-spacing:-.02em">'+d.f+'</h4>'+
+     '<p style="margin:0 0 10px"><span style="font-weight:500">'+d.n+'</span> <span class="pill">'+d.b+'</span></p>'+
+     '<p class="small">'+d.d+'</p></div>'+
+     (dEN!==null?'<div class="card"><h4>Why that bond type</h4><p class="small">The electronegativity gap between '+
+       a.sym+' ('+a.en+') and '+b.sym+' ('+b.en+') is '+dEN+'. Below about 0.4 the electrons are shared evenly and the bond is nonpolar covalent; between 0.4 and 1.7 it is polar covalent, shared but lopsided; above 1.7 one atom takes the electron outright and you get ions. This is a rule of thumb, not a law, but it predicts most binary compounds correctly.</p></div>':'')+
+     '<p class="small dim">'+src+'</p>';
+    const sub={"₂":2,"₃":3,"₄":4,"₅":5,"₆":6};
+    const countOf=sy=>{ const m2=d.f.match(new RegExp(sy+"([₂-₆]?)")); return m2?(sub[m2[1]]||1):0; };
+    const na=countOf(a.sym), nb=countOf(b.sym);
+    const centre=(na<=nb&&na>0)?a:b, outer=(centre===a)?b:a;
+    const cnt=Math.max(1,Math.min(4,centre===a?nb:na));
+    showingCompound=true;
+    if(d.g&&d.g!=="lattice"){ buildMolecule(centre,outer,cnt,d.g);
+      $("stageNote").textContent=d.f+"  ·  "+d.g+" geometry\nBond lengths and angles are indicative, not to scale.";
+    } else { buildLatticeMixed(a,b);
+      $("stageNote").textContent=d.f+"  ·  "+a.sym+" and "+b.sym+" alternating in a lattice\nIonic and network solids have no discrete molecules — the whole crystal is the unit."; }
+  };
+  if(local){ show(local,"From the built-in compound set."); return; }
+  out.innerHTML='<span class="load"></span> <span class="dim small">Working out what '+a.sym+' and '+b.sym+' do together…</span>';
+  try{
+    const d=await askClaudeJSON('Return ONLY JSON, no markdown. Two elements: '+a.name+' ('+a.sym+') and '+b.name+' ('+b.sym+'). Give the most important or most common binary compound they form. Shape: {"f":"formula with unicode subscripts","n":"compound name","b":"bond type, e.g. Ionic / Polar covalent / Covalent network / Metallic alloy / Intermetallic","g":"one of: linear, bent, pyramidal, tetrahedral, planar, lattice","d":"3 to 5 sentences of plain direct prose for a curious adult with a metal fabrication background - what it is, how the bonding works, what it is actually used for, and one specific or surprising detail. No markdown, no lists."}. If these two elements do not form any stable compound, still use the same shape and say so clearly in d, with f set to the word None.');
+    show(d,"Generated for this pair.");
+  }catch(err){ out.innerHTML='<div class="err">'+err.message+'</div>'+
+    '<p class="small dim">40 common compounds are stored in this file and work offline. '+
+    (a.en!==null&&b.en!==null?'For this pair the electronegativity gap is '+Math.abs(a.en-b.en).toFixed(2)+
+      ', which predicts a '+(Math.abs(a.en-b.en)>1.7?'largely ionic':(Math.abs(a.en-b.en)>0.4?'polar covalent':'nonpolar covalent or metallic'))+' bond.':'')+'</p>'; }
+}
+function buildLatticeMixed(a,b){
+  if(!HAS3D) return;
+  clearRoot(); tickers=[]; autoSpin=true; showingCompound=true;
+  const n=3,sp=4.2;
+  const mA=new THREE.MeshStandardMaterial({color:new THREE.Color(a.hex),metalness:a.cat<=4?.85:.1,roughness:.35});
+  const mB=new THREE.MeshStandardMaterial({color:new THREE.Color(b.hex),metalness:b.cat<=4?.85:.1,roughness:.35});
+  const gA=new THREE.SphereGeometry(1.5,26,20), gB=new THREE.SphereGeometry(1.05,26,20);
+  const pa=[],pb=[];
+  for(let x=0;x<n;x++)for(let y=0;y<n;y++)for(let z=0;z<n;z++)
+    ((x+y+z)%2?pb:pa).push([x*sp,y*sp,z*sp]);
+  const off=(n-1)*sp/2;
+  [[pa,gA,mA],[pb,gB,mB]].forEach(([ps,g,m])=>{
+    const im=new THREE.InstancedMesh(g,m,ps.length), d=new THREE.Object3D();
+    ps.forEach((p,i)=>{d.position.set(p[0]-off,p[1]-off,p[2]-off);d.updateMatrix();im.setMatrixAt(i,d.matrix)});
+    root.add(im);
+  });
+  tDist=n*sp*2.4+8; snapCam(); resize();
+}
+
+/* ============================================================
+   REACTIONS
+   ============================================================ */
+let reactRAF=null, reactVigor=0, reactMedium="water";
+function renderReact(){
+  const e=CUR;
+  $("v-react").innerHTML=
+   '<h2>Reactions</h2>'+
+   '<p class="small dim">Drop '+e.name+' into each environment and see what happens. Behaviour comes from its group and its position in the reactivity series.</p>'+
+   '<div class="row" style="margin-bottom:14px">'+
+     ['water','acid','air','flame'].map(m=>'<button class="btn'+(m===reactMedium?' pri':'')+'" data-md="'+m+'">'+
+       ({water:"Water",acid:"Dilute acid",air:"Air",flame:"Flame"}[m])+'</button>').join("")+
+   '</div>'+
+   '<canvas id="reactCv" height="180"></canvas>'+
+   '<div class="card" style="margin-top:14px"><h4 id="rT"></h4><p class="small" id="rX"></p>'+
+     '<div class="row" style="align-items:center;margin-top:8px"><span class="small dim">Vigour</span>'+
+     '<div style="flex:1;height:6px;background:var(--rule);border-radius:3px;overflow:hidden">'+
+     '<div id="rBar" style="height:100%;width:0%;background:linear-gradient(90deg,#4A79B5,#EBC96E,#C25B5B)"></div></div>'+
+     '<span class="small" id="rN" style="font-family:var(--mono)"></span></div></div>'+
+   '<div class="row" style="margin-top:12px"><button class="btn" id="rMore">Explain the chemistry in detail</button></div>'+
+   '<div id="rAI" style="margin-top:12px"></div>';
+  $("v-react").querySelectorAll("[data-md]").forEach(b=>b.onclick=()=>{reactMedium=b.dataset.md;renderReact()});
+  const r=reactRule(e,reactMedium);
+  reactVigor=r.vigor;
+  $("rT").textContent=r.title; $("rX").textContent=r.text;
+  $("rBar").style.width=(r.vigor/5*100)+"%"; $("rN").textContent=r.vigor+"/5";
+  $("rMore").onclick=async()=>{
+    $("rAI").innerHTML='<span class="load"></span> <span class="dim small">Working through it…</span>';
+    try{
+      const t=await askClaude(VOICE+'\n\nExplain in at most 3 short paragraphs exactly what happens chemically when '+e.name+' ('+e.sym+') meets '+
+        ({water:"water",acid:"dilute hydrochloric acid",air:"air at room temperature",flame:"a hot flame"}[reactMedium])+
+        '. Give the balanced equation in plain text on its own line if there is a real reaction. Say what you would actually observe. If nothing happens, say why in terms of electron structure.');
+      $("rAI").innerHTML=mdToHtml(t);
+    }catch(err){ $("rAI").innerHTML='<div class="err">'+err.message+'</div>'+
+      '<p class="small dim">The summary above it comes from stored reactivity rules and does not need a connection.</p>'; }
+  };
+  const cv=$("reactCv"), ctx=cv.getContext("2d");
+  const bub=[];
+  if(reactRAF) cancelAnimationFrame(reactRAF);
+  function draw(){
+    const w=cv.width=cv.clientWidth,h=cv.height;
+    ctx.clearRect(0,0,w,h);
+    const med=reactMedium;
+    ctx.fillStyle=med==="flame"?"#0B0705":"#07090C"; ctx.fillRect(0,0,w,h);
+    if(med==="water"||med==="acid"){
+      ctx.fillStyle=med==="water"?"rgba(74,121,181,0.18)":"rgba(201,154,59,0.16)";
+      ctx.fillRect(0,h*0.28,w,h*0.72);
+      ctx.fillStyle=med==="water"?"rgba(74,121,181,0.5)":"rgba(201,154,59,0.5)";
+      ctx.fillRect(0,h*0.28,w,2);
+    }
+    /* sample */
+    const cx=w/2, cy=h*0.66, rr=13;
+    ctx.beginPath(); ctx.arc(cx,cy,rr,0,6.283);
+    ctx.fillStyle=e.hex; ctx.fill();
+    if(med==="flame"&&FLAME[e.sym]){
+      const gr=ctx.createRadialGradient(cx,cy-20,2,cx,cy-20,70);
+      gr.addColorStop(0,FLAME[e.sym][1]); gr.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.globalAlpha=0.5+0.25*Math.sin(Date.now()*0.006);
+      ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(cx,cy-20,70,0,6.283); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    const rate=reactVigor*reactVigor*0.5;
+    for(let i=0;i<rate;i++) if(Math.random()<0.45)
+      bub.push({x:cx+(Math.random()-.5)*rr*2,y:cy,r:1+Math.random()*3,v:0.5+Math.random()*1.6*reactVigor/3,
+                c:med==="flame"?(FLAME[e.sym]?FLAME[e.sym][1]:"#E0A050"):"#AFC6DD"});
+    for(let i=bub.length-1;i>=0;i--){
+      const b2=bub[i]; b2.y-=b2.v; b2.x+=Math.sin(b2.y*0.06)*0.4;
+      ctx.globalAlpha=Math.max(0,b2.y/h);
+      ctx.beginPath(); ctx.arc(b2.x,b2.y,b2.r,0,6.283); ctx.fillStyle=b2.c; ctx.fill();
+      if(b2.y<-6) bub.splice(i,1);
+    }
+    ctx.globalAlpha=1;
+    if(reactVigor===0){
+      ctx.fillStyle="#5E6774"; ctx.font="12px Archivo,sans-serif"; ctx.textAlign="center";
+      ctx.fillText("no reaction",cx,h-14);
+    }
+    reactRAF=requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ============================================================
+   LEARN
+   ============================================================ */
+const TRENDS=[
+ ["Atomic radius","Shrinks left to right, grows down. Across a period you add protons without adding a shell, so the nucleus pulls the same electrons in tighter. Down a group you add whole shells, so size jumps."],
+ ["Ionisation energy","Rises left to right, falls down. It is the energy to strip one electron off. A tightly held electron close to a strong nucleus is hard to remove; a distant one shielded by inner shells is easy."],
+ ["Electronegativity","Rises left to right, falls down — same logic, but about pulling on shared electrons rather than losing your own. Fluorine is the maximum at 3.98. Caesium and francium are the minimum."],
+ ["Metallic character","Falls left to right, rises down. Metals give electrons up; nonmetals take them. The staircase of metalloids running from boron to astatine is the boundary between the two behaviours."]
+];
+function renderLearn(){
+  $("v-learn").innerHTML=
+   '<h2>Learn</h2>'+
+   '<div class="card"><h4>Predict before you look</h4>'+
+   '<p class="small">The fastest way to build real intuition is to commit to a guess first, then find out. Generate a question about '+CUR.name+', answer it, and read why.</p>'+
+   '<button class="btn pri" id="qz">Give me a question</button><div id="qzOut" style="margin-top:14px"></div></div>'+
+   '<h3>The four trends worth knowing first</h3>'+
+   '<p class="small dim">Learn these and most element behaviour becomes something you can reason out rather than memorise.</p>'+
+   TRENDS.map(t=>'<div class="card"><h4>'+t[0]+'</h4><p class="small" style="margin:0">'+t[1]+'</p></div>').join("")+
+   '<h3>A route through the table</h3>'+
+   '<p class="small">Start with the eight elements that make up almost all of everyday matter: hydrogen, carbon, nitrogen, oxygen, sodium, silicon, sulfur, iron. Then the alloying metals — chromium, manganese, nickel, molybdenum, vanadium, tungsten — where the chemistry is about what a small percentage does to a lattice. Then the noble gases, which teach you what a full shell means by showing you what happens when nothing wants to react. After that the rest of the table is variations on patterns you already have.</p>'+
+   '<p class="small dim">Try the same element across all six tabs before moving on. Reading the spectrum after you have seen the shells makes both of them land harder than either does alone.</p>';
+  $("qz").onclick=async()=>{
+    const o=$("qzOut");
+    o.innerHTML='<span class="load"></span> <span class="dim small">Writing a question…</span>';
+    try{
+      const d=await askClaudeJSON('Return ONLY JSON, no markdown. Write one multiple-choice question about the element '+CUR.name+' ('+CUR.sym+', atomic number '+CUR.z+') that can be reasoned out from periodic trends, electron configuration or position in the table rather than recalled as trivia. Shape: {"q":"the question","opts":["a","b","c","d"],"correct":0,"why":"3 to 4 sentences explaining the reasoning that gets you there, plain prose, no markdown"}. correct is the index of the right option.');
+      o.innerHTML='<p style="font-weight:500;margin-bottom:10px">'+d.q+'</p>'+
+        '<div id="qzOpts">'+d.opts.map((t,i)=>'<button class="btn" data-i="'+i+'" style="display:block;width:100%;text-align:left;margin-bottom:6px">'+t+'</button>').join("")+'</div>'+
+        '<div id="qzWhy"></div>';
+      o.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{
+        const i=+b.dataset.i, ok=i===d.correct;
+        o.querySelectorAll("[data-i]").forEach(x=>{
+          const xi=+x.dataset.i; x.disabled=true;
+          if(xi===d.correct) x.style.borderColor="#5FA870",x.style.color="#8FD49F";
+          else if(xi===i) x.style.borderColor="#C25B5B",x.style.color="#E08A8A";
+        });
+        $("qzWhy").innerHTML='<p style="font-weight:500;margin:12px 0 6px;color:'+(ok?"#8FD49F":"#E0A56A")+'">'+
+          (ok?"Right.":"Not this time.")+'</p><p class="small">'+d.why+'</p>';
+      });
+    }catch(err){ o.innerHTML='<div class="err">'+err.message+'</div>'; }
+  };
+}
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+function renderTab(){
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+TAB));
+  if(thermoRAF&&TAB!=="thermal"){cancelAnimationFrame(thermoRAF);thermoRAF=null}
+  if(reactRAF&&TAB!=="react"){cancelAnimationFrame(reactRAF);reactRAF=null}
+  if(TAB==="read") renderRead();
+  else if(TAB==="data") renderData();
+  else if(TAB==="thermal") renderThermal();
+  else if(TAB==="spectra") renderSpectra();
+  else if(TAB==="combine") renderCombine();
+  else if(TAB==="react") renderReact();
+  else if(TAB==="learn") renderLearn();
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  TAB=b.dataset.v;
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  if(TAB!=="combine"&&showingCompound){ showingCompound=false; rebuild(); }
+  renderTab();
+});
+document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
+  MODE=b.dataset.m; SUB=null;
+  document.querySelectorAll(".mode").forEach(x=>x.classList.toggle("on",x===b));
+  buildSub(); rebuild();
+});
+$("togTable").onclick=()=>{
+  const w=$("tableWrap"); w.classList.toggle("closed");
+  $("togTable").classList.toggle("on",!w.classList.contains("closed"));
+  setTimeout(resize,320);
+};
+$("btnRandom").onclick=()=>select(1+Math.floor(Math.random()*118));
+$("btnQuiz").onclick=()=>{
+  TAB="learn";
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.v==="learn"));
+  renderTab();
+  setTimeout(()=>$("qz")&&$("qz").click(),60);
+};
+$("search").addEventListener("keydown",ev=>{
+  if(ev.key!=="Enter")return;
+  const q=$("search").value.trim().toLowerCase();
+  if(!q)return;
+  const n=parseInt(q);
+  let hit=(n>=1&&n<=118)?EL[n-1]:EL.find(e=>e.sym.toLowerCase()===q)||EL.find(e=>e.name.toLowerCase().startsWith(q));
+  if(hit){ select(hit.z); $("search").value=""; }
+  else { $("search").style.borderColor="#C25B5B"; setTimeout(()=>$("search").style.borderColor="",900); }
+});
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
+  if(e.key==="ArrowRight"&&CUR.z<118) select(CUR.z+1);
+  if(e.key==="ArrowLeft"&&CUR.z>1) select(CUR.z-1);
+});
+
+$("btnReset").onclick=()=>{ resetView(); };
+if(HAS3D) renderer.domElement.addEventListener("dblclick",resetView);
+
+buildTable();
+/* on a short screen the table would eat the whole window — start it closed */
+if(innerHeight<780&&innerWidth>820){
+  $("tableWrap").classList.add("closed");
+  $("togTable").classList.remove("on");
+}
+select(23);
+resize();
+addEventListener("resize",()=>{resize();applyResize();});
+addEventListener("orientationchange",()=>setTimeout(resize,250));
+</script>
+</body>
+</html>

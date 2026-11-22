@@ -1,0 +1,310 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Water Line</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one column instrument — score row, the glass, two call buttons, round log with streak markers, pattern panel */
+:root{
+  --bg:#eef3f5; --panel:#ffffff; --fg:#0f2430; --muted:#5b7380; --line:#c9d6dc;
+  --water:#2a86b8; --water-deep:#16597f; --full:#1f8a5b; --empty:#c0532f; --hot:#c98a12;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b161c; --panel:#12222b; --fg:#e4eef2; --muted:#89a2ae; --line:#24404d;
+  --water:#3aa3da; --water-deep:#1d6f9c; --full:#3fbf85; --empty:#e2774f; --hot:#f0b33c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b161c; --panel:#12222b; --fg:#e4eef2; --muted:#89a2ae; --line:#24404d;
+  --water:#3aa3da; --water-deep:#1d6f9c; --full:#3fbf85; --empty:#e2774f; --hot:#f0b33c; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;justify-content:space-between;align-items:end;gap:12px}
+h1{margin:0;font-size:1.9rem;font-weight:800;letter-spacing:-.02em;line-height:1}
+h2{margin:0;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.sub{color:var(--muted);font-size:.85rem;margin-top:4px}
+.stats{display:flex;gap:14px;font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.stats div{display:flex;flex-direction:column}
+.stats b{font-size:1.4rem;font-weight:600}
+.stats span{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.stats b.hot{color:var(--hot)}
+.stage{position:relative;width:100%;max-width:100%;aspect-ratio:1}
+canvas{width:100%;height:100%;display:block}
+.readout{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px}
+.pct{font-family:var(--mono);font-size:clamp(2.6rem,14vw,4rem);font-weight:600;font-variant-numeric:tabular-nums;
+  color:var(--fg);text-shadow:0 0 18px var(--bg),0 0 4px var(--bg)}
+.msg{font-size:1rem;font-weight:800;min-height:1.3em;text-shadow:0 0 10px var(--bg)}
+.msg.win{color:var(--full)} .msg.lose{color:var(--empty)} .msg.tie{color:var(--muted)}
+.badge{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--hot);min-height:1.2em;text-shadow:0 0 10px var(--bg)}
+.calls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{font:inherit;cursor:pointer;border-radius:14px;border:2px solid var(--line);background:var(--panel);color:var(--fg);
+  padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform .08s,border-color .15s}
+button:active{transform:scale(.97)}
+button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+button:disabled{opacity:.5;cursor:default}
+.call b{font-size:1.25rem;font-weight:800}
+.call small{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+#full b{color:var(--full)} #full:hover:not(:disabled){border-color:var(--full)}
+#empty b{color:var(--empty)} #empty:hover:not(:disabled){border-color:var(--empty)}
+.odds{font-size:.85rem;color:var(--muted);text-align:center;line-height:1.45}
+.odds strong{color:var(--fg);font-family:var(--mono);font-weight:600}
+.section{display:flex;flex-direction:column;gap:10px}
+
+/* Round log: oldest left, newest right. Wins in one streak share a gold rail underneath. */
+.log{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px;min-height:72px;scroll-behavior:smooth}
+.round{flex:0 0 auto;width:32px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.round .dir{font-size:.7rem;line-height:1;height:.8rem}
+.round .dir.up{color:var(--full)} .round .dir.down{color:var(--empty)} .round .dir.same{color:var(--muted)}
+.chip{width:100%;height:38px;border-radius:6px;border:1.5px solid var(--line);background:var(--panel);
+  position:relative;overflow:hidden;font-family:var(--mono);font-size:.62rem;display:flex;align-items:start;justify-content:center;padding-top:2px}
+.chip i{position:absolute;left:0;right:0;bottom:0;background:var(--water);opacity:.55}
+.chip span{position:relative}
+.chip.w{border-color:var(--full)} .chip.l{border-color:var(--empty)}
+.rail{align-self:flex-start;width:calc(100% + 4px);height:14px;font-family:var(--mono);font-size:.6rem;font-weight:600;text-align:center;line-height:14px;color:var(--muted)}
+.rail.on{background:color-mix(in srgb,var(--full) 22%,transparent);color:var(--full)}
+.rail.start{border-radius:7px 0 0 7px}
+.rail.end{border-radius:0 7px 7px 0;width:100%}
+.rail.start.end{border-radius:7px}
+.rail.hot{background:color-mix(in srgb,var(--hot) 28%,transparent);color:var(--hot)}
+.rail.miss{color:var(--empty)}
+.empty-log{color:var(--muted);font-size:.85rem;align-self:center}
+
+/* Pattern panel */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums}
+.stat .d{font-size:.75rem;color:var(--muted)}
+.v.good{color:var(--full)} .v.bad{color:var(--empty)}
+.strips{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.strip{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;min-width:0}
+.strip .k{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.seq{font-family:var(--mono);font-size:.85rem;letter-spacing:.08em;overflow-x:auto;white-space:nowrap;min-width:0}
+.seq .up{color:var(--full)} .seq .down{color:var(--empty)} .seq .same{color:var(--muted)}
+.seq .hi{color:var(--water)} .seq .lo{color:var(--muted)}
+.read{font-size:.9rem;line-height:1.5;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.read b{font-family:var(--mono);font-weight:600}
+.read p{margin:0} .read p+p{margin-top:6px;color:var(--muted);font-size:.82rem}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.toggle{font-size:.8rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+#reset{flex-direction:row;padding:8px 14px;font-size:.85rem;border-radius:10px}
+@media (prefers-reduced-motion: reduce){button{transition:none}.log{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Water Line</h1>
+      <div class="sub">Will the next pour land fuller or emptier?</div>
+    </div>
+    <div class="stats">
+      <div><b id="streak">0</b><span>Streak</span></div>
+      <div><b id="best">0</b><span>Best</span></div>
+    </div>
+  </header>
+
+  <div class="stage">
+    <canvas id="cv" aria-label="Glass shown as a circle with a center line and a water level"></canvas>
+    <div class="readout"><div class="pct" id="pct">50%</div><div class="msg" id="msg" aria-live="polite"></div><div class="badge" id="badge"></div></div>
+  </div>
+
+  <div class="calls">
+    <button class="call" id="full"><b>Full ▲</b><small id="pFull">—</small></button>
+    <button class="call" id="empty"><b>Empty ▼</b><small id="pEmpty">—</small></button>
+  </div>
+  <div class="odds" id="odds"></div>
+
+  <div class="section">
+    <h2>Rounds</h2>
+    <div class="log" id="log" aria-label="Round history, oldest to newest"></div>
+  </div>
+
+  <div class="section">
+    <h2>Patterns</h2>
+    <div class="read" id="read"></div>
+    <div class="strips">
+      <div class="strip"><span class="k">Water</span><div class="seq" id="seqMove"></div></div>
+      <div class="strip"><span class="k">Line</span><div class="seq" id="seqLine"></div></div>
+      <div class="strip"><span class="k">You</span><div class="seq" id="seqYou"></div></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="foot">
+    <label class="toggle"><input type="checkbox" id="showOdds" checked> Show the odds</label>
+    <button id="reset">New game</button>
+  </div>
+</div>
+
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MILESTONES={3:'Hot hand',5:'On fire',8:'Locked in',10:'Water whisperer',15:'Untouchable',20:'Legend'};
+
+// Levels are whole numbers 1–99. The center line is 50.
+const rand=()=>1+Math.floor(Math.random()*99);
+let level=rand(), shown=level, streak=0, best=0, busy=false, rounds=[];
+try{best=+localStorage.getItem('waterline-best')||0}catch(e){}
+$('best').textContent=best;
+
+function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d}
+addEventListener('resize',size);size();
+
+let t=0;
+function draw(){
+  t+=0.03;const d=devicePixelRatio||1;
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)/2-6*d;
+  ctx.clearRect(0,0,W,H);
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle=css('--panel');ctx.fill();ctx.clip();
+  const y=cy+R-(shown/100)*2*R, amp=(busy?7:3)*d;
+  const g=ctx.createLinearGradient(0,y,0,cy+R);g.addColorStop(0,css('--water'));g.addColorStop(1,css('--water-deep'));
+  ctx.beginPath();ctx.moveTo(cx-R,cy+R);
+  for(let x=cx-R;x<=cx+R;x+=4){ctx.lineTo(x,y+Math.sin(x/(R*0.18)+t*2)*amp+Math.sin(x/(R*0.07)-t*3)*amp*0.35)}
+  ctx.lineTo(cx+R,cy+R);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+  ctx.restore();
+  ctx.setLineDash([10,8]);ctx.lineWidth=2*d;ctx.strokeStyle=css('--muted');
+  ctx.beginPath();ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=css('--muted');
+  [25,75].forEach(p=>{const ty=cy+R-(p/100)*2*R;const half=Math.sqrt(R*R-(ty-cy)**2);ctx.fillRect(cx+half-14*d,ty-1,10*d,2)});
+  // streak glow on the rim
+  ctx.lineWidth=4*d;ctx.strokeStyle=streak>=3?css('--hot'):css('--line');ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+function odds(){
+  const up=99-level, down=level-1, on=$('showOdds').checked;
+  $('pFull').textContent=on?(up/99*100).toFixed(1)+'% win':'';
+  $('pEmpty').textContent=on?(down/99*100).toFixed(1)+'% win':'';
+  $('odds').innerHTML=on
+    ?`At <strong>${level}%</strong>, ${up} of 99 possible levels are fuller and ${down} are emptier. ${up===down?'It is a coin flip.':`The smart call is <strong>${up>down?'Full':'Empty'}</strong>.`}`
+    :'';
+}
+function render(){$('pct').textContent=Math.round(shown)+'%';$('streak').textContent=streak;$('streak').classList.toggle('hot',streak>=3)}
+
+function animateTo(to,done){
+  const from=shown,start=performance.now(),dur=reduce?1:900;
+  (function step(now){const k=Math.min(1,(now-start)/dur),e=1-Math.pow(1-k,3);
+    shown=from+(to-from)*e;render();k<1?requestAnimationFrame(step):done()})(start);
+}
+
+function call(dir){
+  if(busy)return;busy=true;$('full').disabled=$('empty').disabled=true;
+  $('msg').textContent='';$('msg').className='msg';$('badge').textContent='';
+  const prev=level,next=rand();
+  const up=99-prev,down=prev-1;
+  const p=(dir==='full'?up:down)/99;              // chance this call wins
+  const smart=up===down?null:(dir==='full')===(up>down);
+  animateTo(next,()=>{
+    let res;
+    if(next===prev){res='tie';$('msg').textContent='Same level. Push.'}
+    else if((dir==='full')===(next>prev)){res='win';streak++;$('msg').textContent='Called it.';
+      if(MILESTONES[streak])$('badge').textContent=`★ ${streak} in a row: ${MILESTONES[streak]}`}
+    else{res='lose';$('msg').textContent=streak?`Missed. Streak ended at ${streak}.`:'Missed.';streak=0}
+    $('msg').classList.add(res);
+    if(streak>best){best=streak;$('best').textContent=best;try{localStorage.setItem('waterline-best',best)}catch(e){}}
+    rounds.push({prev,v:next,dir:next>prev?'up':next<prev?'down':'same',call:dir,res,p,smart,streak});
+    level=next;busy=false;$('full').disabled=$('empty').disabled=false;render();odds();drawLog();drawPatterns();
+  });
+}
+
+// ---------- Round log with streak rails ----------
+function drawLog(){
+  const show=rounds.slice(-40),off=rounds.length-show.length;
+  if(!show.length){$('log').innerHTML='<div class="empty-log">Make your first call. Each round lands here, with win streaks linked underneath.</div>';return}
+  $('log').innerHTML=show.map((r,i)=>{
+    const g=off+i, prevWin=g>0&&rounds[g-1].res==='win'&&r.res==='win';
+    const nextR=rounds[g+1], nextWin=r.res==='win'&&nextR&&nextR.res==='win';
+    // Ties do not break a streak, but they are not part of the rail either.
+    let rail='rail';
+    if(r.res==='win'){rail+=' on';if(!prevWin)rail+=' start';if(!nextWin)rail+=' end';if(r.streak>=3)rail+=' hot'}
+    else if(r.res==='lose')rail+=' miss';
+    const label=r.res==='win'?(MILESTONES[r.streak]?'★'+r.streak:r.streak):r.res==='lose'?'✕':'=';
+    const arrow=r.dir==='up'?'▲':r.dir==='down'?'▼':'●';
+    return `<div class="round" title="Round ${g+1}: ${r.prev} → ${r.v}, you called ${r.call==='full'?'Full':'Empty'} (${(r.p*100).toFixed(0)}% chance)">
+      <div class="dir ${r.dir}">${arrow}</div>
+      <div class="chip ${r.res==='win'?'w':r.res==='lose'?'l':''}"><i style="height:${r.v}%"></i><span>${r.v}</span></div>
+      <div class="${rail}">${label}</div></div>`;
+  }).join('');
+  const el=$('log');el.scrollLeft=el.scrollWidth;
+}
+
+// ---------- Pattern analysis ----------
+function runs(arr,key){ // longest run of each value, plus the current run at the end
+  const out={},cur={val:null,len:0};
+  arr.forEach(x=>{const v=key(x);if(v===cur.val)cur.len++;else{cur.val=v;cur.len=1}out[v]=Math.max(out[v]||0,cur.len)});
+  return{longest:out,cur};
+}
+function stat(k,v,d,cls=''){return `<div class="stat"><span class="k">${k}</span><span class="v ${cls}">${v}</span><span class="d">${d}</span></div>`}
+
+function drawPatterns(){
+  const n=rounds.length;
+  const decided=rounds.filter(r=>r.res!=='tie');
+  const wins=decided.filter(r=>r.res==='win').length;
+  const expected=rounds.reduce((s,r)=>s+r.p,0);
+  const moves=rounds.filter(r=>r.dir!=='same');
+  const mv=runs(moves,r=>r.dir);
+  const res=runs(decided,r=>r.res);
+  const sideRuns=runs(rounds,r=>r.v>50?'hi':r.v<50?'lo':'mid');
+  const smartRounds=rounds.filter(r=>r.smart!==null);
+  const smartN=smartRounds.filter(r=>r.smart).length;
+  const smartWins=smartRounds.filter(r=>r.smart&&r.res==='win').length;
+  const gambles=smartRounds.filter(r=>!r.smart);
+  const gambleWins=gambles.filter(r=>r.res==='win').length;
+  // alternation: how often the water reversed direction
+  let flips=0;for(let i=1;i<moves.length;i++)if(moves[i].dir!==moves[i-1].dir)flips++;
+  const flipRate=moves.length>1?flips/(moves.length-1):0;
+
+  // sequences (last 30)
+  const last=rounds.slice(-30);
+  $('seqMove').innerHTML=last.map(r=>`<span class="${r.dir}">${r.dir==='up'?'▲':r.dir==='down'?'▼':'●'}</span>`).join('')||'<span class="same">no pours yet</span>';
+  $('seqLine').innerHTML=last.map(r=>`<span class="${r.v>=50?'hi':'lo'}">${r.v>50?'●':r.v<50?'○':'◐'}</span>`).join('')||'<span class="same">● above · ○ below</span>';
+  $('seqYou').innerHTML=last.map(r=>`<span class="${r.res==='win'?'up':r.res==='lose'?'down':'same'}">${r.res==='win'?'✓':r.res==='lose'?'✕':'='}</span>`).join('')||'<span class="same">✓ win · ✕ miss</span>';
+
+  const luck=wins-expected;
+  $('grid').innerHTML=[
+    stat('Win streak',`${streak} <small style="font-size:.7em;color:var(--muted)">/ best ${best}</small>`,`Longest this game: ${res.longest.win||0}`,streak>=3?'good':''),
+    stat('Miss streak',res.cur.val==='lose'?res.cur.len:0,`Longest this game: ${res.longest.lose||0}`,res.cur.val==='lose'&&res.cur.len>=3?'bad':''),
+    stat('Water run',mv.cur.len?`${mv.cur.val==='up'?'▲':'▼'} ×${mv.cur.len}`:'—',`Longest rise ${mv.longest.up||0} · fall ${mv.longest.down||0}`),
+    stat('Same side',sideRuns.cur.len?`${sideRuns.cur.val==='hi'?'Above':sideRuns.cur.val==='lo'?'Below':'On'} ×${sideRuns.cur.len}`:'—',`Of the center line, in a row`),
+    stat('Win rate',decided.length?Math.round(wins/decided.length*100)+'%':'—',`${wins} of ${decided.length} · odds said ${n?Math.round(expected/n*100):0}%`),
+    stat('Luck',n?(luck>=0?'+':'')+luck.toFixed(1):'—',`Wins above what the odds predicted`,luck>1?'good':luck<-1?'bad':''),
+    stat('Smart calls',smartRounds.length?Math.round(smartN/smartRounds.length*100)+'%':'—',`Picked the side with better odds`,smartRounds.length&&smartN/smartRounds.length>=.8?'good':''),
+    stat('Reversals',moves.length>1?Math.round(flipRate*100)+'%':'—',`How often the water switched direction`)
+  ].join('');
+
+  // plain-language read of what is happening
+  let lines=[];
+  if(!n){lines=['Patterns show up after a few rounds.','Each pour is random from 1 to 99, so the only thing that changes your odds is where the water sits right now.']}
+  else{
+    let head;
+    if(mv.cur.len>=3)head=`The water has gone <b>${mv.cur.val==='up'?'up':'down'}</b> ${mv.cur.len} times in a row.`;
+    else if(sideRuns.cur.len>=4)head=`The last ${sideRuns.cur.len} pours all landed <b>${sideRuns.cur.val==='hi'?'above':'below'}</b> the line.`;
+    else if(streak>=3)head=`You are on a <b>${streak}-call</b> streak.`;
+    else if(res.cur.val==='lose'&&res.cur.len>=2)head=`You have missed <b>${res.cur.len}</b> in a row.`;
+    else if(moves.length>=6&&flipRate>=.75)head=`The water keeps flipping direction (<b>${Math.round(flipRate*100)}%</b> reversals).`;
+    else head=`<b>${n}</b> rounds played, <b>${wins}</b> called right.`;
+    // the lesson: runs feel meaningful but the next pour ignores them
+    let lesson;
+    if(mv.cur.len>=3||sideRuns.cur.len>=4)lesson=`That run feels like it has to break, but the next pour does not remember it. Only the current level (${level}%) sets the odds.`;
+    else if(moves.length>=6&&flipRate>=.6)lesson=`Lots of reversals is expected here: high levels tend to be followed by lower ones just because there is more room below. That is the odds working, not a pattern to chase.`;
+    else if(gambles.length>=3)lesson=`You went against the odds ${gambles.length} times and won ${gambleWins}. Smart calls have won ${smartN?Math.round(smartWins/smartN*100):0}% of the time.`;
+    else if(n>=8)lesson=Math.abs(luck)<1.5?`Your results are tracking the odds closely. Over time, smart calls win about 75% of rounds.`:luck>0?`You are running ahead of the odds. Some of that is luck, and it tends to even out.`:`You are running behind the odds. Bad runs happen even with perfect calls.`;
+    else lesson=`Streaks of 3+ get a gold rail. Keep going and the reads will get more interesting.`;
+    lines=[head,lesson];
+  }
+  $('read').innerHTML=lines.map(l=>`<p>${l}</p>`).join('');
+}
+
+$('full').onclick=()=>call('full');$('empty').onclick=()=>call('empty');
+$('showOdds').onchange=odds;
+$('reset').onclick=()=>{if(busy)return;streak=0;rounds=[];$('msg').textContent='';$('badge').textContent='';
+  const n=rand();busy=true;animateTo(n,()=>{level=n;busy=false;odds();render();drawLog();drawPatterns()})};
+addEventListener('keydown',e=>{if(e.key==='ArrowUp'){e.preventDefault();call('full')}if(e.key==='ArrowDown'){e.preventDefault();call('empty')}});
+render();odds();drawLog();drawPatterns();
+</script>
+
+</body></html>

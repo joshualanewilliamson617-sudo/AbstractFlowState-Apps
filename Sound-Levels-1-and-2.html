@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="slate">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sound</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#141B24;
+  --ground-2:#1C2530;
+  --ink:#F0EAE2;
+  --ink-soft:#A9B4C0;
+  --wave:#E08A4B;
+  --wave-glow:rgba(224,138,75,.35);
+  --ghost:#5FD3C4;
+  --line:rgba(240,234,226,.14);
+  --focus:#FFD79A;
+  --font-scale:1;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root[data-theme="dusk"]{
+  --ground:#211D33;--ground-2:#2B2544;--ink:#F1EBF6;--ink-soft:#B4AAC8;
+  --wave:#F0A35C;--wave-glow:rgba(240,163,92,.32);--ghost:#7FD1E8;--line:rgba(241,235,246,.15);
+}
+:root[data-theme="sand"]{
+  --ground:#EDE4D3;--ground-2:#E3D8C3;--ink:#2A2419;--ink-soft:#6B5F4B;
+  --wave:#B25A1E;--wave-glow:rgba(178,90,30,.22);--ghost:#1F7A70;--line:rgba(42,36,25,.18);--focus:#7A4A10;
+}
+:root[data-theme="mist"]{
+  --ground:#DCE6E1;--ground-2:#CDDAD4;--ink:#1D2A26;--ink-soft:#54655E;
+  --wave:#A85B22;--wave-glow:rgba(168,91,34,.2);--ghost:#166B78;--line:rgba(29,42,38,.18);--focus:#6B3D10;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Atkinson Hyperlegible","Verdana","Trebuchet MS",system-ui,sans-serif;
+  font-size:calc(17px * var(--font-scale));
+  line-height:1.65;
+  letter-spacing:.012em;
+  word-spacing:.06em;
+  overflow:hidden;
+  -webkit-text-size-adjust:100%;
+}
+.app{display:flex;flex-direction:column;height:100%;max-width:1100px;margin:0 auto}
+
+/* ---- header ---- */
+header{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.7rem 1rem;border-bottom:1px solid var(--line);
+  padding-top:calc(.7rem + env(safe-area-inset-top,0px));
+}
+.levels{display:flex;gap:.45rem;align-items:center;margin-right:auto}
+.pip{
+  width:2.6rem;height:2.6rem;border-radius:999px;border:2px solid var(--line);
+  background:transparent;color:var(--ink-soft);font:inherit;font-size:.95em;
+  display:grid;place-items:center;cursor:pointer;
+}
+.pip[aria-current="true"]{border-color:var(--wave);color:var(--ink);background:var(--wave-glow)}
+.pip[disabled]{opacity:.35;cursor:default}
+.iconbtn{
+  min-width:2.9rem;height:2.9rem;padding:0 .7rem;border-radius:.9rem;
+  border:1px solid var(--line);background:var(--ground-2);color:var(--ink);
+  font:inherit;font-size:1.15em;cursor:pointer;display:grid;place-items:center;
+}
+.iconbtn:hover{border-color:var(--wave)}
+
+/* ---- stage ---- */
+.stage{position:relative;flex:1;min-height:0;touch-action:none;cursor:grab}
+.stage:active{cursor:grabbing}
+canvas{display:block;width:100%;height:100%}
+.hint{
+  position:absolute;left:50%;top:1.2rem;transform:translateX(-50%);
+  background:var(--ground-2);border:1px solid var(--line);border-radius:999px;
+  padding:.45rem 1.1rem;color:var(--ink-soft);pointer-events:none;
+  max-width:88%;text-align:center;
+}
+.readout{
+  position:absolute;left:1rem;bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;
+  pointer-events:none;
+}
+.chip{
+  background:var(--ground-2);border:1px solid var(--line);border-radius:.7rem;
+  padding:.3rem .75rem;color:var(--ink);font-size:.95em;
+}
+.chip b{color:var(--wave);font-weight:700}
+
+/* ---- dock ---- */
+.dock{
+  border-top:1px solid var(--line);padding:.9rem 1rem;
+  padding-bottom:calc(.9rem + env(safe-area-inset-bottom,0px));
+  background:var(--ground);
+  display:flex;flex-direction:column;gap:.75rem;
+}
+.task{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.task p{margin:0;flex:1;min-width:14ch;max-width:62ch}
+.btn{
+  font:inherit;border-radius:.9rem;padding:.75rem 1.2rem;cursor:pointer;
+  border:1px solid var(--line);background:var(--ground-2);color:var(--ink);
+  min-height:3rem;
+}
+.btn.primary{background:var(--wave);border-color:var(--wave);color:#1A1209;font-weight:700}
+:root[data-theme="sand"] .btn.primary,:root[data-theme="mist"] .btn.primary{color:#FFF6EA}
+.btn.ghost{border-color:var(--ghost);color:var(--ghost)}
+.btn:disabled{opacity:.4;cursor:default}
+.choices{display:flex;gap:.6rem;flex-wrap:wrap}
+.choices .btn{flex:1;min-width:9rem}
+.score{display:flex;gap:.35rem}
+.dot{width:.85rem;height:.85rem;border-radius:999px;background:var(--line)}
+.dot.on{background:var(--wave)}
+.verdict{margin:0;min-height:1.6em}
+.verdict.good{color:var(--ghost)}
+
+/* ---- settings ---- */
+.sheet{
+  position:fixed;inset:auto 0 0 0;background:var(--ground-2);
+  border-top:1px solid var(--line);border-radius:1.2rem 1.2rem 0 0;
+  padding:1.2rem 1.2rem calc(1.6rem + env(safe-area-inset-bottom,0px));
+  max-height:80%;overflow-y:auto;z-index:20;
+}
+.sheet[hidden]{display:none}
+.sheet h2{margin:.2rem 0 1rem;font-size:1.15em}
+.row{margin-bottom:1.1rem}
+.row > span{display:block;margin-bottom:.45rem;color:var(--ink-soft)}
+.opts{display:flex;gap:.5rem;flex-wrap:wrap}
+.opt{
+  font:inherit;padding:.6rem 1rem;border-radius:.8rem;min-height:2.8rem;cursor:pointer;
+  border:1px solid var(--line);background:var(--ground);color:var(--ink);
+}
+.opt[aria-pressed="true"]{border-color:var(--wave);background:var(--wave-glow)}
+.swatch{width:3.2rem;height:2.8rem;border-radius:.8rem;border:2px solid var(--line);cursor:pointer}
+.swatch[aria-pressed="true"]{border-color:var(--wave)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:15}
+.scrim[hidden]{display:none}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+/* ---- progressive visual stages ---- */
+/* The room earns its looks. Stage 0 is bare; each milestone adds one layer. */
+body{transition:background 1.2s ease}
+.stage,.dock,header{transition:background 1.2s ease,border-color 1.2s ease}
+
+:root[data-stage="1"] body,
+:root[data-stage="1"] .stage{background:radial-gradient(120% 90% at 50% 55%, var(--ground-2) 0%, var(--ground) 62%)}
+
+:root[data-stage="2"] body,
+:root[data-stage="2"] .stage{background:radial-gradient(110% 80% at 50% 52%, var(--ground-2) 0%, var(--ground) 58%)}
+:root[data-stage="2"] .chip,
+:root[data-stage="2"] .btn{border-radius:1rem}
+
+:root[data-stage="3"] .stage{
+  background:
+    radial-gradient(95% 70% at 50% 50%, var(--wave-glow) 0%, transparent 58%),
+    radial-gradient(120% 90% at 50% 50%, var(--ground-2) 0%, var(--ground) 62%);
+}
+:root[data-stage="3"] header,
+:root[data-stage="3"] .dock{background:linear-gradient(to bottom, var(--ground-2), var(--ground))}
+:root[data-stage="3"] .chip{
+  border-radius:1rem;padding:.4rem .95rem;
+  background:linear-gradient(to bottom, var(--ground-2), var(--ground));
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset;
+}
+:root[data-stage="3"] .btn.primary{box-shadow:0 6px 18px -8px var(--wave)}
+
+:root[data-stage="4"] .stage{
+  background:
+    radial-gradient(85% 62% at 50% 50%, var(--wave-glow) 0%, transparent 55%),
+    radial-gradient(60% 46% at 50% 50%, rgba(95,211,196,.10) 0%, transparent 70%),
+    radial-gradient(130% 100% at 50% 48%, var(--ground-2) 0%, var(--ground) 66%);
+}
+:root[data-stage="4"] header{border-bottom-color:var(--wave-glow)}
+:root[data-stage="4"] .dock{
+  border-top-color:var(--wave-glow);
+  background:linear-gradient(to bottom, var(--ground-2), var(--ground));
+}
+:root[data-stage="4"] #taskText{font-size:1.06em;line-height:1.6}
+:root[data-stage="4"] .chip{
+  border-radius:1.1rem;
+  background:linear-gradient(to bottom, var(--ground-2), var(--ground));
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 8px 20px -14px var(--wave);
+}
+:root[data-stage="4"] .btn.primary{box-shadow:0 8px 24px -10px var(--wave)}
+@media (prefers-reduced-motion:reduce){
+  body,.stage,.dock,header{transition:none}
+}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:520px){
+  .task p{min-width:100%}
+  .choices .btn{min-width:7rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="levels" role="group" aria-label="Levels">
+      <button class="pip" id="pip1" aria-current="true" title="Level 1">1</button>
+      <button class="pip" id="pip2" disabled title="Level 2 locked">2</button>
+    </div>
+    <button class="iconbtn" id="speakBtn" title="Read this aloud" aria-label="Read this aloud">🔊</button>
+    <button class="iconbtn" id="setBtn" title="Settings" aria-label="Settings">⚙</button>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="hint" id="hint">Touch the wave and move it around</div>
+    <div class="readout" id="readout" hidden>
+      <span class="chip" id="chipFreq">Frequency <b>—</b></span>
+      <span class="chip" id="chipAmp">Amplitude <b>—</b></span>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="task">
+      <p id="taskText">Pull the wave up and down, left and right. Listen to what changes.</p>
+      <div class="score" id="score" hidden></div>
+    </div>
+    <div class="choices" id="choices"></div>
+    <p class="verdict" id="verdict"></p>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-label="Settings">
+  <h2>Settings</h2>
+  <div class="row">
+    <span>Read aloud</span>
+    <div class="opts">
+      <button class="opt" data-voice="on" aria-pressed="true">On</button>
+      <button class="opt" data-voice="off" aria-pressed="false">Off</button>
+    </div>
+  </div>
+  <div class="row">
+    <span>Range you can reach</span>
+    <div class="opts">
+      <button class="opt" data-range="start" aria-pressed="true">Starter</button>
+      <button class="opt" data-range="wide" aria-pressed="false">Wide</button>
+      <button class="opt" data-range="full" aria-pressed="false">Whole spectrum</button>
+    </div>
+  </div>
+  <div class="row">
+    <span>Voice speed</span>
+    <div class="opts">
+      <button class="opt" data-rate="0.7" aria-pressed="false">Slow</button>
+      <button class="opt" data-rate="0.9" aria-pressed="true">Steady</button>
+      <button class="opt" data-rate="1.1" aria-pressed="false">Quick</button>
+    </div>
+  </div>
+  <div class="row">
+    <span>Text size</span>
+    <div class="opts">
+      <button class="opt" data-size="1" aria-pressed="true">Normal</button>
+      <button class="opt" data-size="1.18" aria-pressed="false">Large</button>
+      <button class="opt" data-size="1.4" aria-pressed="false">Largest</button>
+    </div>
+  </div>
+  <div class="row">
+    <span>Background</span>
+    <div class="opts">
+      <button class="swatch" data-theme="slate" style="background:#141B24" aria-pressed="true" aria-label="Slate"></button>
+      <button class="swatch" data-theme="dusk" style="background:#211D33" aria-pressed="false" aria-label="Dusk"></button>
+      <button class="swatch" data-theme="sand" style="background:#EDE4D3" aria-pressed="false" aria-label="Sand"></button>
+      <button class="swatch" data-theme="mist" style="background:#DCE6E1" aria-pressed="false" aria-label="Mist"></button>
+    </div>
+  </div>
+  <div class="row">
+    <span>Movement</span>
+    <div class="opts">
+      <button class="opt" data-motion="on" aria-pressed="true">Moving wave</button>
+      <button class="opt" data-motion="calm" aria-pressed="false">Still wave</button>
+    </div>
+  </div>
+  <button class="btn" id="resetBtn">Start over</button>
+  <button class="btn primary" id="closeSet" style="margin-left:.5rem">Done</button>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- settings + progress ---------- */
+const S = { voice:true, size:1, theme:"slate", motion:true, rate:0.9, voiceName:null, range:"start" };
+const P = { level:1, matched:0, predicted:0, freePlay:false, tutorDone:false, stage:0 };
+
+function load(){
+  try{
+    const s = localStorage.getItem("soundroom.settings");
+    if(s) Object.assign(S, JSON.parse(s));
+    const p = localStorage.getItem("soundroom.progress");
+    if(p) Object.assign(P, JSON.parse(p));
+  }catch(e){}
+  applySettings();
+}
+function save(){
+  try{
+    localStorage.setItem("soundroom.settings", JSON.stringify(S));
+    localStorage.setItem("soundroom.progress", JSON.stringify(P));
+  }catch(e){}
+}
+function applySettings(){
+  document.documentElement.dataset.theme = S.theme;
+  document.documentElement.style.setProperty("--font-scale", S.size);
+  document.querySelectorAll("[data-voice]").forEach(b=>b.setAttribute("aria-pressed", String((b.dataset.voice==="on")===S.voice)));
+  document.querySelectorAll("[data-size]").forEach(b=>b.setAttribute("aria-pressed", String(Number(b.dataset.size)===Number(S.size))));
+  document.querySelectorAll(".swatch").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.theme===S.theme)));
+  document.querySelectorAll("[data-range]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.range===S.range)));
+  document.querySelectorAll("[data-rate]").forEach(b=>b.setAttribute("aria-pressed", String(Number(b.dataset.rate)===Number(S.rate))));
+  document.querySelectorAll("[data-motion]").forEach(b=>b.setAttribute("aria-pressed", String((b.dataset.motion==="on")===S.motion)));
+}
+
+/* ---------- speech ---------- */
+/* Speech must FINISH before the app moves on. Browsers truncate long
+   utterances, so every advance waits on the end event with a safety net. */
+let lastSpoken = "";
+let keepAlive = null;
+let speakToken = 0;
+
+function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+function say(text, force){
+  lastSpoken = text;
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const est = Math.max(1800, (words * 420) / (S.rate || 1));
+  const myToken = ++speakToken;
+
+  if((!S.voice && !force) || !("speechSynthesis" in window)){
+    return wait(est * 0.75);          // reading time when the voice is off
+  }
+  return new Promise(resolve=>{
+    let done = false;
+    const finish = ()=>{
+      if(done) return; done = true;
+      clearInterval(keepAlive); keepAlive = null;
+      resolve();
+    };
+    try{
+      speechSynthesis.cancel();
+      clearInterval(keepAlive);
+      // a short gap after cancel: speaking immediately swallows the first words
+      setTimeout(()=>{
+        if(myToken !== speakToken){ finish(); return; }
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = S.rate || 1;
+        u.pitch = 1;
+        if(S.voiceName){
+          const v = speechSynthesis.getVoices().find(v=>v.name === S.voiceName);
+          if(v) u.voice = v;
+        }
+        u.onend = finish;
+        u.onerror = finish;
+        // some browsers stall long utterances; nudging keeps them alive
+        keepAlive = setInterval(()=>{
+          if(speechSynthesis.speaking) speechSynthesis.resume();
+          else finish();
+        }, 5000);
+        speechSynthesis.speak(u);
+        setTimeout(finish, est * 2 + 5000);   // safety net
+      }, 160);
+    }catch(e){ finish(); }
+  });
+}
+/* keep the voice list warm so the first utterance is not silent */
+if("speechSynthesis" in window){
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = ()=>speechSynthesis.getVoices();
+}
+
+/* ---------- audio ---------- */
+let ctx = null, osc = null, gain = null, playing = false;
+let targetOsc = null, targetGain = null;
+
+function audio(){
+  if(!ctx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    ctx = new AC();
+    gain = ctx.createGain(); gain.gain.value = 0; gain.connect(ctx.destination);
+    osc = ctx.createOscillator(); osc.type = "sine"; osc.frequency.value = 220;
+    osc.connect(gain); osc.start();
+  }
+  if(ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+/* ears are far more sensitive in the 2-5 kHz region; trim so exploring
+   the top of the range is never painful */
+function safetyTrim(f){
+  if(f < 1500) return 1;
+  if(f < 6000) return 0.55;
+  return 0.4;
+}
+function tone(on){
+  if(!audio()) return;
+  playing = on;
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setTargetAtTime(on ? wave.amp*0.22*safetyTrim(wave.freq) : 0, ctx.currentTime, 0.03);
+}
+function updateTone(){
+  if(!ctx) return;
+  osc.frequency.setTargetAtTime(wave.freq, ctx.currentTime, 0.02);
+  osc.type = wave.shape;
+  if(playing) gain.gain.setTargetAtTime(wave.amp*0.22*safetyTrim(wave.freq), ctx.currentTime, 0.03);
+}
+function playTarget(ms){
+  if(!audio() || !target) return;
+  stopTarget();
+  targetOsc = ctx.createOscillator();
+  targetGain = ctx.createGain();
+  targetOsc.type = wave.shape;
+  targetOsc.frequency.value = target.freq;
+  targetGain.gain.value = 0;
+  targetOsc.connect(targetGain); targetGain.connect(ctx.destination);
+  targetOsc.start();
+  targetGain.gain.setTargetAtTime(target.amp*0.2, ctx.currentTime, .02);
+  setTimeout(stopTarget, ms || 1600);
+}
+function stopTarget(){
+  if(!targetOsc) return;
+  const o = targetOsc, g = targetGain;
+  targetOsc = null; targetGain = null;
+  try{
+    g.gain.setTargetAtTime(0, ctx.currentTime, .05);
+    setTimeout(()=>{ try{o.stop();}catch(e){} }, 300);
+  }catch(e){}
+}
+function chime(){
+  if(!audio()) return;
+  [523.25, 659.25, 783.99].forEach((f,i)=>{
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = f;
+    g.gain.value = 0; o.connect(g); g.connect(ctx.destination);
+    const t = ctx.currentTime + i*0.09;
+    o.start(t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.16, t+.03);
+    g.gain.exponentialRampToValueAtTime(.0001, t+.7);
+    o.stop(t+.75);
+  });
+}
+function playPreview(f, a, ms){
+  if(!audio()) return;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = wave.shape; o.frequency.value = f;
+  g.gain.value = 0; o.connect(g); g.connect(ctx.destination);
+  o.start();
+  g.gain.setTargetAtTime(a*0.2, ctx.currentTime, .02);
+  setTimeout(()=>{ g.gain.setTargetAtTime(0, ctx.currentTime, .05); setTimeout(()=>{try{o.stop();}catch(e){}}, 300); }, ms);
+}
+
+/* ---------- wave state ---------- */
+/* The whole audible spectrum is always on screen. The learner works inside a
+   window on it, and the window widens as they advance. */
+const SPEC_MIN = 20, SPEC_MAX = 20000;
+const RANGES = {
+  start: { lo:90,  hi:700,   label:"Starter range" },
+  wide:  { lo:40,  hi:4000,  label:"Wide range" },
+  full:  { lo:20,  hi:20000, label:"Whole spectrum" }
+};
+let FMIN = RANGES.start.lo, FMAX = RANGES.start.hi;
+const STRIP = 58;   // height of the spectrum band at the base of the stage
+const wave = { freq:220, amp:0.55, shape:"sine" };
+let target = null;
+let phase = 0;
+let touchedX = false, touchedY = false;
+let STAGE = 0;
+
+/* The visual treatment climbs as the learner does. It never drops back
+   below what they have already reached. */
+function setStage(n){
+  STAGE = Math.max(STAGE, n);
+  P.stage = Math.max(P.stage || 0, STAGE);
+  document.documentElement.dataset.stage = String(STAGE);
+  save();
+}
+
+const cv = document.getElementById("cv");
+const g2 = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  g2.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener("resize", resize);
+
+function coreH(){ return Math.max(80, H - STRIP); }
+function specX(f){
+  const t = Math.log(Math.max(SPEC_MIN,f)/SPEC_MIN) / Math.log(SPEC_MAX/SPEC_MIN);
+  return t * W;
+}
+function xToFreq(x){
+  const t = Math.min(1, Math.max(0, x / Math.max(W,1)));
+  return FMIN * Math.pow(FMAX/FMIN, t);
+}
+function freqToX(f){
+  return (Math.log(f/FMIN) / Math.log(FMAX/FMIN)) * W;
+}
+function yToAmp(y){
+  const t = 1 - (y / Math.max(coreH(),1));
+  return Math.min(1, Math.max(0.08, t));
+}
+
+function drawWave(f, a, color, alpha, lw, ph){
+  const useP = (ph === undefined) ? phase : ph;
+  const CH = coreH();
+  const span = Math.log(FMAX/FMIN);
+  const cycles = 1.2 + 16 * (Math.log(Math.max(FMIN,f)/FMIN) / span);
+  const h = (CH*0.40) * a;
+  g2.beginPath();
+  for(let px = 0; px <= W; px += 2){
+    const t = px / Math.max(W,1);
+    let v = Math.sin(t*cycles*Math.PI*2 + useP);
+    if(wave.shape === "sawtooth"){
+      const u = (t*cycles + useP/(Math.PI*2)) % 1;
+      v = 2*u - 1;
+    }
+    const y = CH/2 - v*h;
+    if(px === 0) g2.moveTo(px,y); else g2.lineTo(px,y);
+  }
+  g2.globalAlpha = alpha;
+  g2.strokeStyle = color;
+  g2.lineWidth = lw;
+  g2.lineJoin = "round"; g2.lineCap = "round";
+  g2.stroke();
+  g2.globalAlpha = 1;
+}
+
+function hexToRgb(h){
+  h = h.replace("#","").trim();
+  if(h.length === 3) h = h.split("").map(c=>c+c).join("");
+  const n = parseInt(h,16);
+  return [ (n>>16)&255, (n>>8)&255, n&255 ];
+}
+function mix(a, b, t){
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return "rgb(" + A.map((v,i)=>Math.round(v + (B[i]-v)*t)).join(",") + ")";
+}
+
+function render(){
+  const cs = getComputedStyle(document.documentElement);
+  const st = STAGE;
+  g2.clearRect(0,0,W,H);
+
+  const lineCol = cs.getPropertyValue("--line").trim();
+  const ghostCol = cs.getPropertyValue("--ghost").trim();
+  let col = cs.getPropertyValue("--wave").trim();
+
+  // stage 3+: the wave's colour drifts with pitch, warm low to bright high
+  if(st >= 3){
+    const t = Math.log(wave.freq/FMIN) / Math.log(FMAX/FMIN);
+    col = mix(col, ghostCol, Math.min(.55, t*.55));
+  }
+
+  // stage 2+: faint frequency ruling behind everything
+  if(st >= 2){
+    g2.save(); g2.globalAlpha = .5; g2.strokeStyle = lineCol; g2.lineWidth = 1;
+    for(let i=1;i<6;i++){
+      const x = (W/6)*i;
+      g2.beginPath(); g2.moveTo(x, coreH()*0.22); g2.lineTo(x, coreH()*0.78); g2.stroke();
+    }
+    g2.restore();
+  }
+
+  // centre line
+  g2.beginPath(); g2.moveTo(0,coreH()/2); g2.lineTo(W,coreH()/2);
+  g2.strokeStyle = lineCol; g2.lineWidth = 1; g2.stroke();
+
+  // stage 2+: echo waves trailing behind the live one
+  if(st >= 2){
+    const echoes = st >= 4 ? 3 : 1;
+    for(let i=echoes;i>=1;i--){
+      const p = phase - i*0.5;
+      drawWave(wave.freq, wave.amp*(1 - i*0.13), col, .10 + (st>=4?.04:0), 3, p);
+    }
+  }
+
+  if(target){
+    drawWave(target.freq, target.amp, ghostCol, .55, 3);
+  }
+
+  // stage 4: a quiet harmonic above the fundamental, hinting at what comes next
+  if(st >= 4){
+    drawWave(Math.min(FMAX, wave.freq*2), wave.amp*0.28, ghostCol, .22, 2);
+  }
+
+  g2.shadowBlur = st >= 4 ? 30 : st >= 3 ? 24 : st >= 1 ? 18 : 0;
+  g2.shadowColor = cs.getPropertyValue("--wave-glow").trim();
+  drawWave(wave.freq, wave.amp, col, 1, st >= 3 ? 6 : 5);
+  g2.shadowBlur = 0;
+
+  // stage 3+: a soft mirrored reflection below the line
+  if(st >= 3){
+    g2.save();
+    g2.translate(0, coreH());
+    g2.scale(1,-1);
+    drawWave(wave.freq, wave.amp*0.75, col, .16, 4);
+    g2.restore();
+  }
+
+  if(tutorDir) drawArrow(tutorDir, cs);
+  drawSpectrum(cs, col, lineCol, ghostCol);
+}
+
+/* The whole audible spectrum, 20 Hz to 20 kHz, always visible.
+   The bracket shows the part of it the learner is working in right now. */
+function drawSpectrum(cs, col, lineCol, ghostCol){
+  const top = coreH() + 6;
+  const h = STRIP - 14;
+  const mid = top + h/2;
+
+  g2.save();
+  // band
+  g2.globalAlpha = .9;
+  g2.strokeStyle = lineCol; g2.lineWidth = 1;
+  g2.beginPath(); g2.moveTo(0, top); g2.lineTo(W, top); g2.stroke();
+
+  // region shading: low / middle / high
+  const regions = [[20,250],[250,2000],[2000,20000]];
+  regions.forEach((r,i)=>{
+    const x1 = specX(r[0]), x2 = specX(r[1]);
+    g2.globalAlpha = .06 + i*0.035;
+    g2.fillStyle = col;
+    g2.fillRect(x1, top+2, x2-x1, h-4);
+  });
+
+  // decade ticks
+  const ticks = [20,50,100,200,500,1000,2000,5000,10000,20000];
+  const labels = {20:"20",100:"100",1000:"1k",10000:"10k",20000:"20k"};
+  g2.globalAlpha = .75;
+  g2.fillStyle = cs.getPropertyValue("--ink-soft").trim();
+  g2.strokeStyle = lineCol;
+  g2.font = "12px 'Atkinson Hyperlegible', Verdana, sans-serif";
+  g2.textAlign = "center";
+  ticks.forEach(f=>{
+    const x = specX(f);
+    g2.beginPath(); g2.moveTo(x, top+2); g2.lineTo(x, top + (labels[f] ? 9 : 5)); g2.stroke();
+    if(labels[f]) g2.fillText(labels[f], Math.min(W-14, Math.max(14,x)), top + h - 2);
+  });
+
+  // the window the learner can currently reach
+  const wx1 = specX(FMIN), wx2 = specX(FMAX);
+  g2.globalAlpha = 1;
+  g2.strokeStyle = ghostCol; g2.lineWidth = 2;
+  g2.beginPath();
+  g2.moveTo(wx1, top+14); g2.lineTo(wx1, top+3); g2.lineTo(wx2, top+3); g2.lineTo(wx2, top+14);
+  g2.stroke();
+
+  // where the learner is in the whole spectrum
+  const px = specX(wave.freq);
+  g2.fillStyle = col;
+  g2.beginPath(); g2.arc(px, mid, 6, 0, Math.PI*2); g2.fill();
+  g2.globalAlpha = .35;
+  g2.beginPath(); g2.arc(px, mid, 11, 0, Math.PI*2); g2.fill();
+  g2.restore();
+}
+
+function drawArrow(dir, cs){
+  const pulse = S.motion ? (0.45 + 0.35*Math.abs(Math.sin(phase*0.9))) : 0.7;
+  const cx = W/2, cy = coreH()/2;
+  const d = Math.min(W,coreH())*0.17;
+  const pts = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] }[dir];
+  g2.save();
+  g2.globalAlpha = pulse;
+  g2.strokeStyle = cs.getPropertyValue("--ghost").trim();
+  g2.lineWidth = 6; g2.lineCap = "round"; g2.lineJoin = "round";
+  for(let i=1;i<=2;i++){
+    const ox = cx + pts[0]*d*i*0.55, oy = cy + pts[1]*d*i*0.55;
+    const s = 22;
+    g2.beginPath();
+    if(dir === "up"){ g2.moveTo(ox-s, oy+s*0.6); g2.lineTo(ox, oy-s*0.4); g2.lineTo(ox+s, oy+s*0.6); }
+    else if(dir === "down"){ g2.moveTo(ox-s, oy-s*0.6); g2.lineTo(ox, oy+s*0.4); g2.lineTo(ox+s, oy-s*0.6); }
+    else if(dir === "left"){ g2.moveTo(ox+s*0.6, oy-s); g2.lineTo(ox-s*0.4, oy); g2.lineTo(ox+s*0.6, oy+s); }
+    else { g2.moveTo(ox-s*0.6, oy-s); g2.lineTo(ox+s*0.4, oy); g2.lineTo(ox-s*0.6, oy+s); }
+    g2.stroke();
+  }
+  g2.restore();
+}
+
+let last = performance.now();
+function loop(now){
+  const dt = (now - last)/1000; last = now;
+  if(S.motion && playing) phase += dt * (wave.freq/70);
+  else if(S.motion) phase += dt * 0.6;
+  render();
+  requestAnimationFrame(loop);
+}
+
+function setRange(key){
+  const r = RANGES[key] || RANGES.start;
+  S.range = key; FMIN = r.lo; FMAX = r.hi;
+  wave.freq = Math.min(FMAX, Math.max(FMIN, wave.freq));
+  updateTone(); updateChips(); applySettings(); save();
+  if(key === "full"){
+    say("The whole range is open now, twenty hertz up to twenty thousand. Turn your volume down before you go high.", true);
+  }else{
+    say(r.label + ". " + Math.round(r.lo) + " to " + Math.round(r.hi) + " hertz.", true);
+  }
+}
+
+/* ---------- interaction ---------- */
+const stage = document.getElementById("stage");
+const hint = document.getElementById("hint");
+const readout = document.getElementById("readout");
+const chipFreq = document.getElementById("chipFreq");
+const chipAmp = document.getElementById("chipAmp");
+
+function setFromPointer(e){
+  const r = stage.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const nf = xToFreq(x), na = yToAmp(y);
+  if(Math.abs(nf - wave.freq) > 1) touchedX = true;
+  if(Math.abs(na - wave.amp) > .04) touchedY = true;
+  wave.freq = nf; wave.amp = na;
+  updateTone();
+  updateChips();
+  if(mode === "match") checkMatch();
+  if(mode === "tutor") checkTutor();
+}
+function bandName(f){
+  if(f < 250) return "low";
+  if(f < 2000) return "middle";
+  return "high";
+}
+function updateChips(){
+  if(P.level < 2) return;
+  const f = wave.freq;
+  const shown = f >= 1000 ? (f/1000).toFixed(1) + " kHz" : Math.round(f) + " Hz";
+  chipFreq.innerHTML = "Frequency <b>" + shown + "</b> <span style=\'opacity:.7\'>" + bandName(f) + "</span>";
+  chipAmp.innerHTML = "Amplitude <b>" + Math.round(wave.amp*100) + "</b>";
+}
+
+stage.addEventListener("pointerdown", e=>{
+  stage.setPointerCapture(e.pointerId);
+  audio(); setFromPointer(e); tone(true);
+  if(mode === "tutor"){ touchedOnce = true; checkTutor(); }
+  else hint.hidden = true;
+});
+stage.addEventListener("pointermove", e=>{
+  if(e.pressure === 0 && e.buttons === 0) return;
+  setFromPointer(e);
+});
+["pointerup","pointercancel"].forEach(ev=>stage.addEventListener(ev, ()=>{
+  tone(false);
+  if(mode === "free") checkFreePlay();
+}));
+
+/* keyboard access */
+stage.tabIndex = 0;
+stage.setAttribute("role","application");
+stage.setAttribute("aria-label","The wave. Arrow keys change it.");
+stage.addEventListener("keydown", e=>{
+  const step = 1.06;
+  let used = true;
+  if(e.key === "ArrowRight"){ wave.freq = Math.min(FMAX, wave.freq*step); touchedX = true; }
+  else if(e.key === "ArrowLeft"){ wave.freq = Math.max(FMIN, wave.freq/step); touchedX = true; }
+  else if(e.key === "ArrowUp"){ wave.amp = Math.min(1, wave.amp+.06); touchedY = true; }
+  else if(e.key === "ArrowDown"){ wave.amp = Math.max(.08, wave.amp-.06); touchedY = true; }
+  else used = false;
+  if(used){
+    e.preventDefault(); audio(); updateTone(); updateChips();
+    tone(true); clearTimeout(stage._kt); stage._kt = setTimeout(()=>{ tone(false); if(mode==="free") checkFreePlay(); }, 500);
+    if(mode === "match") checkMatch();
+    if(mode === "tutor"){ touchedOnce = true; checkTutor(); }
+  }
+});
+
+/* ---------- flow ---------- */
+const taskText = document.getElementById("taskText");
+const choices = document.getElementById("choices");
+const verdict = document.getElementById("verdict");
+const scoreEl = document.getElementById("score");
+const pip1 = document.getElementById("pip1");
+const pip2 = document.getElementById("pip2");
+
+let mode = "free";
+
+function setTask(text, speakIt){
+  taskText.textContent = text;
+  if(speakIt !== false) say(text);
+  else lastSpoken = text;
+}
+function setChoices(list){
+  choices.innerHTML = "";
+  list.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "btn " + (c.style || "");
+    b.textContent = c.label;
+    b.addEventListener("click", c.onClick);
+    choices.appendChild(b);
+  });
+}
+function setScore(n, total){
+  if(total === 0){ scoreEl.hidden = true; return; }
+  scoreEl.hidden = false;
+  scoreEl.innerHTML = "";
+  for(let i=0;i<total;i++){
+    const d = document.createElement("span");
+    d.className = "dot" + (i<n ? " on" : "");
+    scoreEl.appendChild(d);
+  }
+}
+
+/* --- tutorial --- */
+let tutorDir = null, tutorStep = 0, touchedOnce = false, tutorLock = false;
+
+const TUTOR = [
+  {
+    say:"Put your finger on the wave and hold it there.",
+    dir:null,
+    test:()=> touchedOnce,
+    after:"That sound is the wave. It only sounds while you hold it."
+  },
+  {
+    say:"Now drag upward, toward the top.",
+    dir:"up",
+    test:()=> wave.amp > 0.8,
+    after:"Louder. The taller the wave, the louder it gets. That height is called amplitude."
+  },
+  {
+    say:"Now drag downward, toward the bottom.",
+    dir:"down",
+    test:()=> wave.amp < 0.25,
+    after:"Softer. Small amplitude, quiet sound."
+  },
+  {
+    say:"Now drag to the right.",
+    dir:"right",
+    test:()=> wave.freq > 420,
+    after:"Higher. The waves are packed closer, so more of them go past every second. That speed is called frequency."
+  },
+  {
+    say:"Now drag to the left.",
+    dir:"left",
+    test:()=> wave.freq < 160,
+    after:"Lower. Fewer waves every second. Lower frequency."
+  }
+];
+
+function startTutor(){
+  setStage(0);
+  mode = "tutor"; target = null; tutorStep = 0; touchedOnce = false; tutorLock = false;
+  readout.hidden = true;
+  verdict.textContent = ""; verdict.className = "verdict";
+  setScore(0,0);
+  wave.freq = 220; wave.amp = 0.5; wave.shape = "sine";
+  updateTone();
+  showTutorStep();
+}
+function showTutorStep(){
+  const s = TUTOR[tutorStep];
+  hint.hidden = false;
+  hint.textContent = s.say;
+  setScore(tutorStep, TUTOR.length);
+  setChoices([{label:"Skip this", onClick:endTutor}]);
+  tutorDir = null;
+  taskText.textContent = s.say;
+  say(s.say).then(()=>{
+    if(mode === "tutor" && TUTOR[tutorStep] === s) tutorDir = s.dir;
+  });
+}
+function checkTutor(){
+  if(tutorLock) return;
+  const s = TUTOR[tutorStep];
+  if(!s.test()) return;
+  tutorLock = true;
+  tutorDir = null;
+  hint.hidden = true;
+  verdict.textContent = s.after;
+  verdict.className = "verdict good";
+  setScore(tutorStep+1, TUTOR.length);
+  setChoices([]);
+  say(s.after)
+    .then(()=>wait(1500))            // a breath after the voice finishes
+    .then(()=>{
+      if(mode !== "tutor") return;
+      tutorLock = false;
+      verdict.textContent = ""; verdict.className = "verdict";
+      tutorStep++;
+      if(tutorStep >= TUTOR.length) tutorRecap();
+      else showTutorStep();
+    });
+}
+function tutorRecap(){
+  tutorDir = null;
+  hint.hidden = true;
+  setScore(TUTOR.length, TUTOR.length);
+  setTask("Two things. Up and down changes amplitude, how loud it is. Left and right changes frequency, how high it is. Now try it on your own.");
+  setChoices([
+    {label:"Start playing", style:"primary", onClick:endTutor},
+    {label:"Show me again", onClick:startTutor}
+  ]);
+}
+function endTutor(){
+  P.tutorDone = true; save();
+  tutorDir = null;
+  freePlay();
+}
+
+/* --- level 1: free play --- */
+function freePlay(){
+  setStage(1);
+  mode = "free"; target = null;
+  readout.hidden = P.level < 2;
+  hint.hidden = false;
+  hint.textContent = "Touch the wave and move it around";
+  setTask("Pull the wave up and down, left and right. Listen to what changes.", false);
+  setScore(0,0);
+  verdict.textContent = "";
+  const list = [{label:"Show me again", onClick:startTutor}];
+  if(P.freePlay) list.unshift({label:"Play the matching game", style:"primary", onClick:startMatch});
+  setChoices(list);
+}
+function checkFreePlay(){
+  if(P.freePlay || !(touchedX && touchedY)) return;
+  P.freePlay = true; save();
+  verdict.textContent = "You changed both things.";
+  verdict.className = "verdict good";
+  setChoices([
+    {label:"Play the matching game", style:"primary", onClick:startMatch},
+    {label:"Show me again", onClick:startTutor}
+  ]);
+  say("You changed both things. Try the matching game.");
+}
+
+/* --- level 1 check: matching --- */
+let matchHold = null;
+function startMatch(){
+  setStage(2);
+  mode = "match"; verdict.textContent = ""; verdict.className = "verdict";
+  P.matched = 0; save();
+  newTarget();
+}
+function newTarget(){
+  target = {
+    freq: FMIN * Math.pow(FMAX/FMIN, 0.15 + Math.random()*0.7),
+    amp: 0.3 + Math.random()*0.6
+  };
+  setScore(P.matched, 3);
+  setTask("Listen, then move your wave on top of the other one.");
+  setChoices([
+    {label:"Listen again", style:"ghost", onClick:()=>playTarget(1600)},
+    {label:"Back to playing", onClick:freePlay}
+  ]);
+  setTimeout(()=>playTarget(1600), 700);
+}
+function checkMatch(){
+  if(!target) return;
+  const fOK = Math.abs(Math.log(wave.freq/target.freq)) < 0.055;
+  const aOK = Math.abs(wave.amp - target.amp) < 0.13;
+  if(fOK && aOK){
+    if(matchHold) return;
+    matchHold = setTimeout(()=>{
+      matchHold = null;
+      if(mode !== "match") return;
+      P.matched++; save();
+      chime();
+      setScore(P.matched, 3);
+      verdict.textContent = "Matched.";
+      verdict.className = "verdict good";
+      target = null;
+      tone(false);
+      if(P.matched >= 3){ say("Matched.").then(unlockLevel2); }
+      else say("Matched.").then(()=>wait(1200)).then(()=>{
+        if(mode !== "match") return;
+        verdict.textContent=""; verdict.className="verdict"; newTarget();
+      });
+    }, 600);
+  }else if(matchHold){
+    clearTimeout(matchHold); matchHold = null;
+  }
+}
+
+/* --- level 2 --- */
+function unlockLevel2(){
+  P.level = Math.max(P.level, 2); save();
+  pip2.disabled = false; pip2.title = "Level 2";
+  mode = "done1";
+  setScore(0,0);
+  setTask("You matched three. The wave has names for what you have been changing.");
+  setChoices([{label:"Learn the names", style:"primary", onClick:goLevel2}]);
+}
+function goLevel2(){
+  setStage(3);
+  P.level = 2; save();
+  pip1.setAttribute("aria-current","false");
+  pip2.setAttribute("aria-current","true");
+  readout.hidden = false;
+  updateChips();
+  mode = "free2"; target = null;
+  hint.hidden = false;
+  hint.textContent = "Up and down is amplitude. Left and right is frequency.";
+  setTask("Tall wave is loud. That is amplitude. Fast wave is high. That is frequency, counted in hertz.");
+  verdict.textContent = ""; verdict.className = "verdict";
+  setChoices([
+    {label:"Smooth sound", onClick:()=>setShape("sine")},
+    {label:"Buzzy sound", onClick:()=>setShape("sawtooth")},
+    {label:"Play the guessing game", style:"primary", onClick:startPredict}
+  ]);
+}
+function setShape(s){
+  wave.shape = s; updateTone();
+  const name = s === "sine" ? "Smooth" : "Buzzy";
+  verdict.textContent = name + " sound. Same pitch, different feel.";
+  verdict.className = "verdict";
+  say(name + " sound. Same pitch, different feel.");
+  playPreview(wave.freq, wave.amp, 900);
+}
+
+const PROMPTS = [
+  { text:"The wave gets faster. Will it sound higher or lower?", a:"Higher", b:"Lower", right:"Higher", apply:()=>{ wave.freq = Math.min(FMAX, wave.freq*1.6); } },
+  { text:"The wave gets slower. Will it sound higher or lower?", a:"Higher", b:"Lower", right:"Lower", apply:()=>{ wave.freq = Math.max(FMIN, wave.freq/1.6); } },
+  { text:"The wave gets taller. Will it sound louder or softer?", a:"Louder", b:"Softer", right:"Louder", apply:()=>{ wave.amp = Math.min(1, wave.amp+0.35); } },
+  { text:"The wave gets shorter. Will it sound louder or softer?", a:"Louder", b:"Softer", right:"Softer", apply:()=>{ wave.amp = Math.max(0.12, wave.amp-0.35); } }
+];
+let current = null;
+
+function startPredict(){
+  mode = "predict";
+  P.predicted = 0; save();
+  verdict.textContent = ""; verdict.className = "verdict";
+  hint.hidden = true;
+  nextPrompt();
+}
+function nextPrompt(){
+  wave.freq = 200 + Math.random()*180;
+  wave.amp = 0.45 + Math.random()*0.2;
+  updateTone(); updateChips();
+  current = PROMPTS[Math.floor(Math.random()*PROMPTS.length)];
+  setScore(P.predicted, 4);
+  setTask(current.text);
+  setChoices([
+    {label:current.a, onClick:()=>answer(current.a)},
+    {label:current.b, onClick:()=>answer(current.b)},
+    {label:"Stop", onClick:goLevel2}
+  ]);
+}
+function answer(pick){
+  const right = pick === current.right;
+  current.apply();
+  updateTone(); updateChips();
+  playPreview(wave.freq, wave.amp, 1100);
+  if(right){
+    P.predicted++; save();
+    verdict.textContent = "Right. Listen.";
+    verdict.className = "verdict good";
+    chime();
+  }else{
+    verdict.textContent = "Not that one. Listen to what happened.";
+    verdict.className = "verdict";
+    P.predicted = 0; save();
+  }
+  setScore(P.predicted, 4);
+  setChoices([]);
+  say(verdict.textContent).then(()=>wait(1600)).then(()=>{
+    if(mode !== "predict") return;
+    if(P.predicted >= 4) finishLevel2();
+    else nextPrompt();
+  });
+}
+function finishLevel2(){
+  setStage(4);
+  mode = "done2";
+  setScore(4,4);
+  setTask("Four in a row. You can call the sound before you hear it. That is the end of level two.");
+  setChoices([
+    {label:"Keep playing", style:"primary", onClick:goLevel2},
+    {label:"Back to level 1", onClick:()=>{ P.level=1; pip2.setAttribute("aria-current","false"); pip1.setAttribute("aria-current","true"); readout.hidden=true; freePlay(); }}
+  ]);
+}
+
+/* ---------- header buttons ---------- */
+document.getElementById("speakBtn").addEventListener("click", ()=>{
+  say(lastSpoken || taskText.textContent, true);
+});
+const sheet = document.getElementById("sheet"), scrim = document.getElementById("scrim");
+function openSheet(o){ sheet.hidden = !o; scrim.hidden = !o; }
+document.getElementById("setBtn").addEventListener("click", ()=>openSheet(true));
+document.getElementById("closeSet").addEventListener("click", ()=>openSheet(false));
+scrim.addEventListener("click", ()=>openSheet(false));
+
+sheet.addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.voice){ S.voice = b.dataset.voice === "on"; }
+  else if(b.dataset.range){ setRange(b.dataset.range); return; }
+  else if(b.dataset.rate){ S.rate = Number(b.dataset.rate); applySettings(); save(); say("This is how fast I will talk.", true); return; }
+  else if(b.dataset.size){ S.size = Number(b.dataset.size); }
+  else if(b.dataset.theme){ S.theme = b.dataset.theme; }
+  else if(b.dataset.motion){ S.motion = b.dataset.motion === "on"; }
+  else return;
+  applySettings(); save(); resize();
+});
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  P.level = 1; P.matched = 0; P.predicted = 0; P.freePlay = false; P.tutorDone = false; P.stage = 0; STAGE = 0;
+  touchedX = touchedY = false;
+  save();
+  pip2.disabled = true; pip2.setAttribute("aria-current","false");
+  pip1.setAttribute("aria-current","true");
+  readout.hidden = true;
+  openSheet(false);
+  startTutor();
+});
+
+pip1.addEventListener("click", ()=>{
+  P.level = 1; save();
+  pip1.setAttribute("aria-current","true"); pip2.setAttribute("aria-current","false");
+  readout.hidden = true; freePlay();
+});
+pip2.addEventListener("click", ()=>{ if(!pip2.disabled) goLevel2(); });
+
+/* ---------- start ---------- */
+load();
+STAGE = P.stage || 0;
+(function(){ const r = RANGES[S.range] || RANGES.start; FMIN = r.lo; FMAX = r.hi; })();
+document.documentElement.dataset.stage = String(STAGE);
+resize();
+if(P.level >= 2){ pip2.disabled = false; }
+if(P.level >= 2) goLevel2();
+else if(!P.tutorDone) startTutor();
+else freePlay();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

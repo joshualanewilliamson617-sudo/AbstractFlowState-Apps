@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="color-scheme" content="light dark" />
+<title>The Root Field · Ant Colony</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#e9edf0;--panel:rgba(245,248,250,.92);--ink:#142027;--muted:#52626b;
+  --line:rgba(24,43,52,.16);--metal:#72808a;--food:#d9690f;--good:#18825a;--bad:#b8362a;
+  --btn:rgba(255,255,255,.72);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#07090a;--panel:rgba(12,16,18,.9);--ink:#e5ecee;--muted:#8b9ca3;
+  --line:rgba(201,220,225,.15);--metal:#aebbc0;--food:#ff8a1f;--good:#62e0a6;--bad:#ff6868;
+  --btn:rgba(28,35,38,.76);
+}}
+:root[data-theme="dark"]{
+  --bg:#07090a;--panel:rgba(12,16,18,.9);--ink:#e5ecee;--muted:#8b9ca3;
+  --line:rgba(201,220,225,.15);--metal:#aebbc0;--food:#ff8a1f;--good:#62e0a6;--bad:#ff6868;
+  --btn:rgba(28,35,38,.76);
+}
+*{box-sizing:border-box}
+:root{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"Chakra Petch",system-ui,sans-serif}
+.stage{position:fixed;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--food) 6%,transparent),transparent 45%),var(--bg)}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;display:block}
+.top{position:absolute;z-index:3;left:max(18px,env(safe-area-inset-left));right:max(18px,env(safe-area-inset-right));top:max(18px,env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none}
+h1{font-size:clamp(22px,4vw,38px);line-height:1;margin:0 0 6px;font-weight:600;letter-spacing:-.04em}
+.sub{font:400 12px/1.45 "IBM Plex Mono",monospace;color:var(--muted);max-width:360px}
+.bearing{position:relative;display:grid;place-items:center;width:54px;height:54px;border:1px solid var(--line);border-radius:50%;font:500 10px "IBM Plex Mono",monospace;color:var(--muted);background:var(--panel)}
+.bearing:after{content:"";position:absolute;left:50%;top:50%;width:1px;height:16px;margin-left:-.5px;background:var(--food);transform-origin:50% 100%;transform:translateY(-100%) rotate(var(--bearing,0deg))}
+.fps{position:absolute;right:0;top:62px;font:400 10px "IBM Plex Mono",monospace;color:var(--muted);white-space:nowrap}
+.controls{position:absolute;z-index:4;right:max(14px,env(safe-area-inset-right));top:50%;transform:translateY(-60%);display:grid;gap:8px}
+button{appearance:none;border:1px solid var(--line);background:var(--btn);color:var(--ink);font:500 13px "Chakra Petch",sans-serif;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);cursor:pointer}
+button:hover{border-color:color-mix(in srgb,var(--food) 55%,transparent)}
+button:focus-visible{outline:2px solid var(--food);outline-offset:2px}
+.icon-btn[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.icon-btn{width:44px;height:44px;border-radius:50%;font:500 19px "IBM Plex Mono",monospace;display:grid;place-items:center}
+.tag{position:absolute;z-index:2;transform:translate(-50%,-100%);font:500 9px "IBM Plex Mono",monospace;color:var(--metal);letter-spacing:.08em;pointer-events:none}
+.hint{position:absolute;z-index:3;top:110px;left:50%;transform:translateX(-50%);padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font:400 11px "IBM Plex Mono",monospace;color:var(--muted);white-space:nowrap;pointer-events:none;transition:opacity .5s}
+.bottom{position:absolute;z-index:3;left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));display:grid;grid-template-columns:minmax(280px,400px) 1fr;gap:12px;align-items:end;pointer-events:none}
+.panel{background:var(--panel);border:1px solid var(--line);box-shadow:0 16px 45px rgba(0,0,0,.18);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);pointer-events:auto}
+.colony{border-radius:18px 18px 7px 18px;padding:15px}
+.pop-row{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.pop{font:500 clamp(28px,4.6vw,40px)/1 "IBM Plex Mono",monospace;letter-spacing:-.05em}
+.status{font:500 12px/1.3 "IBM Plex Mono",monospace;text-align:right}
+.status.grow{color:var(--good)}.status.starve{color:var(--bad)}.status.hold{color:var(--muted)}
+.status small{display:block;font-weight:400;color:var(--muted)}
+.bar{height:4px;margin:12px 0 7px;background:color-mix(in srgb,var(--ink) 9%,transparent);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--food);transition:width .25s}
+.next{font:400 11px "IBM Plex Mono",monospace;color:var(--muted)}
+.next b{color:var(--ink);font-weight:500}
+.row-btns{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.chip{border-radius:8px;padding:9px 12px;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.starve:hover{color:var(--bad);border-color:var(--bad)}
+.readout{justify-self:end;display:flex;border-radius:14px 14px 14px 7px;overflow:hidden}
+.metric{padding:10px 14px;min-width:96px;border-left:1px solid var(--line)}.metric:first-child{border-left:0}
+.metric b{display:block;font:500 15px "IBM Plex Mono",monospace;white-space:nowrap}
+.metric b.food{color:var(--food)}
+.metric span{font:400 9px "IBM Plex Mono",monospace;color:var(--muted);letter-spacing:.06em}
+.metric button{padding:3px 8px;border-radius:6px;font:500 13px "IBM Plex Mono",monospace;margin-bottom:2px}
+.toast{position:absolute;z-index:6;left:50%;top:44%;transform:translate(-50%,-50%) scale(.96);max-width:min(420px,86vw);padding:15px 18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s}
+.toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.toast b{display:block;font:500 22px "IBM Plex Mono",monospace;margin:4px 0}
+.toast small{font:400 11px "IBM Plex Mono",monospace;color:var(--muted)}
+.sheet{position:absolute;z-index:8;inset:0;display:none;place-items:center;background:rgba(0,0,0,.35);padding:16px}
+.sheet.open{display:grid}
+.sheet-card{width:min(640px,100%);max-height:100%;overflow:auto;border-radius:16px;padding:16px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.sheet-head h2{margin:0;font-size:18px;letter-spacing:-.02em}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cell{padding:11px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cell:nth-child(3n){border-right:0}
+.cell span{display:block;font:400 10px "IBM Plex Mono",monospace;color:var(--muted);margin-bottom:5px}
+.cell b{font:500 16px "IBM Plex Mono",monospace}
+.miles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0}
+.mile{padding:8px;border:1px solid var(--line);border-radius:8px;font:400 10px "IBM Plex Mono",monospace;color:var(--muted)}
+.mile b{display:block;color:var(--ink);font-weight:500;margin-top:3px}
+textarea{width:100%;height:110px;margin-top:10px;font:400 11px "IBM Plex Mono",monospace;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;display:none}
+.sheet-note{margin:-4px 0 12px;font:400 11px/1.5 "IBM Plex Mono",monospace;color:var(--muted)}
+.habits{display:grid;gap:8px}
+.habit{text-align:left;border-radius:12px;padding:12px 14px;display:grid;gap:4px}
+.habit b{font:600 15px "Chakra Petch",sans-serif}
+.habit span{font:400 11px/1.45 "IBM Plex Mono",monospace;color:var(--muted)}
+.habit[aria-pressed="true"]{border-color:var(--food);background:color-mix(in srgb,var(--food) 14%,var(--btn))}
+.habit[aria-pressed="true"] b:after{content:"  ● active";font:500 10px "IBM Plex Mono",monospace;color:var(--food)}
+.fail{position:absolute;inset:0;z-index:9;display:none;place-items:center;padding:30px;text-align:center;font:400 13px/1.5 "IBM Plex Mono",monospace;color:var(--muted)}
+@media(max-width:700px){
+  .controls{gap:6px}
+  .sub{max-width:230px;font-size:10px}.bearing{width:44px;height:44px}.fps{top:50px}
+  .hint{top:auto;bottom:268px;font-size:10px}
+  .controls{right:10px;top:36%}.icon-btn{width:40px;height:40px;font-size:16px}
+  .bottom{grid-template-columns:1fr;gap:8px}.colony{padding:12px}
+  .chip{padding:8px 10px;font-size:12px}
+  .readout{justify-self:stretch}.metric{flex:1;min-width:0;padding:8px}.metric b{font-size:12px}.metric span{font-size:8px}
+  .grid{grid-template-columns:repeat(2,1fr)}.cell:nth-child(3n){border-right:1px solid var(--line)}.cell:nth-child(2n){border-right:0}
+  .miles{grid-template-columns:repeat(3,1fr)}
+}
+@media(prefers-reduced-motion:reduce){.hint,.toast,.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main class="stage" aria-label="3D ant colony">
+  <canvas id="world" aria-label="3D field with an ant colony. Tap the ground to drop food. Drag to orbit, scroll or pinch to zoom."></canvas>
+  <div class="tag" id="nestTag">NEST</div><div class="tag" id="queenTag">QUEEN</div>
+  <section class="top">
+    <div><h1>The Root Field</h1><div class="sub">Tap the ground to drop food. Food hatches ants, every ant eats, and a hungry colony shrinks.</div></div>
+    <div class="bearing" id="bearing" aria-label="Camera bearing">N<span class="fps" id="fps"></span></div>
+  </section>
+  <div class="hint" id="hint">Tap to feed · double-tap to zoom there · ▼ to go underground</div>
+  <nav class="controls" aria-label="Camera controls">
+    <button class="icon-btn" id="zoomIn" aria-label="Zoom in">+</button>
+    <button class="icon-btn" id="zoomOut" aria-label="Zoom out">−</button>
+    <button class="icon-btn" id="depthUp" aria-label="Move view up">▲</button>
+    <button class="icon-btn" id="depthDown" aria-label="Move view down into the nest">▼</button>
+    <button class="icon-btn" id="surfaceCam" aria-label="Surface view">⌂</button>
+    <button class="icon-btn" id="nestCam" aria-label="Whole nest view">⊚</button>
+    <button class="icon-btn" id="xrayBtn" aria-label="See-through ground" aria-pressed="false">◐</button>
+  </nav>
+  <section class="bottom">
+    <div class="panel colony">
+      <div class="pop-row"><div><div class="pop" id="pop">5</div></div><div class="status hold" id="status">Holding<small>drop food to grow</small></div></div>
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="next" id="next">Next: <b>100</b></div>
+      <div class="row-btns">
+        <button class="chip" id="autoBtn" aria-pressed="false"><span class="dot"></span>Auto feed</button>
+        <button class="chip starve" id="starveBtn">Starve</button>
+        <button class="chip" id="speedBtn">1× speed</button>
+        <button class="chip" id="forageBtn">Foraging: Trails</button>
+        <button class="chip" id="styleBtn">Nest: Fire ant</button>
+        <button class="chip" id="numbersBtn">Numbers</button>
+      </div>
+    </div>
+    <div class="panel readout">
+      <div class="metric"><b class="food" id="foodField">0</b><span>FOOD ON FIELD</span></div>
+      <div class="metric"><b id="collected">0</b><span>COLLECTED</span></div>
+      <div class="metric"><b id="trail">0%</b><span>TRAIL</span></div>
+      <div class="metric"><button id="tier" aria-label="Change dot limit">1M</button><span id="perDot">DOT LIMIT</span></div>
+    </div>
+  </section>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="panel sheet-card">
+      <div class="sheet-head"><h2 id="sheetTitle">Run numbers</h2><button class="chip" id="closeSheet">Close</button></div>
+      <div class="grid" id="statGrid"></div>
+      <div class="miles" id="miles"></div>
+      <div class="row-btns"><button class="chip" id="copyText">Copy numbers</button><button class="chip" id="copyCsv">Copy as CSV</button><button class="chip" id="restart" style="margin-left:auto">Start new colony</button></div>
+      <textarea id="copyBox" readonly aria-label="Numbers to copy"></textarea>
+    </div>
+  </section>
+  <section class="sheet" id="forageSheet" role="dialog" aria-modal="true" aria-labelledby="forageTitle">
+    <div class="panel sheet-card">
+      <div class="sheet-head"><h2 id="forageTitle">Foraging habit</h2><button class="chip" id="closeForage">Close</button></div>
+      <p class="sheet-note">How ants choose food and get to it. Switch any time — the colony keeps its size.</p>
+      <div class="habits" id="habits"></div>
+    </div>
+  </section>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="fail" id="fail"></div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+function fail(m){$('fail').textContent=m;$('fail').style.display='grid'}
+if(!window.THREE){fail('The 3D engine failed to load. Check your connection and reload.');return}
+
+/* =========================================================
+   1. COLONY ECONOMY  (the "true" model — runs on the CPU)
+   Food brought home goes into the nest store. Every ant eats
+   a little each second (upkeep). Surplus hatches new ants.
+   No surplus → the store drains → ants starve and die,
+   down to the queen and a few workers.
+   ========================================================= */
+var FLOOR=5, MAXPOP=1048576;
+var UPKEEP=0.0003;        // food per ant per second
+var DEATH=0.008;          // share of hungry ants lost per second
+var RESERVE_SEC=20;       // the nest keeps ~20 s of food before hatching
+function capacity(P){return 0.042*Math.pow(P,0.8)+0.4}   // food the colony can carry home per second
+function hatchCost(P){return 1+Math.log10(P)*.08}
+function reach(P){return Math.min(26,6+3.4*Math.log10(Math.max(5,P)))}
+
+var KEY='rootfield-antfarm-v2';
+var S={pop:FLOOR,store:0,collected:0,trips:0,tripSec:0,age:0,foods:[],nextId:1,auto:false,speed:1,tier:null,miles:{},saved:Date.now(),autoClock:0,autoNext:1,spoiled:0,nestStyle:'fire',nestMax:5,forage:'trails',raidA:0,raidT:0};
+try{var raw=localStorage.getItem(KEY);if(raw){var L=JSON.parse(raw);if(L&&typeof L.pop==='number')S=Object.assign(S,L)}}catch(e){}
+
+function terrain(x,z){return Math.sin(x*.17)*.5+Math.cos(z*.14)*.55+Math.sin((x+z)*.08)*.35-1.1*Math.exp(-(x*x+z*z)/52)}
+function foodTotal(){var n=0;for(var i=0;i<S.foods.length;i++)n+=S.foods[i].amount;return n}
+function trailAvg(){var s=0,w=0;S.foods.forEach(function(f){if(f.amount<=0)return;var k=Math.sqrt(f.amount);s+=f.trail*k;w+=k});return w?s/w:0}
+
+function addFood(x,z,amount){
+  var near=null;for(var i=0;i<S.foods.length;i++){var f=S.foods[i];if(Math.hypot(f.x-x,f.z-z)<1.1){near=f;break}}
+  if(near){near.amount+=amount;near.max=Math.max(near.max,near.amount);near.pulse=1;near.fresh=1;return near}
+  if(S.foods.length>=MAXPILES){var oldest=S.foods.reduce(function(a,b){return (a.fresh||0)<(b.fresh||0)?a:b});S.spoiled+=oldest.amount;S.foods.splice(S.foods.indexOf(oldest),1)}
+  var f={id:S.nextId++,x:x,z:z,amount:amount,max:amount,trail:.04,pulse:1,fresh:1,found:false,dist:Math.max(2,Math.hypot(x,z))};
+  S.foods.push(f);return f;
+}
+function tapAmount(){return Math.round(capacity(S.pop)*12+40)}
+/* Auto feed: no fixed rhythm. Each drop waits a random 0.3–2.2 s,
+   lands anywhere in the colony's area (spread evenly by area, not by ring),
+   sometimes a little past the edge to pull the colony outward,
+   and 1 in 4 drops scatters as a spray of crumbs instead of one pile. */
+var MAXPILES=60, SPOIL_SEC=25;   // uneaten food loses ~1/25 of itself per second
+var AUTO_RATE=2.6;               // auto feed supplies ~2.6x what the colony can carry (spoilage eats the rest)
+function rnd(a,b){return a+Math.random()*(b-a)}
+function spot(R){var a=Math.random()*Math.PI*2,r=Math.max(2.4,Math.sqrt(Math.random())*R*(Math.random()<.12?1.3:1));r=Math.min(r,27.5);return {x:Math.cos(a)*r,z:Math.sin(a)*r}}
+function autoDrop(interval){
+  var R=reach(S.pop),budget=capacity(S.pop)*AUTO_RATE*interval*rnd(.4,1.6)+3,p=spot(R);
+  if(Math.random()<.25){var n=3+Math.floor(Math.random()*3);
+    for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,d=rnd(1.2,3.6);addFood(Math.max(-28,Math.min(28,p.x+Math.cos(a)*d)),Math.max(-28,Math.min(28,p.z+Math.sin(a)*d)),Math.round(budget/n+1))}}
+  else addFood(p.x,p.z,Math.round(budget));
+}
+
+/* Foraging habits — how ants choose and reach food.
+   eff = how much of the colony's carrying capacity they achieve when not using trails */
+var HABITS={
+  trails:{name:'Trails',eff:0,noise:1,turn:4,lane:1,roam:1,desc:'Ants follow scent. A new pile is slow to catch on, then a busy highway forms. Fastest once trails are strong.'},
+  direct:{name:'Direct path',eff:.7,noise:.12,turn:14,lane:.15,roam:.6,desc:'Every ant knows where the food is and walks a straight line to it. No learning, no wandering — steady, but never reaches highway speed.'},
+  scouts:{name:'Scouts & recruit',eff:0,noise:1.35,turn:4,lane:1,roam:1.35,desc:'Food is invisible until a wandering scout finds it, then the scout recruits a trail. Most realistic. Fresh food can spoil before anyone finds it.'},
+  raid:{name:'Swarm raid',eff:.85,noise:.8,turn:3,lane:1,roam:1,desc:'Army-ant style. The colony pours out in one direction as a wide front, eats everything in its path, then turns. Food outside the raid is ignored.'},
+  nearest:{name:'Graze nearest',eff:.68,noise:.6,turn:6,lane:.5,roam:.8,desc:'Each ant eats from whatever pile is closest to it. Nearby food vanishes fast; far piles are left to spoil.'}
+};
+var HABIT_KEYS=['trails','direct','scouts','raid','nearest'],HABIT_IDX={trails:0,direct:1,scouts:2,raid:3,nearest:4};
+if(!HABITS[S.forage])S.forage='trails';
+function step(dt){                                  // one economy tick, dt in sim-seconds
+  S.age+=dt;
+  if(S.auto){S.autoClock+=dt;while(S.autoClock>=S.autoNext){S.autoClock-=S.autoNext;autoDrop(S.autoNext);S.autoNext=rnd(.3,2.2)}}
+  var M=S.forage,total=foodTotal(),tw=0,wTrip=0,gathered=0,usesTrail=(M==='trails'||M==='scouts');
+  if(M==='raid'){S.raidT-=dt;if(S.raidT<=0){S.raidT=rnd(25,40);S.raidA=Math.random()*Math.PI*2}S.raidA+=dt*.04}
+  if(M==='scouts'){var scouts=Math.max(1,S.pop*.1);S.foods.forEach(function(f){if(f.amount>0&&!f.found){var rate=.06*Math.sqrt(scouts)/(1+Math.pow(f.dist/6,2));if(Math.random()<1-Math.exp(-rate*dt)){f.found=true;f.pulse=1}}})}
+  var R=reach(S.pop),nLive=0;
+  S.foods.forEach(function(f){f._w=0;if(f.amount<=0)return;nLive++;var base=Math.sqrt(f.amount)/(.7+f.dist/18);
+    if(M==='trails')f._w=base*(.2+f.trail*1.3);
+    else if(M==='scouts')f._w=f.found?base*(.2+f.trail*1.3):0;
+    else if(M==='direct')f._w=base;
+    else if(M==='nearest')f._w=Math.sqrt(f.amount)/(.3+Math.pow(f.dist/6,2));
+    else if(M==='raid'){var da=Math.atan2(f.z,f.x)-S.raidA;da=Math.abs(Math.atan2(Math.sin(da),Math.cos(da)));f._w=(da<.9&&f.dist<=R*1.2)?base:0}
+    tw+=f._w;wTrip+=f._w*(2*f.dist/1.6)});
+  if(total>0&&tw>0){
+    var learned=usesTrail?.35+.65*trailAvg():HABITS[M].eff;
+    gathered=Math.min(total,capacity(S.pop)*learned*dt);
+    S.foods.forEach(function(f){if(!f._w)return;var share=Math.min(f.amount,gathered*f._w/tw);f.amount-=share;
+      if(usesTrail)f.trail=Math.min(1,f.trail+dt*(M==='scouts'?1.5:1)*(.012+.02*Math.min(3,share/Math.max(.01,gathered)*nLive)));f.pulse=Math.max(f.pulse||0,Math.min(1,share*.05))});
+    S.collected+=gathered;S.trips+=gathered;S.tripSec+=gathered*(wTrip/tw);
+  }
+  for(var k=S.foods.length-1;k>=0;k--){var f=S.foods[k];if(f.amount>0){var rot=f.amount*Math.min(1,dt/SPOIL_SEC);f.amount-=rot;S.spoiled+=rot;f.fresh=Math.max(0,(f.fresh==null?1:f.fresh)-dt/SPOIL_SEC*.8);if(f.amount<f.max*.15){S.spoiled+=f.amount;f.amount=0}}f.trail=Math.max(0,f.trail-dt*(f.amount>0?.0006:.03));f.pulse=Math.max(0,(f.pulse||0)-dt*2);if(f.amount<=.5&&f.trail<.02)S.foods.splice(k,1)}
+  S.store+=gathered;
+  var need=UPKEEP*S.pop*dt,before=S.pop;
+  if(S.store>=need){
+    S.store-=need;
+    var spare=S.store-UPKEEP*S.pop*RESERVE_SEC;
+    if(spare>0){var spend=spare*Math.min(1,dt),born=spend/hatchCost(S.pop);S.store-=spend;S.pop=Math.min(MAXPOP,S.pop+born)}
+  }else{
+    var hungry=1-S.store/need;S.store=0;
+    S.pop=Math.max(FLOOR,S.pop-S.pop*DEATH*hungry*dt);
+  }
+  return S.pop-before;
+}
+
+/* offline catch-up: replay the economy for the time the page was closed */
+var away=Math.max(0,(Date.now()-S.saved)/1000),popBefore=S.pop;
+if(away>5){var stepDt=Math.max(1,away/40000),left=away;while(left>0){var d=Math.min(stepDt,left);step(d);left-=d}}
+function save(){S.saved=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+save();setInterval(save,5000);addEventListener('pagehide',save);document.addEventListener('visibilitychange',save);
+
+function fmt(n){return Math.floor(n).toLocaleString('en-US')}
+function short(n){if(n>=1e6)return (n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';if(n>=1e4)return Math.round(n/1e3)+'k';if(n>=1e3)return (n/1e3).toFixed(1).replace(/\.0$/,'')+'k';return String(Math.round(n))}
+function dur(s){s=Math.max(0,s);if(s<60)return Math.floor(s)+'s';var m=Math.floor(s/60);if(m<60)return m+'m '+Math.floor(s%60)+'s';var h=Math.floor(m/60);if(h<48)return h+'h '+(m%60)+'m';return Math.floor(h/24)+'d '+(h%24)+'h'}
+
+/* =========================================================
+   2. RENDERER + 3D FIELD
+   ========================================================= */
+var canvas=$('world'),renderer;
+try{renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true,powerPreference:'high-performance'})}catch(e){fail('WebGL is not available in this browser.');return}
+renderer.setClearColor(0,0);
+var gl=renderer.getContext(),isGL2=renderer.capabilities.isWebGL2;
+var floatOK=isGL2&&!!gl.getExtension('EXT_color_buffer_float');
+var halfOK=isGL2||!!gl.getExtension('EXT_color_buffer_half_float');
+if(!renderer.capabilities.vertexTextures||!(floatOK||halfOK)){fail('This device can’t run the GPU swarm (no float render targets).');return}
+var TEX_TYPE=floatOK?THREE.FloatType:THREE.HalfFloatType;
+var mobile=matchMedia('(pointer:coarse)').matches||innerWidth<700;
+var scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,.08,600);
+function resize(){renderer.setPixelRatio(Math.min(devicePixelRatio||1,mobile?1.5:2));renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+
+var themeQ=matchMedia('(prefers-color-scheme: dark)');
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+var WORLD=30,mats={};
+var groundGeo=new THREE.PlaneGeometry(WORLD*2,WORLD*2,90,90);groundGeo.rotateX(-Math.PI/2);
+(function(){var p=groundGeo.attributes.position;for(var i=0;i<p.count;i++)p.setY(i,terrain(p.getX(i),p.getZ(i))-.02)})();
+mats.ground=new THREE.MeshBasicMaterial({transparent:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+var ground=new THREE.Mesh(groundGeo,mats.ground);ground.renderOrder=-1;scene.add(ground);
+(function(){var pts=[];for(var g=-WORLD;g<=WORLD;g+=2)for(var s=-WORLD;s<WORLD;s++){pts.push(g,terrain(g,s),s,g,terrain(g,s+1),s+1);pts.push(s,terrain(s,g),g,s+1,terrain(s+1,g),g)}
+  var lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+  mats.grid=new THREE.LineBasicMaterial({transparent:true,depthWrite:false});scene.add(new THREE.LineSegments(lg,mats.grid))})();
+mats.nest=new THREE.MeshBasicMaterial({transparent:true,opacity:.5,side:THREE.DoubleSide,depthWrite:false,depthTest:false});
+mats.raid=new THREE.MeshBasicMaterial({transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false,depthTest:false});
+var raidWedge=new THREE.Mesh(new THREE.CircleGeometry(1,40,-.9,1.8),mats.raid);raidWedge.rotation.x=-Math.PI/2;raidWedge.position.y=terrain(0,0)+.3;raidWedge.renderOrder=3;scene.add(raidWedge);
+var nestRing=new THREE.Mesh(new THREE.RingGeometry(.88,1,64),mats.nest);nestRing.rotation.x=-Math.PI/2;nestRing.position.y=terrain(0,0)+.05;scene.add(nestRing);
+var nestHole=new THREE.Mesh(new THREE.CircleGeometry(.55,32),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.55,depthWrite:false}));nestHole.rotation.x=-Math.PI/2;nestHole.position.y=terrain(0,0)+.04;scene.add(nestHole);
+
+// food piles: a pool of orange spheres
+mats.food=new THREE.MeshBasicMaterial();
+var spoilC=new THREE.Color();var foodGeo=new THREE.SphereGeometry(1,14,10),foodPool=[];
+for(var fi=0;fi<60;fi++){var m=new THREE.Mesh(foodGeo,mats.food.clone());m.material.transparent=true;m.visible=false;scene.add(m);foodPool.push(m)}
+
+
+/* =========================================================
+   NEST — underground tunnels and chambers
+   Three real nest styles from published nest casts / CT scans:
+   FIRE ANT  – dense looping network near the surface, mostly vertical tunnels deeper
+   HARVESTER – helical (spiral) shafts with compact chambers hung off them
+   SIMPLE    – one vertical shaft with stacked horizontal chambers, closer together
+               near the top and bottom (trap-jaw / Aphaenogaster casts)
+   Scale: 1 world unit ≈ 10 cm, so the full nest is ~2.2 m deep.
+   The whole nest is generated up front; each piece unlocks at a population
+   threshold, so the nest digs itself deeper as the colony grows.
+   ========================================================= */
+var DMAX=22, SY=terrain(0,0), NEST_STYLES=['fire','harvester','simple'];
+var STYLE_NAMES={fire:'Fire ant',harvester:'Harvester',simple:'Simple'};
+var STYLE_INFO={fire:'dense looping tunnels near the top, long vertical tunnels below',harvester:'spiral shafts with compact rooms hung off them',simple:'one straight shaft with stacked rooms'};
+if(NEST_STYLES.indexOf(S.nestStyle)<0)S.nestStyle='fire';
+S.nestMax=Math.max(S.nestMax||0,S.pop);
+function V(x,d,z){return new THREE.Vector3(x,SY-d,z)}
+function seeded(seed){return function(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}}
+
+function generateNest(style){
+  var R=seeded(style==='fire'?83:style==='harvester'?419:7),E=[];
+  function tunnel(a,b,wig,r){var m=a.clone().lerp(b,.5);m.x+=(R()-.5)*wig;m.z+=(R()-.5)*wig;m.y+=(R()-.5)*wig*.3;
+    var curve=new THREE.CatmullRomCurve3([a,m,b]);E.push({kind:'t',curve:curve,pts:curve.getSpacedPoints(31),r:r||.15,key:SY-Math.min(a.y,b.y)});}
+  function path(pts,r){var curve=new THREE.CatmullRomCurve3(pts);E.push({kind:'t',curve:curve,pts:curve.getSpacedPoints(31),r:r||.17,key:SY-pts[pts.length-1].y})}
+  function chamber(c,rx,rz,ry,lobes){var ch={kind:'c',c:c,rx:rx,rz:rz,ry:ry||.32,rot:R()*Math.PI,lobes:[{dx:0,dz:0,s:1}],key:SY-c.y+.01};
+    for(var i=1;i<(lobes||1);i++){var a=R()*Math.PI*2;ch.lobes.push({dx:Math.cos(a)*rx*.55,dz:Math.sin(a)*rz*.55,s:.55+R()*.3})}E.push(ch);return ch}
+  if(style==='simple'){
+    var n=13,prev=V(0,0,0),pd=0;
+    for(var i=1;i<=n;i++){var u=i/n,d=.6+(DMAX-.6)*(.5-.5*Math.cos(Math.PI*u));      // cosine spacing: tighter at top & bottom
+      var p=V((R()-.5)*.5,d,(R()-.5)*.5);tunnel(prev,p,.3,.18);
+      var a=R()*Math.PI*2,big=.9+R()*.7,elong=d<5?1.8:1.1;
+      chamber(V(p.x+Math.cos(a)*big*.7,d+.15,p.z+Math.sin(a)*big*.7),big*elong,big/elong*1.1,.28+d*.006,d<5?1:2);prev=p;pd=d}
+  }else if(style==='harvester'){
+    function helix(cx,cz,r,d0,d1,turnsPer,phase,every){var pts=[],seg=[],turnLen=1/turnsPer,lastCh=d0;
+      for(var d=d0;d<=d1;d+=.25){var a=phase+(d-d0)*turnsPer*Math.PI*2;var p=V(cx+Math.cos(a)*r,d,cz+Math.sin(a)*r);seg.push(p);
+        if(seg.length>=9){path(seg,.17);seg=[p]}
+        if(d-lastCh>=every&&d<d1-.5){lastCh=d;var out=Math.atan2(p.z-cz,p.x-cx),s=1.05+R()*.6-(d/DMAX)*.35;
+          var c=V(p.x+Math.cos(out)*s*.9,d+.1,p.z+Math.sin(out)*s*.9);chamber(c,s,s*.8,.26,d<7?3:2)}}
+      if(seg.length>1)path(seg,.17)}
+    tunnel(V(0,0,0),V(.9,1.1,0),.2,.18);
+    helix(0,0,.9,1.1,DMAX,1/2.6,0,2.4);
+    tunnel(V(.2,5,.8),V(2.8,6,1.6),.6,.15);helix(3.2,1.2,.75,6,DMAX-3,1/2.2,1.5,3.1);
+    tunnel(V(-.5,9,-.6),V(-3,10.4,-2),.6,.15);helix(-3.2,-2.2,.7,10.4,DMAX-1,1/2,3,3.4);
+  }else{ // fire ant
+    var nodes=[{p:V(0,.05,0)}];
+    for(var k=0;k<28;k++){var a=R()*Math.PI*2,rad=1.2+Math.sqrt(R())*6.2,d=.5+Math.pow(k/28,1.4)*7.5+R()*.8;
+      var p=V(Math.cos(a)*rad,d,Math.sin(a)*rad);
+      var near=nodes.slice().sort(function(A,B){return A.p.distanceTo(p)-B.p.distanceTo(p)});
+      tunnel(near[0].p,p,1,.14);if(near[1]&&R()<.5)tunnel(near[1].p,p,1.2,.13);
+      var s=.55+R()*.8;chamber(p,s*(1.3+R()),s,.22+R()*.08,1+Math.floor(R()*3));nodes.push({p:p})}
+    var deep=nodes.slice(12).sort(function(A,B){return (SY-B.p.y)-(SY-A.p.y)}).slice(0,6);
+    deep.forEach(function(nd,i){var bottom=10+R()*(DMAX-10),x=nd.p.x*.6,z=nd.p.z*.6,top=nd.p,pts=[top];
+      for(var d=SY-top.y+1.5;d<bottom;d+=1.8)pts.push(V(x+(R()-.5)*.8,d,z+(R()-.5)*.8));pts.push(V(x,bottom,z));
+      for(var j=1;j<pts.length;j++){path([pts[j-1],pts[j-1].clone().lerp(pts[j],.5).add(new THREE.Vector3((R()-.5)*.3,0,(R()-.5)*.3)),pts[j]],.13)}
+      chamber(V(x+.6,bottom+.15,z),.9+R()*.5,.7+R()*.4,.24,2)});
+  }
+  E.sort(function(a,b){return a.key-b.key});
+  var N=E.length;E.forEach(function(e,i){e.thr=i===0?5:5*Math.pow(MAXPOP*.85/5,i/(N-1))});
+  return E;
+}
+
+var nestGroup=new THREE.Group();scene.add(nestGroup);
+mats.nestT=new THREE.MeshLambertMaterial({transparent:true,opacity:.55,depthWrite:false});
+mats.nestC=new THREE.MeshLambertMaterial({transparent:true,opacity:.42,depthWrite:false});
+scene.add(new THREE.HemisphereLight(0xffffff,0x443322,.9));var sun=new THREE.DirectionalLight(0xffffff,.6);sun.position.set(5,10,7);scene.add(sun);
+var sphereGeo=new THREE.SphereGeometry(1,18,10);
+var PW=32,PH=160,pathData=new Float32Array(PW*PH*4);
+var pathTex=new THREE.DataTexture(pathData,PW,PH,THREE.RGBAFormat,THREE.FloatType);pathTex.minFilter=pathTex.magFilter=THREE.NearestFilter;
+var nest=[],soilBox=null;
+mats.soil=new THREE.LineBasicMaterial({transparent:true,opacity:0,depthWrite:false});
+function buildNest(){
+  while(nestGroup.children.length){var c=nestGroup.children.pop();if(c.geometry&&c.geometry!==sphereGeo)c.geometry.dispose()}
+  nest=generateNest(S.nestStyle).slice(0,PH);pathData.fill(0);
+  nest.forEach(function(e,i){
+    if(e.kind==='t'){var g=new THREE.TubeGeometry(e.curve,40,e.r,6,false);e.mesh=new THREE.Mesh(g,mats.nestT);e.full=g.index.count;
+      for(var k=0;k<PW;k++){var p=e.pts[k],o=(i*PW+k)*4;pathData[o]=p.x;pathData[o+1]=p.y;pathData[o+2]=p.z;pathData[o+3]=e.r*.6}}
+    else{e.mesh=new THREE.Group();e.mesh.position.copy(e.c);e.mesh.rotation.y=e.rot;
+      e.lobes.forEach(function(l){var m=new THREE.Mesh(sphereGeo,mats.nestC);m.position.set(l.dx,0,l.dz);m.scale.set(e.rx*l.s,e.ry,e.rz*l.s);e.mesh.add(m)});
+      for(var k2=0;k2<PW;k2++){var a=k2/PW*Math.PI*2,lx=Math.cos(a)*e.rx*.5,lz=Math.sin(a)*e.rz*.5,cr=Math.cos(e.rot),sr=Math.sin(e.rot),o2=(i*PW+k2)*4;
+        pathData[o2]=e.c.x+lx*cr+lz*sr;pathData[o2+1]=e.c.y-e.ry*.35;pathData[o2+2]=e.c.z-lx*sr+lz*cr;pathData[o2+3]=-Math.min(e.rx,e.rz)*.45}}
+    e.mesh.visible=false;e.mesh.renderOrder=1;nestGroup.add(e.mesh)});
+  pathTex.needsUpdate=true;
+  if(soilBox){scene.remove(soilBox)}var maxR=0;nest.forEach(function(e){var p=e.kind==='t'?e.pts[31]:e.c;maxR=Math.max(maxR,Math.abs(p.x)+1.5,Math.abs(p.z)+1.5)});
+  soilBox=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(maxR*2,DMAX+2,maxR*2)),mats.soil);soilBox.position.set(0,SY-(DMAX+2)/2,0);scene.add(soilBox);
+}
+var nestInfo={open:0,chambers:0,tunnels:0,depth:0,deepest:null};
+function updateNest(){
+  var open=0,ch=0,tu=0,depth=0,deep=null;
+  nest.forEach(function(e,i){var p=S.nestMax>=e.thr?Math.min(1,Math.log10(S.nestMax/e.thr)/0.12+.02):0;
+    if(p<=0){e.mesh.visible=false;return}open=i+1;e.mesh.visible=true;
+    if(e.kind==='t'){tu++;e.mesh.geometry.setDrawRange(0,Math.floor(e.full*p/3)*3);depth=Math.max(depth,SY-e.pts[31].y)}
+    else{ch++;e.mesh.scale.setScalar(.35+.65*Math.min(1,Math.log10(S.nestMax/e.thr)/.8+0));depth=Math.max(depth,SY-e.c.y);if(!deep||e.c.y<deep.c.y)deep=e}});
+  nestInfo={open:open,chambers:ch,tunnels:tu,depth:depth,deepest:deep};
+}
+
+/* underground ants: stateless — each dot walks a tunnel path (back and forth)
+   or circles inside a chamber, computed in the vertex shader from time + seed */
+var under=null;
+function buildUnder(n){
+  if(under){scene.remove(under.points);under.points.geometry.dispose()}
+  var idx=new Float32Array(n),s1=new Float32Array(n),s2=new Float32Array(n);
+  for(var i=0;i<n;i++){idx[i]=i;s1[i]=Math.random();s2[i]=Math.random()}
+  var g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*3),3));
+  g.setAttribute('aIdx',new THREE.BufferAttribute(idx,1));g.setAttribute('aSeed',new THREE.BufferAttribute(s1,1));g.setAttribute('aSeed2',new THREE.BufferAttribute(s2,1));
+  var m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,
+    uniforms:{uPath:{value:pathTex},uN:{value:1},uActive:{value:0},uTime:{value:0},uScale:{value:300},uAnt:{value:new THREE.Color()},uFoodC:{value:new THREE.Color()},uAlpha:{value:1}},
+    vertexShader:['precision highp float;attribute float aIdx,aSeed,aSeed2;uniform sampler2D uPath;uniform float uN,uActive,uTime,uScale;varying float vCarry;',
+     'vec4 P(float i,float pv){return texture2D(uPath,vec2((i+0.5)/32.0,pv));}',
+     'void main(){if(aIdx>=uActive){gl_Position=vec4(2.0,2.0,2.0,1.0);gl_PointSize=0.0;return;}',
+     ' float pid=floor(fract(aSeed*7.13+aSeed2*.37)*uN);float pv=(pid+0.5)/'+PH+'.0;',
+     ' vec4 a0=P(0.0,pv);bool ch=a0.w<0.0;float spd=0.3+0.6*fract(aSeed*31.7);float t;vCarry=0.0;',
+     ' if(ch){t=fract(aSeed2+uTime*spd*0.03);}else{float u=fract(aSeed2+uTime*spd*0.05);t=1.0-abs(1.0-2.0*u);vCarry=(u<0.5&&fract(aSeed*3.3)<0.55)?1.0:0.0;}',
+     ' float fi=t*31.0;float i0=floor(fi);vec3 p=mix(P(i0,pv).xyz,P(min(i0+1.0,31.0),pv).xyz,fi-i0);',
+     ' vec3 j=(vec3(fract(aSeed*91.3),fract(aSeed*17.9),fract(aSeed*53.1))-0.5)*2.0*abs(a0.w);if(ch)j.y*=0.2;p+=j;',
+     ' vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;gl_PointSize=clamp(uScale/-mv.z,1.0,4.0);}'].join('\n'),
+    fragmentShader:'precision highp float;uniform vec3 uAnt,uFoodC;uniform float uAlpha;varying float vCarry;void main(){vec2 c=gl_PointCoord-0.5;if(dot(c,c)>0.25)discard;gl_FragColor=vec4(mix(uAnt,uFoodC,vCarry),uAlpha);}'});
+  var pts=new THREE.Points(g,m);pts.frustumCulled=false;pts.renderOrder=2;scene.add(pts);under={cap:n,points:pts,mat:m};
+}
+
+/* =========================================================
+   3. GPU SWARM
+   Each ant is one pixel in a float texture: (x, z, heading, mode+seed).
+   mode 0 = heading out (to food, or exploring), 1 = carrying food home.
+   The sim shader moves every ant at once; the draw shader reads
+   the same texture to place a dot on the terrain.
+   ========================================================= */
+var MAXF=16,swarm=null;
+var quadScene=new THREE.Scene(),quadCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1),quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));quadScene.add(quad);
+var VS='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}';
+var HASH='float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}';
+var initMat=new THREE.ShaderMaterial({vertexShader:VS,fragmentShader:'precision highp float;varying vec2 vUv;'+HASH+
+ 'void main(){float a=hash(vUv*91.7+3.1)*6.2831853;float s=hash(vUv*37.3+11.9)*0.998;gl_FragColor=vec4(0.0,0.0,a,s);}'});
+var foodU=[];for(var q=0;q<MAXF;q++)foodU.push(new THREE.Vector4(0,0,0,0));
+var simMat=new THREE.ShaderMaterial({vertexShader:VS,
+ uniforms:{uState:{value:null},uDt:{value:.016},uTick:{value:0},uActive:{value:5},uSize:{value:256},uReach:{value:6},uFood:{value:foodU},uNF:{value:0},uExplore:{value:.2},uMode:{value:0},uNoise:{value:1},uTurn:{value:4},uLane:{value:1},uRoam:{value:1},uRaid:{value:new THREE.Vector2(1,0)},uRaidFood:{value:0}},
+ fragmentShader:[
+ 'precision highp float;varying vec2 vUv;',
+ 'uniform sampler2D uState;uniform float uDt,uTick,uActive,uSize,uReach,uNF,uExplore,uMode,uNoise,uTurn,uLane,uRoam,uRaidFood;uniform vec2 uRaid;uniform vec4 uFood[16];',
+ HASH,
+ 'float turnTo(float h,vec2 p,vec2 g,float rate){float a=atan(g.y-p.y,g.x-p.x);float d=atan(sin(a-h),cos(a-h));return h+d*min(1.0,rate);}',
+ 'void main(){',
+ ' vec4 s=texture2D(uState,vUv);vec2 cell=floor(vUv*uSize);float idx=cell.y*uSize+cell.x;',
+ ' vec2 p=s.xy;float h=s.z;float mode=floor(s.w);float seed=fract(s.w);',
+ ' if(idx>=uActive){gl_FragColor=vec4(0.0,0.0,h,seed);return;}',          // unhatched / died: back in the nest
+ ' float n=hash(cell*0.731+vec2(uTick,uTick*1.37));',
+ ' bool raid=uMode>2.5&&uMode<3.5;',
+ ' float pick=fract(seed*91.37);bool explorer=!raid&&(pick<uExplore||uNF<0.5);',
+ ' float spd=0.9+1.4*fract(seed*7.31);',
+ ' float lane=(fract(seed*53.1)-0.5)*1.4*uLane;',
+ ' h+=(n-0.5)*7.0*uDt*uNoise;',
+ ' if(mode>0.5){',                                                     // returning home (1 = carrying food, 2 = empty-handed)
+ '   vec2 dir=normalize(-p+1e-4);vec2 g=vec2(-dir.y,dir.x)*lane*min(1.0,length(p)*0.15);',
+ '   h=turnTo(h,p,g,uDt*uTurn);',
+ '   if(length(p)<0.8)mode=0.0;',
+ ' }else if(raid){',                                                   // swarm raid: a wide front pushing one way
+ '   vec2 perp=vec2(-uRaid.y,uRaid.x);float rr=uReach*(0.35+0.75*pow(seed,0.7));',
+ '   vec2 g=uRaid*rr+perp*(fract(seed*53.1)-0.5)*rr*0.9;',
+ '   h=turnTo(h,p,g,uDt*uTurn);',
+ '   if(length(g-p)<0.9)mode=uRaidFood>0.5?1.0:2.0;',
+ ' }else if(!explorer){',                                              // heading to a food pile
+ '   vec2 fd=uFood[0].xy;',
+ '   if(uMode>3.5){float best=1e9;for(int i=0;i<16;i++){if(float(i)>=uNF)break;float dd=length(uFood[i].xy-p);if(dd<best){best=dd;fd=uFood[i].xy;}}}',
+ '   else{float u=(pick-uExplore)/(1.0-uExplore);for(int i=0;i<16;i++){if(float(i)>=uNF)break;fd=uFood[i].xy;if(u<=uFood[i].z)break;}}',
+ '   vec2 dir=normalize(fd-p+1e-4);vec2 g=fd+vec2(-dir.y,dir.x)*lane*min(1.0,length(fd-p)*0.15);',
+ '   h=turnTo(h,p,g,uDt*uTurn);',
+ '   if(length(fd-p)<0.7)mode=1.0;',
+ ' }else{',                                                            // exploring / scouting
+ '   float r=uReach*(0.25+0.75*pow(seed,0.6))*uRoam;',
+ '   if(length(p)>r)h=turnTo(h,p,vec2(0.0),uDt*2.5);',
+ ' }',
+ ' p+=vec2(cos(h),sin(h))*spd*uDt;p=clamp(p,vec2(-29.5),vec2(29.5));',
+ ' gl_FragColor=vec4(p,mod(h,6.2831853),mode+seed);',
+ '}'].join('\n')});
+
+function makeTarget(n){return new THREE.WebGLRenderTarget(n,n,{type:TEX_TYPE,format:THREE.RGBAFormat,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,stencilBuffer:false})}
+var TIERS=[{size:256,label:'65k'},{size:512,label:'262k'},{size:1024,label:'1M'}];
+var tierIndex=S.tier!=null?S.tier:(mobile?1:2);
+function buildSwarm(size){
+  if(swarm){scene.remove(swarm.points);swarm.points.geometry.dispose();swarm.a.dispose();swarm.b.dispose()}
+  var a=makeTarget(size),b=makeTarget(size);quad.material=initMat;
+  [a,b].forEach(function(t){renderer.setRenderTarget(t);renderer.render(quadScene,quadCam)});renderer.setRenderTarget(null);
+  var count=size*size,ref=new Float32Array(count*2);
+  for(var i=0;i<count;i++){ref[i*2]=((i%size)+.5)/size;ref[i*2+1]=(Math.floor(i/size)+.5)/size}
+  var geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(count*3),3));geo.setAttribute('ref',new THREE.BufferAttribute(ref,2));
+  var drawMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,
+   uniforms:{uState:{value:a.texture},uSize:{value:size},uActive:{value:5},uScale:{value:300},uAnt:{value:new THREE.Color()},uFoodC:{value:new THREE.Color()},uAlpha:{value:1}},
+   vertexShader:['precision highp float;attribute vec2 ref;uniform sampler2D uState;uniform float uSize,uActive,uScale;varying float vCarry;',
+    'float terrain(float x,float z){return sin(x*.17)*.5+cos(z*.14)*.55+sin((x+z)*.08)*.35-1.1*exp(-(x*x+z*z)/52.0);}',
+    'void main(){vec2 cell=floor(ref*uSize);float idx=cell.y*uSize+cell.x;',
+    ' if(idx>=uActive){gl_Position=vec4(2.0,2.0,2.0,1.0);gl_PointSize=0.0;return;}',
+    ' vec4 s=texture2D(uState,ref);vec4 mv=modelViewMatrix*vec4(s.x,terrain(s.x,s.y)+0.07,s.y,1.0);',
+    ' gl_Position=projectionMatrix*mv;gl_PointSize=clamp(uScale/-mv.z,1.0,4.0);vCarry=(floor(s.w)==1.0)?1.0:0.0;}'].join('\n'),
+   fragmentShader:['precision highp float;uniform vec3 uAnt,uFoodC;uniform float uAlpha;varying float vCarry;',
+    'void main(){vec2 c=gl_PointCoord-0.5;if(dot(c,c)>0.25)discard;gl_FragColor=vec4(mix(uAnt,uFoodC,vCarry),uAlpha);}'].join('\n')});
+  var pts=new THREE.Points(geo,drawMat);pts.frustumCulled=false;scene.add(pts);
+  swarm={size:size,cap:count,a:a,b:b,points:pts,drawMat:drawMat};buildUnder((size/2)*(size/2));
+  $('tier').textContent=TIERS[tierIndex].label;applyTheme();
+}
+function applyTheme(){
+  var dark=themeQ.matches,bg=new THREE.Color(css('--bg')),food=new THREE.Color(css('--food')),metal=new THREE.Color(css('--metal'));
+  mats.ground.color.copy(bg).lerp(food,dark?.025:.02);
+  mats.grid.color.copy(metal);mats.grid.opacity=dark?.12:.2;
+  mats.nest.color.copy(metal);mats.food.color.copy(food);mats.raid.color.copy(food);foodPool.forEach(function(m){m.material.color.copy(food)});spoilC.copy(food).lerp(new THREE.Color(dark?'#4a3a2c':'#7a6a58'),.75);
+  var earth=new THREE.Color(dark?'#c79a6b':'#8a5a33');mats.nestT.color.copy(earth);mats.nestT.emissive.copy(earth).multiplyScalar(dark?.35:.15);mats.nestC.color.copy(earth);mats.nestC.emissive.copy(earth).multiplyScalar(dark?.3:.12);mats.soil.color.copy(metal);
+  if(under){var uu=under.mat.uniforms;uu.uAnt.value.set(dark?'#eef3f2':'#1b262c');uu.uFoodC.value.copy(food);under.mat.blending=dark?THREE.AdditiveBlending:THREE.NormalBlending;under.mat.needsUpdate=true}
+  if(swarm){var u=swarm.drawMat.uniforms;u.uAnt.value.set(dark?'#eef3f2':'#1b262c');u.uFoodC.value.copy(food);
+    swarm.drawMat.blending=dark?THREE.AdditiveBlending:THREE.NormalBlending;swarm.drawMat.needsUpdate=true}
+}
+themeQ.addEventListener&&themeQ.addEventListener('change',applyTheme);
+buildNest();buildSwarm(TIERS[tierIndex].size);
+
+/* =========================================================
+   4. CAMERA + FEEDING INPUT
+   ========================================================= */
+var HOME={yaw:-.55,pitch:.82,zoom:17,tx:0,ty:SY,tz:0};var cam=Object.assign({},HOME),target=Object.assign({},HOME),CK=['yaw','pitch','zoom','tx','ty','tz'],xrayManual=false;
+function cz(z){return Math.max(5,Math.min(160,z))}function cp(p){return Math.max(-1.2,Math.min(1.45,p))}function cty(y){return Math.max(SY-DMAX-3,Math.min(SY+3,y))}
+var hint=$('hint');function hideHint(){hint.style.opacity='0'}setTimeout(hideHint,8000);
+var ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function feedAt(cx,cy){
+  var r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
+  var hit=ray.intersectObject(ground)[0];if(!hit)return;
+  var x=Math.max(-28,Math.min(28,hit.point.x)),z=Math.max(-28,Math.min(28,hit.point.z));
+  if(Math.hypot(x,z)<1.2){var a=Math.atan2(z,x);x=Math.cos(a)*1.4;z=Math.sin(a)*1.4}
+  var amt=tapAmount();addFood(x,z,amt);hideHint();toast('<b style="color:var(--food)">+'+fmt(amt)+'</b><small>food dropped</small>',900);
+}
+var down=null;
+canvas.addEventListener('pointerdown',function(e){if(e.pointerType==='touch')return;down={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now(),moved:0};canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener('pointermove',function(e){if(!down)return;var dx=e.clientX-down.lx,dy=e.clientY-down.ly;down.moved+=Math.abs(dx)+Math.abs(dy);down.lx=e.clientX;down.ly=e.clientY;
+  if(down.moved<5)return;hideHint();
+  if(e.shiftKey||e.buttons===2){var k=.45/cam.zoom,c=Math.cos(cam.yaw),s=Math.sin(cam.yaw);target.tx-=(dx*c+dy*s)*k;target.tz-=(-dx*s+dy*c)*k}
+  else{target.yaw+=dx*.006;target.pitch=cp(target.pitch+dy*.005)}});
+canvas.addEventListener('pointerup',function(e){if(down&&down.moved<6&&performance.now()-down.t<500&&e.button===0)tapAt(e.clientX,e.clientY);down=null});
+canvas.addEventListener('contextmenu',function(e){e.preventDefault()});
+canvas.addEventListener('wheel',function(e){e.preventDefault();target.zoom=cz(target.zoom*Math.exp(-e.deltaY*.001));hideHint()},{passive:false});
+var tch=null;
+canvas.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches;
+  if(t.length===1)tch={n:1,x:t[0].clientX,y:t[0].clientY,sx:t[0].clientX,sy:t[0].clientY,t:performance.now(),moved:0,multi:false};
+  else{var a=t[0],b=t[1];tch={n:2,d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2,multi:true}}},{passive:false});
+canvas.addEventListener('touchmove',function(e){e.preventDefault();if(!tch)return;var t=e.touches;
+  if(t.length===1&&tch.n===1){var dx=t[0].clientX-tch.x,dy=t[0].clientY-tch.y;tch.moved+=Math.abs(dx)+Math.abs(dy);if(tch.moved>8){target.yaw+=dx*.006;target.pitch=cp(target.pitch+dy*.005);hideHint()}tch.x=t[0].clientX;tch.y=t[0].clientY}
+  else if(t.length>=2){var a=t[0],b=t[1],d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),mx=(a.clientX+b.clientX)/2,my=(a.clientY+b.clientY)/2;
+    if(tch.n===2){target.zoom=cz(target.zoom*d/tch.d);var ddx=mx-tch.x,ddy=my-tch.y,k=.45/cam.zoom,c=Math.cos(cam.yaw),s=Math.sin(cam.yaw);target.tx-=(ddx*c+ddy*s)*k;target.tz-=(-ddx*s+ddy*c)*k}
+    tch={n:2,d:d,x:mx,y:my,multi:true};hideHint()}},{passive:false});
+canvas.addEventListener('touchend',function(e){if(tch&&tch.n===1&&!tch.multi&&tch.moved<=8&&performance.now()-tch.t<500&&!e.touches.length)tapAt(tch.sx,tch.sy);
+  tch=e.touches.length===1?{n:1,x:e.touches[0].clientX,y:e.touches[0].clientY,moved:99,multi:true}:null});
+$('zoomIn').onclick=function(){target.zoom=cz(target.zoom*1.22)};$('zoomOut').onclick=function(){target.zoom=cz(target.zoom*.82)};
+$('depthUp').onclick=function(){target.ty=cty(target.ty+2)};$('depthDown').onclick=function(){target.ty=cty(target.ty-2);if(target.pitch>.5)target.pitch=.25};
+$('surfaceCam').onclick=function(){target=Object.assign({},HOME,{yaw:target.yaw})};
+$('nestCam').onclick=function(){var d=Math.max(4,nestInfo.depth);target.tx=0;target.tz=0;target.ty=SY-d*.6;target.pitch=.12;target.zoom=cz(900/(d*2.1+10))};
+$('xrayBtn').onclick=function(){xrayManual=!xrayManual;this.setAttribute('aria-pressed',String(xrayManual))};
+function focusAt(cx,cy){var r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
+  var objs=xrayAmt>.3?nestGroup.children.filter(function(m){return m.visible}):[];var hit=ray.intersectObjects(objs,true)[0]||ray.intersectObject(ground)[0];
+  if(!hit)return;target.tx=hit.point.x;target.ty=cty(hit.point.y);target.tz=hit.point.z;target.zoom=cz(target.zoom*1.8);hideHint()}
+var tapTimer=0,lastTap=null;
+function tapAt(x,y){var now=performance.now();if(lastTap&&now-lastTap.t<300&&Math.hypot(x-lastTap.x,y-lastTap.y)<30){clearTimeout(tapTimer);lastTap=null;focusAt(x,y);return}
+  lastTap={t:now,x:x,y:y};tapTimer=setTimeout(function(){lastTap=null;feedAt(x,y)},260)}
+function syncStyle(){$('styleBtn').textContent='Nest: '+STYLE_NAMES[S.nestStyle]}syncStyle();
+$('styleBtn').onclick=function(){S.nestStyle=NEST_STYLES[(NEST_STYLES.indexOf(S.nestStyle)+1)%3];syncStyle();buildNest();updateNest();save();
+  toast('<b>'+STYLE_NAMES[S.nestStyle]+' nest</b><small>'+STYLE_INFO[S.nestStyle]+'</small>',2600)};
+function placeCamera(){var d=900/cam.zoom,ty=cam.ty;
+  camera.position.set(cam.tx+Math.sin(cam.yaw)*Math.cos(cam.pitch)*d,ty+Math.sin(cam.pitch)*d,cam.tz+Math.cos(cam.yaw)*Math.cos(cam.pitch)*d);camera.lookAt(cam.tx,ty,cam.tz)}
+
+/* =========================================================
+   5. CONTROLS, TOASTS, NUMBERS SHEET
+   ========================================================= */
+var toastEl=$('toast'),toastT=0;
+function toast(html,ms){toastEl.innerHTML=html;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove('show')},ms||2400)}
+function syncAuto(){$('autoBtn').setAttribute('aria-pressed',String(S.auto))}
+$('autoBtn').onclick=function(){S.auto=!S.auto;if(S.auto){S.autoClock=2;}syncAuto();save();toast(S.auto?'<b>Auto feed on</b><small>random spots, random timing · uneaten food spoils in under a minute</small>':'<b>Auto feed off</b><small>the colony lives on what’s left</small>')};
+$('starveBtn').onclick=function(){var had=foodTotal();S.foods.forEach(function(f){f.amount=0});S.auto=false;syncAuto();save();
+  toast('<b style="color:var(--bad)">Starving</b><small>'+(had?fmt(had)+' food removed · ':'')+'auto feed off · the nest reserves last about 20 s</small>',3200)};
+var SPEEDS=[1,4,16];
+function syncSpeed(){$('speedBtn').textContent=S.speed+'× speed'}
+$('speedBtn').onclick=function(){S.speed=SPEEDS[(SPEEDS.indexOf(S.speed)+1)%SPEEDS.length];syncSpeed();save()};
+$('tier').onclick=function(){tierIndex=(tierIndex+1)%TIERS.length;S.tier=tierIndex;save();buildSwarm(TIERS[tierIndex].size)};
+syncAuto();syncSpeed();
+var MILES=[100,1000,10000,100000,1000000];
+var fsheet=$('forageSheet');
+function syncForage(){$('forageBtn').textContent='Foraging: '+HABITS[S.forage].name;
+  $('habits').innerHTML=HABIT_KEYS.map(function(k){return '<button class="habit" data-h="'+k+'" aria-pressed="'+(k===S.forage)+'"><b>'+HABITS[k].name+'</b><span>'+HABITS[k].desc+'</span></button>'}).join('');
+  $('habits').querySelectorAll('.habit').forEach(function(b){b.onclick=function(){S.forage=b.dataset.h;if(S.forage==='raid'&&!S.raidT){S.raidT=30;S.raidA=Math.random()*Math.PI*2}syncForage();save();fsheet.classList.remove('open');toast('<b>'+HABITS[S.forage].name+'</b><small>foraging habit switched</small>',1600)}})}
+$('forageBtn').onclick=function(){syncForage();fsheet.classList.add('open')};syncForage();$('closeForage').onclick=function(){fsheet.classList.remove('open')};fsheet.addEventListener('click',function(e){if(e.target===fsheet)fsheet.classList.remove('open')});
+var sheet=$('sheet');$('numbersBtn').onclick=function(){renderSheet();sheet.classList.add('open')};
+$('closeSheet').onclick=function(){sheet.classList.remove('open')};sheet.addEventListener('click',function(e){if(e.target===sheet)sheet.classList.remove('open')});
+$('restart').onclick=function(){if(confirm('Start a new colony from the queen and 4 workers? This colony will be gone.')){try{localStorage.removeItem(KEY)}catch(e){}S.saved=Date.now();location.reload()}};
+var rateHist=[],fpsShown=0;
+function perMin(){if(rateHist.length<2)return 0;var a=rateHist[0],b=rateHist[rateHist.length-1];return b.t>a.t?(b.p-a.p)/(b.t-a.t)*60:0}
+function snapshot(){var avg=S.trips>0?S.tripSec/S.trips:0;return [
+  ['Ants',fmt(S.pop)],['Food collected',fmt(S.collected)],
+  ['Food on field',fmt(foodTotal())],['Food spoiled',fmt(S.spoiled)],['Food / min',fmt(S.age>0?S.collected/(S.age/60):0)],['Avg. foraging trip',S.trips>0?avg.toFixed(1)+' s':'—'],
+  ['Foraging habit',HABITS[S.forage].name],['Trail strength',(S.forage==='trails'||S.forage==='scouts')?Math.round(trailAvg()*100)+'%':'not used'],['Nest reserve',fmt(S.store)],['Colony age',dur(S.age)],
+  ['Nest style',STYLE_NAMES[S.nestStyle]],['Rooms / tunnels',nestInfo.chambers+' / '+nestInfo.tunnels],['Nest depth',(nestInfo.depth*.1).toFixed(2)+' m'],
+  ['Dots drawn',fmt(Math.min(swarm.cap+under.cap,S.pop))],['Ants per dot',S.pop>swarm.cap+under.cap?(S.pop/(swarm.cap+under.cap)).toFixed(1):'1'],['FPS',String(fpsShown||'—')]]}
+function renderSheet(){
+  $('statGrid').innerHTML=snapshot().map(function(r){return '<div class="cell"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>'}).join('');
+  $('miles').innerHTML=MILES.map(function(m){return '<div class="mile">'+short(m)+' ants<b>'+(S.miles[m]?dur(S.miles[m]):'—')+'</b></div>'}).join('');
+}
+function copy(text){var box=$('copyBox');box.value=text;
+  (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){toast('<b>Copied</b>',1000)},function(){box.style.display='block';box.select();toast('<b>Select and copy</b><small>the numbers are in the box below</small>')})}
+$('copyText').onclick=function(){var rows=snapshot();copy('The Root Field — run numbers\n'+rows.map(function(r){return r[0]+': '+r[1]}).join('\n')+'\n'+MILES.map(function(m){return short(m)+' ants reached at age: '+(S.miles[m]?dur(S.miles[m]):'not yet')}).join('\n'))};
+$('copyCsv').onclick=function(){var rows=snapshot().concat(MILES.map(function(m){return ['Reached '+short(m)+' (colony age)',S.miles[m]?dur(S.miles[m]):'']}));copy('metric,value\n'+rows.map(function(r){return '"'+r[0]+'","'+String(r[1]).replace(/"/g,'""')+'"'}).join('\n'))};
+
+if(away>60){var diff=S.pop-popBefore;setTimeout(function(){toast('Away for '+dur(away)+'<b style="color:var('+(diff>=0?'--good':'--bad')+')">'+(diff>=0?'+':'−')+fmt(Math.abs(diff))+' ants</b><small>'+(S.auto?'auto feed kept them fed':'no auto feed — they lived on what was left')+' · colony now '+fmt(S.pop)+'</small>',4500)},500)}
+
+/* =========================================================
+   6. MAIN LOOP
+   ========================================================= */
+var xrayAmt=0,prev=performance.now(),tick=0,uiT=0,fpsA=0,fpsN=0,tmp=new THREE.Vector3(),nestV=new THREE.Vector3(0,terrain(0,0)+.9,0);
+function frame(now){
+  var real=Math.min((now-prev)/1000,86400);prev=now;
+  // economy: background-tab time counts (capped steps keep it stable)
+  var simT=real*S.speed;while(simT>0){var d=Math.min(simT,simT>5?1:.1);step(d);simT-=d}
+  MILES.forEach(function(m){if(!S.miles[m]&&S.pop>=m){S.miles[m]=S.age;toast('Milestone<b>'+fmt(m)+' ants</b><small>colony age '+dur(S.age)+'</small>',3000)}});
+  for(var k=0;k<6;k++)cam[CK[k]]+=(target[CK[k]]-cam[CK[k]])*.12;placeCamera();
+
+  // send the 16 busiest food piles to the GPU as cumulative weights
+  var live=S.foods.filter(function(f){return f.amount>0&&f._w>0}).sort(function(a,b){return b._w-a._w}).slice(0,MAXF),tw=0;
+  live.forEach(function(f){tw+=f._w||0.001});var cum=0;
+  for(var i=0;i<MAXF;i++){if(i<live.length){cum+=(live[i]._w||0.001)/tw;foodU[i].set(live[i].x,live[i].z,i===live.length-1?1:cum,1)}else foodU[i].set(0,0,1,0)}
+  S.nestMax=Math.max(S.nestMax,S.pop);updateNest();
+  var underN=Math.min(under.cap,Math.round(S.pop*.35)),active=Math.min(swarm.cap,Math.round(S.pop-underN)),u=simMat.uniforms,dt=Math.min(real,.05)*Math.min(S.speed,4);
+  tick=(tick+1)%997;
+  u.uState.value=swarm.a.texture;u.uDt.value=dt;u.uTick.value=tick*.0131;u.uActive.value=active;u.uSize.value=swarm.size;u.uReach.value=reach(S.pop);u.uNF.value=live.length;
+  var H=HABITS[S.forage];u.uMode.value=HABIT_IDX[S.forage];u.uNoise.value=H.noise;u.uTurn.value=H.turn;u.uLane.value=H.lane;u.uRoam.value=H.roam;
+  u.uRaid.value.set(Math.cos(S.raidA),Math.sin(S.raidA));u.uRaidFood.value=live.length?1:0;
+  if(S.forage==='scouts'){var unf=0,all=0;S.foods.forEach(function(f){if(f.amount>0){all++;if(!f.found)unf++}});u.uExplore.value=live.length?Math.min(.85,.12+.4*(1-trailAvg())+.35*(all?unf/all:0)):1}
+  else u.uExplore.value=!live.length?1:S.forage==='trails'?.12+.5*(1-trailAvg()):S.forage==='direct'?.03:.08;
+  raidWedge.visible=S.forage==='raid';if(raidWedge.visible){raidWedge.rotation.z=-S.raidA;raidWedge.scale.setScalar(reach(S.pop)*1.2)}
+  quad.material=simMat;renderer.setRenderTarget(swarm.b);renderer.render(quadScene,quadCam);renderer.setRenderTarget(null);
+  var sw=swarm.a;swarm.a=swarm.b;swarm.b=sw;
+  var du=swarm.drawMat.uniforms;du.uState.value=swarm.a.texture;du.uActive.value=active;du.uScale.value=innerHeight*renderer.getPixelRatio()*.09;
+  du.uAlpha.value=Math.min(1,140/Math.sqrt(Math.max(1,active)))*(themeQ.matches?.9:1.4);
+  var uu=under.mat.uniforms;uu.uN.value=Math.max(1,nestInfo.open);uu.uActive.value=nestInfo.open?underN:0;uu.uTime.value=(now/1000*Math.min(S.speed,4))%5000;uu.uScale.value=du.uScale.value;
+  uu.uAlpha.value=Math.min(1,160/Math.sqrt(Math.max(1,underN)))*(themeQ.matches?.9:1.4);
+  var camBelow=camera.position.y<terrain(camera.position.x,camera.position.z)+.05;
+  var want=(xrayManual||camBelow||cam.ty<SY-1.2)?1:0;xrayAmt+=(want-xrayAmt)*.1;
+  mats.ground.opacity=1-xrayAmt*.88;mats.ground.depthWrite=xrayAmt<.05;mats.grid.opacity=(themeQ.matches?.12:.2)*(1-xrayAmt*.6);mats.soil.opacity=xrayAmt*.22;foodPool.forEach(function(fm){fm.material.depthWrite=xrayAmt<.05});
+
+  // food piles
+  for(var j=0;j<foodPool.length;j++){var m=foodPool[j],f=S.foods[j];
+    if(f&&f.amount>0){m.visible=true;var r=.12+.1*Math.log10(1+f.amount)*(1+(f.pulse||0)*.25);m.scale.setScalar(r);m.position.set(f.x,terrain(f.x,f.z)+r*.6,f.z);m.material.color.copy(spoilC).lerp(mats.food.color,Math.max(0,Math.min(1,f.fresh==null?1:f.fresh)));m.material.opacity=(1-xrayAmt*.65)*(S.forage==='scouts'&&!f.found?.35:1)}else m.visible=false}
+  nestRing.scale.setScalar(1+Math.log10(Math.max(5,S.pop))*.55);
+  renderer.render(scene,camera);
+  var qt=$('queenTag');if(nestInfo.deepest){tmp.copy(nestInfo.deepest.c);tmp.y+=.6;tmp.project(camera);var qv=tmp.z<1&&xrayAmt>.3;qt.style.display=qv?'block':'none';if(qv){qt.style.left=(tmp.x*.5+.5)*innerWidth+'px';qt.style.top=(-tmp.y*.5+.5)*innerHeight+'px'}}else qt.style.display='none';
+  tmp.copy(nestV).project(camera);var tag=$('nestTag');tag.style.display=tmp.z<1?'block':'none';tag.style.left=(tmp.x*.5+.5)*innerWidth+'px';tag.style.top=(-tmp.y*.5+.5)*innerHeight+'px';
+
+  fpsA+=real;fpsN++;uiT+=real;
+  if(uiT>.25){uiT=0;
+    rateHist.push({t:now/1000*S.speed,p:S.pop});while(rateHist.length>40)rateHist.shift();
+    var pm=perMin(),st=$('status'),food=foodTotal();
+    $('pop').textContent=fmt(S.pop);
+    if(S.pop<=FLOOR+.01&&food<=0){st.className='status starve';st.innerHTML='Queen + 4<small>drop food to restart growth</small>'}
+    else if(pm>0.5){st.className='status grow';st.innerHTML='Growing<small>+'+fmt(pm)+' / min</small>'}
+    else if(pm<-0.5){st.className='status starve';st.innerHTML='Starving<small>−'+fmt(-pm)+' / min</small>'}
+    else{st.className='status hold';st.innerHTML='Holding<small>'+(food>0?'gathering':'drop food to grow')+'</small>'}
+    var nm=MILES.find(function(x){return S.pop<x});
+    if(nm){var pm0=MILES[MILES.indexOf(nm)-1]||FLOOR;$('barFill').style.width=Math.max(0,Math.min(1,(Math.log10(S.pop)-Math.log10(pm0))/(Math.log10(nm)-Math.log10(pm0))))*100+'%';$('next').innerHTML='Next: <b>'+fmt(nm)+'</b> ants'+(pm>1?' · about '+dur((nm-S.pop)/pm*60/S.speed)+' at this pace':'')}
+    else{$('barFill').style.width='100%';$('next').innerHTML='<b>Over a million ants</b> · full colony ceiling is 1,048,576'}
+    $('foodField').textContent=short(food);$('collected').textContent=short(S.collected);$('trail').textContent=(S.forage==='trails'||S.forage==='scouts')?Math.round(trailAvg()*100)+'%':'—';
+    var capAll=swarm.cap+under.cap;$('perDot').textContent=S.pop>capAll?'1 DOT ≈ '+(S.pop/capAll).toFixed(1)+' ANTS':'DOT LIMIT';
+    if(sheet.classList.contains('open'))renderSheet();
+  }
+  if(fpsA>1){fpsShown=Math.round(fpsN/fpsA);$('fps').textContent=fpsShown+' fps';fpsA=0;fpsN=0}
+  $('bearing').style.setProperty('--bearing',(-cam.yaw*180/Math.PI)+'deg');
+  requestAnimationFrame(frame);
+}
+applyTheme();requestAnimationFrame(frame);
+window.__colony={S:S,step:step,addFood:addFood};
+})();
+</script>
+</body>
+</html>

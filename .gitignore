@@ -1,0 +1,8 @@
+# Big backup zips stay on this computer only (too large for GitHub)
+zips-backup/
+
+# Claude's local settings
+.claude/
+
+# Stray leftover file, not an app
+System.Drawing.Drawing2D.GraphicsPath

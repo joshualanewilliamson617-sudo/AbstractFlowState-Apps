@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tumble House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e9e5ef; --panel:#f7f4fa; --ink:#1e1726; --muted:#6c6278; --line:#d8d0e2;
+  --velvet:#3a1d57; --velvet2:#1a0b2a; --brass:#e6b54a; --brass-dk:#9a6c12;
+  --chalk:#f6efe3; --ruby:#ff6b72; --mint:#6af0ad;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --bg:#141018; --panel:#1f1a26; --ink:#f1ecf6; --muted:#a397b1; --line:#30283a; }
+}
+:root[data-theme="dark"]{ --bg:#141018; --panel:#1f1a26; --ink:#f1ecf6; --muted:#a397b1; --line:#30283a; }
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-highlight-color:transparent;font-variant-numeric:tabular-nums}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(640px,calc(100% - 20px));margin:0 auto;padding:14px 4px 10px}
+.brand h1{margin:0;font-size:clamp(24px,6vw,30px);font-weight:800;letter-spacing:-.035em;line-height:1}
+.brand p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.coins{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 16px 6px 7px;font-weight:800;font-size:20px;color:var(--ink)}
+.coins.bump{animation:bump .4s}
+@keyframes bump{40%{transform:scale(1.12)}}
+.coin{width:24px;height:24px;border-radius:50%;display:inline-block;flex:none;background:radial-gradient(circle at 35% 30%,#fff5c4,#f0c23a 45%,#a8740a);box-shadow:inset 0 0 0 2px rgba(110,70,0,.35)}
+.coin.sm{width:15px;height:15px;vertical-align:-2px}
+
+.bail{display:block;width:min(640px,calc(100% - 20px));margin:0 auto 8px;border:0;border-radius:12px;padding:11px;font-weight:800;font-size:15px;background:var(--brass);color:#2a1a00}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;width:min(640px,calc(100% - 20px));margin:0 auto;padding:2px 0 10px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1 0 auto;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-weight:700;font-size:15px;padding:10px 14px;border-radius:12px}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.tray-wrap{width:min(640px,calc(100% - 20px));margin:0 auto 24px;border-radius:26px;color:var(--chalk);
+  background:radial-gradient(120% 80% at 50% 0%,#4c2770 0%,var(--velvet) 40%,var(--velvet2) 100%);
+  box-shadow:inset 0 0 0 6px #2a1340,inset 0 0 0 8px rgba(230,181,74,.35),inset 0 10px 40px rgba(0,0,0,.45),0 18px 40px rgba(20,8,30,.28);
+  padding:22px 18px 24px;position:relative;overflow:hidden}
+.tray-wrap::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.18;
+  background-image:radial-gradient(rgba(255,255,255,.25) 1px,transparent 1.2px);background-size:5px 5px}
+.mode{position:relative}
+.mode[hidden]{display:none}
+.mode h2{margin:0;font-size:28px;font-weight:800;letter-spacing:-.03em}
+.mode .lede{margin:4px 0 0;font-size:15px;line-height:1.45;color:rgba(246,239,227,.72);max-width:52ch}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:16px 0 6px}
+.chip{border:1.5px solid rgba(246,239,227,.2);background:rgba(255,255,255,.06);color:var(--chalk);border-radius:12px;padding:7px 12px;font-weight:800;font-size:16px;display:flex;flex-direction:column;align-items:center;min-width:58px;line-height:1.15}
+.chip small{font-size:12px;opacity:.75;font-weight:500}
+.chip.on{background:var(--brass);color:#2a1a00;border-color:var(--brass)}
+.chip:disabled{opacity:.4}
+
+.tray{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;min-height:130px;margin:12px 0}
+.tray.big{min-height:210px}
+.tray.combo{gap:8px;padding-bottom:18px}
+.tray.small{gap:8px;min-height:84px;align-content:center}
+.empty{opacity:.55;font-size:15px}
+
+.die{width:var(--s,76px);height:var(--s,76px);position:relative;flex:none;transition:translate .2s}
+.tray.big .die{--s:min(176px,46vw)}
+.tray.combo .die{--s:min(62px,16vw);cursor:pointer}
+.tray.small .die{--s:50px}
+.duel .die{--s:min(84px,21vw)}
+.die .spin{width:100%;height:100%;filter:drop-shadow(0 6px 6px rgba(0,0,0,.5));will-change:transform}
+.die.rolling .spin{filter:drop-shadow(0 18px 12px rgba(0,0,0,.38))}
+.die svg{width:100%;height:100%;display:block;overflow:visible}
+.die svg text{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800}
+.die.landed{animation:land .42s cubic-bezier(.3,1.5,.5,1)}
+@keyframes land{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
+.die::after{content:"";position:absolute;inset:-8%;border-radius:50%;pointer-events:none;opacity:0}
+.die.landed::after{animation:ring .6s ease-out;box-shadow:0 0 0 2px rgba(255,255,255,.75)}
+@keyframes ring{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.3)}}
+.die.bust{animation:shake .45s}
+.die.bust .spin{filter:drop-shadow(0 0 12px rgba(255,90,100,.95))}
+.die.hit .spin{filter:drop-shadow(0 0 14px rgba(240,194,58,.95))}
+@keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.die.held{translate:0 -12px}
+.die.held::before{content:"Held";position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:800;color:var(--brass)}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0}
+.stats div{background:rgba(0,0,0,.25);border-radius:14px;padding:9px 6px;text-align:center}
+.stats span{display:block;font-size:13px;opacity:.7}
+.stats b{font-size:24px;font-weight:800}
+
+.result{text-align:center;min-height:30px;font-weight:800;font-size:18px;margin:10px 0}
+.result.win{color:var(--mint)} .result.lose{color:var(--ruby)}
+.result.pop{animation:pop .35s}
+@keyframes pop{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
+
+.actions{display:flex;gap:10px}
+.btn{flex:1;border:0;border-radius:16px;padding:14px 12px;min-height:56px;font-weight:800;font-size:18px;background:rgba(255,255,255,.12);color:var(--chalk);display:flex;align-items:center;justify-content:center;gap:7px}
+.btn.primary{background:linear-gradient(#ffd96a,#e6a91f);color:#2a1a00;box-shadow:0 4px 0 var(--brass-dk)}
+.btn.primary:active{transform:translateY(3px);box-shadow:0 1px 0 var(--brass-dk)}
+.btn:disabled{opacity:.38;pointer-events:none}
+.actions.round{justify-content:center;gap:clamp(24px,10vw,56px);margin-top:4px}
+.actions.round .btn{flex:none;width:min(140px,36vw);height:min(140px,36vw);min-height:0;border-radius:50%;flex-direction:column;gap:4px;padding:12px;line-height:1.15;text-align:center;font-size:clamp(16px,4.4vw,19px)}
+.actions.round .btn:not(.primary){box-shadow:inset 0 0 0 2px rgba(246,239,227,.25)}
+body.busy .actions .btn,body.busy .chip,body.busy .bag button{pointer-events:none;opacity:.5}
+
+.hand{text-align:center;font-size:16px;min-height:24px;opacity:.9}
+.pay{display:grid;grid-template-columns:1fr auto 1fr auto;gap:3px 12px;font-size:14px;background:rgba(0,0,0,.22);padding:12px 14px;border-radius:14px;margin-top:16px}
+.pay span:nth-child(even){font-weight:800;color:var(--brass);text-align:right}
+.pay.single{grid-template-columns:1fr auto}
+
+.meter{position:relative;height:14px;background:rgba(0,0,0,.35);border-radius:99px;margin:14px 4px 6px}
+.meter .fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--mint),var(--brass));transition:width .45s}
+.meter.over .fill{background:var(--ruby)}
+.meter .mark{position:absolute;top:-6px;bottom:-6px;width:4px;border-radius:2px;background:var(--chalk);left:87%;transform:translateX(-2px)}
+.readout{display:flex;justify-content:space-between;font-size:15px;opacity:.85;margin:0 4px}
+.readout b{font-size:20px}
+.bag{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.bag button{border:1.5px solid rgba(246,239,227,.2);background:rgba(255,255,255,.06);border-radius:14px;padding:8px 4px;color:var(--chalk);font-weight:800;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bag button svg{width:42px;height:42px;overflow:visible}
+.bag button:disabled{opacity:.35}
+
+.row{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.22);border-radius:18px;padding:10px 14px;margin:10px 0}
+.row .who{font-weight:800;font-size:17px;width:56px}
+.row .dice{display:flex;gap:10px;flex:1;justify-content:center}
+.row .total{font-size:32px;font-weight:800;min-width:52px;text-align:right}
+
+.skins{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
+.skin{background:rgba(0,0,0,.25);border-radius:18px;padding:14px 10px;display:flex;flex-direction:column;gap:10px;align-items:center;border:2px solid transparent}
+.skin.on{border-color:var(--brass)}
+.skin .prev{display:flex;gap:8px;align-items:center}
+.skin .prev svg{width:60px;height:60px;overflow:visible;filter:drop-shadow(0 5px 5px rgba(0,0,0,.45))}
+.skin b{font-size:17px}
+.skin .btn{min-height:44px;font-size:15px;width:100%;padding:10px}
+.settings{display:flex;gap:10px;margin-top:16px}
+
+.floater{position:fixed;font-weight:800;font-size:22px;pointer-events:none;z-index:20;animation:floatUp 1.1s ease-out forwards}
+.floater.win{color:#22b56a} .floater.lose{color:#e5484d}
+@keyframes floatUp{0%{opacity:0;transform:translateY(8px)}15%{opacity:1}100%{opacity:0;transform:translateY(-46px)}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:30}
+.toast.show{opacity:1}
+
+@media (prefers-reduced-motion:reduce){
+  .die.landed,.die.bust,.result.pop,.coins.bump{animation:none}
+  .die.landed::after{animation:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="defs"></defs></svg>
+
+<header class="top">
+  <div class="brand"><h1>Tumble House</h1><p>Roll, risk it, rake in coins</p></div>
+  <button class="coins" id="coinPill" aria-label="Coins"><span class="coin"></span><span id="coinVal">100</span></button>
+</header>
+<button class="bail" id="bail" hidden>You're out of coins. Take 50 to keep playing</button>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="climb" class="on">Climb</button>
+  <button data-tab="combo">Combo</button>
+  <button data-tab="target">Target</button>
+  <button data-tab="duel">Duel</button>
+  <button data-tab="shop">Dice shop</button>
+</nav>
+
+<main class="tray-wrap">
+  <!-- CLIMB -->
+  <section class="mode" data-mode="climb">
+    <h2>Climb</h2>
+    <p class="lede">Every roll adds to your pot. Land in the bust zone and the pot is gone. Bank whenever your nerve runs out — after three safe rolls in a row, each extra roll heats up your payout.</p>
+    <div class="chips" id="climbDice"></div>
+    <div class="tray big" id="climbTray"></div>
+    <div class="stats">
+      <div><span>Pot</span><b id="climbPot">0</b></div>
+      <div><span>Heat</span><b id="climbHeat">×1.0</b></div>
+      <div><span>Bust on</span><b id="climbBust">1</b></div>
+    </div>
+    <div class="result" id="climbResult"></div>
+    <div class="actions round"><button class="btn" id="climbBank" disabled>Bank</button><button class="btn primary" id="climbRoll">Start</button></div>
+  </section>
+
+  <!-- COMBO -->
+  <section class="mode" data-mode="combo" hidden>
+    <h2>Combo</h2>
+    <p class="lede">Place a bet and roll five dice. Tap dice to hold them, then reroll the rest — twice. Cash out on the best hand you can build.</p>
+    <div class="chips" id="comboBet"></div>
+    <div class="tray combo" id="comboTray"></div>
+    <div class="hand" id="comboHand">Press Deal to roll five dice</div>
+    <div class="result" id="comboResult"></div>
+    <div class="actions"><button class="btn primary" id="comboMain">Deal</button><button class="btn" id="comboCash" disabled>Cash out</button></div>
+    <div class="pay">
+      <span>Five of a kind</span><span>25×</span><span>Four of a kind</span><span>8×</span>
+      <span>Big straight</span><span>6×</span><span>Full house</span><span>5×</span>
+      <span>Small straight</span><span>2.5×</span><span>Three of a kind</span><span>2×</span>
+      <span>Two pair</span><span>1.5×</span><span>Pair</span><span>0.5×</span>
+    </div>
+  </section>
+
+  <!-- TARGET -->
+  <section class="mode" data-mode="target" hidden>
+    <h2>Target</h2>
+    <p class="lede">Hit the target number exactly. Pick which die to roll each turn — big dice to cover ground, small dice to finish. Go over and you bust.</p>
+    <div class="chips" id="targetBet"></div>
+    <div class="meter" id="meter"><div class="fill" id="meterFill"></div><div class="mark"></div></div>
+    <div class="readout"><span>Total <b id="tTotal">0</b></span><span id="tNeed"></span><span>Target <b id="tTarget">–</b></span></div>
+    <div class="bag" id="bag"></div>
+    <div class="tray small" id="targetTray"><span class="empty">Press Start to get a target</span></div>
+    <div class="result" id="targetResult"></div>
+    <div class="actions"><button class="btn primary" id="targetMain">Start</button></div>
+    <div class="pay single">
+      <span>Exactly on target</span><span>5×</span>
+      <span>Stand 1 short</span><span>2×</span>
+      <span>Stand 2–3 short</span><span>Bet back</span>
+    </div>
+  </section>
+
+  <!-- DUEL -->
+  <section class="mode duel" data-mode="duel" hidden>
+    <h2>Duel</h2>
+    <p class="lede">You and the house each roll two d20s. Higher total wins double your bet. Every natural 20 you roll pays a bonus bet on top, win or lose.</p>
+    <div class="chips" id="duelBet"></div>
+    <div class="row"><span class="who">House</span><div class="dice" id="cpuDice"></div><span class="total" id="cpuTotal">–</span></div>
+    <div class="row"><span class="who">You</span><div class="dice" id="youDice"></div><span class="total" id="youTotal">–</span></div>
+    <div class="result" id="duelResult"></div>
+    <div class="actions"><button class="btn primary" id="duelRoll">Roll</button></div>
+  </section>
+
+  <!-- SHOP -->
+  <section class="mode" data-mode="shop" hidden>
+    <h2>Dice shop</h2>
+    <p class="lede">Spend coins on new dice looks. Whatever you equip is used in every game.</p>
+    <div class="skins" id="shopGrid"></div>
+    <div class="settings"><button class="btn" id="soundBtn">Sound on</button><button class="btn" id="resetBtn">Reset progress</button></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- state ---------- */
+const KEY = 'tumble-house-v1';
+let S = { coins: 100, owned: ['ivory', 'midnight'], skin: 'ivory', sound: true };
+try { const r = localStorage.getItem(KEY); if (r) S = Object.assign(S, JSON.parse(r)); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+const $ = s => document.querySelector(s);
+const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+let busy = false;
+function setBusy(b) { busy = b; document.body.classList.toggle('busy', b); }
+
+/* ---------- dice art ---------- */
+const SIDES = [4, 6, 8, 20];
+const SHAPES = {
+  4:  { shape: '<path d="M50 9 L93 85 L7 85 Z"/>', facets: '', num: [50, 61, 32] },
+  6:  { shape: '<rect x="9" y="9" width="82" height="82" rx="20"/>', facets: '', num: [50, 50, 40] },
+  8:  { shape: '<path d="M50 4 L95 50 L50 96 L5 50 Z"/>', facets: '<path d="M5 50 L50 68 L95 50"/>', num: [50, 42, 30] },
+  20: { shape: '<path d="M50 4 L90 27 L90 73 L50 96 L10 73 L10 27 Z"/>',
+        facets: '<path d="M50 26 L78 70 L22 70 Z M50 26 L50 4 M50 26 L10 27 M50 26 L90 27 M78 70 L90 27 M78 70 L90 73 M78 70 L50 96 M22 70 L10 27 M22 70 L10 73 M22 70 L50 96"/>',
+        num: [50, 55, 25] }
+};
+const SKINS = {
+  ivory:    { name: 'Ivory',     cost: 0,   body: ['#ffffff', '#cdd1da'], ink: '#1b1e26', outline: '#ffffff', facet: 'rgba(30,35,50,.22)' },
+  midnight: { name: 'Midnight',  cost: 0,   body: ['#424a6c', '#121522'], ink: '#ffffff', outline: '#ffffff', facet: 'rgba(255,255,255,.2)' },
+  fuzzy:    { name: 'Red fuzzy', cost: 150, body: ['#ff4053', '#8c0b1b'], ink: '#ffffff', outline: '#ffffff', facet: 'rgba(0,0,0,.2)', fuzzy: true },
+  neon:     { name: 'Neon',      cost: 250, body: ['#17264a', '#05070d'], ink: '#46f3ff', outline: '#46f3ff', facet: 'rgba(70,243,255,.35)', glow: true },
+  gold:     { name: 'Gold',      cost: 500, body: ['#fff2b8', '#b98a12'], ink: '#3a2600', outline: '#ffffff', facet: 'rgba(80,50,0,.28)' },
+  crystal:  { name: 'Crystal',   cost: 900, body: ['rgba(232,214,255,.96)', 'rgba(108,66,200,.8)'], ink: '#ffffff', outline: '#f3e8ff', facet: 'rgba(255,255,255,.55)', crystal: true, glow: true }
+};
+
+function buildDefs() {
+  let g = '';
+  for (const [id, s] of Object.entries(SKINS))
+    g += `<radialGradient id="g-${id}" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="${s.body[0]}"/><stop offset="1" stop-color="${s.body[1]}"/></radialGradient>`;
+  for (const n of SIDES) g += `<clipPath id="clip-${n}">${SHAPES[n].shape}</clipPath>`;
+  g += `<filter id="fuzz" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter>`;
+  g += `<filter id="fuzztex" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="2.4" numOctaves="1" seed="9" result="t"/><feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0" result="a"/><feComposite in="a" in2="SourceGraphic" operator="in"/></filter>`;
+  g += `<filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+  $('#defs').innerHTML = g;
+}
+
+function faceArt(sides, v, sk) {
+  if (sides === 6) {
+    const P = { tl: [29, 29], tr: [71, 29], ml: [29, 50], mr: [71, 50], c: [50, 50], bl: [29, 71], br: [71, 71] };
+    const M = { 1: ['c'], 2: ['tl', 'br'], 3: ['tl', 'c', 'br'], 4: ['tl', 'tr', 'bl', 'br'], 5: ['tl', 'tr', 'c', 'bl', 'br'], 6: ['tl', 'tr', 'ml', 'mr', 'bl', 'br'] };
+    return M[v].map(k => `<circle cx="${P[k][0]}" cy="${P[k][1]}" r="${v === 1 ? 11 : 8}" fill="${sk.ink}"${sk.glow ? ' filter="url(#glow)"' : ''}/>`).join('');
+  }
+  const [x, y, fs] = SHAPES[sides].num;
+  const size = String(v).length > 1 ? fs * 0.8 : fs;
+  return `<text x="${x}" y="${y}" font-size="${size}" fill="${sk.ink}" text-anchor="middle" dominant-baseline="central"${sk.glow ? ' filter="url(#glow)"' : ''}>${v}</text>`;
+}
+
+function dieSVG(sides, v, skinId) {
+  const id = skinId || S.skin, sk = SKINS[id], sh = SHAPES[sides];
+  let out = `<svg viewBox="-6 -6 112 112" aria-label="d${sides} showing ${v}">`;
+  out += `<g fill="${sk.outline}" stroke="${sk.outline}" stroke-width="8" stroke-linejoin="round"${sk.glow ? ' filter="url(#glow)"' : ''}>${sh.shape}</g>`;
+  out += `<g fill="url(#g-${id})" stroke="url(#g-${id})" stroke-width="4" stroke-linejoin="round"${sk.fuzzy ? ' filter="url(#fuzz)"' : ''}>${sh.shape}</g>`;
+  if (sk.fuzzy) out += `<g clip-path="url(#clip-${sides})" filter="url(#fuzztex)" fill="#000">${sh.shape}</g>`;
+  else out += `<ellipse cx="36" cy="26" rx="26" ry="13" fill="rgba(255,255,255,.2)" clip-path="url(#clip-${sides})"/>`;
+  if (sh.facets) out += `<g fill="none" stroke="${sk.facet}" stroke-width="1.6" stroke-linejoin="round">${sh.facets}</g>`;
+  if (sk.crystal) {
+    let c = `<circle cx="50" cy="52" r="13"/>`;
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; c += `<circle cx="${(50 + 13 * Math.cos(a)).toFixed(1)}" cy="${(52 + 13 * Math.sin(a)).toFixed(1)}" r="13"/>`; }
+    out += `<g clip-path="url(#clip-${sides})" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1">${c}</g>`;
+  }
+  out += faceArt(sides, v, sk) + '</svg>';
+  return out;
+}
+
+function makeDie(sides, value) {
+  const d = document.createElement('div');
+  d.className = 'die'; d.dataset.sides = sides; d.dataset.value = value;
+  d.innerHTML = `<div class="spin">${dieSVG(sides, value)}</div>`;
+  return d;
+}
+function refreshDice() {
+  document.querySelectorAll('.die').forEach(d => {
+    d.querySelector('.spin').innerHTML = dieSVG(+d.dataset.sides, +d.dataset.value);
+  });
+  renderBag();
+}
+
+/* ---------- randomness ---------- */
+function rint(n) { const a = new Uint32Array(1); crypto.getRandomValues(a); return (a[0] % n) + 1; }
+function rand(n, avoid) { let v; do { v = rint(n); } while (v === avoid && n > 1); return v; }
+
+/* ---------- sound ---------- */
+let AC = null, lastTick = 0;
+function ac() {
+  if (AC === null) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = false; } }
+  if (AC && AC.state === 'suspended') AC.resume();
+  return AC || null;
+}
+function blip(freq, dur, type = 'triangle', vol = .06, when = 0) {
+  if (!S.sound) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .02);
+}
+function tickSound(t) { const now = performance.now(); if (now - lastTick < 22) return; lastTick = now; blip(1500 - t * 800, .035, 'square', .022); }
+function landSound() { blip(190, .14, 'sine', .14); blip(380, .07, 'triangle', .04); }
+function winSound() { [523, 659, 784, 1047].forEach((f, i) => blip(f, .2, 'triangle', .07, i * .08)); }
+function loseSound() { [330, 262, 196].forEach((f, i) => blip(f, .24, 'sawtooth', .03, i * .11)); }
+function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+/* ---------- the roll: fast spin, then slow ticks into place ---------- */
+const angles = new WeakMap();
+function roll(el, final, idx = 0) {
+  const sides = +el.dataset.sides;
+  return new Promise(res => {
+    const spin = el.querySelector('.spin');
+    el.classList.remove('landed', 'bust', 'hit');
+    el.classList.add('rolling');
+    const start = 26;
+    let delay = start, prev = +el.dataset.value || 0, i = 0, angle = angles.get(el) || 0;
+    const dir = Math.random() < .5 ? -1 : 1;
+    const maxDelay = 250 + idx * 55 + Math.random() * 40;   // later dice land later
+    const growth = RM ? 1.5 : 1.15;                          // how fast the ticks slow down
+    const step = () => {
+      const done = delay >= maxDelay;
+      const t = Math.min(1, (delay - start) / (maxDelay - start)); // 0 = frantic, 1 = settling
+      const v = done ? final : rand(sides, prev);
+      prev = v; el.dataset.value = v;
+      spin.innerHTML = dieSVG(sides, v);
+      if (done) {
+        angle = Math.round(angle / 360) * 360;
+        spin.style.transition = 'transform 280ms cubic-bezier(.3,1.6,.5,1)';
+        spin.style.transform = `rotate(${angle}deg)`;
+        angles.set(el, angle);
+      } else if (!RM) {
+        angle += dir * (16 + 170 * (1 - t) * (1 - t));
+        const hop = (1 - t) * 16 * Math.abs(Math.sin(i * 1.3));
+        spin.style.transition = `transform ${Math.max(40, Math.min(delay, 200))}ms cubic-bezier(.25,.8,.35,1)`;
+        spin.style.transform = `translateY(${-hop}px) rotate(${angle}deg) scale(${1 + (1 - t) * .1})`;
+      }
+      tickSound(t);
+      if (done) {
+        setTimeout(() => { el.classList.remove('rolling'); el.classList.add('landed'); landSound(); buzz(12); res(final); }, 160);
+        return;
+      }
+      i++; delay *= growth;
+      setTimeout(step, delay);
+    };
+    step();
+  });
+}
+
+/* ---------- coins ---------- */
+let coinAnim, shown = S.coins;
+function animateCoins(to) {
+  cancelAnimationFrame(coinAnim);
+  const from = shown, t0 = performance.now(), el = $('#coinVal');
+  const step = t => {
+    const k = Math.min(1, (t - t0) / 600), e = 1 - Math.pow(1 - k, 3);
+    shown = Math.round(from + (to - from) * e); el.textContent = shown;
+    if (k < 1) coinAnim = requestAnimationFrame(step);
+  };
+  coinAnim = requestAnimationFrame(step);
+  const p = $('#coinPill'); p.classList.remove('bump'); void p.offsetWidth; p.classList.add('bump');
+}
+function floatText(txt, cls) {
+  const r = $('#coinPill').getBoundingClientRect(), f = document.createElement('div');
+  f.className = 'floater ' + cls; f.textContent = txt;
+  f.style.left = (r.left + 10) + 'px'; f.style.top = (r.bottom + 2) + 'px';
+  document.body.appendChild(f); setTimeout(() => f.remove(), 1200);
+}
+function setCoins(n) { S.coins = Math.max(0, Math.round(n)); save(); animateCoins(S.coins); }
+function pay(n) {
+  if (S.coins < n) { toast(`You need ${n} coins for that`); return false; }
+  setCoins(S.coins - n); floatText('−' + n, 'lose'); checkBroke(); return true;
+}
+function earn(n) { if (n > 0) { setCoins(S.coins + n); floatText('+' + n, 'win'); } checkBroke(); }
+function checkBroke() { $('#bail').hidden = !(S.coins < 5 && !C.running && !K.active && !T.active); }
+$('#bail').onclick = () => { earn(50); winSound(); };
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1800); }
+function result(sel, text, cls = '') { const el = $(sel); el.className = 'result ' + cls; el.textContent = text; void el.offsetWidth; el.classList.add('pop'); }
+const coinIcon = '<i class="coin sm"></i>';
+
+function betChips(sel, obj, locked) {
+  $(sel).innerHTML = [5, 10, 25, 50, 100].map(v => `<button class="chip ${obj.bet === v ? 'on' : ''}" data-v="${v}" ${locked ? 'disabled' : ''}>${v}<small>bet</small></button>`).join('');
+}
+function wireBet(sel, obj, isLocked, render) {
+  $(sel).addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b || busy || isLocked()) return; obj.bet = +b.dataset.v; render(); });
+}
+
+/* ---------- CLIMB (push your luck) ---------- */
+const CLIMB = { 4: { entry: 5, bust: 1 }, 6: { entry: 10, bust: 1 }, 8: { entry: 15, bust: 2 }, 20: { entry: 25, bust: 5 } };
+const C = { sides: 6, running: false, pot: 0, streak: 0 };
+let climbDie;
+const heat = () => 1 + 0.1 * Math.max(0, C.streak - 3);
+function placeClimbDie() { $('#climbTray').innerHTML = ''; climbDie = makeDie(C.sides, C.sides); $('#climbTray').appendChild(climbDie); }
+function renderClimb() {
+  const r = CLIMB[C.sides];
+  $('#climbDice').innerHTML = SIDES.map(n => `<button class="chip ${n === C.sides ? 'on' : ''}" data-n="${n}" ${C.running ? 'disabled' : ''}>d${n}<small>${CLIMB[n].entry} to play</small></button>`).join('');
+  $('#climbPot').textContent = C.pot;
+  $('#climbHeat').textContent = '×' + heat().toFixed(1);
+  $('#climbBust').textContent = r.bust === 1 ? '1' : '1–' + r.bust;
+  $('#climbRoll').innerHTML = C.running ? 'Roll' : `Start for ${r.entry} ${coinIcon}`;
+  const b = $('#climbBank');
+  b.disabled = !C.running || C.pot === 0;
+  b.innerHTML = C.running && C.pot ? `Bank ${Math.floor(C.pot * heat())} ${coinIcon}` : 'Bank';
+}
+$('#climbDice').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b || C.running || busy) return;
+  C.sides = +b.dataset.n; placeClimbDie(); renderClimb();
+});
+$('#climbRoll').onclick = async () => {
+  if (busy) return; const r = CLIMB[C.sides];
+  if (!C.running) { if (!pay(r.entry)) return; C.running = true; C.pot = 0; C.streak = 0; result('#climbResult', ''); }
+  setBusy(true); const v = rint(C.sides); await roll(climbDie, v); setBusy(false);
+  if (v <= r.bust) {
+    climbDie.classList.add('bust'); loseSound(); buzz([40, 60, 40]);
+    result('#climbResult', `Bust on a ${v}. The pot of ${C.pot} is gone.`, 'lose');
+    C.running = false; C.pot = 0; C.streak = 0;
+  } else {
+    C.pot += v; C.streak++;
+    result('#climbResult', `+${v}. ${C.streak} safe in a row${C.streak > 3 ? ' — heating up' : ''}`);
+  }
+  renderClimb(); checkBroke();
+};
+$('#climbBank').onclick = () => {
+  if (busy || !C.running || !C.pot) return;
+  const win = Math.floor(C.pot * heat());
+  C.running = false; C.pot = 0; C.streak = 0;
+  earn(win); winSound(); climbDie.classList.add('hit');
+  result('#climbResult', `Banked ${win} coins`, 'win'); renderClimb();
+};
+
+/* ---------- COMBO (lock and reroll) ---------- */
+const K = { bet: 10, active: false, left: 0, held: [0, 0, 0, 0, 0], vals: [1, 2, 3, 4, 5] };
+const comboDice = K.vals.map((v, i) => {
+  const d = makeDie(6, v);
+  d.onclick = () => { if (!K.active || busy || K.left === 0) return; K.held[i] ^= 1; renderCombo(); };
+  $('#comboTray').appendChild(d); return d;
+});
+function evalHand(vals) {
+  const c = [0, 0, 0, 0, 0, 0, 0]; vals.forEach(v => c[v]++);
+  const counts = c.slice(1).filter(x => x).sort((a, b) => b - a);
+  const set = new Set(vals), has = a => a.every(x => set.has(x));
+  if (counts[0] === 5) return ['Five of a kind', 25, 'kind'];
+  if (counts[0] === 4) return ['Four of a kind', 8, 'kind'];
+  if (has([1, 2, 3, 4, 5]) || has([2, 3, 4, 5, 6])) return ['Big straight', 6, 'all'];
+  if (counts[0] === 3 && counts[1] === 2) return ['Full house', 5, 'all'];
+  if (has([1, 2, 3, 4]) || has([2, 3, 4, 5]) || has([3, 4, 5, 6])) return ['Small straight', 2.5, 'run'];
+  if (counts[0] === 3) return ['Three of a kind', 2, 'kind'];
+  if (counts[0] === 2 && counts[1] === 2) return ['Two pair', 1.5, 'kind'];
+  if (counts[0] === 2) return ['Pair', 0.5, 'kind'];
+  return ['Nothing yet', 0, ''];
+}
+function markHits() {
+  const [, , how] = evalHand(K.vals), c = {}; K.vals.forEach(v => c[v] = (c[v] || 0) + 1);
+  const runs = [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]].find(r => r.every(x => K.vals.includes(x))) || [];
+  const used = new Set();
+  comboDice.forEach((d, i) => {
+    const v = K.vals[i]; let on = false;
+    if (how === 'all') on = true;
+    else if (how === 'kind') on = c[v] >= 2;
+    else if (how === 'run' && runs.includes(v) && !used.has(v)) { on = true; used.add(v); }
+    d.classList.toggle('hit', on);
+  });
+}
+function renderCombo() {
+  betChips('#comboBet', K, K.active);
+  comboDice.forEach((d, i) => d.classList.toggle('held', K.active && K.left > 0 && !!K.held[i]));
+  const main = $('#comboMain'), cash = $('#comboCash');
+  if (!K.active) {
+    main.innerHTML = `Deal for ${K.bet} ${coinIcon}`; main.disabled = false;
+    cash.disabled = true; cash.textContent = 'Cash out';
+  } else {
+    const [name, m] = evalHand(K.vals);
+    main.textContent = `Reroll (${K.left} left)`; main.disabled = K.left === 0 || K.held.every(Boolean);
+    cash.disabled = false; cash.innerHTML = `Cash out ${Math.floor(K.bet * m)} ${coinIcon}`;
+    $('#comboHand').innerHTML = `<b>${name}</b> pays ${m}×${K.left ? '. Tap dice to hold them.' : ''}`;
+  }
+}
+async function comboRoll(idxs) {
+  setBusy(true); comboDice.forEach(d => d.classList.remove('hit'));
+  idxs.forEach(i => { K.vals[i] = rint(6); });
+  await Promise.all(idxs.map((i, k) => roll(comboDice[i], K.vals[i], k)));
+  setBusy(false); markHits();
+}
+function comboCash() {
+  const [name, m] = evalHand(K.vals), win = Math.floor(K.bet * m);
+  K.active = false; earn(win);
+  if (m >= 1) { winSound(); result('#comboResult', `${name}! Paid ${win} coins`, 'win'); }
+  else if (win > 0) result('#comboResult', `${name}. You get ${win} back`);
+  else { loseSound(); result('#comboResult', 'No combo. The bet is lost.', 'lose'); }
+  $('#comboHand').textContent = 'Press Deal to roll again';
+  renderCombo(); checkBroke();
+}
+$('#comboMain').onclick = async () => {
+  if (busy) return;
+  if (!K.active) {
+    if (!pay(K.bet)) return;
+    K.active = true; K.left = 2; K.held = [0, 0, 0, 0, 0]; result('#comboResult', '');
+    renderCombo(); await comboRoll([0, 1, 2, 3, 4]);
+  } else {
+    const idx = [0, 1, 2, 3, 4].filter(i => !K.held[i]); if (!idx.length || K.left <= 0) return;
+    K.left--; renderCombo(); await comboRoll(idx);
+    if (K.left === 0) { renderCombo(); return comboCash(); }
+  }
+  renderCombo();
+};
+$('#comboCash').onclick = () => { if (!busy && K.active) comboCash(); };
+wireBet('#comboBet', K, () => K.active, renderCombo);
+
+/* ---------- TARGET (pick your dice, land exactly) ---------- */
+const T = { bet: 10, active: false, target: 0, total: 0, count: 0 };
+function renderBag() {
+  $('#bag').innerHTML = SIDES.map(n => `<button data-n="${n}" ${T.active ? '' : 'disabled'}>${dieSVG(n, n)}d${n}</button>`).join('');
+}
+function renderTarget() {
+  betChips('#targetBet', T, T.active);
+  $('#bag').querySelectorAll('button').forEach(b => b.disabled = !T.active);
+  $('#tTotal').textContent = T.total;
+  $('#tTarget').textContent = T.target || '–';
+  $('#tNeed').textContent = T.active ? `Need ${T.target - T.total}` : '';
+  const scale = T.target ? T.target / 0.87 : 1;
+  $('#meterFill').style.width = Math.min(100, (T.total / scale) * 100) + '%';
+  $('#meter').classList.toggle('over', T.target && T.total > T.target);
+  $('#targetMain').innerHTML = T.active ? `Stand on ${T.total}` : `Start for ${T.bet} ${coinIcon}`;
+  $('#targetMain').disabled = T.active && T.total === 0;
+}
+function targetEnd() {
+  const diff = T.target - T.total; let m = 0, msg, cls = '';
+  if (diff < 0) { msg = `Bust! ${T.total} is over ${T.target}.`; cls = 'lose'; }
+  else if (diff === 0) { m = 5; msg = `Bullseye! Exactly ${T.target}. Paid`; cls = 'win'; }
+  else if (diff === 1) { m = 2; msg = 'One short. Paid'; cls = 'win'; }
+  else if (diff <= 3) { m = 1; msg = `${diff} short. Bet back:`; }
+  else { msg = `${diff} short. The bet is lost.`; cls = 'lose'; }
+  const win = T.bet * m; T.active = false; earn(win);
+  if (m >= 2) winSound(); else if (m === 0) loseSound();
+  result('#targetResult', m ? `${msg} ${win} coins` : msg, cls);
+  renderTarget(); checkBroke();
+}
+$('#targetMain').onclick = () => {
+  if (busy) return;
+  if (!T.active) {
+    if (!pay(T.bet)) return;
+    T.active = true; T.total = 0; T.count = 0; T.target = 14 + rint(27); // 15–41
+    $('#targetTray').innerHTML = '<span class="empty">Tap a die in the bag to roll it</span>';
+    result('#targetResult', ''); renderTarget();
+  } else targetEnd();
+};
+$('#bag').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || !T.active || busy) return;
+  const n = +b.dataset.n, tray = $('#targetTray');
+  if (!T.count) tray.innerHTML = '';
+  const d = makeDie(n, n); tray.appendChild(d); T.count++;
+  const v = rint(n); setBusy(true); await roll(d, v); setBusy(false);
+  T.total += v;
+  if (T.total > T.target) { d.classList.add('bust'); buzz([40, 60, 40]); renderTarget(); return targetEnd(); }
+  if (T.total === T.target) { d.classList.add('hit'); renderTarget(); return targetEnd(); }
+  if (T.count >= 8) { renderTarget(); return targetEnd(); }
+  renderTarget();
+});
+wireBet('#targetBet', T, () => T.active, renderTarget);
+
+/* ---------- DUEL (two d20s each) ---------- */
+const D = { bet: 10 };
+const cpuDice = [makeDie(20, 20), makeDie(20, 20)], youDice = [makeDie(20, 20), makeDie(20, 20)];
+cpuDice.forEach(d => $('#cpuDice').appendChild(d)); youDice.forEach(d => $('#youDice').appendChild(d));
+function renderDuel() { betChips('#duelBet', D, false); $('#duelRoll').innerHTML = `Roll for ${D.bet} ${coinIcon}`; }
+$('#duelRoll').onclick = async () => {
+  if (busy || !pay(D.bet)) return;
+  setBusy(true); result('#duelResult', ''); $('#cpuTotal').textContent = '…'; $('#youTotal').textContent = '…';
+  const c = [rint(20), rint(20)], y = [rint(20), rint(20)];
+  const house = Promise.all(cpuDice.map((d, i) => roll(d, c[i], i))).then(() => { $('#cpuTotal').textContent = c[0] + c[1]; });
+  const you = Promise.all(youDice.map((d, i) => roll(d, y[i], i + 3))).then(() => { $('#youTotal').textContent = y[0] + y[1]; });
+  await Promise.all([house, you]); setBusy(false);
+  [...cpuDice, ...youDice].forEach((d, i) => { const v = i < 2 ? c[i] : y[i - 2]; if (v === 20) d.classList.add('hit'); if (v === 1) d.classList.add('bust'); });
+  const ct = c[0] + c[1], yt = y[0] + y[1], nat = y.filter(v => v === 20).length;
+  let win = nat * D.bet, msg, cls = '';
+  if (yt > ct) { win += D.bet * 2; msg = `You win ${yt} to ${ct}`; cls = 'win'; }
+  else if (yt === ct) { win += D.bet; msg = `Tie at ${yt}. Bet back`; }
+  else { msg = `House wins ${ct} to ${yt}`; cls = 'lose'; }
+  if (nat) msg += nat === 2 ? ' — double natural 20!' : ' — natural 20 bonus!';
+  earn(win); if (win > D.bet) winSound(); else if (cls === 'lose' && !nat) loseSound();
+  result('#duelResult', win ? `${msg} (+${win})` : msg, nat || cls === 'win' ? 'win' : cls);
+};
+wireBet('#duelBet', D, () => false, renderDuel);
+
+/* ---------- SHOP ---------- */
+function renderShop() {
+  $('#shopGrid').innerHTML = Object.entries(SKINS).map(([id, s]) => {
+    const own = S.owned.includes(id), on = S.skin === id;
+    const label = on ? 'Equipped' : own ? 'Equip' : `Buy for ${s.cost} ${coinIcon}`;
+    return `<div class="skin ${on ? 'on' : ''}"><div class="prev">${dieSVG(20, 20, id)}${dieSVG(6, 5, id)}</div><b>${s.name}</b><button class="btn ${own ? '' : 'primary'}" data-id="${id}" ${on ? 'disabled' : ''}>${label}</button></div>`;
+  }).join('');
+  $('#soundBtn').textContent = S.sound ? 'Sound on' : 'Sound off';
+}
+$('#shopGrid').addEventListener('click', e => {
+  const b = e.target.closest('button[data-id]'); if (!b) return;
+  const id = b.dataset.id;
+  if (!S.owned.includes(id)) { if (!pay(SKINS[id].cost)) return; S.owned.push(id); winSound(); toast(`${SKINS[id].name} dice unlocked`); }
+  S.skin = id; save(); refreshDice(); renderShop();
+});
+$('#soundBtn').onclick = () => { S.sound = !S.sound; save(); renderShop(); };
+$('#resetBtn').onclick = () => {
+  if (!confirm('Reset coins and dice back to the start?')) return;
+  S = { coins: 100, owned: ['ivory', 'midnight'], skin: 'ivory', sound: S.sound }; save();
+  C.running = false; C.pot = 0; C.streak = 0; K.active = false; T.active = false;
+  animateCoins(S.coins); refreshDice(); renderAll(); toast('Progress reset');
+};
+
+/* ---------- tabs ---------- */
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.mode').forEach(m => m.hidden = m.dataset.mode !== b.dataset.tab);
+  if (b.dataset.tab === 'shop') renderShop();
+});
+
+function renderAll() { renderClimb(); renderCombo(); renderBag(); renderTarget(); renderDuel(); renderShop(); checkBroke(); }
+buildDefs(); placeClimbDie(); $('#coinVal').textContent = S.coins; renderAll();
+</script>
+</body>
+</html>

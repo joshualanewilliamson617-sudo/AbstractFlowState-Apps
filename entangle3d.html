@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>White Hole — a galaxy collision</title>
+<style>
+  :root{
+    --gold:#f2a33a; --cyan:#4fd4e8; --violet:#9b6bff;
+    --magenta:#ff7ac2; --bone:#ece7f5; --dim:#8b83a6;
+    --edge:rgba(150,130,215,.24);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#03020a}
+  body{font:14.5px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif;color:var(--bone)}
+  canvas{display:block;position:fixed;inset:0}
+
+  #rail{
+    position:fixed;top:0;left:0;bottom:0;width:300px;z-index:10;
+    background:linear-gradient(180deg,rgba(14,10,30,.95),rgba(3,2,10,.97));
+    border-right:1px solid var(--edge);display:flex;flex-direction:column;
+    transition:transform .22s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(12px);
+  }
+  #rail.hide{transform:translateX(-300px)}
+  #head{padding:17px 20px 13px;border-bottom:1px solid var(--edge)}
+  #head h1{font:400 24px/1 Iowan Old Style,Palatino,Georgia,serif}
+  #head p{color:var(--dim);font-size:12.5px;margin-top:4px}
+  #body{flex:1;overflow-y:auto;padding:15px 20px 22px}
+  #body::-webkit-scrollbar{width:6px}
+  #body::-webkit-scrollbar-thumb{background:var(--edge);border-radius:3px}
+
+  .grp{margin-bottom:19px}
+  .grp h2{font-size:11.5px;font-weight:600;color:var(--dim);margin-bottom:9px}
+
+  .sl{margin-bottom:13px}
+  .sl .lab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
+  .sl .lab b{font-weight:500;color:var(--gold);font-variant-numeric:tabular-nums}
+  .sl input{width:100%;accent-color:var(--gold);cursor:pointer}
+  .sl .note{color:var(--dim);font-size:11.5px;margin-top:3px;line-height:1.35}
+
+  .btn{
+    width:100%;padding:10px;border-radius:8px;cursor:pointer;background:transparent;
+    border:1px solid var(--edge);color:var(--bone);font:inherit;font-size:13px;
+    transition:background .13s,border-color .13s;
+  }
+  .btn:hover:not(:disabled){background:rgba(255,255,255,.07);border-color:var(--bone)}
+  .btn:disabled{opacity:.3;cursor:not-allowed}
+  .btn:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
+  .btn.go{background:var(--gold);border-color:var(--gold);color:#1d1304;font-weight:600}
+  .btn.go:hover:not(:disabled){background:#ffb84e;border-color:#ffb84e}
+  .btn+.btn{margin-top:6px}
+  .r2{display:flex;gap:6px}
+  .r2 .btn{margin-top:0}
+
+  .hint{color:var(--dim);font-size:11.5px;line-height:1.45;margin-top:7px}
+
+  /* mass scale */
+  #scale{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;width:min(560px,62vw);
+    background:rgba(8,5,18,.9);border:1px solid var(--edge);border-radius:11px;
+    padding:11px 15px 13px;backdrop-filter:blur(10px);box-shadow:0 8px 34px rgba(0,0,0,.65);
+  }
+  #scaleTop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  #scaleTop .s{font-size:12px;color:var(--dim)}
+  #scaleTop .s b{display:block;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px}
+  #mA b{color:var(--gold)} #mB b{color:var(--cyan)}
+  #phase{font-size:12px;color:var(--dim);text-align:center}
+  #bar{height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;display:flex}
+  #barA{background:linear-gradient(90deg,#c97a12,var(--gold));transition:width .3s}
+  #barB{background:linear-gradient(90deg,var(--cyan),#2a8fa8);transition:width .3s;margin-left:auto}
+  #tipMark{
+    position:absolute;top:38px;bottom:13px;width:2px;background:rgba(255,255,255,.32);
+  }
+
+  #peek{
+    position:fixed;top:14px;left:14px;z-index:11;display:none;padding:8px 13px;
+    border-radius:8px;background:rgba(14,10,30,.94);border:1px solid var(--edge);
+    color:var(--bone);font:inherit;font-size:12.5px;cursor:pointer;
+  }
+  #peek.on{display:block}
+
+  #cut{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:9;
+    padding:9px 18px;border-radius:8px;background:rgba(8,5,18,.88);
+    border:1px solid var(--edge);font-size:12.5px;color:var(--bone);
+    opacity:0;transition:opacity .25s;pointer-events:none;
+  }
+  #cut.on{opacity:1}
+
+  #modal{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;
+    background:rgba(3,2,9,.86);backdrop-filter:blur(5px)}
+  #modal.on{display:flex}
+  #card{width:410px;max-width:calc(100vw - 40px);padding:34px;border-radius:15px;text-align:center;
+    background:linear-gradient(165deg,#1b1033,#0a0618);border:1px solid var(--edge)}
+  #card h2{font:400 30px/1.15 Iowan Old Style,Palatino,Georgia,serif;margin-bottom:11px}
+  #card p{color:var(--dim);font-size:13.5px;line-height:1.55;margin-bottom:20px}
+
+  #toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:12;
+    padding:9px 16px;border-radius:8px;font-size:13px;background:rgba(155,107,255,.18);
+    border:1px solid rgba(155,107,255,.45);opacity:0;pointer-events:none;transition:opacity .2s}
+  #toast.on{opacity:1}
+
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+<button id="peek">Controls</button>
+
+<div id="scale">
+  <div id="scaleTop">
+    <div class="s" id="mA">Your galaxy<b>0</b></div>
+    <div class="s" style="text-align:center">tips at 68%<b id="phase" style="font-size:12px;color:var(--dim);font-weight:400">drawing</b></div>
+    <div class="s" id="mB" style="text-align:right">Rival<b>0</b></div>
+  </div>
+  <div id="bar"><div id="barA" style="width:50%"></div><div id="barB" style="width:50%"></div></div>
+</div>
+
+<div id="cut"></div>
+
+<aside id="rail">
+  <div id="head">
+    <h1>White Hole</h1>
+    <p id="sub">Wind your spiral, then let go</p>
+  </div>
+  <div id="body">
+
+    <div class="grp" id="gSetup">
+      <h2>Your spiral</h2>
+
+      <div class="sl">
+        <div class="lab"><span>Band curvature</span><b id="vWind">0.55</b></div>
+        <input type="range" id="sWind" min="0" max="1" step="0.01" value="0.55">
+        <div class="note" id="nWind"></div>
+      </div>
+
+      <div class="sl">
+        <div class="lab"><span>Arms</span><b id="vArms">2</b></div>
+        <input type="range" id="sArms" min="2" max="6" step="1" value="2">
+        <div class="note">Two arms concentrate mass. Six spreads it thin.</div>
+      </div>
+
+      <div class="sl">
+        <div class="lab"><span>Disk radius</span><b id="vRad">420</b></div>
+        <input type="range" id="sRad" min="200" max="700" step="10" value="420">
+        <div class="note">Wide disks reach the rival sooner and lose their edges first.</div>
+      </div>
+
+      <div class="sl">
+        <div class="lab"><span>Core mass</span><b id="vCore">40M</b></div>
+        <input type="range" id="sCore" min="10" max="120" step="2" value="40">
+        <div class="note">Heavy cores hold the disk together and pull harder. They also fall faster.</div>
+      </div>
+
+      <div class="sl">
+        <div class="lab"><span>Gas fraction</span><b id="vGas">0.35</b></div>
+        <input type="range" id="sGas" min="0" max="0.8" step="0.05" value="0.35">
+        <div class="note">Gas drags on impacts. More gas means stars merge instead of shattering.</div>
+      </div>
+
+      <button class="btn" id="placeBtn">Move my galaxy</button>
+      <button class="btn go" id="goBtn">Release gravity</button>
+      <p class="hint" id="placeHint">Drag on the field to reposition your disk. The rival reads your build and answers it.</p>
+    </div>
+
+    <div class="grp" id="gRun" style="display:none">
+      <button class="btn" id="pauseBtn">Pause</button>
+      <button class="btn" id="resetBtn">New match</button>
+    </div>
+
+    <div class="grp">
+      <h2>View</h2>
+      <div class="r2">
+        <button class="btn" id="zIn">Zoom in</button>
+        <button class="btn" id="zOut">Zoom out</button>
+      </div>
+      <button class="btn" id="tiltBtn">Tilt: overhead</button>
+      <button class="btn" id="fitBtn">Frame both</button>
+      <p class="hint">Scroll to zoom, drag to pan, Q and E to spin. The camera cuts to impacts on its own. H hides this panel.</p>
+    </div>
+
+    <div class="grp">
+      <h2>Match</h2>
+      <div class="r2">
+        <button class="btn" id="saveBtn">Save</button>
+        <button class="btn" id="loadBtn">Load</button>
+      </div>
+      <input type="file" id="fileIn" accept=".json" style="display:none">
+      <p class="hint" id="aiLine">The rival has no record on you yet.</p>
+    </div>
+
+    <div class="grp">
+      <h2>How mass changes hands</h2>
+      <p class="hint">Two bodies meeting slowly merge — the heavier keeps its identity and takes the lighter one's mass. Meeting fast, both shatter and the debris scatters to whoever is closer. Gas slows everything down, so a gas-rich disk wins exchanges it would otherwise lose.</p>
+      <p class="hint">When one side holds 68% of all mass, the scales tip and its core ignites.</p>
+    </div>
+
+  </div>
+</aside>
+
+<div id="modal"><div id="card">
+  <h2 id="mTitle">Ignition</h2>
+  <p id="mBody"></p>
+  <button class="btn go" id="againBtn">Next match</button>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ===================== setup ===================== */
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha:false });
+let W=0, H=0, DPR=1;
+
+const TAU = Math.PI*2;
+const MINE=0, RIVAL=1;
+const TINT = ["#f2a33a", "#4fd4e8"];
+const NAME = ["Your galaxy", "The rival"];
+
+// deterministic RNG so a saved setup replays identically
+let seed = 123456789;
+function srand(){ seed = (seed*1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+function setSeed(s){ seed = s>>>0; }
+
+function resize(){
+  DPR = Math.min(devicePixelRatio||1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+"px"; cv.style.height = H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener("resize", resize);
+
+/* ===================== state ===================== */
+
+const S = {
+  phase: "setup",          // setup | run | over
+  t: 0,
+  scaleT: 1,
+  slowUntil: -1,
+  paused: false,
+  parts: [],
+  cores: [],
+  flashes: [],
+  mass: [0,0],
+  startMass: [0,0],
+  winner: null,
+  ignite: null,
+  placing: false,
+};
+
+// carried between matches — this is the rival's record, not a trained model
+const LORE = { games:0, lost:0, won:0, lastPlayerWind:null, lastPlayerRad:null, beatenBy:[] };
+
+const cam = { x:0, y:0, z:0.6, spin:0, tilt:0, tz:0.6, tx:0, ty:0, ttilt:0, hold:0 };
+
+const cfg = { wind:0.55, arms:2, rad:420, core:40, gas:0.35, px:-620, py:0 };
+
+/* ===================== galaxy building ===================== */
+
+const KIND = { DUST:0, STAR:1, PLANET:2, GAS:3 };
+
+function buildGalaxy(owner, o){
+  // o: {cx,cy,wind,arms,rad,core,gas,vx,vy}
+  const core = {
+    owner, x:o.cx, y:o.cy, z:0, vx:o.vx, vy:o.vy, vz:0,
+    m: o.core*1e6, alive:true, ignited:0
+  };
+  S.cores.push(core);
+
+  const nStar = 150, nDust = 900, nGas = Math.round(520*(o.gas/0.4+0.25));
+  const turns = 1.9;
+
+  function spawn(kind, count, spread){
+    for (let i=0;i<count;i++){
+      const arm = Math.floor(srand()*o.arms);
+      // radius biased toward the middle, like a real exponential disk
+      const u = srand();
+      const r = 42 + Math.pow(u, 0.62) * o.rad;
+      const frac = r / o.rad;
+      // wind = 0 gives straight radial bands, wind = 1 gives a tight logarithmic spiral
+      const ang = (arm/o.arms)*TAU + o.wind * frac * TAU * turns
+                + (srand()-0.5) * spread * (1 - o.wind*0.35);
+      const x = o.cx + Math.cos(ang)*r;
+      const y = o.cy + Math.sin(ang)*r;
+      // thin disk: real spirals are ~1% as thick as they are wide
+      const z = (srand()-0.5) * o.rad * 0.035 * (kind===KIND.GAS?2.2:1);
+
+      // real flat rotation curve: core gravity plus a dark-matter halo term.
+      // v^2 = GM r/(r^2+soft) + V0^2 r^2/(r^2+rh^2) — flat at large radius,
+      // which is exactly what rotation-curve observations show.
+      const v2core = GRAV*core.m*r/(r*r + SOFT2);
+      const v2halo = V0*V0*r*r/(r*r + RH*RH);
+      const vflat = Math.sqrt(v2core + v2halo);
+      const dirx = -Math.sin(ang), diry = Math.cos(ang);
+      const spinDir = owner===MINE ? 1 : -1;
+
+      let m;
+      if (kind===KIND.STAR)       m = 0.5 + Math.pow(srand(),2.2)*34;
+      else if (kind===KIND.PLANET)m = 0.05 + srand()*0.22;
+      else if (kind===KIND.GAS)   m = 0.9 + srand()*3;
+      else                        m = 0.15 + srand()*0.6;
+
+      S.parts.push({
+        owner, kind, m, alive:true,
+        x, y, z,
+        vx: o.vx + dirx*vflat*spinDir,
+        vy: o.vy + diry*vflat*spinDir,
+        vz: 0,
+        r: kind===KIND.STAR ? 1.0 + Math.log(1+m)*0.5 : (kind===KIND.GAS?3.4:0.85),
+        hot: kind===KIND.STAR ? Math.min(1, m/26) : 0,
+        born: 0
+      });
+    }
+  }
+
+  spawn(KIND.STAR, nStar, 0.30);
+  spawn(KIND.DUST, nDust, 0.42);
+  spawn(KIND.GAS,  nGas,  0.60);
+  // a few planets riding with the stars, mostly for the collision flavour
+  spawn(KIND.PLANET, 90, 0.35);
+}
+
+/* ===================== the rival ===================== */
+
+function rivalPlan(){
+  // reads what you built and answers it, then leans on what has worked before
+  const p = cfg;
+  let wind, arms, rad, core, gas, style;
+
+  if (p.wind > 0.62){
+    // you wound tight: dense arms, strong internally. answer with reach.
+    wind = 0.14 + srand()*0.14; arms = 4 + Math.floor(srand()*2);
+    rad = Math.min(700, p.rad*1.22); core = Math.max(14, p.core*0.72);
+    gas = 0.55; style = "spread wide against your tight arms";
+  } else if (p.wind < 0.3){
+    // you went radial: thin and far. answer with a dense heavy core.
+    wind = 0.78 + srand()*0.15; arms = 2;
+    rad = Math.max(200, p.rad*0.78); core = Math.min(120, p.core*1.42);
+    gas = 0.22; style = "packed tight against your straight bands";
+  } else {
+    wind = 0.3 + srand()*0.4; arms = 2 + Math.floor(srand()*3);
+    rad = p.rad*(0.9+srand()*0.3); core = p.core*(0.9+srand()*0.35);
+    gas = 0.3+srand()*0.3; style = "matching your shape and betting on the core";
+  }
+
+  // record: if it keeps losing, it commits harder to mass and gas
+  if (LORE.lost > LORE.won && LORE.games > 0){
+    core = Math.min(120, core*1.18);
+    gas  = Math.min(0.8, gas + 0.12);
+    style += ", heavier after losing " + LORE.lost;
+  }
+  // and it stops repeating a curvature that already lost to you
+  if (LORE.beatenBy.length){
+    const avg = LORE.beatenBy.reduce((a,c)=>a+c,0)/LORE.beatenBy.length;
+    if (Math.abs(wind-avg) < 0.12) wind = wind > 0.5 ? wind-0.22 : wind+0.22;
+  }
+  return { wind:Math.max(0,Math.min(1,wind)), arms, rad, core, gas, style };
+}
+
+/* ===================== match ===================== */
+
+function newMatch(){
+  S.parts = []; S.cores = []; S.flashes = [];
+  S.t = 0; S.winner = null; S.ignite = null; S.paused = false;
+  S.phase = "setup"; S.scaleT = 1; S.slowUntil = -1;
+  setSeed(Date.now() & 0x7fffffff);
+
+  const plan = rivalPlan();
+  S.rivalPlan = plan;
+
+  buildGalaxy(MINE, {
+    cx:cfg.px, cy:cfg.py, wind:cfg.wind, arms:cfg.arms,
+    rad:cfg.rad, core:cfg.core, gas:cfg.gas, vx:0, vy:0
+  });
+  buildGalaxy(RIVAL, {
+    cx:620, cy:(srand()-0.5)*260, wind:plan.wind, arms:plan.arms,
+    rad:plan.rad, core:plan.core, gas:plan.gas, vx:0, vy:0
+  });
+
+  tallyMass();
+  S.startMass = [S.mass[0], S.mass[1]];
+
+  document.getElementById("aiLine").textContent =
+    LORE.games === 0
+      ? "The rival is " + plan.style + "."
+      : "Record " + LORE.won + "–" + LORE.lost + ". This match it is " + plan.style + ".";
+
+  document.getElementById("modal").classList.remove("on");
+  document.getElementById("gSetup").style.display = "";
+  document.getElementById("gRun").style.display = "none";
+  frameBoth();
+  paintUI();
+}
+
+function release(){
+  // give them a gentle approach velocity plus an offset so they swing past
+  // each other first — head-on hits look wrong, real mergers have a pass
+  const a = S.cores[0], b = S.cores[1];
+  const dx = b.x-a.x, dy = b.y-a.y, d = Math.hypot(dx,dy);
+  const ux = dx/d, uy = dy/d;
+  // escape velocity out here is only about 8, so the approach has to be
+  // gentler than that or the disks fly past and never come back
+  const closing = 3.0, shear = 2.4;
+  for (const p of S.parts){
+    if (p.owner===MINE){ p.vx += ux*closing - uy*shear; p.vy += uy*closing + ux*shear; }
+    else               { p.vx -= ux*closing - uy*shear; p.vy -= uy*closing + ux*shear; }
+  }
+  a.vx += ux*closing - uy*shear; a.vy += uy*closing + ux*shear;
+  b.vx -= ux*closing - uy*shear; b.vy -= uy*closing + ux*shear;
+
+  S.phase = "run";
+  document.getElementById("gSetup").style.display = "none";
+  document.getElementById("gRun").style.display = "";
+  paintUI();
+}
+
+/* ===================== physics ===================== */
+
+const GRAV = 0.00042;
+const SOFT2 = 900;
+const V0 = 8.4;      // flat rotation speed set by the halo
+const RH = 120;      // halo core radius
+const RH2 = RH*RH;
+const PAIR_LIMIT = 140;   // solar masses — pair-instability ceiling
+const MATCH_T = 630;      // sim seconds ~= 90 real seconds at full speed
+
+function step(dtFull){
+  // two substeps keep fast bodies from tunnelling through each other
+  for (let s=0;s<2;s++) substep(dtFull/2);
+}
+
+function substep(dt){
+  S.t += dt;
+
+  // cores attract each other
+  for (let i=0;i<S.cores.length;i++){
+    for (let j=i+1;j<S.cores.length;j++){
+      const a=S.cores[i], b=S.cores[j];
+      const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
+      const d2 = dx*dx+dy*dy+dz*dz+SOFT2;
+      const inv = 1/Math.sqrt(d2);
+      const f = GRAV/d2;
+      a.vx += dx*inv*f*b.m*dt; a.vy += dy*inv*f*b.m*dt; a.vz += dz*inv*f*b.m*dt;
+      b.vx -= dx*inv*f*a.m*dt; b.vy -= dy*inv*f*a.m*dt; b.vz -= dz*inv*f*a.m*dt;
+    }
+  }
+  // dynamical friction: as the halos overlap, each core drags on the other's
+  // wake and loses orbital energy. Without it they would swing past forever
+  // and never merge — this is what actually makes galaxies settle.
+  if (S.cores.length===2){
+    const a=S.cores[0], b=S.cores[1];
+    const sep = Math.hypot(b.x-a.x, b.y-a.y, b.z-a.z);
+    if (sep < 1100){
+      const drag = 0.085 * (1 - sep/1100) * dt;
+      for (const c of S.cores){ c.vx-=c.vx*drag; c.vy-=c.vy*drag; c.vz-=c.vz*drag; }
+    }
+  }
+
+  for (const c of S.cores){ c.x+=c.vx*dt; c.y+=c.vy*dt; c.z+=c.vz*dt; }
+
+  // restricted N-body: every particle feels both cores and both halos,
+  // but not each other — this is the Toomre method
+  for (const p of S.parts){
+    if (!p.alive) continue;
+    for (const c of S.cores){
+      const dx=c.x-p.x, dy=c.y-p.y, dz=c.z-p.z;
+      const d2 = dx*dx+dy*dy+dz*dz+SOFT2;
+      const d = Math.sqrt(d2);
+      const inv = 1/d;
+      // point-mass core plus extended halo
+      const a = GRAV*c.m/d2 + V0*V0*d/(d2 + RH2);
+      p.vx += dx*inv*a*dt; p.vy += dy*inv*a*dt; p.vz += dz*inv*a*dt;
+    }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt;
+  }
+
+  accrete(dt);
+  collide(dt);
+
+  // flashes
+  for (const f of S.flashes){ f.life -= dt; f.r += f.grow*dt; }
+  S.flashes = S.flashes.filter(f=>f.life>0);
+
+  if (S.ignite){
+    S.ignite.t += dt;
+    if (S.ignite.t > 2.6 && !S.ignite.done){ S.ignite.done = true; endMatch(); }
+  } else {
+    checkTip();
+  }
+}
+
+// stars that stray too close to a core get tidally shredded and swallowed.
+// this is what drains the field and brings the match to an end.
+function accrete(dt){
+  for (const c of S.cores){
+    const R = 34 + Math.log(c.m)*3.2;
+    const R2 = R*R;
+    for (const p of S.parts){
+      if (!p.alive) continue;
+      if (p.kind!==KIND.STAR && p.kind!==KIND.PLANET) continue;
+      const dx=c.x-p.x, dy=c.y-p.y, dz=c.z-p.z;
+      if (dx*dx+dy*dy+dz*dz > R2) continue;
+      p.alive = false;
+      c.eaten = (c.eaten||0) + p.m;
+      bang(p.x, p.y, p.z, p.m*220, TINT[c.owner], 0.7);
+      if (p.m > 24) cutTo(p.x, p.y, p.z, c.owner, true);
+    }
+  }
+  tallyMass();
+}
+
+// coarse spatial hash so collision checks stay cheap
+const CELL = 46;
+const grid = new Map();
+
+function collide(dt){
+  grid.clear();
+  const heavy = [];
+  for (const p of S.parts){
+    if (!p.alive) continue;
+    if (p.kind===KIND.STAR || p.kind===KIND.PLANET) heavy.push(p);
+  }
+  for (const p of heavy){
+    const k = ((p.x/CELL)|0) + "," + ((p.y/CELL)|0);
+    let a = grid.get(k); if (!a){ a=[]; grid.set(k,a); }
+    a.push(p);
+  }
+
+  for (const p of heavy){
+    if (!p.alive) continue;
+    const gx = (p.x/CELL)|0, gy = (p.y/CELL)|0;
+    for (let ox=-1;ox<=1;ox++) for (let oy=-1;oy<=1;oy++){
+      const a = grid.get((gx+ox)+","+(gy+oy));
+      if (!a) continue;
+      for (const q of a){
+        if (q===p || !q.alive || !p.alive) continue;
+        if (q.owner===p.owner) continue;           // only cross-galaxy exchanges
+        const dx=q.x-p.x, dy=q.y-p.y, dz=q.z-p.z;
+        const d = Math.hypot(dx,dy,dz);
+        // deliberate cheat: real stars in a merger essentially never touch,
+        // the gaps are too big. This is a gravitational-encounter radius
+        // sized for the game, not a physical collision cross-section.
+        const reach = (p.r+q.r)*3.4 + 26;
+        if (d > reach) continue;
+        resolve(p, q, d);
+      }
+    }
+  }
+}
+
+function gasNear(x,y){
+  // cheap proxy: gas fraction of whichever disk is closer
+  let best = 0, bd = 1e9;
+  for (const c of S.cores){
+    const d = Math.hypot(c.x-x, c.y-y);
+    if (d < bd){ bd = d; best = c.owner; }
+  }
+  return best===MINE ? cfg.gas : (S.rivalPlan ? S.rivalPlan.gas : 0.3);
+}
+
+function resolve(p, q, d){
+  const rvx=q.vx-p.vx, rvy=q.vy-p.vy, rvz=q.vz-p.vz;
+  let vrel = Math.hypot(rvx,rvy,rvz);
+
+  // gas drags the encounter — a gas-rich region turns a shatter into a merge
+  const g = gasNear((p.x+q.x)/2, (p.y+q.y)/2);
+  vrel *= (1 - g*0.55);
+
+  const heavier = p.m >= q.m ? p : q;
+  const lighter = heavier===p ? q : p;
+  const SHATTER = 58;
+
+  const tot = p.m + q.m;
+  const cx = (p.x*p.m + q.x*q.m)/tot;
+  const cy = (p.y*p.m + q.y*q.m)/tot;
+  const cz = (p.z*p.m + q.z*q.m)/tot;
+  // momentum is conserved either way
+  const mvx = (p.vx*p.m + q.vx*q.m)/tot;
+  const mvy = (p.vy*p.m + q.vy*q.m)/tot;
+  const mvz = (p.vz*p.m + q.vz*q.m)/tot;
+  // the kinetic energy that does not survive the merge is the explosion
+  const reduced = (p.m*q.m)/tot;
+  const released = 0.5*reduced*vrel*vrel;
+
+  if (vrel > SHATTER){
+    // both come apart; debris goes to whoever has more mass nearby
+    p.alive = false; q.alive = false;
+    const claim = nearestOwner(cx, cy);
+    spawnDebris(cx, cy, cz, mvx, mvy, mvz, tot, claim);
+    bang(cx, cy, cz, released, "#ffffff", 1.25);
+  } else {
+    // heavier eats lighter, keeps its own identity
+    lighter.alive = false;
+    heavier.m = tot;
+    if (heavier.m > PAIR_LIMIT){
+      // above ~140 solar masses a star cannot hold itself together:
+      // pair production robs the core of pressure and it detonates whole,
+      // leaving nothing behind. This is what stops one star eating the field.
+      heavier.alive = false;
+      const claim = nearestOwner(cx, cy);
+      spawnDebris(cx, cy, cz, mvx, mvy, mvz, heavier.m*0.78, claim);
+      bang(cx, cy, cz, released + heavier.m*90, "#ffffff", 1.6);
+      tallyMass();
+      cutTo(cx, cy, cz, claim, true);
+      return;
+    }
+    heavier.r = 1.0 + Math.log(1+heavier.m)*0.5;
+    heavier.hot = Math.min(1, heavier.m/26);
+    heavier.x=cx; heavier.y=cy; heavier.z=cz;
+    heavier.vx=mvx; heavier.vy=mvy; heavier.vz=mvz;
+    bang(cx, cy, cz, released, TINT[heavier.owner], 0.85);
+  }
+
+  tallyMass();
+  const big = released > 2600;
+  if (big) cutTo(cx, cy, cz, heavier.owner, vrel > SHATTER);
+}
+
+function nearestOwner(x,y){
+  let bd=1e9, best=MINE;
+  for (const c of S.cores){
+    const d = Math.hypot(c.x-x, c.y-y) / Math.max(1, Math.log(c.m));
+    if (d<bd){ bd=d; best=c.owner; }
+  }
+  return best;
+}
+
+function spawnDebris(x,y,z,vx,vy,vz,mass,owner){
+  const n = 7;
+  for (let i=0;i<n;i++){
+    const a = srand()*TAU, e = srand()*TAU;
+    const s = 18 + srand()*46;
+    S.parts.push({
+      owner, kind:KIND.STAR, m:mass/n, alive:true,
+      x,y,z,
+      vx: vx + Math.cos(a)*Math.cos(e)*s,
+      vy: vy + Math.sin(a)*Math.cos(e)*s,
+      vz: vz + Math.sin(e)*s*0.35,
+      r: 1.0 + Math.log(1+mass/n)*0.5,
+      hot: Math.min(1, (mass/n)/26), born:S.t
+    });
+  }
+}
+
+function bang(x,y,z,energy,tint,scale){
+  const r0 = Math.min(70, 5 + Math.pow(energy,0.34)*scale);
+  S.flashes.push({ x,y,z, r:r0*0.3, grow:r0*2.6, life:0.55+Math.min(0.9,energy/6000), tint, peak:r0 });
+}
+
+function tallyMass(){
+  let a=0,b=0;
+  for (const p of S.parts){
+    if (!p.alive) continue;
+    // only bodies that can change hands count toward the scale;
+    // dust and gas are physics and scenery, not currency
+    if (p.kind!==KIND.STAR && p.kind!==KIND.PLANET) continue;
+    if (p.owner===MINE) a += p.m; else b += p.m;
+  }
+  for (const c of S.cores){
+    const v = c.m*1e-6*40 + (c.eaten||0);
+    if (c.owner===MINE) a += v; else b += v;
+  }
+  S.mass[0]=a; S.mass[1]=b;
+}
+
+function checkTip(){
+  const tot = S.mass[0]+S.mass[1];
+  if (tot<=0) return;
+  const fa = S.mass[0]/tot;
+  if (fa >= 0.68){ ignite(MINE); return; }
+  if (fa <= 0.32){ ignite(RIVAL); return; }
+
+  // or when the field is spent: once almost nothing is left loose,
+  // whoever holds the most mass ignites
+  let loose = 0;
+  for (const p of S.parts){
+    if (p.alive && (p.kind===KIND.STAR || p.kind===KIND.PLANET)) loose++;
+  }
+  S.loose = loose;
+  if (loose <= 12) { ignite(fa >= 0.5 ? MINE : RIVAL); return; }
+
+  // most stars end up on wide stable orbits that would never fall in,
+  // so the match is decided on a clock and the leader ignites
+  if (S.t >= MATCH_T) ignite(fa >= 0.5 ? MINE : RIVAL);
+}
+
+function ignite(owner){
+  if (S.ignite) return;
+  S.winner = owner;
+  const c = S.cores.find(k=>k.owner===owner) || S.cores[0];
+  S.ignite = { owner, x:c.x, y:c.y, z:c.z, t:0, done:false };
+  S.slowUntil = S.t + 3.2;
+  cam.hold = 0;
+  cutTo(c.x, c.y, c.z, owner, true);
+  toast(NAME[owner] + " tips the scale");
+}
+
+function endMatch(){
+  S.phase = "over";
+  LORE.games++;
+  if (S.winner===MINE){ LORE.won++; LORE.beatenBy.push(S.rivalPlan.wind); }
+  else LORE.lost++;
+  LORE.lastPlayerWind = cfg.wind;
+
+  document.getElementById("mTitle").textContent =
+    S.winner===MINE ? "Your core ignites" : "The rival ignites";
+  document.getElementById("mBody").textContent =
+    S.winner===MINE
+      ? "You took 68% of the mass in the field. Everything left falls inward and the core turns white."
+      : "The rival crossed 68% first. It has your curvature on record now and will not open the same way twice.";
+  document.getElementById("modal").classList.add("on");
+}
+
+/* ===================== camera ===================== */
+
+function cutTo(x,y,z,owner,big){
+  if (cam.hold > 0 && !big) return;
+  cam.tx = x; cam.ty = y;
+  cam.ttilt = big ? 0.72 : 0.5;
+  cam.tz = big ? 1.5 : 1.05;
+  cam.hold = big ? 2.4 : 1.2;
+  S.slowUntil = Math.max(S.slowUntil, S.t + (big?1.6:0.7));
+  const el = document.getElementById("cut");
+  el.textContent = big ? "High-mass event" : "Exchange";
+  el.classList.add("on");
+  clearTimeout(cutTimer);
+  cutTimer = setTimeout(()=>el.classList.remove("on"), 1600);
+}
+let cutTimer=null;
+
+function frameBoth(){
+  if (!S.cores.length) return;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for (const c of S.cores){
+    const r = c.owner===MINE ? cfg.rad : (S.rivalPlan?S.rivalPlan.rad:400);
+    x0=Math.min(x0,c.x-r); x1=Math.max(x1,c.x+r);
+    y0=Math.min(y0,c.y-r); y1=Math.max(y1,c.y+r);
+  }
+  cam.tx=(x0+x1)/2; cam.ty=(y0+y1)/2; cam.ttilt=0;
+  cam.tz = Math.min(1.3, Math.min((W-360)/(x1-x0), (H-170)/(y1-y0))*0.92);
+  cam.hold = 0;
+}
+
+function camStep(dt){
+  const k = Math.min(1, dt*2.4);
+  cam.x += (cam.tx-cam.x)*k;
+  cam.y += (cam.ty-cam.y)*k;
+  cam.z += (cam.tz-cam.z)*k;
+  cam.tilt += (cam.ttilt-cam.tilt)*k;
+  if (cam.hold>0){
+    cam.hold -= dt;
+    if (cam.hold<=0 && S.phase==="run" && !S.ignite){ cam.ttilt=0; frameBoth(); }
+  }
+}
+
+const FOCAL = 1400;
+let _sx=0,_sy=0,_sc=0,_vis=false;
+
+function project(x,y,z){
+  const dx=x-cam.x, dy=y-cam.y, dz=z;
+  const cs=Math.cos(cam.spin), sn=Math.sin(cam.spin);
+  const rx = dx*cs - dy*sn;
+  const ry = dx*sn + dy*cs;
+  const ct=Math.cos(cam.tilt), st=Math.sin(cam.tilt);
+  const ty = ry*ct - dz*st;
+  const tz = ry*st + dz*ct;
+  const persp = FOCAL/(FOCAL + tz*cam.z*1.6 + 260);
+  _sc = cam.z*persp*2.6;
+  _sx = W/2 + rx*cam.z*persp;
+  _sy = H/2 + ty*cam.z*persp;
+  _vis = _sx>-60 && _sx<W+60 && _sy>-60 && _sy<H+60;
+  return _vis;
+}
+
+/* ===================== sprites ===================== */
+
+function sprite(size, inner, outer){
+  const c = document.createElement("canvas");
+  c.width=c.height=size;
+  const g = c.getContext("2d");
+  const rg = g.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+  rg.addColorStop(0, inner);
+  rg.addColorStop(0.35, outer);
+  rg.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = rg;
+  g.fillRect(0,0,size,size);
+  return c;
+}
+
+const SPR = {};
+function bakeSprites(){
+  SPR.goldStar = sprite(64, "rgba(255,246,225,1)", "rgba(242,163,58,.55)");
+  SPR.cyanStar = sprite(64, "rgba(236,253,255,1)", "rgba(79,212,232,.55)");
+  SPR.goldDust = sprite(48, "rgba(255,205,130,.5)", "rgba(190,110,30,.16)");
+  SPR.cyanDust = sprite(48, "rgba(170,235,255,.5)", "rgba(40,140,190,.16)");
+  SPR.goldGas  = sprite(96, "rgba(255,150,90,.16)", "rgba(150,50,20,.07)");
+  SPR.cyanGas  = sprite(96, "rgba(120,190,255,.16)", "rgba(40,70,180,.07)");
+  SPR.magenta  = sprite(96, "rgba(255,200,235,.9)", "rgba(255,122,194,.4)");
+  SPR.white    = sprite(128,"rgba(255,255,255,1)", "rgba(255,190,225,.5)");
+  SPR.violet   = sprite(128,"rgba(215,185,255,.7)", "rgba(120,70,220,.22)");
+}
+
+/* ===================== draw ===================== */
+
+const bg = [];
+for (let i=0;i<340;i++) bg.push({x:Math.random()*2-1, y:Math.random()*2-1, s:Math.random()});
+
+function draw(){
+  ctx.fillStyle = "#03020a";
+  ctx.fillRect(0,0,W,H);
+
+  // far field
+  ctx.fillStyle = "rgba(210,205,240,.55)";
+  for (const b of bg){
+    const x = (b.x*W + cam.x*0.012*cam.z + W)%W;
+    const y = (b.y*H + cam.y*0.012*cam.z + H)%H;
+    ctx.globalAlpha = 0.1 + b.s*0.3;
+    ctx.fillRect(x, y, 1+b.s, 1+b.s);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.globalCompositeOperation = "lighter";
+
+  // gas first, it sits behind everything
+  for (const p of S.parts){
+    if (!p.alive || p.kind!==KIND.GAS) continue;
+    if (!project(p.x,p.y,p.z)) continue;
+    const s = Math.max(6, p.r*_sc*9);
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(p.owner===MINE?SPR.goldGas:SPR.cyanGas, _sx-s/2, _sy-s/2, s, s);
+  }
+
+  // dust
+  for (const p of S.parts){
+    if (!p.alive || p.kind!==KIND.DUST) continue;
+    if (!project(p.x,p.y,p.z)) continue;
+    const s = Math.max(1.4, p.r*_sc*3.4);
+    ctx.globalAlpha = 0.62;
+    ctx.drawImage(p.owner===MINE?SPR.goldDust:SPR.cyanDust, _sx-s/2, _sy-s/2, s, s);
+  }
+
+  // planets
+  ctx.globalAlpha = 0.8;
+  for (const p of S.parts){
+    if (!p.alive || p.kind!==KIND.PLANET) continue;
+    if (!project(p.x,p.y,p.z)) continue;
+    const s = Math.max(1, _sc*1.6);
+    ctx.fillStyle = p.owner===MINE ? "#ffd9a0" : "#bfeeff";
+    ctx.fillRect(_sx-s/2, _sy-s/2, s, s);
+  }
+
+  // stars
+  for (const p of S.parts){
+    if (!p.alive || p.kind!==KIND.STAR) continue;
+    if (!project(p.x,p.y,p.z)) continue;
+    const s = Math.max(2.4, p.r*_sc*4.2);
+    ctx.globalAlpha = 0.75 + p.hot*0.25;
+    ctx.drawImage(p.owner===MINE?SPR.goldStar:SPR.cyanStar, _sx-s/2, _sy-s/2, s, s);
+  }
+
+  // cores
+  for (const c of S.cores){
+    if (!project(c.x,c.y,c.z)) continue;
+    const lit = S.ignite && S.ignite.owner===c.owner;
+    const base = Math.max(16, Math.log(c.m)*_sc*5);
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(SPR.violet, _sx-base, _sy-base, base*2, base*2);
+    const s = base*0.55;
+    ctx.drawImage(c.owner===MINE?SPR.goldStar:SPR.cyanStar, _sx-s, _sy-s, s*2, s*2);
+    if (lit) drawIgnition(_sx, _sy, _sc);
+  }
+
+  // flashes
+  for (const f of S.flashes){
+    if (!project(f.x,f.y,f.z)) continue;
+    const a = Math.max(0, f.life);
+    const s = f.r*_sc*2;
+    ctx.globalAlpha = Math.min(1, a*1.5);
+    ctx.drawImage(f.tint==="#ffffff"?SPR.white:(f.tint===TINT[0]?SPR.goldStar:SPR.cyanStar),
+                  _sx-s/2, _sy-s/2, s, s);
+    // shock ring
+    ctx.globalAlpha = Math.min(0.5, a);
+    ctx.strokeStyle = "rgba(255,225,245,.5)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(_sx,_sy, f.r*_sc*1.1, 0, TAU); ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+
+  if (S.phase==="setup") drawSetupGuide();
+}
+
+function drawIgnition(sx, sy, sc){
+  const t = S.ignite.t;
+  const grow = Math.min(1, t/2.2);
+  const R = (40 + grow*190) * sc;
+
+  // pink-white core
+  ctx.globalAlpha = 1;
+  ctx.drawImage(SPR.white, sx-R*0.55, sy-R*0.55, R*1.1, R*1.1);
+  ctx.drawImage(SPR.magenta, sx-R, sy-R, R*2, R*2);
+
+  // yellow lightning
+  const arcs = 9;
+  ctx.strokeStyle = "rgba(255,232,140,.75)";
+  ctx.lineWidth = 1.6;
+  for (let i=0;i<arcs;i++){
+    const a = (i/arcs)*TAU + t*1.3;
+    ctx.beginPath();
+    let r = R*0.45, x = sx+Math.cos(a)*r, y = sy+Math.sin(a)*r;
+    ctx.moveTo(x,y);
+    for (let k=0;k<5;k++){
+      r += R*0.16;
+      const wob = a + (Math.sin(t*9+i*2+k)*0.22);
+      x = sx+Math.cos(wob)*r; y = sy+Math.sin(wob)*r;
+      ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+
+  // blue shadow ring pushing outward
+  ctx.strokeStyle = "rgba(90,140,255,.4)";
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(sx,sy,R*1.25,0,TAU); ctx.stroke();
+}
+
+function drawSetupGuide(){
+  // show where your disk sits and how the bands will wind
+  const c = S.cores.find(k=>k.owner===MINE);
+  if (!c) return;
+  ctx.strokeStyle = "rgba(242,163,58,.30)";
+  ctx.setLineDash([4,8]); ctx.lineWidth = 1;
+  if (project(c.x, c.y, 0)){
+    ctx.beginPath(); ctx.arc(_sx,_sy, cfg.rad*cam.z, 0, TAU); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  if (S.placing){
+    ctx.fillStyle = "rgba(242,163,58,.8)";
+    ctx.font = "13px system-ui";
+    ctx.fillText("Drag to place your disk", 320, 40);
+  }
+}
+
+/* ===================== loop ===================== */
+
+let last = performance.now();
+function frame(now){
+  let dt = Math.min(0.042, (now-last)/1000);
+  last = now;
+
+  if (S.phase==="run" && !S.paused){
+    const target = S.t < S.slowUntil ? 0.22 : 1;
+    S.scaleT += (target - S.scaleT) * Math.min(1, dt*5);
+    step(dt * S.scaleT * 7);
+  }
+  camStep(dt);
+  draw();
+  paintScale();
+  requestAnimationFrame(frame);
+}
+
+function fmt(v){
+  if (v >= 1e9) return (v/1e9).toFixed(2)+"B M☉";
+  if (v >= 1e6) return (v/1e6).toFixed(2)+"M M☉";
+  if (v >= 1e3) return (v/1e3).toFixed(1)+"K M☉";
+  return Math.round(v)+" M☉";
+}
+
+function paintScale(){
+  const tot = S.mass[0]+S.mass[1] || 1;
+  const fa = S.mass[0]/tot;
+  document.getElementById("barA").style.width = (fa*100).toFixed(1)+"%";
+  document.getElementById("barB").style.width = ((1-fa)*100).toFixed(1)+"%";
+  document.getElementById("mA").innerHTML = "Your galaxy<b>"+fmt(S.mass[0])+"</b>";
+  document.getElementById("mB").innerHTML = "Rival<b>"+fmt(S.mass[1])+"</b>";
+  document.getElementById("phase").textContent =
+    S.phase==="setup" ? "drawing" :
+    S.ignite ? "igniting" :
+    S.paused ? "paused" :
+    (S.scaleT<0.7 ? "slow motion"
+      : (fa*100).toFixed(1)+"% yours  ·  "+Math.max(0,Math.ceil((630-S.t)/7))+"s");
+}
+
+function paintUI(){
+  document.getElementById("sub").textContent =
+    S.phase==="setup" ? "Wind your spiral, then let go" :
+    S.phase==="run" ? "Gravity has it now" : "Match over";
+}
+
+/* ===================== input ===================== */
+
+let drag=null;
+cv.addEventListener("mousedown", e=>{ drag={x:e.clientX,y:e.clientY,moved:false}; });
+addEventListener("mousemove", e=>{
+  if (!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  if (Math.abs(dx)+Math.abs(dy)>3) drag.moved=true;
+  if (S.placing && S.phase==="setup"){
+    cfg.px += dx/cam.z; cfg.py += dy/cam.z;
+    rebuildMine();
+  } else {
+    cam.x -= dx/cam.z; cam.y -= dy/cam.z;
+    cam.tx = cam.x; cam.ty = cam.y; cam.hold = 0;
+  }
+  drag.x=e.clientX; drag.y=e.clientY;
+});
+addEventListener("mouseup", ()=>{ drag=null; });
+
+cv.addEventListener("wheel", e=>{
+  e.preventDefault();
+  cam.tz = Math.max(0.05, Math.min(9, cam.tz * (e.deltaY<0?1.13:0.885)));
+  cam.hold = 0;
+}, {passive:false});
+
+addEventListener("keydown", e=>{
+  const k = e.key.toLowerCase();
+  if (k==="h"){ toggleRail(); return; }
+  if (k===" " && S.phase==="run"){ e.preventDefault(); togglePause(); return; }
+  if (k==="q") cam.spin -= 0.09;
+  if (k==="e") cam.spin += 0.09;
+  if (k==="arrowup")   cam.ttilt = Math.min(1.35, cam.ttilt+0.1);
+  if (k==="arrowdown") cam.ttilt = Math.max(0, cam.ttilt-0.1);
+});
+
+function rebuildMine(){
+  // rebuild only your disk while you are still placing it
+  S.parts = S.parts.filter(p=>p.owner!==MINE);
+  S.cores = S.cores.filter(c=>c.owner!==MINE);
+  setSeed(99137);
+  buildGalaxy(MINE, {
+    cx:cfg.px, cy:cfg.py, wind:cfg.wind, arms:cfg.arms,
+    rad:cfg.rad, core:cfg.core, gas:cfg.gas, vx:0, vy:0
+  });
+  tallyMass();
+}
+
+/* ===================== controls ===================== */
+
+function bindSlider(id, valId, key, fmtF, after){
+  const el = document.getElementById(id);
+  el.oninput = ()=>{
+    cfg[key] = parseFloat(el.value);
+    document.getElementById(valId).textContent = fmtF(cfg[key]);
+    if (after) after();
+    if (S.phase==="setup") rebuildMine();
+  };
+}
+
+function windNote(){
+  const w = cfg.wind;
+  const el = document.getElementById("nWind");
+  if (w < 0.25) el.textContent = "Straight radial bands. Mass spreads far and reaches the rival early, but the disk has no grip on itself.";
+  else if (w < 0.6) el.textContent = "A loose spiral. Balanced — arms hold together through the first pass.";
+  else el.textContent = "Tightly wound. Dense arms and hard internal exchanges, but the disk shreds when tides hit it.";
+}
+
+bindSlider("sWind","vWind","wind", v=>v.toFixed(2), windNote);
+bindSlider("sArms","vArms","arms", v=>String(v));
+bindSlider("sRad","vRad","rad", v=>String(v));
+bindSlider("sCore","vCore","core", v=>v+"M");
+bindSlider("sGas","vGas","gas", v=>v.toFixed(2));
+windNote();
+
+document.getElementById("placeBtn").onclick = ()=>{
+  S.placing = !S.placing;
+  document.getElementById("placeBtn").textContent = S.placing ? "Done moving" : "Move my galaxy";
+};
+document.getElementById("goBtn").onclick = ()=>{ S.placing=false; release(); };
+document.getElementById("resetBtn").onclick = newMatch;
+document.getElementById("againBtn").onclick = newMatch;
+document.getElementById("pauseBtn").onclick = togglePause;
+document.getElementById("zIn").onclick  = ()=>{ cam.tz=Math.min(9,cam.tz*1.3); cam.hold=0; };
+document.getElementById("zOut").onclick = ()=>{ cam.tz=Math.max(0.05,cam.tz/1.3); cam.hold=0; };
+document.getElementById("fitBtn").onclick = frameBoth;
+document.getElementById("tiltBtn").onclick = ()=>{
+  cam.ttilt = cam.ttilt < 0.3 ? 0.8 : 0;
+  document.getElementById("tiltBtn").textContent = cam.ttilt<0.3 ? "Tilt: overhead" : "Tilt: angled";
+  cam.hold = 3;
+};
+document.getElementById("peek").onclick = toggleRail;
+
+function togglePause(){
+  S.paused = !S.paused;
+  document.getElementById("pauseBtn").textContent = S.paused ? "Resume" : "Pause";
+}
+function toggleRail(){
+  const r = document.getElementById("rail");
+  r.classList.toggle("hide");
+  document.getElementById("peek").classList.toggle("on", r.classList.contains("hide"));
+}
+let tt=null;
+function toast(m){
+  const el=document.getElementById("toast");
+  el.textContent=m; el.classList.add("on");
+  clearTimeout(tt); tt=setTimeout(()=>el.classList.remove("on"),2800);
+}
+
+/* ---- save / load ---- */
+document.getElementById("saveBtn").onclick = ()=>{
+  const d = { v:2, cfg, lore:LORE };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(d,null,1)],{type:"application/json"}));
+  const a=document.createElement("a");
+  a.href=url; a.download="whitehole-"+Date.now()+".json"; a.click();
+  URL.revokeObjectURL(url);
+  toast("Saved to your downloads.");
+};
+document.getElementById("loadBtn").onclick = ()=>document.getElementById("fileIn").click();
+document.getElementById("fileIn").onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const d=JSON.parse(rd.result);
+      if(!d.cfg) throw 0;
+      Object.assign(cfg, d.cfg);
+      if (d.lore) Object.assign(LORE, d.lore);
+      for (const [id,key] of [["sWind","wind"],["sArms","arms"],["sRad","rad"],["sCore","core"],["sGas","gas"]])
+        document.getElementById(id).value = cfg[key];
+      document.getElementById("vWind").textContent=cfg.wind.toFixed(2);
+      document.getElementById("vArms").textContent=cfg.arms;
+      document.getElementById("vRad").textContent=cfg.rad;
+      document.getElementById("vCore").textContent=cfg.core+"M";
+      document.getElementById("vGas").textContent=cfg.gas.toFixed(2);
+      windNote(); newMatch();
+      toast("Setup loaded.");
+    }catch(err){ toast("That file is not a White Hole setup."); }
+  };
+  rd.readAsText(f); e.target.value="";
+};
+
+/* ===================== boot ===================== */
+resize();
+bakeSprites();
+newMatch();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

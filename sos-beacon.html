@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SOS Beacon</title>
+<style>
+  :root{--bg:#07090a;--fg:#d8ffe0;--dim:#5f7a66;--amber:#ffb340;--red:#ff4a3d;--calm:#5fc8ff;--green:#5dff8a;--violet:#c08cff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-monospace,Menlo,Consolas,monospace;
+       min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px}
+  h1{font-size:15px;letter-spacing:.35em;color:var(--dim);margin:6px 0 18px;font-weight:600}
+  #lamp{width:150px;height:150px;border-radius:50%;background:#141a16;border:2px solid #223;
+        transition:background .03s,box-shadow .03s;margin-bottom:16px}
+  #lamp.on.sos{background:var(--red);box-shadow:0 0 60px var(--red)}
+  #lamp.on.coord{background:var(--amber);box-shadow:0 0 50px var(--amber)}
+  #lamp.on.calm{background:var(--calm);box-shadow:0 0 70px var(--calm)}
+  #lamp.on.msg{background:var(--green);box-shadow:0 0 55px var(--green)}
+  #lamp.on.bin{background:var(--violet);box-shadow:0 0 55px var(--violet)}
+  #phase{font-size:13px;letter-spacing:.2em;height:18px;color:var(--dim);margin-bottom:10px}
+  #tape{font-size:22px;letter-spacing:.08em;min-height:30px;text-align:center;word-break:break-all;max-width:520px}
+  #tape .done{color:var(--dim)} #tape .cur{color:#fff}
+  .card{width:100%;max-width:480px;background:#0d1210;border:1px solid #1d2a22;border-radius:12px;padding:14px;margin-top:18px}
+  .row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+  label{font-size:12px;color:var(--dim);min-width:92px}
+  input[type=text]{flex:1;background:#050706;color:var(--fg);border:1px solid #2a3a30;border-radius:8px;padding:10px;font:inherit;font-size:15px}
+  input[type=range]{flex:1}
+  button{font:inherit;font-size:15px;border-radius:10px;border:1px solid #2f4a39;background:#13201a;color:var(--fg);padding:12px 14px;cursor:pointer}
+  button.big{flex:1;font-size:18px;padding:16px;letter-spacing:.2em}
+  #go{background:#3a0f0c;border-color:var(--red);color:#ffd9d5}
+  #go.running{background:#13201a;border-color:#2f4a39;color:var(--fg)}
+  .seg{display:flex;flex:1}.seg button{flex:1;border-radius:0;font-size:13px;padding:10px 6px}
+  .seg button:first-child{border-radius:8px 0 0 8px}.seg button:last-child{border-radius:0 8px 8px 0}
+  .seg button.sel{background:#24402f;border-color:#4b8a62}
+  #gps{font-size:12px;color:var(--dim)}
+  #msg{font-size:15px;text-align:center;color:#fff;margin-top:6px;letter-spacing:.06em}
+  .note{font-size:11px;color:var(--dim);line-height:1.5;margin-top:10px}
+  .val{font-size:12px;width:54px;text-align:right}
+  #view{position:relative;height:150px;border-radius:10px;border:1px solid #2a3a30;background:#050706;overflow:hidden;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;margin:10px 0}
+  #viewBits{font-size:18px;letter-spacing:.12em;color:var(--bc,#fff);opacity:.6;white-space:nowrap}
+  #viewBits .cur{opacity:1;font-weight:700;font-size:1.25em}
+  #viewBits{text-shadow:0 0 6px rgba(0,0,0,.6)}
+  #viewBig{font-size:58px;line-height:1;color:var(--bc,#fff);margin-top:6px;text-shadow:0 0 10px rgba(0,0,0,.5)}
+  .picker{width:46px;height:36px;border:none;background:none;padding:0}
+  .sw{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+  .sw b{width:26px;height:26px;border-radius:50%;border:2px solid #2a3a30;cursor:pointer}
+  .sw b.sel{border-color:#fff}
+  #view.full{position:fixed;inset:0;height:auto;z-index:50;border-radius:0;border:none;margin:0}
+  #view.full #viewBits{font-size:min(7vw,40px)}
+  #view.full #viewBig{font-size:min(30vw,200px)}
+  #fullBar{display:none;position:absolute;left:0;right:0;bottom:0;padding:14px 12px calc(14px + env(safe-area-inset-bottom));
+           gap:8px;justify-content:center;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+  #view.full #fullBar{display:flex}
+  #fullBar button{padding:10px 12px;font-size:14px;background:rgba(10,15,12,.8)}
+  #fullFps{align-self:center;color:#fff;min-width:70px;text-align:center;text-shadow:0 0 6px #000}
+</style>
+</head>
+<body>
+<h1>SOS · BEACON</h1>
+<div id="lamp"></div>
+<div id="phase">READY</div>
+<div id="tape"></div>
+<div id="msg"></div>
+
+<div class="card">
+  <div class="row">
+    <button id="go" class="big">START</button>
+  </div>
+  <div class="row">
+    <label>Opening</label>
+    <input id="opener" type="text" placeholder="e.g. SOS — leave blank to skip" value="">
+  </div>
+  <div class="row">
+    <label>Message</label>
+    <input id="message" type="text" placeholder="any message — plays before coords" value="">
+  </div>
+  <div class="row">
+    <label>Location</label>
+    <button id="gpsBtn">Use phone GPS</button>
+    <span id="gps">not locked</span>
+  </div>
+  <div class="row">
+    <label>Coordinates</label>
+    <input id="coords" type="text" placeholder="34.8501, -81.9325" inputmode="decimal">
+  </div>
+  <div class="row">
+    <label>Format</label>
+    <div class="seg">
+      <button data-fmt="dec" class="sel">Decimal</button>
+      <button data-fmt="dms">Deg Min Sec</button>
+    </div>
+  </div>
+  <div class="row">
+    <label>Repeat</label>
+    <div class="seg">
+      <button data-loop="1" class="sel">Loop</button>
+      <button data-loop="0">Once</button>
+    </div>
+  </div>
+  <div class="row">
+    <label>Opening speed</label><input id="wSos" type="range" min="8" max="20" value="13"><span class="val" id="vSos"></span>
+  </div>
+  <div class="row">
+    <label>Coord speed</label><input id="wCo" type="range" min="18" max="40" value="28"><span class="val" id="vCo"></span>
+  </div>
+  <div class="row">
+    <label>Closing ··−</label><input id="wCalm" type="range" min="3" max="10" value="5"><span class="val" id="vCalm"></span>
+  </div>
+  <div class="row">
+    <label>Message speed</label><input id="wMsg" type="range" min="8" max="30" value="16"><span class="val" id="vMsg"></span>
+  </div>
+  <div class="note">
+    Sequence: <b>opening</b> → <b>your message</b> → <b>coordinates</b> (rapid) → <b>··−</b> (slow, calm). Blank parts are skipped.<br>
+    Coordinates send as hemisphere letters, e.g. <code>34.8501N 81.9325W</code>.<br>
+    This is a signal tool, not an emergency service. In a real emergency, call or text 911.
+  </div>
+</div>
+
+<div class="card">
+  <div class="row"><label style="color:var(--violet);letter-spacing:.2em">BINARY</label>
+    <span class="note" style="margin:0">1 = dash − &nbsp; 0 = dot ·</span></div>
+  <div class="row">
+    <input id="binIn" type="text" placeholder="type 1s and 0s, or any text to convert">
+  </div>
+  <div class="row" id="binPreview" style="font-size:12px;color:var(--dim);word-break:break-all"></div>
+  <div class="row">
+    <button id="binGo" class="big" style="border-color:var(--violet)">PLAY BINARY</button>
+    <button id="binRand" class="big" style="border-color:var(--violet)">RANDOM STREAM</button>
+  </div>
+  <div id="view"><div id="viewBits">— — —</div><div id="viewBig">·</div>
+    <div id="fullBar">
+      <button id="fSlow">◀◀</button><span id="fullFps"></span><button id="fFast">▶▶</button>
+      <button id="fFlash">FLASH</button><button id="fPlay">▶ BITS</button><button id="fExit">✕</button>
+    </div>
+  </div>
+  <div class="row">
+    <button id="slow">◀◀ slower</button>
+    <div style="flex:1;text-align:center"><span id="fpsVal" style="font-size:20px">6.0</span> <span style="font-size:11px;color:var(--dim)">fps</span></div>
+    <button id="fast">faster ▶▶</button>
+  </div>
+  <div class="row">
+    <label>Flash rate</label><input id="fps" type="range" min="0" max="1000" value="500">
+  </div>
+  <div class="row">
+    <label>Flash color</label><input id="fcol" type="color" value="#c08cff" class="picker">
+    <div class="sw" data-for="fcol"></div>
+  </div>
+  <div class="row">
+    <label>1s &amp; 0s color</label><input id="bcol" type="color" value="#ffffff" class="picker">
+    <div class="sw" data-for="bcol"></div>
+  </div>
+  <div class="row">
+    <button id="strobeBtn" style="flex:1">FLASH: OFF</button>
+    <button id="fullBtn" style="flex:1">⛶ FULL SCREEN</button>
+  </div>
+  <div class="note" style="color:#c9a26a">⚠ Fast flashing (roughly 3–30 fps) can trigger seizures in people with photosensitive epilepsy.</div>
+  <div class="row">
+    <label>Binary speed</label><input id="wBin" type="range" min="8" max="40" value="20"><span class="val" id="vBin"></span>
+  </div>
+  <div class="note">Text gets turned into 8-bit ASCII (H = 01001000), then each bit plays as a tone. Random stream keeps going until you stop it.</div>
+</div>
+
+<script>
+const MORSE={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',
+N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+'0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.',
+'.':'.-.-.-',',':'--..--','-':'-....-','/':'-..-.'};
+
+const $=id=>document.getElementById(id);
+let fmt='dec', loop=true, running=false, ctx=null, master=null, events=[], raf=0, loopTimer=0, wakeLock=null, lat=null, lon=null;
+
+// ---------- settings UI ----------
+document.querySelectorAll('[data-fmt]').forEach(b=>b.onclick=()=>{fmt=b.dataset.fmt;sel('[data-fmt]',b)});
+document.querySelectorAll('[data-loop]').forEach(b=>b.onclick=()=>{loop=b.dataset.loop==='1';sel('[data-loop]',b)});
+function sel(q,b){document.querySelectorAll(q).forEach(x=>x.classList.toggle('sel',x===b))}
+['Sos','Co','Calm','Msg','Bin'].forEach(k=>{const r=$('w'+k),v=$('v'+k);const f=()=>v.textContent=r.value+' wpm';r.oninput=f;f()});
+try{const s=localStorage.getItem('sosCoords');if(s)$('coords').value=s;
+  ['opener','message','binIn'].forEach(k=>{const v=localStorage.getItem('sb_'+k);if(v!==null)$(k).value=v})}catch(e){}
+['opener','message','binIn'].forEach(k=>$(k).addEventListener('input',()=>{try{localStorage.setItem('sb_'+k,$(k).value)}catch(e){};if(k==='binIn')binPreview()}));
+const MORSE_SET=new Set(Object.keys(MORSE));
+function cleanMorse(s){return s.toUpperCase().replace(/\s+/g,' ').split('').filter(c=>c===' '||MORSE_SET.has(c)).join('').trim()}
+
+// ---------- binary ----------
+function toBits(s){
+  s=s.trim();if(!s)return '';
+  if(/^[01\s]+$/.test(s))return s.replace(/\s+/g,' ');
+  return [...new TextEncoder().encode(s)].map(b=>b.toString(2).padStart(8,'0')).join(' ');
+}
+function bitsToSym(b){return b.replace(/0/g,'·').replace(/1/g,'−')}
+function binPreview(){const b=toBits($('binIn').value);$('binPreview').textContent=b?b.slice(0,90)+(b.length>90?'…':'')+'  →  '+bitsToSym(b).slice(0,60):''}
+binPreview();
+function randomBits(n){let o=[];for(let i=0;i<n;i++){let b='';for(let j=0;j<8;j++)b+=Math.random()<.5?'0':'1';o.push(b)}return o.join(' ')}
+function sendBits(bits,t,wpm){
+  const u=1.2/wpm, disp=bitsToSym(bits);
+  [...bits].forEach((c,i)=>{
+    if(c===' '){t+=2*u;return}           // byte gap (1 already added → 3)
+    const d=c==='0'?u:3*u;
+    tone(t,d,c==='0'?820:620,0.4,false);   // dots a touch higher, dashes lower
+    events.push({t,end:t+d,phase:'bin',label:'BINARY',idx:i,text:disp,bits});
+    t+=d+u;
+  });
+  return t;
+}
+
+// ---------- GPS ----------
+let watchId=null;
+$('gpsBtn').onclick=startGPS;
+function startGPS(){
+  if(!navigator.geolocation){$('gps').textContent='GPS not available';return}
+  $('gps').textContent='locking…';
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+  watchId=navigator.geolocation.watchPosition(p=>{
+    lat=p.coords.latitude;lon=p.coords.longitude;
+    $('coords').value=lat.toFixed(4)+', '+lon.toFixed(4);
+    $('gps').textContent='locked ±'+Math.round(p.coords.accuracy)+' m';
+    try{localStorage.setItem('sosCoords',$('coords').value)}catch(e){}
+  },err=>{$('gps').textContent='GPS blocked — type coords'},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+}
+
+// ---------- coordinate text ----------
+function parseCoords(){
+  const m=$('coords').value.match(/-?\d+(\.\d+)?/g);
+  if(!m||m.length<2)return null;
+  return [parseFloat(m[0]),parseFloat(m[1])];
+}
+function dms(v){
+  v=Math.abs(v);const d=Math.floor(v);const mf=(v-d)*60;const m=Math.floor(mf);const s=Math.round((mf-m)*60);
+  return d+' '+String(m).padStart(2,'0')+' '+String(s===60?59:s).padStart(2,'0');
+}
+function coordText(){
+  const c=parseCoords();if(!c)return null;
+  const [la,lo]=c;const ns=la>=0?'N':'S',ew=lo>=0?'E':'W';
+  if(fmt==='dec')return Math.abs(la).toFixed(4)+ns+' '+Math.abs(lo).toFixed(4)+ew;
+  return dms(la)+ns+' '+dms(lo)+ew;
+}
+
+// ---------- audio ----------
+function tone(t0,dur,freq,vol,soft){
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type='sine';o.frequency.value=freq;
+  const a=soft?Math.min(0.06,dur*0.3):0.005; // calm tone fades in/out gently
+  g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(vol,t0+a);
+  g.gain.setValueAtTime(vol,t0+dur-a);
+  g.gain.linearRampToValueAtTime(0,t0+dur);
+  o.connect(g).connect(master);o.start(t0);o.stop(t0+dur+0.02);
+}
+
+// Build a schedule: returns end time. Each element → event for lamp + tape.
+function sendText(text,t,wpm,freq,vol,phase,soft,label){
+  const u=1.2/wpm;
+  const chars=[...text];
+  chars.forEach((ch,ci)=>{
+    if(ch===' '){t+=4*u;return} // word gap (3 already added after letter → 7)
+    const code=MORSE[ch.toUpperCase()];if(!code)return;
+    [...code].forEach((sym,si)=>{
+      const d=sym==='.'?u:3*u;
+      tone(t,d,freq,vol,soft);
+      events.push({t,end:t+d,phase,label,idx:ci,text});
+      t+=d;
+      if(si<code.length-1)t+=u;
+    });
+    t+=3*u;
+  });
+  return t;
+}
+
+function buildSequence(){
+  events=[];
+  const ct=coordText();
+  let t=ctx.currentTime+0.15;
+  if(mode==='bin'||mode==='rand'){
+    const bits=mode==='rand'?randomBits(6):toBits($('binIn').value);
+    return sendBits(bits,t,+$('wBin').value);
+  }
+  const op=cleanMorse($('opener').value), ms=cleanMorse($('message').value);
+  if(op){t=sendText(op,t,+$('wSos').value,750,0.5,'sos',false,op.length>12?'OPENING':op);t+=0.9}
+  if(ms){t=sendText(ms,t,+$('wMsg').value,680,0.45,'msg',false,'MESSAGE');t+=1.0}
+  if(ct){t=sendText(ct,t,+$('wCo').value,900,0.42,'coord',false,'COORDINATES');t+=1.4}
+  // slow, calm dot dot dash — lower pitch, softer, gentle edges
+  t=sendText('U',t,+$('wCalm').value,520,0.32,'calm',true,'··−');
+  return t;
+}
+
+let mode='beacon';
+function cycle(){
+  if(!running)return;
+  if(mode==='beacon')$('msg').textContent=coordText()||'No coordinates — skipping that part';
+  else if(mode==='bin')$('msg').textContent=$('binIn').value.slice(0,40);
+  else $('msg').textContent='random bits…';
+  if(mode==='bin'&&!toBits($('binIn').value)){$('msg').textContent='Type some 1s and 0s or text first';stop();return}
+  const end=buildSequence();
+  const gap=mode==='rand'?60:2500;
+  const wait=(end-ctx.currentTime)*1000+gap;
+  clearTimeout(loopTimer);
+  loopTimer=setTimeout(()=>{ if(running&&(loop||mode==='rand'))cycle(); else stop(); },wait);
+}
+
+function draw(){
+  const now=ctx.currentTime;
+  const ev=events.find(e=>now>=e.t&&now<e.end);
+  const lamp=$('lamp');
+  lamp.className=ev?('on '+ev.phase):'';
+  // phase label + tape follows the latest started element
+  let last=null;for(const e of events){if(e.t<=now)last=e;else break}
+  if(last){
+    $('phase').textContent=last.label;
+    $('phase').style.color={sos:'var(--red)',coord:'var(--amber)',calm:'var(--calm)',msg:'var(--green)',bin:'var(--violet)'}[last.phase];
+    const tx=last.text, W=34, s=Math.max(0,last.idx-W/2), i=last.idx-s, w=tx.slice(s,s+W);
+    if(last.bits){
+      const B=last.bits, V=16, vs=Math.max(0,last.idx-V/2), vi=last.idx-vs, vw=B.slice(vs,vs+V);
+      $('viewBits').innerHTML=esc(vw.slice(0,vi))+'<span class="cur">'+esc(vw[vi])+'</span>'+esc(vw.slice(vi+1));
+      $('viewBig').textContent=ev?(B[last.idx]+'  '+(B[last.idx]==='1'?'−':'·')):'';
+    }
+    $('tape').innerHTML=(s>0?'…':'')+'<span class="done">'+esc(w.slice(0,i))+'</span><span class="cur">'+esc(w[i])+'</span>'+esc(w.slice(i+1))+(s+W<tx.length?'…':'');
+  }
+  if(running)raf=requestAnimationFrame(draw);
+}
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+async function start(m){
+  mode=m||'beacon';
+  try{
+    ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+    await ctx.resume();
+  }catch(e){$('msg').textContent='Audio blocked by this browser';return}
+  master=ctx.createGain();master.gain.value=1;master.connect(ctx.destination);
+  running=true;
+  const btn={beacon:'go',bin:'binGo',rand:'binRand'}[mode];
+  ['go','binGo','binRand'].forEach(id=>$(id).textContent=id===btn?'STOP':{go:'START',binGo:'PLAY BINARY',binRand:'RANDOM STREAM'}[id]);
+  $(btn).classList.add('running');
+  $('fPlay').textContent=mode==='beacon'?'▶ BITS':'■ STOP';
+  try{wakeLock=await navigator.wakeLock?.request('screen')}catch(e){}
+  try{localStorage.setItem('sosCoords',$('coords').value)}catch(e){}
+  cycle();draw();
+}
+function stop(){
+  running=false;clearTimeout(loopTimer);cancelAnimationFrame(raf);
+  if(master){try{master.gain.setValueAtTime(0,ctx.currentTime);master.disconnect()}catch(e){}}
+  $('go').textContent='START';$('binGo').textContent='PLAY BINARY';$('binRand').textContent='RANDOM STREAM';
+  ['go','binGo','binRand'].forEach(id=>$(id).classList.remove('running'));
+  if($('fPlay'))$('fPlay').textContent='▶ BITS';
+  $('lamp').className='';$('phase').textContent='READY';$('phase').style.color='';
+  try{wakeLock&&wakeLock.release()}catch(e){};wakeLock=null;
+}
+function toggle(m){ if(running){const was=mode;stop();if(was===m)return} start(m) }
+$('go').onclick=()=>toggle('beacon');
+$('binGo').onclick=()=>toggle('bin');
+$('binRand').onclick=()=>toggle('rand');
+
+// ---------- frame-rate strobe window (independent of the bits) ----------
+// slider is logarithmic: 0.25 fps … 60 fps
+const FMIN=0.25,FMAX=60;
+const sliderToFps=v=>FMIN*Math.pow(FMAX/FMIN,v/1000);
+const fpsToSlider=f=>Math.round(1000*Math.log(f/FMIN)/Math.log(FMAX/FMIN));
+let fps=6,strobeOn=false,sT0=performance.now();
+function setFps(f){fps=Math.min(FMAX,Math.max(FMIN,f));$('fps').value=fpsToSlider(fps);const t=fps<10?fps.toFixed(2):fps.toFixed(1);$('fpsVal').textContent=t;$('fullFps').textContent=t+' fps'}
+$('fps').oninput=()=>setFps(sliderToFps(+$('fps').value));
+$('slow').onclick=()=>setFps(fps/2);
+$('fast').onclick=()=>setFps(fps*2);
+function toggleStrobe(){strobeOn=!strobeOn;$('strobeBtn').textContent='FLASH: '+(strobeOn?'ON':'OFF');$('fFlash').textContent=strobeOn?'FLASH ON':'FLASH';sT0=performance.now()}
+$('strobeBtn').onclick=toggleStrobe;
+try{const f=localStorage.getItem('sb_fps');if(f)fps=+f}catch(e){}
+
+// colors: pickers + preset swatches
+const PRESETS={
+  fcol:['#ff2a2a','#ff8c1a','#ffe600','#2bff6a','#00e5ff','#2a6bff','#c08cff','#ff3fd2','#ffffff'],
+  bcol:['#ffffff','#000000','#2bff6a','#00e5ff','#ffe600','#ff2a2a','#c08cff','#ff8c1a']
+};
+function applyColor(id,v){
+  $(id).value=v;
+  if(id==='bcol')$('view').style.setProperty('--bc',v);
+  document.querySelectorAll('.sw[data-for="'+id+'"] b').forEach(b=>b.classList.toggle('sel',b.dataset.c===v));
+  try{localStorage.setItem('sb_'+id,v)}catch(e){}
+}
+document.querySelectorAll('.sw').forEach(sw=>{
+  const id=sw.dataset.for;
+  PRESETS[id].forEach(c=>{const b=document.createElement('b');b.style.background=c;b.dataset.c=c;b.onclick=()=>applyColor(id,c);sw.appendChild(b)});
+  $(id).oninput=()=>applyColor(id,$(id).value);
+  let saved=null;try{saved=localStorage.getItem('sb_'+id)}catch(e){}
+  applyColor(id,saved||$(id).value);
+});
+
+// full screen window
+async function goFull(){
+  $('view').classList.add('full');
+  try{await $('view').requestFullscreen?.()}catch(e){}
+  try{wakeLock=wakeLock||await navigator.wakeLock?.request('screen')}catch(e){}
+}
+function exitFull(){
+  $('view').classList.remove('full');
+  try{document.fullscreenElement&&document.exitFullscreen()}catch(e){}
+}
+$('fullBtn').onclick=goFull;
+$('fExit').onclick=exitFull;
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)$('view').classList.remove('full')});
+$('fSlow').onclick=()=>setFps(fps/2);
+$('fFast').onclick=()=>setFps(fps*2);
+$('fFlash').onclick=toggleStrobe;
+$('fPlay').onclick=()=>toggle($('binIn').value.trim()?'bin':'rand');
+// tap the screen (not the buttons) to show/hide the controls
+$('view').addEventListener('click',e=>{if(!$('view').classList.contains('full')||e.target.closest('#fullBar'))return;
+  const fb=$('fullBar');fb.style.visibility=fb.style.visibility==='hidden'?'visible':'hidden'});
+setFps(fps);
+(function strobe(now){
+  // one frame = one on/off flip, so 6 fps = 6 frames per second, alternating color/black
+  const frame=Math.floor((now-sT0)/1000*fps);
+  $('view').style.background=strobeOn&&frame%2===0?$('fcol').value:'#050706';
+  try{if(Math.random()<.01)localStorage.setItem('sb_fps',fps)}catch(e){}
+  requestAnimationFrame(strobe);
+})(performance.now());
+
+// try GPS automatically on load
+startGPS();
+</script>
+</body>
+</html>

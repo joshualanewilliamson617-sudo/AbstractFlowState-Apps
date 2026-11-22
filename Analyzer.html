@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Analyzer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: lab bench — sticky tab rail, a shared filter strip, then one workspace per tab; everything stacks on phones */
+:root{
+  --bg:#eaf0f1; --surface:#ffffff; --surface-2:#f3f7f8; --fg:#13212a; --muted:#566a76; --line:#d2dde2;
+  --accent:#0d7686; --accent-ink:#ffffff; --accent-soft:#d6eef1;
+  --drop:#c3ccd1; --mean:#b26a00; --median:#5b4bd1; --ok:#2f7d32; --bad:#b3261e;
+  --term:#0f171c; --term-fg:#cfe3e8; --term-dim:#8aa3ad; --term-green:#7ee08a;
+  --f-display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --sheet-h:min(60vh,520px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1317; --surface:#131d23; --surface-2:#18242b; --fg:#e2ecef; --muted:#8ea3ad; --line:#24343c;
+  --accent:#45c3d1; --accent-ink:#04272c; --accent-soft:#163a40;
+  --drop:#3a4a52; --mean:#f0b553; --median:#a99cff; --ok:#79d07f; --bad:#ff8a80;
+  --term:#081014; --term-fg:#cfe3e8; --term-dim:#7d96a1; --term-green:#7ee08a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1317; --surface:#131d23; --surface-2:#18242b; --fg:#e2ecef; --muted:#8ea3ad; --line:#24343c;
+  --accent:#45c3d1; --accent-ink:#04272c; --accent-soft:#163a40;
+  --drop:#3a4a52; --mean:#f0b553; --median:#a99cff; --ok:#79d07f; --bad:#ff8a80;
+  --term:#081014; --term-fg:#cfe3e8; --term-dim:#7d96a1; --term-green:#7ee08a; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 160px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(26px,5vw,34px)} h2{font-size:18px} h3{font-size:15px}
+p{margin:0}
+code,.mono{font-family:var(--f-mono);font-size:.92em}
+.label{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.muted{color:var(--muted)} .hint{font-size:13px;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+header.top .intro{display:flex;flex-direction:column;gap:6px;max-width:660px}
+.btn{font:600 13.5px var(--f-body);border-radius:8px;padding:9px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:6px 10px;font-size:12.5px}
+.btn.danger{color:var(--bad)}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select,input[type=number],input[type=text],input[type=search]{font:14px var(--f-body);color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;max-width:100%}
+input[type=number]{width:120px;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+input[type=range]{accent-color:var(--accent)}
+textarea{width:100%;min-height:120px;resize:vertical;font:13px/1.5 var(--f-mono);color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.check{display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);display:flex;gap:4px;overflow-x:auto;padding-block:6px;border-bottom:1px solid var(--line);scrollbar-width:none}
+.tabs a{font:600 14px var(--f-body);color:var(--muted);text-decoration:none;padding:8px 13px;border-radius:8px;white-space:nowrap}
+.tabs a:hover{color:var(--fg)}
+.tabs a[aria-current="page"]{color:var(--accent-ink);background:var(--accent)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;scroll-margin-top:70px}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.filter{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:12px;align-items:end}
+@media (max-width:720px){.filter{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .filter .slide{grid-column:1/-1}}
+.filter .slide{display:flex;flex-direction:column;gap:4px;min-width:0}
+.filter .slide input{width:100%}
+.kept{font:500 13px var(--f-mono);color:var(--muted);white-space:nowrap;align-self:center}
+.cols2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.cols2{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* sheet */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar .sep{width:1px;align-self:stretch;background:var(--line)}
+.sheet{display:grid;grid-template-columns:52px minmax(0,1fr);grid-template-rows:34px auto;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.corner{background:var(--surface-2);border-right:1px solid var(--line);border-bottom:1px solid var(--line);font:11px var(--f-mono);color:var(--muted);display:flex;align-items:center;justify-content:center}
+.colhead,.rowhead{position:relative;overflow:hidden;background:var(--surface-2)}
+.colhead{border-bottom:1px solid var(--line);height:34px}
+.rowhead{border-right:1px solid var(--line);height:var(--sheet-h)}
+#hin,#rin{position:absolute;left:0;top:0}
+#sbody{position:relative;overflow:auto;height:var(--sheet-h);outline:none}
+#sbody:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+#spacer{position:relative}
+.c,.h,.rh{position:absolute;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c{height:32px;width:128px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0 8px;line-height:31px;font:13px var(--f-mono);font-variant-numeric:tabular-nums;cursor:cell}
+.c.n{text-align:right}
+.c.drop{color:var(--muted);background:var(--surface-2)}
+.c.sel{outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-soft);z-index:2}
+.c.ghost{color:var(--muted);cursor:pointer;background:transparent;border-right-style:dashed;border-bottom-style:dashed}
+.h{height:34px;width:128px;border-right:1px solid var(--line);padding:0 8px;line-height:34px;font:600 12.5px var(--f-body);cursor:pointer;display:flex;gap:6px;align-items:center}
+.h .t{font:500 10px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px;line-height:15px}
+.h .nm{overflow:hidden;text-overflow:ellipsis}
+.h.on{background:var(--accent-soft);color:var(--fg)}
+.h.ghost{color:var(--accent);justify-content:center}
+.rh{width:52px;height:32px;line-height:32px;text-align:right;padding-right:8px;font:11.5px var(--f-mono);color:var(--muted);border-bottom:1px solid var(--line);cursor:pointer}
+.rh.on{background:var(--accent-soft);color:var(--fg)}
+.rh.drop{text-decoration:line-through}
+#ed{position:absolute;z-index:5;height:32px;width:128px;border:2px solid var(--accent);border-radius:0;padding:0 7px;font:13px var(--f-mono);background:var(--surface);color:var(--fg);outline:none}
+
+/* results */
+.readout{font-size:15px;background:var(--accent-soft);border-radius:8px;padding:12px 14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tile{background:var(--surface);padding:11px 12px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .v{font:500 19px var(--f-mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile.mean .v{color:var(--mean)} .tile.median .v{color:var(--median)}
+.math{display:none;font:12px/1.5 var(--f-mono);color:var(--muted);border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;overflow-wrap:anywhere}
+body.math-on .math{display:block}
+canvas{width:100%;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.ln{width:16px;height:0;border-top:2px solid;display:inline-block}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:12.5px var(--f-mono);font-variant-numeric:tabular-nums;padding:4px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--fg);cursor:pointer}
+.chip.hi{border-color:var(--mean)} .chip.lo{border-color:var(--median)}
+.tblwrap{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{position:sticky;top:0;background:var(--surface-2);font-weight:600;font-size:12.5px;cursor:pointer;user-select:none}
+td{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:12.5px}
+td:first-child{font-family:var(--f-body);font-size:13.5px}
+td.up{color:var(--ok)} td.down{color:var(--bad)}
+.term{background:var(--term);color:var(--term-fg);border-radius:10px;padding:14px 16px;font:12.5px/1.6 var(--f-mono);overflow:auto;white-space:pre;margin:0;max-height:520px}
+.term .p{color:var(--term-green)} .term .d{color:var(--term-dim)}
+details.py{border-top:1px solid var(--line);padding-top:10px}
+details.py summary{cursor:pointer;font-weight:600;font-size:14px}
+details.py[open] summary{margin-bottom:10px}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+.status{font-size:13px;color:var(--muted);min-height:1.4em}
+.status.ok{color:var(--ok)}
+.guide ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;max-width:70ch}
+
+/* rhythm */
+.rh-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.rh-form .wide{grid-column:1/-1}
+.rh-form input,.rh-form select{width:100%}
+.stepchip{font:500 12.5px var(--f-mono);padding:3px 9px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line)}
+.stepchip.up{border-color:var(--ok)} .stepchip.down{border-color:var(--bad)}
+.pill{display:inline-block;font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;vertical-align:1px;margin-right:4px}
+.pill.sm{font-size:10px;padding:1px 6px}
+.pill.hit{background:var(--ok);color:var(--bg)} .pill.pass{background:var(--mean);color:var(--bg)} .pill.never{background:var(--bad);color:var(--bg)}
+#rh2dWrap,#rh3dWrap,#rhCorrWrap{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2)}
+#rh2d,#rhCorr{touch-action:none;cursor:grab;display:block}
+#rh3dBox{height:min(62vh,460px);touch-action:none;cursor:grab}
+#rh3dBox canvas{display:block}
+.rh-lines{display:flex;flex-direction:column;gap:6px;max-height:380px;overflow:auto}
+.rh-line{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.rh-line.on{border-color:var(--accent);background:var(--accent-soft)}
+@media (max-width:520px){.rh-line{grid-template-columns:auto auto minmax(0,1fr)}.rh-line>.row{grid-column:1/-1}}
+.swatch{width:14px;height:14px;border-radius:3px;flex:none}
+.rh-cards{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto}
+.rh-card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.vlist{position:relative;height:330px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.vrow{display:grid;grid-template-columns:64px 60px minmax(100px,1fr) 50px 54px 96px 76px 96px;min-width:640px;height:30px;align-items:center;font:12.5px var(--f-mono);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line);padding:0 10px;gap:6px}
+#rhLandSpacer .vrow{position:absolute;left:0;right:0}
+.vhead{position:sticky;top:0;z-index:2;background:var(--surface-2);font:600 11.5px var(--f-body);height:34px}
+.vrow.hitrow{background:var(--accent-soft)} .vrow.passrow{background:var(--surface-2);color:var(--bad)}
+#rhLegend .sw{border-radius:3px}
+/* tour */
+.tour-focus{outline:3px solid var(--accent)!important;outline-offset:4px;box-shadow:0 0 0 9px var(--accent-soft)}
+@media (prefers-reduced-motion:no-preference){.tour-focus{animation:pulse 1.6s ease-in-out 2}}
+@keyframes pulse{50%{box-shadow:0 0 0 14px var(--accent-soft)}}
+.tour{position:fixed;z-index:20;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  max-width:470px;margin:0 auto;background:var(--surface);border:1px solid var(--accent);border-radius:14px;padding:14px 16px;
+  box-shadow:0 12px 40px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow:auto}
+.tour .bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.tour .bar i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.tour .task{font-size:14px;background:var(--surface-2);border-radius:8px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start}
+.tour .task b{color:var(--accent);white-space:nowrap}
+.tour .task.done b{color:var(--ok)}
+.tour .nav{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.x{background:none;border:0;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:2px 6px}
+</style>
+
+</head><body>
+<div class="wrap">
+  <header class="top" id="t-top">
+    <div class="intro">
+      <span class="label">Spreadsheet + statistics lab</span>
+      <h1>Analyzer</h1>
+      <p class="muted">Type or paste data into the table, filter it with a cutoff, and explore it from every angle, including your own step rhythms drawn as pixel lines in 2D and 3D. Each part comes with the matching Python from <code>data_analyzer.py</code>.</p>
+    </div>
+    <div class="row">
+      <span class="hint" id="saveState"></span>
+      <button class="btn primary" id="startTour" type="button">Start the tutorial</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <a href="#table" data-tab="table">Table</a>
+    <a href="#overview" data-tab="overview">Overview</a>
+    <a href="#groups" data-tab="groups">Groups</a>
+    <a href="#compare" data-tab="compare">Compare</a>
+    <a href="#time" data-tab="time">Over time</a>
+    <a href="#rhythm" data-tab="rhythm">Rhythm</a>
+    <a href="#python" data-tab="python">Python</a>
+  </nav>
+
+  <section class="panel" id="t-filter">
+    <div class="filter">
+      <div class="field"><label class="label" for="main">Main column</label><select id="main"></select></div>
+      <div class="field"><label class="label" for="mode">Keep rows</label>
+        <select id="mode"><option value="above">Above cutoff (&gt;)</option><option value="below">Below cutoff (&lt;)</option><option value="all">Keep every row</option></select></div>
+      <div class="slide"><label class="label" for="thr">Cutoff <span class="mono" id="thrLo"></span> to <span class="mono" id="thrHi"></span></label><input type="range" id="thr"></div>
+      <div class="field"><label class="label" for="thrNum">Value</label><input type="number" id="thrNum" step="any"></div>
+    </div>
+    <div class="row" style="justify-content:space-between"><span class="kept" id="keptTag"></span><span class="hint">The cutoff filters whole rows for every tab, like <code>threshold</code> in the script.</span></div>
+  </section>
+
+  <!-- TABLE -->
+  <div class="stack" data-panel="table" hidden>
+    <section class="panel" id="t-sheet">
+      <div class="panel-head"><h2>Table</h2><span class="hint" id="sheetInfo"></span></div>
+      <div class="toolbar" id="t-coltools">
+        <label class="field" style="flex:1 1 160px"><span class="label">Column name</span><input type="text" id="colName" aria-label="Column name"></label>
+        <button class="btn small" type="button" id="sortAsc">Sort low→high</button>
+        <button class="btn small" type="button" id="sortDesc">Sort high→low</button>
+        <button class="btn small" type="button" id="insCol">Insert column</button>
+        <button class="btn small danger" type="button" id="delCol">Delete column</button>
+      </div>
+      <div class="toolbar" id="t-addrows">
+        <button class="btn small" type="button" id="add1">+ 1 row</button>
+        <button class="btn small" type="button" id="add10">+ 10 rows</button>
+        <button class="btn small" type="button" id="add100">+ 100 rows</button>
+        <button class="btn small" type="button" id="addCol">+ column</button>
+        <button class="btn small" type="button" id="insRow">Insert row</button>
+        <button class="btn small danger" type="button" id="delRow">Delete row</button>
+        <span class="sep"></span>
+        <button class="btn small" type="button" id="undo">Undo</button>
+      </div>
+      <div class="sheet" id="sheet">
+        <div class="corner" id="corner">#</div>
+        <div class="colhead"><div id="hin"></div></div>
+        <div class="rowhead"><div id="rin"></div></div>
+        <div id="sbody" tabindex="0" aria-label="Data table. Arrow keys move, Enter edits."><div id="spacer"><input id="ed" hidden autocomplete="off" spellcheck="false" aria-label="Edit cell"></div></div>
+      </div>
+      <div class="row">
+        <input type="search" id="search" placeholder="Find text in any cell" aria-label="Search the table" style="flex:1 1 200px">
+        <select id="show" aria-label="Which rows to show"><option value="all">Show all rows</option><option value="kept">Only kept rows</option><option value="dropped">Only dropped rows</option></select>
+      </div>
+      <p class="hint">Tap a cell to select it, tap again (or double-click, or just type) to edit. <b>Enter</b> moves down and adds a row at the bottom. Paste a block copied from a spreadsheet straight into a selected cell. Click the dashed row or column at the edge to grow the table.</p>
+    </section>
+
+    <div class="cols2">
+      <section class="panel" id="t-newcol">
+        <h2>Make a new column</h2>
+        <p class="hint">Combine two number columns into a new one, like likes ÷ views to get engagement rate.</p>
+        <div class="row">
+          <select id="ncA" aria-label="First column"></select>
+          <select id="ncOp" aria-label="Operation"><option value="/">÷</option><option value="*">×</option><option value="+">+</option><option value="-">−</option><option value="%">as % of</option></select>
+          <select id="ncB" aria-label="Second column"></select>
+        </div>
+        <div class="row"><input type="text" id="ncName" placeholder="New column name" aria-label="New column name" style="flex:1 1 160px"><button class="btn small primary" type="button" id="ncAdd">Add column</button></div>
+        <p class="status" id="ncMsg" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="t-import">
+        <h2>Load and save</h2>
+        <div class="row" role="group" aria-label="Examples">
+          <span class="label">Examples</span>
+          <button class="btn small" type="button" data-sample="videos">Video stats</button>
+          <button class="btn small" type="button" data-sample="scores">Test scores</button>
+          <button class="btn small" type="button" data-sample="daily">Daily views</button>
+          <button class="btn small" type="button" data-sample="random">Random 50</button>
+        </div>
+        <div class="row">
+          <label class="btn small" style="position:relative;overflow:hidden">Open CSV file<input type="file" id="file" accept=".csv,.tsv,.txt,text/csv,text/plain" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>
+          <button class="btn small danger" type="button" id="clearAll">New empty table</button>
+        </div>
+        <textarea id="paste" spellcheck="false" placeholder="Or paste CSV here (first row = column names)" aria-label="Paste CSV"></textarea>
+        <div class="row"><button class="btn small" type="button" id="pasteReplace">Replace table</button><button class="btn small" type="button" id="pasteAppend">Add as new rows</button></div>
+        <div class="row" id="t-export">
+          <span class="label">Export</span>
+          <button class="btn small" type="button" id="dlAll">Download table .csv</button>
+          <button class="btn small" type="button" id="dlKept">Download kept rows .csv</button>
+          <button class="btn small" type="button" id="copyRes">Copy results summary</button>
+        </div>
+        <p class="status" id="ioMsg" aria-live="polite"></p>
+      </section>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="stack" data-panel="overview" hidden>
+    <section class="panel" id="t-ov">
+      <div class="panel-head"><h2>Overview of <span id="ovName"></span></h2><label class="check" id="t-math"><input type="checkbox" id="mathToggle"> Show the math</label></div>
+      <p class="readout" id="ovRead"></p>
+      <div class="tiles" id="ovTiles"></div>
+    </section>
+    <div class="cols2">
+      <section class="panel" id="t-box">
+        <h2>Box plot and outliers</h2>
+        <canvas id="cBox" aria-label="Box plot"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>Middle half (Q1–Q3)</span><span><i class="ln" style="border-color:var(--median)"></i>Median</span><span><i class="sw" style="background:var(--mean);transform:rotate(45deg) scale(.7)"></i>Mean</span><span><i class="sw" style="border:2px solid var(--fg);border-radius:50%;background:none"></i>Outlier</span></div>
+        <p class="hint" id="outRead"></p>
+        <div class="chips" id="outChips"></div>
+      </section>
+      <section class="panel" id="t-hist">
+        <div class="panel-head"><h2>Histogram</h2><label class="row hint" style="gap:8px" for="bins">Bars <input type="range" id="bins" min="4" max="40" value="12" style="width:110px"> <span class="mono" id="binsVal">12</span></label></div>
+        <canvas id="cHist" aria-label="Histogram"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--accent)"></i>Kept</span><span><i class="sw" style="background:var(--drop)"></i>Dropped</span><span><i class="ln" style="border-color:var(--fg);border-top-style:dashed"></i>Cutoff</span><span><i class="ln" style="border-color:var(--mean)"></i>Mean</span><span><i class="ln" style="border-color:var(--median)"></i>Median</span></div>
+      </section>
+    </div>
+    <section class="panel" id="t-pct">
+      <h2>Percentiles</h2>
+      <div class="cols2">
+        <div class="field"><label class="label" for="pctOf">Where does this value rank?</label><input type="number" id="pctOf" step="any" placeholder="Type a value"><p id="pctOfRead"></p><p class="math" id="pctOfMath"></p></div>
+        <div class="field"><label class="label" for="pctP">Value at percentile <span class="mono" id="pctPVal">75</span></label><input type="range" id="pctP" min="1" max="99" value="75"><p id="pctPRead"></p><p class="math" id="pctPMath"></p></div>
+      </div>
+      <details class="py"><summary>Python for the overview</summary><pre class="term" id="pyOv"></pre></details>
+    </section>
+  </div>
+
+  <!-- GROUPS -->
+  <div class="stack" data-panel="groups" hidden>
+    <section class="panel" id="t-groups">
+      <h2>Totals by group</h2>
+      <div class="row">
+        <div class="field"><label class="label" for="gCat">Group by</label><select id="gCat"></select></div>
+        <div class="field"><label class="label" for="gVal">Measure</label><select id="gVal"></select></div>
+        <div class="field"><label class="label" for="gMetric">Chart shows</label><select id="gMetric"><option value="sum">Total</option><option value="mean">Average</option><option value="median">Median</option><option value="count">Count</option></select></div>
+      </div>
+      <p class="readout" id="gRead"></p>
+      <p class="math" id="gMath"></p>
+      <canvas id="cBars" aria-label="Bar chart by group"></canvas>
+      <div class="tblwrap"><table id="gTable"></table></div>
+      <p class="hint">Click a column heading to sort the table.</p>
+      <details class="py"><summary>Python for groups</summary><pre class="term" id="pyG"></pre></details>
+    </section>
+  </div>
+
+  <!-- COMPARE -->
+  <div class="stack" data-panel="compare" hidden>
+    <section class="panel">
+      <div class="row">
+        <div class="field"><label class="label" for="cA">Column A (across)</label><select id="cA"></select></div>
+        <div class="field"><label class="label" for="cB">Column B (up)</label><select id="cB"></select></div>
+        <button class="btn small" type="button" id="swapAB" style="align-self:end">Swap</button>
+      </div>
+    </section>
+    <div class="cols2">
+      <section class="panel" id="t-scatter">
+        <h2>Relationship</h2>
+        <p class="readout" id="rRead"></p>
+        <canvas id="cScatter" aria-label="Scatter plot"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--accent);border-radius:50%"></i>One row</span><span><i class="ln" style="border-color:var(--mean)"></i>Trend line</span><span><i class="sw" style="border:2px solid var(--median);border-radius:50%;background:none"></i>Your prediction</span></div>
+        <div class="tiles" id="rTiles"></div>
+        <div class="field"><label class="label" for="predict">Predict: if A equals</label><input type="number" id="predict" step="any" placeholder="Type a value"><p id="predRead"></p><p class="math" id="predMath"></p></div>
+      </section>
+      <section class="panel" id="t-side">
+        <h2>Side by side</h2>
+        <p class="readout" id="sRead"></p>
+        <canvas id="cBox2" aria-label="Two box plots"></canvas>
+        <div class="tblwrap"><table id="sTable"></table></div>
+        <p class="hint">For before/after data, put the before numbers in one column and after in another. The Test scores example is set up this way.</p>
+      </section>
+    </div>
+    <section class="panel"><details class="py"><summary>Python for compare</summary><pre class="term" id="pyC"></pre></details></section>
+  </div>
+
+  <!-- TIME -->
+  <div class="stack" data-panel="time" hidden>
+    <section class="panel" id="t-time">
+      <h2>Over time</h2>
+      <div class="row">
+        <div class="field"><label class="label" for="tDate">Date column</label><select id="tDate"></select></div>
+        <div class="field"><label class="label" for="tVal">Measure</label><select id="tVal"></select></div>
+        <div class="field"><label class="label" for="tPer">Group dates</label><select id="tPer"><option value="row">Each date</option><option value="week">By week</option><option value="month">By month</option></select></div>
+        <div class="field"><label class="label" for="tAgg">Combine with</label><select id="tAgg"><option value="sum">Total</option><option value="mean">Average</option></select></div>
+        <div class="field" style="flex:1 1 180px"><label class="label" for="tWin">Moving average: <span class="mono" id="tWinVal">7</span> points</label><input type="range" id="tWin" min="1" max="30" value="7"></div>
+      </div>
+      <div id="tBody">
+        <p class="readout" id="tRead"></p>
+        <canvas id="cLine" aria-label="Line chart over time" style="margin-top:12px"></canvas>
+        <div class="legend" style="margin-top:8px"><span><i class="ln" style="border-color:var(--accent)"></i>Value</span><span><i class="ln" style="border-color:var(--mean)"></i>Moving average</span></div>
+        <div class="tiles" id="tTiles" style="margin-top:12px"></div>
+        <div class="tblwrap" style="margin-top:12px"><table id="tTable"></table></div>
+      </div>
+      <p class="math" id="tMath"></p>
+      <details class="py"><summary>Python for over time</summary><pre class="term" id="pyT"></pre></details>
+    </section>
+  </div>
+
+  <!-- RHYTHM -->
+  <div class="stack" data-panel="rhythm" hidden>
+    <section class="panel" id="t-rh-edit">
+      <div class="panel-head"><h2>Rhythm</h2><label class="check"><input type="checkbox" id="mathToggle2"> Show the math</label></div>
+      <div class="rh-form">
+        <div class="field"><label class="label" for="rhName">Name</label><input type="text" id="rhName" placeholder="e.g. Steady climb"></div>
+        <div class="field"><label class="label" for="rhStart">Start at</label><input type="number" id="rhStart" value="0" step="1"></div>
+        <div class="field"><label class="label" for="rhMode">Start mode</label><select id="rhMode"><option value="0">0 · count the start</option><option value="+1">+1 · step forward first</option></select></div>
+        <div class="field"><label class="label" for="rhCheck">Check number</label><input type="number" id="rhCheck" step="1" value="26"></div>
+        <div class="field wide"><label class="label" for="rhSteps">Steps (repeat in order)</label><input type="text" id="rhSteps" value="3, 5, -2" placeholder="3, 5, -2" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <div class="chips" id="rhChips" aria-label="Steps in this rhythm"></div>
+      <div class="readout" id="rhVerdict"></div>
+      <p class="math" id="rhProof"></p>
+      <div class="row">
+        <button class="btn small primary" type="button" id="rhSaveNew">Save as new line</button>
+        <button class="btn small" type="button" id="rhUpdate" hidden>Update line</button>
+        <button class="btn small" type="button" id="rhNew">New rhythm</button>
+        <span class="status" id="rhMsg" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section class="panel" id="t-rh-grid">
+      <div class="panel-head"><h2>Grid</h2>
+        <div class="row" role="group" aria-label="View"><button class="btn small" type="button" id="rhView2d" aria-pressed="true">Front (2D)</button><button class="btn small" type="button" id="rhView3d" aria-pressed="false">3D layers</button></div>
+      </div>
+      <div id="rh2dBox" class="stack" style="gap:10px">
+        <div class="toolbar">
+          <button class="btn small" type="button" id="rhZoomOut" aria-label="Zoom out">−</button>
+          <button class="btn small" type="button" id="rhZoomIn" aria-label="Zoom in">+</button>
+          <button class="btn small" type="button" id="rhFit">Fit to check</button>
+          <button class="btn small primary" type="button" id="rhJump">Jump to check</button>
+          <button class="btn small" type="button" id="rhHome">Start square</button>
+          <span class="hint mono" id="rhPos"></span>
+        </div>
+        <div id="rh2dWrap"><canvas id="rh2d" aria-label="Pixel line grid"></canvas></div>
+        <p class="hint" id="rhHover">Drag to move. Scroll or pinch to zoom; zoom far out and the line turns into a trace you can follow into the millions. Tap a square to see what it is.</p>
+      </div>
+      <div id="rh3dPanel" class="stack" style="gap:10px" hidden>
+        <div class="toolbar">
+          <label class="field"><span class="label">From column (X)</span><input type="number" id="w3x0" value="0" step="1"></label>
+          <label class="field"><span class="label">Width</span><select id="w3w"><option>60</option><option selected>120</option><option>300</option><option>1000</option><option>3000</option><option>10000</option></select></label>
+          <button class="btn small" type="button" id="w3Prev" style="align-self:end">◀</button>
+          <button class="btn small" type="button" id="w3Next" style="align-self:end">▶</button>
+          <button class="btn small" type="button" id="w3Check" style="align-self:end">Center on check</button>
+          <label class="check" style="align-self:end"><input type="checkbox" id="w3Curves" checked> DNA curves</label>
+        </div>
+        <div class="toolbar" role="group" aria-label="Camera">
+          <button class="btn small" type="button" data-cam="angle">3D angle</button><button class="btn small" type="button" data-cam="front">Front</button><button class="btn small" type="button" data-cam="top">Top</button><button class="btn small" type="button" data-cam="side">Side</button>
+          <span class="hint" id="w3Info"></span>
+        </div>
+        <div id="rh3dWrap"><div id="rh3dBox"></div></div>
+        <p class="hint">Drag to rotate, pinch or scroll to zoom, two fingers (or Shift + drag) to slide. Line 1 is the front layer; each line after it sits one cell deeper. Curves thread through cubes where different lines land on the same number.</p>
+      </div>
+      <div class="legend" id="rhLegend"></div>
+    </section>
+
+    <div class="cols2">
+      <section class="panel" id="t-rh-lines">
+        <div class="panel-head"><h2>Saved lines</h2><span class="hint" id="rhCount"></span></div>
+        <div class="row"><button class="btn small" type="button" id="rhShowAll">Show all</button><button class="btn small" type="button" id="rhHideAll">Hide all</button><input type="search" id="rhFind" placeholder="Find a line" aria-label="Find a saved line" style="flex:1 1 140px"></div>
+        <div class="rh-lines" id="rhList"></div>
+      </section>
+      <section class="panel" id="t-rh-land">
+        <div class="panel-head"><h2>Landings</h2><span class="hint" id="rhLandInfo"></span></div>
+        <div class="row">
+          <label class="field" style="flex:1 1 120px"><span class="label">Jump to step #</span><input type="number" id="rhLandGo" min="0" step="1"></label>
+          <label class="field" style="flex:1 1 120px"><span class="label">List up to step #</span><input type="number" id="rhLandEnd" min="1" step="1" placeholder="auto"></label>
+        </div>
+        <div class="vlist" id="rhLand"><div class="vrow vhead"><span>Step</span><span>Move</span><span>Number</span><span>Even</span><span>Prime</span><span>X (length)</span><span>Y (line)</span><span>To check</span></div><div id="rhLandSpacer" style="position:relative"></div></div>
+        <div class="row"><button class="btn small" type="button" id="rhToTable">Send landings to Table</button><span class="status" id="rhLandMsg" aria-live="polite"></span></div>
+      </section>
+    </div>
+
+    <section class="panel" id="t-rh-read">
+      <div class="panel-head"><h2>Readout</h2><span class="hint" id="rhProg"></span></div>
+      <div class="row">
+        <label class="field"><span class="label">Compare numbers from</span><input type="number" id="rhLo" value="0" step="1"></label>
+        <label class="field"><span class="label">to</span><input type="number" id="rhHi" value="1000000" step="1"></label>
+      </div>
+      <h3>Every line</h3>
+      <div class="rh-cards" id="rhLineRead"></div>
+      <h3>Correlation grid</h3>
+      <p class="hint">Each square compares two lines: how much of the smaller line's numbers the two share inside the range. Darker means more shared. Tap a square for details. Drag or scroll to move around a big grid; the line labels stay pinned.</p>
+      <div id="rhCorrWrap"><canvas id="rhCorr" aria-label="Correlation grid"></canvas></div>
+      <div class="readout" id="rhPair"></div>
+      <h3>Ranked pairs</h3>
+      <div class="row"><input type="search" id="rhRankFind" placeholder="Filter by line number or name" aria-label="Filter ranked pairs" style="flex:1 1 200px"><span class="hint" id="rhRankInfo"></span></div>
+      <div class="tblwrap"><table id="rhRank"></table></div>
+      <h3>Shared by every visible line</h3>
+      <div id="rhAll"></div>
+      <details class="py"><summary>Python for rhythms</summary><pre class="term" id="pyR"></pre></details>
+    </section>
+  </div>
+
+  <!-- PYTHON -->
+  <div class="stack" data-panel="python" hidden>
+    <section class="panel" id="t-pycmd">
+      <h2>Run this in Python</h2>
+      <p class="muted">This command reproduces the settings you picked on every tab. Save your table with "Download table .csv", put it next to <code>data_analyzer.py</code>, and run:</p>
+      <pre class="term" id="pyCmd"></pre>
+      <div class="row"><button class="btn small" type="button" id="copyCmd">Copy command</button><span class="status" id="cmdMsg" aria-live="polite"></span></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>data_analyzer.py</h2><button class="btn small" type="button" id="copyPy">Copy script</button></div>
+      <p class="hint">The full script. Every tab in this app maps to one section: overview → <code>describe()</code>, groups → <code>group_by()</code>, compare → <code>correlation_and_trend()</code>, over time → <code>time_series()</code> and <code>moving_average()</code>, new columns → <code>add_column()</code>.</p>
+      <pre class="term" id="pySrc"></pre>
+    </section>
+  </div>
+
+  <section class="panel guide">
+    <h2>How to use it</h2>
+    <ol>
+      <li><b>Table:</b> type, paste, or load data. Rows and columns grow as you need them.</li>
+      <li><b>Filter strip:</b> pick the main column and a cutoff. Rows that fail are dropped from every tab.</li>
+      <li><b>Overview:</b> every summary number for the main column, a box plot that flags outliers, a histogram and a percentile finder. Turn on "Show the math" to see each formula worked out.</li>
+      <li><b>Groups:</b> totals and averages per category, like views per topic.</li>
+      <li><b>Compare:</b> how two columns move together (correlation and trend line), and how they differ side by side.</li>
+      <li><b>Over time:</b> pick a date column to see the trend, a moving average and growth per period.</li>
+      <li><b>Rhythm:</b> type a step pattern, see it drawn as a Paint-style pixel line, and get a proven answer on whether it lands on your number. Save lines to stack them in 3D and compare every pair.</li>
+      <li><b>Python:</b> one command that repeats all of it with the script.</li>
+    </ol>
+  </section>
+</div>
+
+<div class="tour" id="tour" hidden role="dialog" aria-labelledby="tourTitle">
+  <div class="nav"><span class="label" id="tourStep"></span><button class="x" id="tourClose" type="button" aria-label="Close tutorial">&times;</button></div>
+  <div class="bar"><i id="tourBar"></i></div>
+  <h3 id="tourTitle"></h3>
+  <p id="tourText" style="font-size:14.5px"></p>
+  <div class="task" id="tourTask"><b id="tourTaskLabel">Try it</b><span id="tourTaskText"></span></div>
+  <div class="nav"><button class="btn small" id="tourBack" type="button">Back</button><button class="btn small primary" id="tourNext" type="button">Next</button></div>
+</div>
+
+<script type="text/plain" id="pyText">"""User Data Analyzer v2 — the Python twin of the browser app.
+
+Reads a CSV with a header row and prints statistics. Every section of the
+browser app has a matching function here.
+
+Examples:
+  python data_analyzer.py                                   (sample data)
+  python data_analyzer.py videos.csv --column views
+  python data_analyzer.py videos.csv --column views --threshold 1000 --mode above
+  python data_analyzer.py videos.csv --group topic --column views
+  python data_analyzer.py videos.csv --x views --y likes --predict 5000
+  python data_analyzer.py daily.csv --date date --column views --window 7
+  python data_analyzer.py videos.csv --new-column rate=likes/views
+"""
+import argparse
+import csv
+import math
+import os
+import random
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta
+
+
+# ---------- loading ----------
+
+def to_number(text):
+    """'$1,200' -> 1200.0, '' or 'abc' -> None"""
+    cleaned = str(text).replace("$", "").replace(",", "").replace("%", "").strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def load_table(filename):
+    with open(filename, newline="", encoding="utf-8-sig") as f:
+        rows = [row for row in csv.reader(f) if any(cell.strip() for cell in row)]
+    header, body = rows[0], rows[1:]
+    return header, body
+
+
+def column(header, body, name):
+    """All numbers in one column (skips blanks and text)."""
+    i = header.index(name)
+    values = []
+    for row in body:
+        if i < len(row):
+            v = to_number(row[i])
+            if v is not None:
+                values.append(v)
+    return values
+
+
+def keep_row(value, threshold, mode):
+    if mode == "all":
+        return True
+    if value is None:
+        return False
+    return value > threshold if mode == "above" else value < threshold
+
+
+# ---------- overview ----------
+
+def percentile(sorted_values, p):
+    """p from 0 to 100, linear interpolation (same as the app and numpy)."""
+    pos = (len(sorted_values) - 1) * p / 100
+    lo, hi = math.floor(pos), math.ceil(pos)
+    return sorted_values[lo] + (sorted_values[hi] - sorted_values[lo]) * (pos - lo)
+
+
+def describe(values):
+    if not values:
+        return None
+    data = sorted(values)
+    n = len(data)
+    total = sum(data)
+    mean = total / n
+    std_dev = math.sqrt(sum((x - mean) ** 2 for x in data) / n)
+    q1, median, q3 = percentile(data, 25), percentile(data, 50), percentile(data, 75)
+    iqr = q3 - q1
+    low_fence, high_fence = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    counts = Counter(data)
+    top = max(counts.values())
+    modes = [v for v, c in counts.items() if c == top] if top > 1 else []
+    return {
+        "count": n, "total": total, "mean": mean, "median": median,
+        "modes": modes, "min": data[0], "max": data[-1], "range": data[-1] - data[0],
+        "std_dev": std_dev, "q1": q1, "q3": q3, "iqr": iqr,
+        "p10": percentile(data, 10), "p90": percentile(data, 90),
+        "low_fence": low_fence, "high_fence": high_fence,
+        "outliers": [v for v in data if v < low_fence or v > high_fence],
+    }
+
+
+def percent_at_or_below(values, x):
+    return 100 * sum(1 for v in values if v <= x) / len(values)
+
+
+# ---------- groups ----------
+
+def group_by(header, body, group_name, value_name):
+    gi, vi = header.index(group_name), header.index(value_name)
+    groups = defaultdict(list)
+    for row in body:
+        v = to_number(row[vi]) if vi < len(row) else None
+        if v is not None:
+            key = row[gi].strip() if gi < len(row) and row[gi].strip() else "(blank)"
+            groups[key].append(v)
+    result = []
+    for key, vals in groups.items():
+        result.append({"group": key, "count": len(vals), "sum": sum(vals),
+                       "mean": sum(vals) / len(vals), "min": min(vals), "max": max(vals)})
+    return sorted(result, key=lambda g: g["sum"], reverse=True)
+
+
+# ---------- compare two columns ----------
+
+def pairs(header, body, x_name, y_name):
+    xi, yi = header.index(x_name), header.index(y_name)
+    out = []
+    for row in body:
+        x = to_number(row[xi]) if xi < len(row) else None
+        y = to_number(row[yi]) if yi < len(row) else None
+        if x is not None and y is not None:
+            out.append((x, y))
+    return out
+
+
+def correlation_and_trend(points):
+    n = len(points)
+    mx = sum(x for x, _ in points) / n
+    my = sum(y for _, y in points) / n
+    sxy = sum((x - mx) * (y - my) for x, y in points)
+    sxx = sum((x - mx) ** 2 for x, _ in points)
+    syy = sum((y - my) ** 2 for _, y in points)
+    r = sxy / math.sqrt(sxx * syy) if sxx and syy else 0.0
+    slope = sxy / sxx if sxx else 0.0
+    intercept = my - slope * mx
+    return r, slope, intercept
+
+
+def describe_r(r):
+    a = abs(r)
+    strength = ("no real" if a < 0.1 else "a weak" if a < 0.3 else
+                "a moderate" if a < 0.5 else "a strong" if a < 0.7 else "a very strong")
+    direction = "positive" if r > 0 else "negative"
+    return f"{strength} {direction} relationship" if a >= 0.1 else "no real relationship"
+
+
+# ---------- over time ----------
+
+def parse_date(text):
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(text.strip(), fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def time_series(header, body, date_name, value_name, period="row", combine="sum"):
+    """Rows on the same date (or week/month) are added up, or averaged."""
+    di, vi = header.index(date_name), header.index(value_name)
+    buckets = defaultdict(list)
+    for row in body:
+        d = parse_date(row[di]) if di < len(row) else None
+        v = to_number(row[vi]) if vi < len(row) else None
+        if d is None or v is None:
+            continue
+        if period == "week":
+            d = d - timedelta(days=d.weekday())
+        elif period == "month":
+            d = d.replace(day=1)
+        buckets[d].append(v)
+    combine_fn = (lambda vs: sum(vs) / len(vs)) if combine == "mean" else sum
+    return sorted((d, combine_fn(vs)) for d, vs in buckets.items())
+
+
+def moving_average(values, window):
+    out = []
+    for i in range(len(values)):
+        chunk = values[max(0, i - window + 1): i + 1]
+        out.append(sum(chunk) / len(chunk))
+    return out
+
+
+def growth(series):
+    first, last = series[0][1], series[-1][1]
+    changes = [series[i][1] - series[i - 1][1] for i in range(1, len(series))]
+    return {
+        "first": first, "last": last,
+        "total_change_pct": (last - first) / first * 100 if first else None,
+        "avg_change": sum(changes) / len(changes) if changes else 0,
+    }
+
+
+# ---------- new columns ----------
+
+def add_column(header, body, spec):
+    """spec like 'rate=likes/views' (operators: + - * /)."""
+    name, formula = spec.split("=", 1)
+    for op in "/*+-":
+        if op in formula:
+            a, b = formula.split(op, 1)
+            break
+    ai, bi = header.index(a.strip()), header.index(b.strip())
+    header.append(name.strip())
+    for row in body:
+        x, y = to_number(row[ai]), to_number(row[bi])
+        if x is None or y is None or (op == "/" and y == 0):
+            row.append("")
+            continue
+        value = {"+": x + y, "-": x - y, "*": x * y, "/": x / y}[op]
+        row.append(f"{value:.4f}".rstrip("0").rstrip("."))
+
+
+# ---------- rhythms (step patterns) ----------
+
+def rhythm_model(start=0, mode="0", steps=(3, 5, -2)):
+    """A repeating step pattern. mode "0" counts the start, "+1" steps forward first."""
+    steps = [s for s in steps if s != 0]
+    v0 = start + (1 if mode == "+1" else 0)
+    p, a, b = [0], [0], [0]
+    for s in steps:
+        p.append(p[-1] + s)               # number offset within one pass
+        a.append(a[-1] + abs(s))          # squares drawn (X)
+        b.append(b[-1] + (1 if s > 0 else -1))  # line up/down (Y)
+    return {"steps": steps, "L": len(steps), "v0": v0, "p": p, "a": a, "b": b,
+            "S": p[-1], "A": a[-1], "B": b[-1]}
+
+
+def landing(m, n):
+    """Landing n (0 = start): number, x, y."""
+    if m["L"] == 0:
+        return m["v0"], 0, 0
+    c, k = divmod(n, m["L"])
+    return (m["v0"] + c * m["S"] + m["p"][k], c * m["A"] + m["a"][k], c * m["B"] + m["b"][k])
+
+
+def first_hit(m, t):
+    best = None
+    for k in range(m["L"]):
+        d = t - m["v0"] - m["p"][k]
+        if m["S"] == 0:
+            n = k if d == 0 else None
+        elif d % m["S"] == 0 and d // m["S"] >= 0:
+            n = (d // m["S"]) * m["L"] + k
+        else:
+            n = None
+        if n is not None and (best is None or n < best):
+            best = n
+    return best
+
+
+def first_pass(m, t):
+    """First landing whose jump skips over t."""
+    if m["L"] == 0:
+        return None
+    d, S, lo_p, hi_p = t - m["v0"], m["S"], min(m["p"]), max(m["p"])
+    if S > 0:
+        c_lo, c_hi = math.ceil((d - hi_p) / S), math.floor((d - lo_p) / S)
+    elif S < 0:
+        c_lo, c_hi = math.ceil((d - lo_p) / S), math.floor((d - hi_p) / S)
+    else:
+        c_lo, c_hi = 0, 0
+    for c in range(max(0, c_lo), c_hi + 1):
+        base = m["v0"] + c * S
+        for k in range(1, m["L"] + 1):
+            u, v = base + m["p"][k - 1], base + m["p"][k]
+            if u < t < v or v < t < u:
+                return c * m["L"] + k
+    return None
+
+
+def residues(m):
+    """Remainders (mod |S|) the rhythm can land on, with where each starts."""
+    mod = abs(m["S"])
+    classes = {}
+    for k in range(m["L"]):
+        v = m["v0"] + m["p"][k]
+        r = v % mod
+        if r not in classes or (v < classes[r] if m["S"] > 0 else v > classes[r]):
+            classes[r] = v
+    return mod, classes
+
+
+def verdict(m, t):
+    hit, passed = first_hit(m, t), first_pass(m, t)
+    if hit is not None and (passed is None or hit < passed):
+        return "hit", hit
+    if passed is not None:
+        return ("passes over, then hits" if hit is not None else "passes over"), passed
+    return "never reaches", None
+
+
+def contains(m, x):
+    if m["S"] == 0:
+        return x in {m["v0"] + q for q in m["p"][:m["L"]]}
+    mod, classes = residues(m)
+    bound = classes.get(x % mod)
+    return bound is not None and (x >= bound if m["S"] > 0 else x <= bound)
+
+
+def shared(m1, m2, lo, hi):
+    """Exact count of numbers both rhythms land on in [lo, hi], via remainders (CRT)."""
+    if m1["S"] == 0 or m2["S"] == 0:
+        fin, other = (m1, m2) if m1["S"] == 0 else (m2, m1)
+        vals = {fin["v0"] + q for q in fin["p"][:fin["L"]]}
+        return sum(1 for v in vals if lo <= v <= hi and contains(other, v))
+    (n1, c1), (n2, c2) = residues(m1), residues(m2)
+    g = math.gcd(n1, n2)
+    lcm = n1 // g * n2
+    total = 0
+    for r1, b1 in c1.items():
+        for r2, b2 in c2.items():
+            if (r2 - r1) % g:
+                continue
+            t = ((r2 - r1) // g * pow(n1 // g, -1, n2 // g)) % (n2 // g) if n2 // g > 1 else 0
+            x0 = (r1 + n1 * t) % lcm
+            a, b = lo, hi
+            a = max(a, b1) if m1["S"] > 0 else a
+            b = min(b, b1) if m1["S"] < 0 else b
+            a = max(a, b2) if m2["S"] > 0 else a
+            b = min(b, b2) if m2["S"] < 0 else b
+            if a <= b:
+                total += (b - x0) // lcm - (a - 1 - x0) // lcm
+    return total
+
+
+def show_rhythm(steps, start, mode, check):
+    m = rhythm_model(start, mode, steps)
+    kind, n = verdict(m, check)
+    print(f"Rhythm {steps} from {m['v0']}: each pass moves {m['S']:+}, draws {m['A']} squares, Y {m['B']:+}")
+    if n is not None:
+        value, x, y = landing(m, n)
+        print(f"  {check}: {kind} on step {n:,} (lands on {value:,}) at X {x:,}, Y {y:,}")
+    else:
+        print(f"  {check}: {kind}")
+    if m["S"] != 0:
+        mod, classes = residues(m)
+        print(f"  proof: lands only on remainders {sorted(classes)} of {mod}; {check} leaves {check % mod}")
+    print("  first landings:", ", ".join(str(landing(m, i)[0]) for i in range(min(20, (n or 19) + 1))))
+    return m
+
+
+# ---------- sample data ----------
+
+def make_sample_file(path):
+    random.seed(7)
+    start = date(2026, 8, 1)
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["date", "topic", "views", "likes"])
+        for i in range(60):
+            views = int(400 + i * 12 + random.uniform(-150, 150))
+            w.writerow([start + timedelta(days=i), random.choice(["Spiral", "Fractal", "Liquid"]),
+                        views, int(views * random.uniform(0.04, 0.09))])
+
+
+# ---------- printing ----------
+
+def show(label, value):
+    if isinstance(value, float):
+        value = f"{value:,.2f}"
+    print(f"  {label:<14} {value}")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="User Data Analyzer v2")
+    ap.add_argument("filename", nargs="?", default="data_points.csv")
+    ap.add_argument("--column", help="column to measure (default: last numeric column)")
+    ap.add_argument("--threshold", type=float, default=10)
+    ap.add_argument("--mode", choices=["above", "below", "all"], default="above")
+    ap.add_argument("--percentile-of", type=float, help="where does this value rank?")
+    ap.add_argument("--group", help="category column for totals per group")
+    ap.add_argument("--x", help="first column to compare")
+    ap.add_argument("--y", help="second column to compare")
+    ap.add_argument("--predict", type=float, help="predict y for this x")
+    ap.add_argument("--date", help="date column for the over-time view")
+    ap.add_argument("--period", choices=["row", "week", "month"], default="row")
+    ap.add_argument("--combine", choices=["sum", "mean"], default="sum")
+    ap.add_argument("--window", type=int, default=7, help="moving-average size")
+    ap.add_argument("--new-column", help="e.g. rate=likes/views")
+    ap.add_argument("--save", help="write the kept rows to this CSV")
+    ap.add_argument("--rhythm", action="append", help='step pattern like "3,5,-2" (repeat the flag to compare lines)')
+    ap.add_argument("--start", type=int, default=0, help="rhythm start number")
+    ap.add_argument("--start-mode", choices=["0", "+1"], default="0")
+    ap.add_argument("--check", type=int, default=26, help="number to check the rhythm against")
+    ap.add_argument("--range", type=int, nargs=2, default=[0, 1_000_000], metavar=("LO", "HI"))
+    args = ap.parse_args()
+
+    if args.rhythm:
+        models = []
+        for i, text in enumerate(args.rhythm, 1):
+            steps = [int(x) for x in text.replace(" ", "").split(",") if x]
+            print(f"Line {i}:", end=" ")
+            models.append(show_rhythm(steps, args.start, args.start_mode, args.check))
+        lo, hi = args.range
+        for i in range(len(models)):
+            for j in range(i + 1, len(models)):
+                print(f"Line {i + 1} <-> Line {j + 1}: {shared(models[i], models[j], lo, hi):,} shared numbers in {lo:,}..{hi:,}")
+        return
+
+    if not os.path.exists(args.filename):
+        print(f"{args.filename} not found, creating sample data.")
+        make_sample_file(args.filename)
+
+    header, body = load_table(args.filename)
+    if args.new_column:
+        add_column(header, body, args.new_column)
+        print(f"Added column '{header[-1]}'.")
+
+    if args.column is None:
+        numeric = [h for h in header if column(header, body, h)]
+        args.column = numeric[-1]
+    ci = header.index(args.column)
+
+    # the cutoff filters whole rows, like the app
+    kept = [r for r in body
+            if keep_row(to_number(r[ci]) if ci < len(r) else None, args.threshold, args.mode)]
+    print(f"Analyzing {args.filename} -> column '{args.column}'")
+    rule = "every row" if args.mode == "all" else f"{args.mode} {args.threshold:g}"
+    print(f"Kept {len(kept)} of {len(body)} rows ({rule})\n")
+
+    s = describe(column(header, kept, args.column))
+    if s is None:
+        print("No values passed the cutoff.")
+        return
+    print("Overview")
+    for key in ("count", "total", "mean", "median", "min", "max", "range", "std_dev",
+                "q1", "q3", "iqr", "p10", "p90"):
+        show(key, s[key])
+    show("mode", ", ".join(f"{m:g}" for m in s["modes"]) or "none")
+    show("outliers", ", ".join(f"{o:g}" for o in s["outliers"]) or "none")
+    if args.percentile_of is not None:
+        pct = percent_at_or_below(column(header, kept, args.column), args.percentile_of)
+        print(f"  {args.percentile_of:g} is at or above {pct:.0f}% of values")
+
+    if args.group:
+        print(f"\nBy {args.group}")
+        for g in group_by(header, kept, args.group, args.column):
+            print(f"  {g['group']:<14} count {g['count']:>4}   sum {g['sum']:>12,.2f}   mean {g['mean']:>10,.2f}")
+
+    if args.x and args.y:
+        pts = pairs(header, kept, args.x, args.y)
+        r, slope, intercept = correlation_and_trend(pts)
+        print(f"\n{args.x} vs {args.y} ({len(pts)} pairs)")
+        show("r", r)
+        show("r squared", r * r)
+        print(f"  {describe_r(r)}; trend line: {args.y} = {slope:.4f} x {args.x} + {intercept:.2f}")
+        if args.predict is not None:
+            print(f"  at {args.x} = {args.predict:g}, expect {args.y} about {slope * args.predict + intercept:,.2f}")
+        a, b = describe([x for x, _ in pts]), describe([y for _, y in pts])
+        print(f"  mean {args.x} {a['mean']:,.2f}  vs  mean {args.y} {b['mean']:,.2f}"
+              f"  (difference {b['mean'] - a['mean']:,.2f})")
+
+    if args.date:
+        series = time_series(header, kept, args.date, args.column, args.period, args.combine)
+        if series:
+            ma = moving_average([v for _, v in series], args.window)
+            g = growth(series)
+            print(f"\nOver time ({len(series)} points, by {args.period})")
+            show("first", g["first"])
+            show("last", g["last"])
+            show("change %", g["total_change_pct"] if g["total_change_pct"] is not None else "n/a")
+            show("avg change", g["avg_change"])
+            show(f"{args.window}-pt average", ma[-1])
+
+    if args.save:
+        with open(args.save, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(header)
+            w.writerows(kept)
+        print(f"\nSaved {len(kept)} rows to {args.save}")
+
+
+if __name__ == "__main__":
+    main()
+</script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const RH=32, CW=128;
+let D={cols:[],rows:[]};
+const S={tab:'overview',main:-1,mode:'above',threshold:10,bins:12,
+  grp:{cat:-1,val:-1,metric:'sum',sort:'sum',dir:-1},
+  cmp:{a:-1,b:-1},time:{date:-1,val:-1,period:'row',agg:'sum',win:7},
+  nc:{a:-1,b:-1},search:'',show:'all',sel:{r:0,c:0},filename:'my_data.csv',pref:{},flags:{}};
+let T=[], mask=new Uint8Array(0), active=[], keptIdx=[], view=[];
+
+/* ================= helpers ================= */
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toNum(s){ if(s==null) return NaN; let t=String(s).trim(); if(!t) return NaN; t=t.replace(/[$,%\s]/g,'');
+  return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)?+t:NaN }
+function toDate(s){ if(s==null) return NaN; const t=String(s).trim(); let m=t.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/), y,mo,d;
+  if(m){y=+m[1];mo=+m[2];d=+m[3]} else if((m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/))){mo=+m[1];d=+m[2];y=+m[3];if(y<100)y+=2000} else return NaN;
+  if(mo<1||mo>12||d<1||d>31) return NaN; return Date.UTC(y,mo-1,d) }
+function fmt(n){ if(n==null||!isFinite(n)) return '–'; const a=Math.abs(n);
+  if(a!==0&&a<1) return n.toLocaleString('en-US',{maximumSignificantDigits:3});
+  return n.toLocaleString('en-US',{maximumFractionDigits:2}) }
+const fmtP=n=>isFinite(n)?(n>0?'+':'')+fmt(n)+'%':'–';
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(ms,per){const d=new Date(ms);return per==='month'?MON[d.getUTCMonth()]+' '+d.getUTCFullYear():MON[d.getUTCMonth()]+' '+d.getUTCDate()+(per==='week'?' wk':'')+', '+d.getUTCFullYear()}
+function isoDate(ms){return new Date(ms).toISOString().slice(0,10)}
+const ord=n=>n+(n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th');
+const isBlank=r=>!r||!r.some(c=>c!=null&&String(c).trim()!=='');
+const colName=i=>D.cols[i]??'';
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+
+/* ================= CSV ================= */
+function parseCSV(t){
+  const first=(t.split(/\r?\n/).find(l=>l.trim())||'');
+  const dl=first.includes('\t')?'\t':(first.includes(';')&&!first.includes(','))?';':',';
+  const rows=[];let row=[],cell='',q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){ if(ch==='"'){ if(t[i+1]==='"'){cell+='"';i++} else q=false } else cell+=ch }
+    else if(ch==='"'&&cell==='') q=true;
+    else if(ch===dl){row.push(cell);cell=''}
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&t[i+1]==='\n') i++; row.push(cell);rows.push(row);row=[];cell='' }
+    else cell+=ch }
+  if(cell!==''||row.length){row.push(cell);rows.push(row)}
+  return rows.map(r=>r.map(c=>c.trim())).filter(r=>r.some(c=>c!==''));
+}
+function tableFromRows(rows){
+  if(rows.length===1&&rows[0].length>1) rows=rows[0].map(c=>[c]);
+  if(!rows.length) return {cols:['column 1'],rows:[['']]};
+  const width=Math.max(...rows.map(r=>r.length));
+  const header=rows.length>1&&!rows[0].some(c=>!isNaN(toNum(c)))&&rows.slice(1).some(r=>r.some(c=>!isNaN(toNum(c))||!isNaN(toDate(c))));
+  const cols=[];for(let i=0;i<width;i++) cols.push(header&&rows[0][i]?rows[0][i]:'column '+(i+1));
+  const body=(header?rows.slice(1):rows).map(r=>{const a=r.slice();while(a.length<width)a.push('');return a});
+  return {cols,rows:body};
+}
+function csvCell(c){c=String(c??'');return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}
+const toCSV=(cols,rows)=>[cols,...rows].map(r=>cols.map((_,i)=>csvCell(r[i])).join(',')).join('\n')+'\n';
+
+/* ================= examples ================= */
+function lcg(seed){let s=seed>>>0;return()=>(s=(s*1664525+1013904223)>>>0)/4294967296}
+const SAMPLES={
+  videos:{pref:{main:'views',cat:'topic',a:'views',b:'likes',date:'posted',tval:'views',na:'likes',nb:'views'},thr:0,mode:'all',
+    csv:`video,topic,posted,minutes,views,likes
+Spiral bloom,Spiral,2026-06-02,3.5,1240,88
+Neon tide,Liquid,2026-06-09,4.0,3410,251
+Fractal rain,Fractal,2026-06-16,2.0,860,41
+Glass orbit,Geometry,2026-06-23,6.5,12950,904
+Liquid gold,Liquid,2026-06-30,3.0,2210,133
+Prism drift,Geometry,2026-07-07,1.5,640,22
+Hex garden,Geometry,2026-07-14,5.0,5120,377
+Pulse field,Spiral,2026-07-21,2.5,1890,97
+Mirror bloom,Spiral,2026-07-28,5.5,7340,512
+Static waves,Fractal,2026-08-04,1.0,410,15
+Quiet vortex,Spiral,2026-08-11,3.0,2780,160
+Ember lattice,Fractal,2026-08-18,2.5,980,58
+Chrome river,Liquid,2026-08-25,4.5,4630,301
+Seed of light,Geometry,2026-09-01,6.0,6870,455
+Ink spiral,Spiral,2026-09-08,2.0,1520,79
+Mandel deep,Fractal,2026-09-15,7.0,3980,240`},
+  scores:{pref:{main:'after',cat:'class',a:'before',b:'after',tval:'after',na:'after',nb:'before'},thr:0,mode:'all',
+    csv:`student,class,before,after
+Ava,Morning,72,92
+Ben,Morning,58,67
+Cara,Evening,70,78
+Dev,Morning,80,85
+Eli,Evening,49,54
+Fay,Morning,75,88
+Gus,Evening,66,71
+Hana,Morning,88,95
+Ivan,Evening,61,62
+Jade,Morning,71,80
+Kai,Evening,52,49
+Lena,Morning,79,90
+Milo,Evening,64,73
+Nia,Morning,77,84
+Omar,Evening,55,58
+Pia,Morning,69,77
+Quinn,Evening,91,99
+Rosa,Evening,62,66
+Sam,Morning,73,81
+Tess,Evening,68,70`},
+  daily:{pref:{main:'views',cat:'weekday',a:'views',b:'new_subs',date:'date',tval:'views',na:'new_subs',nb:'views'},thr:0,mode:'all',
+    csv:(()=>{const r=lcg(42),W=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];let t='date,weekday,views,new_subs\n';const st=Date.UTC(2026,6,1);
+      for(let i=0;i<120;i++){const ms=st+i*864e5,dow=(new Date(ms).getUTCDay()+6)%7;let v=180+i*3.2+(dow>=5?90:0)+(r()-.5)*120;if(i===71)v*=3.4;v=Math.round(v);
+        t+=isoDate(ms)+','+W[dow]+','+v+','+Math.max(0,Math.round(v*(.012+r()*.01)))+'\n'}return t})()},
+  random:{pref:{main:'value'},thr:10,mode:'above',csv:null}
+};
+function sampleCSV(name){ if(name==='random'){let t='id,value\n';for(let i=1;i<=50;i++)t+=i+','+(Math.random()*100).toFixed(2)+'\n';return t} return SAMPLES[name].csv }
+
+/* ================= base computation ================= */
+function computeTypes(){
+  T=D.cols.map((_,c)=>{let ne=0,nn=0,nd=0;const n=D.rows.length,step=Math.max(1,Math.floor(n/4000));
+    for(let i=0;i<n;i+=step){const v=D.rows[i][c];if(v==null||String(v).trim()==='')continue;ne++;if(!isNaN(toNum(v)))nn++;else if(!isNaN(toDate(v)))nd++}
+    return ne&&nn>=ne*.6?'num':ne&&nd>=ne*.6?'date':'text'});
+}
+const pass=v=>S.mode==='all'||S.main<0?true:isNaN(v)?false:S.mode==='above'?v>S.threshold:v<S.threshold;
+function computeBase(){
+  computeTypes(); ensureSettings();
+  mask=new Uint8Array(D.rows.length); active=[]; keptIdx=[];
+  for(let i=0;i<D.rows.length;i++){const r=D.rows[i]; if(isBlank(r)) continue; active.push(i);
+    if(pass(toNum(r[S.main]))){mask[i]=1;keptIdx.push(i)}}
+}
+function buildView(){
+  const q=S.search.trim().toLowerCase(); view=[];
+  for(let i=0;i<D.rows.length;i++){
+    if(S.show==='kept'&&!mask[i]) continue;
+    if(S.show==='dropped'&&(mask[i]||isBlank(D.rows[i]))) continue;
+    if(q&&!D.rows[i].some(c=>String(c??'').toLowerCase().includes(q))) continue;
+    view.push(i)}
+}
+const numCols=()=>T.map((t,i)=>t==='num'?i:-1).filter(i=>i>=0);
+function pick(cur,ok,prefName,fallback){
+  if(cur>=0&&cur<D.cols.length&&ok(cur)) return cur;
+  if(prefName){const i=D.cols.indexOf(prefName);if(i>=0&&ok(i))return i}
+  const c=D.cols.map((_,i)=>i).filter(ok); return c.length?(fallback==='last'?c[c.length-1]:c[0]):-1;
+}
+function ensureSettings(){
+  const isNum=i=>T[i]==='num', P=S.pref;
+  S.main=pick(S.main,isNum,P.main,'last');
+  S.grp.cat=pick(S.grp.cat,i=>T[i]!=='num',P.cat); if(S.grp.cat<0) S.grp.cat=pick(-1,()=>true,null);
+  S.grp.val=pick(S.grp.val,isNum,P.main||colName(S.main),'last');
+  S.cmp.a=pick(S.cmp.a,isNum,P.a); S.cmp.b=pick(S.cmp.b,i=>isNum(i)&&(i!==S.cmp.a||numCols().length<2),P.b,'last');
+  S.time.date=pick(S.time.date,i=>T[i]==='date',P.date); S.time.val=pick(S.time.val,isNum,P.tval||colName(S.main),'last');
+  S.nc.a=pick(S.nc.a,isNum,P.na); S.nc.b=pick(S.nc.b,i=>isNum(i)&&(i!==S.nc.a||numCols().length<2),P.nb,'last');
+}
+
+/* ================= stats ================= */
+function quant(d,p){const pos=(d.length-1)*p,lo=Math.floor(pos),hi=Math.ceil(pos);return d[lo]+(d[hi]-d[lo])*(pos-lo)}
+function describe(vals){
+  const n=vals.length; if(!n) return null;
+  const d=Float64Array.from(vals).sort(); let total=0; for(const v of d) total+=v;
+  const mean=total/n; let ss=0; for(const v of d) ss+=(v-mean)**2;
+  const q1=quant(d,.25),median=quant(d,.5),q3=quant(d,.75),iqr=q3-q1,lf=q1-1.5*iqr,hf=q3+1.5*iqr;
+  const cnt=new Map();let top=0; for(const v of d){const k=(cnt.get(v)||0)+1;cnt.set(v,k);if(k>top)top=k}
+  const modes=top>1?[...cnt].filter(([,k])=>k===top).map(([v])=>v):[];
+  let wl=d[0],wh=d[n-1]; for(let i=0;i<n;i++){if(d[i]>=lf){wl=d[i];break}} for(let i=n-1;i>=0;i--){if(d[i]<=hf){wh=d[i];break}}
+  return {d,count:n,total,mean,median,modes,modeCount:top,min:d[0],max:d[n-1],range:d[n-1]-d[0],std:Math.sqrt(ss/n),ss,
+    q1,q3,iqr,p10:quant(d,.1),p90:quant(d,.9),lf,hf,wl,wh,nOut:d.filter(v=>v<lf||v>hf).length};
+}
+const colVals=(idx,c)=>{const o=[];for(const i of idx){const v=toNum(D.rows[i][c]);if(!isNaN(v))o.push(v)}return o};
+function sumText(d){const n=d.length;return n<=6?[...d].map(fmt).join(' + '):[...d.slice(0,4)].map(fmt).join(' + ')+' + … + '+fmt(d[n-1])+`  (${n.toLocaleString()} values)`}
+function quantMath(d,p,label){const n=d.length,pos=(n-1)*p,lo=Math.floor(pos),f=pos-lo;
+  if(f<1e-9) return `${label}: position (n−1)×${p} = ${fmt(pos)} → the ${ord(lo+1)} sorted value = ${fmt(d[lo])}`;
+  return `${label}: position (${n}−1)×${p} = ${fmt(pos)} → ${fmt(f)} of the way from the ${ord(lo+1)} value (${fmt(d[lo])}) to the ${ord(lo+2)} (${fmt(d[lo+1])}) = ${fmt(quant(d,p))}`}
+
+/* ================= canvas ================= */
+let TK={};
+function readTokens(){const cs=getComputedStyle(document.documentElement);for(const k of ['--fg','--muted','--line','--accent','--accent-soft','--accent-ink','--drop','--mean','--median','--surface','--surface-2','--bad','--ok','--f-mono'])TK[k]=cs.getPropertyValue(k).trim()}
+function cv(id,h){const c=document.getElementById(id),w=c.clientWidth;if(!w)return null;const dpr=window.devicePixelRatio||1;
+  c.style.height=h+'px';c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
+  x.font='11.5px '+TK['--f-mono'];x.lineWidth=1;return {x,w,h}}
+function niceTicks(lo,hi,count=5){if(!(hi>lo))hi=lo+1;const raw=(hi-lo)/count,mag=10**Math.floor(Math.log10(raw)),f=raw/mag,step=(f<1.5?1:f<3?2:f<7?5:10)*mag;
+  const t=[];for(let v=Math.ceil(lo/step)*step;v<=hi+step*1e-9;v+=step)t.push(+v.toPrecision(12));return t}
+function fa(v){const a=Math.abs(v);if(a>=1e6)return +(v/1e6).toFixed(a>=1e7?0:1)+'M';if(a>=1e4)return +(v/1e3).toFixed(a>=1e5?0:1)+'k';return fmt(v)}
+function vgrid(x,X,ticks,T0,B0,h){x.textAlign='center';x.textBaseline='top';for(const t of ticks){const px=Math.round(X(t))+.5;x.strokeStyle=TK['--line'];x.beginPath();x.moveTo(px,T0);x.lineTo(px,B0);x.stroke();x.fillStyle=TK['--muted'];x.fillText(fa(t),px,B0+6)}}
+function hgrid(x,Y,ticks,L,R,w){x.textAlign='right';x.textBaseline='middle';for(const t of ticks){const py=Math.round(Y(t))+.5;x.strokeStyle=TK['--line'];x.beginPath();x.moveTo(L,py);x.lineTo(w-R,py);x.stroke();x.fillStyle=TK['--muted'];x.fillText(fa(t),L-6,py)}}
+function emptyCanvas(id,msg,h=120){const g=cv(id,h);if(!g)return;g.x.fillStyle=TK['--muted'];g.x.textAlign='center';g.x.textBaseline='middle';g.x.font='13px '+TK['--f-mono'];g.x.fillText(msg,g.w/2,h/2)}
+
+function drawBoxes(id,items){
+  const rowH=58,T0=8,lab=items.length>1,h=T0+items.length*rowH+26,g=cv(id,h);if(!g)return;const {x,w}=g;
+  const L=lab?Math.min(110,Math.max(...items.map(i=>x.measureText(i.label).width))+16):14,R=14;
+  let lo=Math.min(...items.map(i=>i.s.min)),hi=Math.max(...items.map(i=>i.s.max));if(hi===lo){lo-=1;hi+=1}const pad=(hi-lo)*.04;lo-=pad;hi+=pad;
+  const X=v=>L+(v-lo)/(hi-lo)*(w-L-R),B0=T0+items.length*rowH;
+  vgrid(x,X,niceTicks(lo,hi,Math.max(3,Math.floor((w-L)/90))),T0,B0,h);
+  items.forEach((it,k)=>{const s=it.s,cy=T0+k*rowH+rowH/2,bh=24;
+    if(lab){x.fillStyle=TK['--fg'];x.textAlign='left';x.textBaseline='middle';x.fillText(it.label,4,cy)}
+    x.strokeStyle=TK['--fg'];x.lineWidth=1.5;x.beginPath();x.moveTo(X(s.wl),cy);x.lineTo(X(s.q1),cy);x.moveTo(X(s.q3),cy);x.lineTo(X(s.wh),cy);
+    x.moveTo(X(s.wl),cy-7);x.lineTo(X(s.wl),cy+7);x.moveTo(X(s.wh),cy-7);x.lineTo(X(s.wh),cy+7);x.stroke();
+    x.fillStyle=TK['--accent-soft'];x.fillRect(X(s.q1),cy-bh/2,Math.max(1,X(s.q3)-X(s.q1)),bh);x.strokeStyle=TK['--accent'];x.strokeRect(X(s.q1),cy-bh/2,Math.max(1,X(s.q3)-X(s.q1)),bh);
+    x.strokeStyle=TK['--median'];x.lineWidth=3;x.beginPath();x.moveTo(X(s.median),cy-bh/2);x.lineTo(X(s.median),cy+bh/2);x.stroke();
+    x.fillStyle=TK['--mean'];x.beginPath();const mx=X(s.mean);x.moveTo(mx,cy-6);x.lineTo(mx+6,cy);x.lineTo(mx,cy+6);x.lineTo(mx-6,cy);x.closePath();x.fill();
+    x.lineWidth=1.5;x.strokeStyle=TK['--fg'];for(const v of s.d){if(v<s.lf||v>s.hf){x.beginPath();x.arc(X(v),cy,4,0,7);x.stroke()}}
+    x.lineWidth=1});
+}
+function drawHist(){
+  const all=[],kept=[];for(const i of active){const v=toNum(D.rows[i][S.main]);if(!isNaN(v)){all.push(v);kept.push(mask[i]===1)}}
+  if(!all.length) return emptyCanvas('cHist','No numbers in this column',220);
+  const h=230,g=cv('cHist',h);if(!g)return;const {x,w}=g;
+  let lo=Math.min(...all),hi=Math.max(...all);if(lo===hi){lo-=1;hi+=1}
+  const n=S.bins,bw=(hi-lo)/n,K=new Array(n).fill(0),Dr=new Array(n).fill(0);
+  all.forEach((v,j)=>{const i=Math.min(n-1,Math.floor((v-lo)/bw));(kept[j]?K:Dr)[i]++});
+  const L=40,R=12,T0=12,B=28,pw=w-L-R,ph=h-T0-B,maxC=Math.max(1,...K.map((k,i)=>k+Dr[i])),yt=niceTicks(0,maxC,4).filter(t=>Number.isInteger(t)),top=Math.max(maxC,yt[yt.length-1]);
+  const X=v=>L+(v-lo)/(hi-lo)*pw,Y=c=>T0+ph-c/top*ph;
+  hgrid(x,Y,yt,L,R,w);
+  const gap=pw/n>8?2:1;
+  for(let i=0;i<n;i++){const x0=X(lo+i*bw)+gap/2,bwp=pw/n-gap;
+    if(Dr[i]){x.fillStyle=TK['--drop'];x.fillRect(x0,Y(Dr[i]),bwp,Y(0)-Y(Dr[i]))}
+    if(K[i]){x.fillStyle=TK['--accent'];x.fillRect(x0,Y(Dr[i]+K[i]),bwp,Y(Dr[i])-Y(Dr[i]+K[i]))}}
+  x.fillStyle=TK['--muted'];x.textBaseline='top';x.textAlign='left';x.fillText(fa(lo),L,h-B+8);x.textAlign='right';x.fillText(fa(hi),w-R,h-B+8);x.textAlign='center';x.fillText(fa((lo+hi)/2),L+pw/2,h-B+8);
+  const vl=(v,c,dash)=>{if(!isFinite(v)||v<lo||v>hi)return;x.save();x.strokeStyle=c;x.lineWidth=2;x.setLineDash(dash||[]);x.beginPath();x.moveTo(X(v),T0-4);x.lineTo(X(v),T0+ph);x.stroke();x.restore()};
+  if(S.mode!=='all') vl(S.threshold,TK['--fg'],[5,4]);
+  const st=OV.s; if(st){vl(st.mean,TK['--mean']);vl(st.median,TK['--median'])}
+}
+function drawScatter(pts,fit,pred){
+  if(pts.length<2) return emptyCanvas('cScatter','Need at least 2 rows with both numbers',260);
+  const h=300,g=cv('cScatter',h);if(!g)return;const {x,w}=g;
+  let xl=Infinity,xh=-Infinity,yl=Infinity,yh=-Infinity;for(const [a,b] of pts){if(a<xl)xl=a;if(a>xh)xh=a;if(b<yl)yl=b;if(b>yh)yh=b}
+  if(pred&&isFinite(pred[0])){xl=Math.min(xl,pred[0]);xh=Math.max(xh,pred[0]);yl=Math.min(yl,pred[1]);yh=Math.max(yh,pred[1])}
+  if(xl===xh){xl-=1;xh+=1}if(yl===yh){yl-=1;yh+=1}const px=(xh-xl)*.05,py=(yh-yl)*.07;xl-=px;xh+=px;yl-=py;yh+=py;
+  const L=50,R=12,T0=12,B=30,X=v=>L+(v-xl)/(xh-xl)*(w-L-R),Y=v=>T0+(1-(v-yl)/(yh-yl))*(h-T0-B);
+  hgrid(x,Y,niceTicks(yl,yh,5),L,R,w);vgrid(x,X,niceTicks(xl,xh,Math.max(3,Math.floor(w/100))),T0,h-B,h);
+  const r=pts.length>2000?1.6:pts.length>300?2.6:4;x.fillStyle=TK['--accent'];x.globalAlpha=pts.length>300?.55:.8;
+  for(const [a,b] of pts){x.beginPath();x.arc(X(a),Y(b),r,0,7);x.fill()}x.globalAlpha=1;
+  if(fit){x.save();x.beginPath();x.rect(L,T0,w-L-R,h-T0-B);x.clip();x.strokeStyle=TK['--mean'];x.lineWidth=2;x.beginPath();x.moveTo(X(xl),Y(fit.slope*xl+fit.icpt));x.lineTo(X(xh),Y(fit.slope*xh+fit.icpt));x.stroke();x.restore()}
+  if(pred&&isFinite(pred[0])){x.strokeStyle=TK['--median'];x.lineWidth=2.5;x.beginPath();x.arc(X(pred[0]),Y(pred[1]),7,0,7);x.stroke();x.lineWidth=1}
+}
+function drawBars(groups,metric){
+  const top=groups.slice(0,25);if(!top.length) return emptyCanvas('cBars','No groups to show',120);
+  const rowH=26,h=top.length*rowH+12,g=cv('cBars',h);if(!g)return;const {x,w}=g;
+  const lw=Math.min(150,Math.max(...top.map(gr=>x.measureText(gr.key).width))+12),vw=70;
+  const mx=Math.max(...top.map(gr=>Math.abs(gr[metric])),1e-12);
+  top.forEach((gr,i)=>{const y=6+i*rowH,v=gr[metric],bw=Math.max(1,Math.abs(v)/mx*(w-lw-vw));
+    x.fillStyle=TK['--fg'];x.textAlign='right';x.textBaseline='middle';let lab=gr.key;while(x.measureText(lab).width>lw-12&&lab.length>2)lab=lab.slice(0,-2)+'…';x.fillText(lab,lw-8,y+rowH/2-2);
+    x.fillStyle=TK['--accent'];x.fillRect(lw,y+3,bw,rowH-10);x.fillStyle=TK['--muted'];x.textAlign='left';x.fillText(fa(v),lw+bw+6,y+rowH/2-2)});
+  if(groups.length>25){x.fillStyle=TK['--muted'];x.textAlign='left';x.fillText(`+${groups.length-25} more in the table`,lw,h-4)}
+}
+function drawLine(series,ma,per){
+  const h=280,g=cv('cLine',h);if(!g)return;const {x,w}=g;
+  const xs=series.map(p=>p[0]),ys=series.map(p=>p[1]);let xl=xs[0],xh=xs[xs.length-1];if(xl===xh){xl-=864e5;xh+=864e5}
+  let yl=Math.min(...ys,...ma),yh=Math.max(...ys,...ma);if(yl===yh){yl-=1;yh+=1}const py=(yh-yl)*.08;yl=Math.min(0,yl-py)<0&&yl>=0?0:yl-py;yh+=py;
+  const L=50,R=14,T0=12,B=30,X=v=>L+(v-xl)/(xh-xl)*(w-L-R),Y=v=>T0+(1-(v-yl)/(yh-yl))*(h-T0-B);
+  hgrid(x,Y,niceTicks(yl,yh,5),L,R,w);
+  const nt=Math.max(2,Math.floor((w-L)/110));x.fillStyle=TK['--muted'];x.textBaseline='top';
+  for(let i=0;i<=nt;i++){const v=xl+(xh-xl)*i/nt,d=new Date(v);x.textAlign=i===0?'left':i===nt?'right':'center';x.fillText(per==='month'?MON[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(2):MON[d.getUTCMonth()]+' '+d.getUTCDate(),X(v),h-B+8)}
+  const path=(arr,col,lw)=>{x.strokeStyle=col;x.lineWidth=lw;x.lineJoin='round';x.beginPath();arr.forEach((v,i)=>{const px=X(xs[i]),pv=Y(v);i?x.lineTo(px,pv):x.moveTo(px,pv)});x.stroke()};
+  path(ys,TK['--accent'],1.8);
+  if(series.length<=90){x.fillStyle=TK['--accent'];ys.forEach((v,i)=>{x.beginPath();x.arc(X(xs[i]),Y(v),2.6,0,7);x.fill()})}
+  if(S.time.win>1) path(ma,TK['--mean'],2.5);x.lineWidth=1;
+}
+
+/* ================= tab renderers ================= */
+let OV={s:null};
+function tile(k,v,math,cls=''){return `<div class="tile ${cls}"><span class="v">${v}</span><span class="k">${k}</span>${math?`<span class="math">${math}</span>`:''}</div>`}
+function ruleText(){return S.mode==='all'||S.main<0?'every row kept':`${esc(colName(S.main))} ${S.mode} ${fmt(S.threshold)}`}
+
+function renderOverview(){
+  $('#ovName').textContent=colName(S.main)||'—';
+  const vals=colVals(keptIdx,S.main),s=describe(vals);OV.s=s;
+  if(!s){$('#ovRead').textContent=S.main<0?'No number columns yet. Add some numbers in the Table tab.':'No rows pass the cutoff. Move it in the filter strip above.';
+    $('#ovTiles').innerHTML='';emptyCanvas('cBox','Nothing to plot');drawHist();$('#outRead').textContent='';$('#outChips').innerHTML='';renderPct(null);$('#pyOv').innerHTML=pyFor('overview');return}
+  const d=s.d,n=s.count,skew=s.mean>s.median*1.15?' The average is well above the middle value, so a few big values are pulling it up.':s.mean<s.median*0.87?' The average is well below the middle value, so a few small values are pulling it down.':'';
+  $('#ovRead').innerHTML=`<b>${n.toLocaleString()}</b> values (${ruleText()}). The middle value is <b>${fmt(s.median)}</b> and the average is <b>${fmt(s.mean)}</b>. The middle half sits between <b>${fmt(s.q1)}</b> and <b>${fmt(s.q3)}</b>. ${s.nOut?`<b>${s.nOut}</b> outlier${s.nOut>1?'s':''} found.`:'No outliers.'}${skew}`;
+  const mid=Math.floor(n/2);
+  const medMath=n%2?`Sorted, the middle value is the ${ord(mid+1)} of ${n}: ${fmt(d[mid])}`:`Sorted, the middle two are the ${ord(mid)} and ${ord(mid+1)}: (${fmt(d[mid-1])} + ${fmt(d[mid])}) ÷ 2 = ${fmt(s.median)}`;
+  const modeV=s.modes.length?s.modes.slice(0,3).map(fmt).join(', ')+(s.modes.length>3?' …':''):'none';
+  const modeMath=s.modes.length?`${s.modes.length>1?'These each appear':'Appears'} ${s.modeCount} times, more than any other value`:'Every value appears only once, so there is no mode';
+  $('#ovTiles').innerHTML=[
+    tile('Count',n.toLocaleString(),`Counted every kept value: n = ${n}`),
+    tile('Total',fmt(s.total),sumText(d)+' = '+fmt(s.total)),
+    tile('Mean (average)',fmt(s.mean),`total ÷ count = ${fmt(s.total)} ÷ ${n} = ${fmt(s.mean)}`,'mean'),
+    tile('Median (middle)',fmt(s.median),medMath,'median'),
+    tile('Mode (most common)',modeV,modeMath),
+    tile('Std dev (spread)',fmt(s.std),`√( Σ(x − mean)² ÷ n ) = √( ${fmt(s.ss)} ÷ ${n} ) = √${fmt(s.ss/n)} = ${fmt(s.std)}`),
+    tile('Min',fmt(s.min),'Smallest value after sorting'),
+    tile('Max',fmt(s.max),'Largest value after sorting'),
+    tile('Range',fmt(s.range),`max − min = ${fmt(s.max)} − ${fmt(s.min)} = ${fmt(s.range)}`),
+    tile('Q1 (25th pct)',fmt(s.q1),quantMath(d,.25,'Q1')),
+    tile('Q3 (75th pct)',fmt(s.q3),quantMath(d,.75,'Q3')),
+    tile('IQR (middle half)',fmt(s.iqr),`Q3 − Q1 = ${fmt(s.q3)} − ${fmt(s.q1)} = ${fmt(s.iqr)}`),
+    tile('10th percentile',fmt(s.p10),quantMath(d,.1,'P10')),
+    tile('90th percentile',fmt(s.p90),quantMath(d,.9,'P90')),
+    tile('Outliers',s.nOut,`Low fence: Q1 − 1.5×IQR = ${fmt(s.q1)} − ${fmt(1.5*s.iqr)} = ${fmt(s.lf)}. High fence: Q3 + 1.5×IQR = ${fmt(s.q3)} + ${fmt(1.5*s.iqr)} = ${fmt(s.hf)}. Values outside the fences are outliers.`)
+  ].join('');
+  drawBoxes('cBox',[{label:colName(S.main),s}]);drawHist();
+  const outs=[];for(const i of keptIdx){const v=toNum(D.rows[i][S.main]);if(!isNaN(v)&&(v<s.lf||v>s.hf))outs.push([i,v])}
+  outs.sort((a,b)=>b[1]-a[1]);
+  $('#outRead').innerHTML=outs.length?`Outliers are values below <b>${fmt(s.lf)}</b> or above <b>${fmt(s.hf)}</b>. Tap one to find its row in the table.`:`Nothing falls outside the fences (${fmt(s.lf)} to ${fmt(s.hf)}).`;
+  const label=i=>{const t=D.cols.findIndex((_,c)=>T[c]==='text');return t>=0&&D.rows[i][t]?esc(D.rows[i][t]):'Row '+(i+1)};
+  $('#outChips').innerHTML=outs.slice(0,60).map(([i,v])=>`<button type="button" class="chip ${v>s.hf?'hi':'lo'}" data-row="${i}">${label(i)} · ${fmt(v)} ${v>s.hf?'high':'low'}</button>`).join('')+(outs.length>60?`<span class="hint">+${outs.length-60} more</span>`:'');
+  renderPct(s);$('#pyOv').innerHTML=pyFor('overview');
+}
+function renderPct(s){
+  const p=+$('#pctP').value;$('#pctPVal').textContent=p;
+  if(!s){$('#pctOfRead').textContent='';$('#pctPRead').textContent='';$('#pctOfMath').textContent='';$('#pctPMath').textContent='';return}
+  const v=parseFloat($('#pctOf').value);
+  if(isNaN(v)){$('#pctOfRead').innerHTML=`<span class="hint">Type a value to see what share of the data is at or below it. The top 10% starts at <b>${fmt(s.p90)}</b>.</span>`;$('#pctOfMath').textContent=''}
+  else{let k=0;for(const x of s.d){if(x<=v)k++;else break}const pc=k/s.count*100;
+    $('#pctOfRead').innerHTML=`<b>${fmt(v)}</b> is at or above <b>${fmt(pc)}%</b> of values. ${pc>=90?'That is in the top 10%.':pc<=10?'That is in the bottom 10%.':''}`;
+    $('#pctOfMath').textContent=`${k} of ${s.count} values are ≤ ${fmt(v)} → ${k} ÷ ${s.count} × 100 = ${fmt(pc)}%`}
+  const q=quant(s.d,p/100);
+  $('#pctPRead').innerHTML=`${p}% of values are at or below <b>${fmt(q)}</b>.`;
+  $('#pctPMath').textContent=quantMath(s.d,p/100,'P'+p);
+}
+
+let GR=[];
+function renderGroups(){
+  const c=S.grp.cat,vc=S.grp.val;$('#pyG').innerHTML=pyFor('groups');
+  if(c<0||vc<0){$('#gRead').textContent='Need one column of labels and one column of numbers.';$('#gTable').innerHTML='';emptyCanvas('cBars','Nothing to group');$('#gMath').textContent='';return}
+  const m=new Map();
+  for(const i of keptIdx){const v=toNum(D.rows[i][vc]);if(isNaN(v))continue;let k=String(D.rows[i][c]??'').trim()||'(blank)';
+    if(T[c]==='num'){k=String(toNum(k)===toNum(k)?D.rows[i][c]:k)}if(!m.has(k))m.set(k,[]);m.get(k).push(v)}
+  let all=0,n=0;GR=[...m].map(([key,vs])=>{const s=describe(vs);all+=s.total;n+=s.count;return {key,count:s.count,sum:s.total,mean:s.mean,median:s.median,min:s.min,max:s.max}});
+  GR.forEach(g=>g.share=all?g.sum/all*100:0);
+  const k=S.grp.sort,dir=S.grp.dir;GR.sort((a,b)=>k==='key'?dir*a.key.localeCompare(b.key,undefined,{numeric:true}):dir*(a[k]-b[k]));
+  const metric=S.grp.metric,byM=[...GR].sort((a,b)=>b[metric]-a[metric]),overall=n?all/n:0;
+  if(!GR.length){$('#gRead').textContent='No kept rows have a number in this column.';$('#gTable').innerHTML='';emptyCanvas('cBars','Nothing to group');return}
+  const best=[...GR].sort((a,b)=>b.mean-a.mean)[0],worst=[...GR].sort((a,b)=>a.mean-b.mean)[0],big=[...GR].sort((a,b)=>b.sum-a.sum)[0];
+  $('#gRead').innerHTML=`<b>${GR.length}</b> groups in ${esc(colName(c))}. <b>${esc(best.key)}</b> has the highest average ${esc(colName(vc))} (${fmt(best.mean)}, ${fmtP((best.mean/overall-1)*100)} vs the overall ${fmt(overall)}). <b>${esc(big.key)}</b> has the biggest total (${fmt(big.sum)}, ${fmt(big.share)}% of everything).${GR.length>1?` <b>${esc(worst.key)}</b> averages lowest (${fmt(worst.mean)}).`:''}`;
+  $('#gMath').textContent=`Average per group = group total ÷ group count. ${best.key}: ${fmt(best.sum)} ÷ ${best.count} = ${fmt(best.mean)}. Share = group total ÷ grand total × 100 = ${fmt(big.sum)} ÷ ${fmt(all)} × 100 = ${fmt(big.share)}%.`;
+  drawBars(byM,metric);
+  const H=[['key',esc(colName(c))],['count','Count'],['sum','Total'],['mean','Average'],['median','Median'],['min','Min'],['max','Max'],['share','Share %']];
+  const shown=GR.slice(0,1000);
+  $('#gTable').innerHTML=`<thead><tr>${H.map(([key,l])=>`<th data-k="${key}">${l}${S.grp.sort===key?(S.grp.dir>0?' ↑':' ↓'):''}</th>`).join('')}</tr></thead><tbody>${shown.map(g=>`<tr><td>${esc(g.key)}</td><td>${g.count}</td><td>${fmt(g.sum)}</td><td>${fmt(g.mean)}</td><td>${fmt(g.median)}</td><td>${fmt(g.min)}</td><td>${fmt(g.max)}</td><td>${fmt(g.share)}</td></tr>`).join('')}${GR.length>1000?`<tr><td colspan="8">…${GR.length-1000} more groups</td></tr>`:''}</tbody>`;
+}
+
+let CMP={};
+function words(r){const a=Math.abs(r);if(a<.1)return 'no real relationship';return (a<.3?'a weak':a<.5?'a moderate':a<.7?'a strong':'a very strong')+(r>0?' positive':' negative')+' relationship'}
+function renderCompare(){
+  const A=S.cmp.a,B=S.cmp.b,an=esc(colName(A)),bn=esc(colName(B));$('#pyC').innerHTML=pyFor('compare');
+  if(A<0||B<0){$('#rRead').textContent='Need two number columns.';$('#sRead').textContent='';$('#rTiles').innerHTML='';$('#sTable').innerHTML='';emptyCanvas('cScatter','Need two number columns');emptyCanvas('cBox2','Need two number columns');return}
+  const pts=[];for(const i of keptIdx){const a=toNum(D.rows[i][A]),b=toNum(D.rows[i][B]);if(!isNaN(a)&&!isNaN(b))pts.push([a,b])}
+  const n=pts.length;let fit=null;
+  if(n>=2){let mx=0,my=0;for(const [a,b] of pts){mx+=a;my+=b}mx/=n;my/=n;let sxy=0,sxx=0,syy=0;for(const [a,b] of pts){sxy+=(a-mx)*(b-my);sxx+=(a-mx)**2;syy+=(b-my)**2}
+    const r=sxx&&syy?sxy/Math.sqrt(sxx*syy):0,slope=sxx?sxy/sxx:0;fit={r,slope,icpt:my-slope*mx,mx,my,sxy,sxx,syy,n}}
+  CMP={fit,pts};
+  if(!fit){$('#rRead').textContent='Need at least 2 rows that have both numbers.';$('#rTiles').innerHTML=''}
+  else{const f=fit;
+    $('#rRead').innerHTML=`${an} and ${bn} have <b>${words(f.r)}</b> (r = ${fmt(f.r)}). ${Math.abs(f.r)>=.1?`${f.r>0?'When':'When'} ${an} goes up by 1, ${bn} ${f.slope>=0?'rises':'falls'} by about <b>${fmt(Math.abs(f.slope))}</b> on average. ${an} explains about <b>${fmt(f.r*f.r*100)}%</b> of the ups and downs in ${bn}.`:'Knowing one tells you little about the other.'} Correlation shows a pattern, not that one causes the other.`;
+    $('#rTiles').innerHTML=[
+      tile('Correlation r',fmt(f.r),`r = Σ(a−ā)(b−b̄) ÷ √(Σ(a−ā)² × Σ(b−b̄)²) = ${fmt(f.sxy)} ÷ √(${fmt(f.sxx)} × ${fmt(f.syy)}) = ${fmt(f.r)}`),
+      tile('r² (explained)',fmt(f.r*f.r*100)+'%',`r × r = ${fmt(f.r)} × ${fmt(f.r)} = ${fmt(f.r*f.r)}`),
+      tile('Slope',fmt(f.slope),`Σ(a−ā)(b−b̄) ÷ Σ(a−ā)² = ${fmt(f.sxy)} ÷ ${fmt(f.sxx)} = ${fmt(f.slope)}`),
+      tile('Starts at',fmt(f.icpt),`b̄ − slope × ā = ${fmt(f.my)} − ${fmt(f.slope)} × ${fmt(f.mx)} = ${fmt(f.icpt)}`),
+      tile('Pairs',n.toLocaleString(),'Rows that have a number in both columns')].join('')}
+  renderPredict();
+  const sa=describe(colVals(keptIdx,A)),sb=describe(colVals(keptIdx,B));
+  if(sa&&sb){drawBoxes('cBox2',[{label:colName(A),s:sa},{label:colName(B),s:sb}]);
+    let up=0,dsum=0;for(const [a,b] of pts){dsum+=b-a;if(b>a)up++}
+    const dm=sb.mean-sa.mean,pc=sa.mean?dm/Math.abs(sa.mean)*100:NaN;
+    $('#sRead').innerHTML=`On average ${bn} is <b>${fmt(Math.abs(dm))} ${dm>=0?'higher':'lower'}</b> than ${an} (${fmtP(pc)}).${n?` In rows that have both, ${bn} was higher in <b>${up} of ${n}</b> (${fmt(up/n*100)}%), by ${fmt(dsum/n)} per row on average.`:''}`;
+    const R=[['Count',sa.count,sb.count],['Average',sa.mean,sb.mean],['Median',sa.median,sb.median],['Min',sa.min,sb.min],['Max',sa.max,sb.max],['Std dev',sa.std,sb.std],['Total',sa.total,sb.total]];
+    $('#sTable').innerHTML=`<thead><tr><th>Stat</th><th>${an}</th><th>${bn}</th><th>Difference</th><th>Change</th></tr></thead><tbody>${R.map(([l,a,b])=>{const df=b-a,p=a?df/Math.abs(a)*100:NaN;return `<tr><td>${l}</td><td>${fmt(a)}</td><td>${fmt(b)}</td><td class="${df>0?'up':df<0?'down':''}">${df>0?'+':''}${fmt(df)}</td><td class="${df>0?'up':df<0?'down':''}">${fmtP(p)}</td></tr>`}).join('')}</tbody>`}
+  else{$('#sRead').textContent='No kept rows have numbers in these columns.';$('#sTable').innerHTML='';emptyCanvas('cBox2','Nothing to compare')}
+}
+function renderPredict(){
+  const f=CMP.fit,v=parseFloat($('#predict').value);let pred=null;
+  if(f&&!isNaN(v)){const y=f.slope*v+f.icpt;pred=[v,y];
+    $('#predRead').innerHTML=`If ${esc(colName(S.cmp.a))} = <b>${fmt(v)}</b>, expect ${esc(colName(S.cmp.b))} around <b>${fmt(y)}</b>. ${Math.abs(f.r)<.3?'The relationship is weak, so treat this as a rough guess.':''}`;
+    $('#predMath').textContent=`slope × ${fmt(v)} + start = ${fmt(f.slope)} × ${fmt(v)} + ${fmt(f.icpt)} = ${fmt(y)}`}
+  else{$('#predRead').textContent='';$('#predMath').textContent=''}
+  drawScatter(CMP.pts||[],f,pred);
+}
+
+let TS={};
+function renderTime(){
+  const dc=S.time.date,vc=S.time.val;$('#pyT').innerHTML=pyFor('time');
+  if(dc<0||vc<0){$('#tBody').innerHTML=`<p class="empty">${dc<0?'No date column found. Add a column with dates like 2026-08-01 or 8/1/2026, or load the Daily views example.':'Need a number column to measure.'}</p>`;$('#tMath').textContent='';return}
+  if(!$('#cLine')) restoreTimeBody();
+  const per=S.time.period,m=new Map();
+  for(const i of keptIdx){let d=toDate(D.rows[i][dc]);const v=toNum(D.rows[i][vc]);if(isNaN(d)||isNaN(v))continue;
+    if(per==='week')d-=((new Date(d).getUTCDay()+6)%7)*864e5;else if(per==='month'){const x=new Date(d);d=Date.UTC(x.getUTCFullYear(),x.getUTCMonth(),1)}
+    const b=m.get(d)||{s:0,n:0};b.s+=v;b.n++;m.set(d,b)}
+  const series=[...m].sort((a,b)=>a[0]-b[0]).map(([d,b])=>[d,S.time.agg==='mean'?b.s/b.n:b.s]);
+  if(!series.length){$('#tRead').textContent='No kept rows have both a date and a number.';$('#tTiles').innerHTML='';$('#tTable').innerHTML='';emptyCanvas('cLine','Nothing to plot',200);return}
+  const w=S.time.win,ys=series.map(p=>p[1]),ma=ys.map((_,i)=>{const a=ys.slice(Math.max(0,i-w+1),i+1);return a.reduce((x,y)=>x+y,0)/a.length});
+  const ch=ys.slice(1).map((v,i)=>v-ys[i]),first=ys[0],last=ys[ys.length-1],tot=first?(last-first)/Math.abs(first)*100:NaN,avg=ch.length?ch.reduce((a,b)=>a+b,0)/ch.length:0;
+  const hiI=ys.indexOf(Math.max(...ys)),loI=ys.indexOf(Math.min(...ys));let jI=-1,jv=-Infinity;ch.forEach((c,i)=>{if(c>jv){jv=c;jI=i+1}});
+  const maFirst=ma[Math.min(ma.length-1,w-1)],maLast=ma[ma.length-1];
+  const unit=per==='row'?'date':per;
+  TS={series,ma,first,last,tot,avg};
+  $('#tRead').innerHTML=`${series.length} ${unit}${series.length>1?'s':''} from ${fmtDate(series[0][0],per)} to ${fmtDate(series[series.length-1][0],per)}. ${esc(colName(vc))} went from <b>${fmt(first)}</b> to <b>${fmt(last)}</b> (${fmtP(tot)}), changing <b>${avg>=0?'+':''}${fmt(avg)}</b> per ${unit} on average. ${w>1&&series.length>w?`The ${w}-point moving average ${maLast>maFirst?'rose':'fell'} from ${fmt(maFirst)} to ${fmt(maLast)}, which is the steadier trend.`:''}`;
+  drawLine(series,ma,per);
+  $('#tTiles').innerHTML=[
+    tile('First',fmt(first),fmtDate(series[0][0],per)),tile('Latest',fmt(last),fmtDate(series[series.length-1][0],per)),
+    tile('Total change',fmtP(tot),`(last − first) ÷ first × 100 = (${fmt(last)} − ${fmt(first)}) ÷ ${fmt(first)} × 100 = ${fmtP(tot)}`),
+    tile('Avg change per '+unit,(avg>=0?'+':'')+fmt(avg),`Average of the ${ch.length} step-to-step changes = Σchanges ÷ ${ch.length} = ${fmt(avg)}`),
+    tile('Highest',fmt(ys[hiI]),fmtDate(series[hiI][0],per)),tile('Lowest',fmt(ys[loI]),fmtDate(series[loI][0],per)),
+    tile('Biggest jump',jI>0?'+'+fmt(jv):'–',jI>0?'into '+fmtDate(series[jI][0],per):''),
+    tile(`${w}-pt moving avg`,fmt(maLast),`Average of the last ${Math.min(w,ys.length)} values: ${ys.slice(-w).slice(-4).map(fmt).join(' + ')}${ys.length>4&&w>4?' + …':''} ÷ ${Math.min(w,ys.length)} = ${fmt(maLast)}`)].join('');
+  const rows=series.map((p,i)=>[p[0],p[1],ma[i],i?p[1]-series[i-1][1]:NaN,i&&series[i-1][1]?(p[1]-series[i-1][1])/Math.abs(series[i-1][1])*100:NaN]).reverse().slice(0,500);
+  $('#tTable').innerHTML=`<thead><tr><th>${per==='row'?'Date':per==='week'?'Week of':'Month'}</th><th>${esc(colName(vc))}</th><th>Moving avg</th><th>Change</th><th>Change %</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${fmtDate(r[0],per)}</td><td>${fmt(r[1])}</td><td>${fmt(r[2])}</td><td class="${r[3]>0?'up':r[3]<0?'down':''}">${isNaN(r[3])?'–':(r[3]>0?'+':'')+fmt(r[3])}</td><td class="${r[4]>0?'up':r[4]<0?'down':''}">${fmtP(r[4])}</td></tr>`).join('')}</tbody>`;
+  $('#tMath').textContent=`Moving average: each point is the average of itself and the ${w-1} before it, which smooths out day-to-day noise. Change % = (this − previous) ÷ previous × 100.`;
+}
+let timeBodyHTML='';function restoreTimeBody(){$('#tBody').innerHTML=timeBodyHTML}
+
+/* ================= python ================= */
+function q(n){n=String(n);return /^[\w.-]+$/.test(n)?n:'"'+n.replace(/"/g,'\\"')+'"'}
+function baseCmd(){let c=`python data_analyzer.py ${q(S.filename)}`;if(S.main>=0)c+=` --column ${q(colName(S.main))}`;if(S.mode!=='above')c+=` --mode ${S.mode}`;if(S.mode!=='all'&&S.threshold!==10)c+=` --threshold ${+S.threshold.toPrecision(10)}`;return c}
+function extraFor(tab){
+  if(tab==='overview'){const v=parseFloat($('#pctOf').value);return isNaN(v)?'':` --percentile-of ${v}`}
+  if(tab==='groups')return S.grp.cat>=0?` --group ${q(colName(S.grp.cat))}`:'';
+  if(tab==='compare'){if(S.cmp.a<0||S.cmp.b<0)return '';const v=parseFloat($('#predict').value);return ` --x ${q(colName(S.cmp.a))} --y ${q(colName(S.cmp.b))}`+(isNaN(v)?'':` --predict ${v}`)}
+  if(tab==='time')return S.time.date>=0?` --date ${q(colName(S.time.date))}`+(S.time.period!=='row'?` --period ${S.time.period}`:'')+(S.time.agg!=='sum'?' --combine mean':'')+` --window ${S.time.win}`:'';
+  return ''}
+const FN={overview:'describe(values)  →  count, mean, median, modes, std_dev, q1, q3, iqr, p10, p90, outliers\npercent_at_or_below(values, x)',
+  groups:'group_by(header, rows, group_column, value_column)  →  count, sum, mean, min, max per group',
+  compare:'pairs(header, rows, x_column, y_column)\ncorrelation_and_trend(points)  →  r, slope, intercept\ndescribe_r(r)  →  plain-English strength',
+  time:'time_series(header, rows, date_column, value_column, period, combine)\nmoving_average(values, window)\ngrowth(series)  →  first, last, total_change_pct, avg_change'};
+function pyFor(tab){
+  let cmd=baseCmd();if(tab==='time'&&S.time.val!==S.main&&S.time.val>=0)cmd=cmd.replace(/--column \S+/,'--column '+q(colName(S.time.val)));
+  if(tab==='groups'&&S.grp.val!==S.main&&S.grp.val>=0)cmd=cmd.replace(/--column \S+/,'--column '+q(colName(S.grp.val)));
+  return `<span class="d"># run it</span>\n<span class="p">$</span> ${esc(cmd+extraFor(tab))}\n\n<span class="d"># the functions that do the work</span>\n${esc(FN[tab])}`}
+function fullCmd(){let c=baseCmd()+extraFor('overview')+extraFor('groups')+extraFor('compare')+extraFor('time');return c}
+function renderPython(){
+  const cmd=fullCmd(),parts=cmd.split(/ (?=--)/);
+  $('#pyCmd').innerHTML=`<span class="p">$</span> `+esc(parts.join(' \\\n    '));
+  if(!$('#pySrc').textContent)$('#pySrc').textContent=$('#pyText').textContent.trim();
+}
+
+/* ================= sheet ================= */
+const sbody=$('#sbody'),spacer=$('#spacer'),ed=$('#ed');
+let editing=null,cellsLayer=document.createElement('div');spacer.appendChild(cellsLayer);
+function renderGrid(){
+  const nR=view.length+1,nC=D.cols.length+1;
+  spacer.style.height=nR*RH+'px';spacer.style.width=nC*CW+'px';
+  const st=sbody.scrollTop,sl=sbody.scrollLeft,vh=sbody.clientHeight||400,vw=sbody.clientWidth||600;
+  const r0=Math.max(0,Math.floor(st/RH)-4),r1=Math.min(nR,Math.ceil((st+vh)/RH)+4),c0=Math.max(0,Math.floor(sl/CW)-1),c1=Math.min(nC,Math.ceil((sl+vw)/CW)+1);
+  let h='';
+  for(let r=r0;r<r1;r++){
+    const ghostR=r===view.length,ri=view[r],row=ghostR?null:D.rows[ri],dr=!ghostR&&!mask[ri]&&!isBlank(row);
+    for(let c=c0;c<c1;c++){
+      const ghost=ghostR||c===D.cols.length,top=r*RH,left=c*CW;
+      if(ghost){h+=`<div class="c ghost" data-r="${r}" data-c="${c}" style="top:${top}px;left:${left}px">${ghostR&&c===c0?'+ add row':''}</div>`;continue}
+      const sel=S.sel.r===r&&S.sel.c===c;
+      h+=`<div class="c${T[c]==='num'?' n':''}${dr?' drop':''}${sel?' sel':''}" data-r="${r}" data-c="${c}" style="top:${top}px;left:${left}px">${esc(row[c])}</div>`}}
+  cellsLayer.innerHTML=h;
+  let hh='';for(let c=c0;c<c1;c++){const left=c*CW;
+    if(c===D.cols.length){hh+=`<div class="h ghost" data-c="${c}" style="left:${left}px">+ column</div>`;continue}
+    hh+=`<div class="h${S.sel.c===c?' on':''}" data-c="${c}" style="left:${left}px" title="${esc(D.cols[c])}"><span class="t">${T[c]==='num'?'123':T[c]==='date'?'date':'abc'}</span><span class="nm">${esc(D.cols[c])}</span></div>`}
+  $('#hin').innerHTML=hh;$('#hin').style.width=nC*CW+'px';$('#hin').style.transform=`translateX(${-sl}px)`;
+  let rh='';for(let r=r0;r<Math.min(r1,view.length);r++){const ri=view[r];rh+=`<div class="rh${S.sel.r===r?' on':''}${!mask[ri]&&!isBlank(D.rows[ri])?' drop':''}" data-r="${r}" style="top:${r*RH}px">${ri+1}</div>`}
+  $('#rin').innerHTML=rh;$('#rin').style.transform=`translateY(${-st}px)`;
+  $('#sheetInfo').textContent=`${D.rows.length.toLocaleString()} rows × ${D.cols.length} columns${view.length!==D.rows.length?` · showing ${view.length.toLocaleString()}`:''}`;
+  $('#colName').value=D.cols[S.sel.c]??'';
+  if(editing)placeEditor();
+}
+sbody.addEventListener('scroll',()=>requestAnimationFrame(renderGrid),{passive:true});
+function placeEditor(){ed.style.top=editing.r*RH+'px';ed.style.left=editing.c*CW+'px'}
+function select(r,c,scroll=true){
+  r=Math.max(0,Math.min(view.length-1,r));c=Math.max(0,Math.min(D.cols.length-1,c));if(r<0)r=0;
+  S.sel={r,c};if(scroll){const t=r*RH,l=c*CW;if(t<sbody.scrollTop)sbody.scrollTop=t;else if(t+RH>sbody.scrollTop+sbody.clientHeight)sbody.scrollTop=t+RH-sbody.clientHeight;
+    if(l<sbody.scrollLeft)sbody.scrollLeft=l;else if(l+CW>sbody.scrollLeft+sbody.clientWidth)sbody.scrollLeft=l+CW-sbody.clientWidth}
+  renderGrid();
+}
+function startEdit(initial){
+  if(!view.length) return; const {r,c}=S.sel,ri=view[r];editing={r,c,ri};ed.hidden=false;placeEditor();
+  ed.value=initial!=null?initial:(D.rows[ri][c]??'');ed.focus({preventScroll:true});if(initial==null)ed.select();else ed.setSelectionRange(ed.value.length,ed.value.length);
+}
+function commitEdit(){
+  if(!editing) return; const {ri,c}=editing,old=D.rows[ri][c]??'',v=ed.value;editing=null;ed.hidden=true;
+  if(v!==old){while(D.rows[ri].length<D.cols.length)D.rows[ri].push('');pushUndo({cell:true,ri,c,old});D.rows[ri][c]=v;S.flags.edit=true;changed()}
+}
+function cancelEdit(){editing=null;ed.hidden=true;sbody.focus({preventScroll:true})}
+ed.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();commitEdit();moveDown();sbody.focus({preventScroll:true})}
+  else if(e.key==='Tab'){e.preventDefault();commitEdit();select(S.sel.r,S.sel.c+(e.shiftKey?-1:1));sbody.focus({preventScroll:true})}
+  else if(e.key==='Escape'){e.preventDefault();cancelEdit()}
+  else if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();commitEdit();e.key==='ArrowUp'?select(S.sel.r-1,S.sel.c):moveDown();sbody.focus({preventScroll:true})}
+});
+ed.addEventListener('blur',()=>{if(editing)commitEdit()});
+function moveDown(){if(S.sel.r>=view.length-1){addRows(1,false)}select(S.sel.r+1,S.sel.c)}
+cellsLayer.addEventListener('click',e=>{
+  const el=e.target.closest('.c');if(!el)return;const r=+el.dataset.r,c=+el.dataset.c;
+  if(el.classList.contains('ghost')){if(r===view.length){addRows(1);select(view.length-1,Math.min(c,D.cols.length-1))}else{addCol();select(r,D.cols.length-1)}return}
+  if(S.sel.r===r&&S.sel.c===c&&!editing)startEdit();else{if(editing)commitEdit();select(r,c,false);sbody.focus({preventScroll:true})}
+});
+cellsLayer.addEventListener('dblclick',e=>{const el=e.target.closest('.c:not(.ghost)');if(el)startEdit()});
+$('#hin').addEventListener('click',e=>{const el=e.target.closest('.h');if(!el)return;const c=+el.dataset.c;if(el.classList.contains('ghost')){addCol();select(S.sel.r,D.cols.length-1)}else select(S.sel.r,c)});
+$('#rin').addEventListener('click',e=>{const el=e.target.closest('.rh');if(el)select(+el.dataset.r,S.sel.c)});
+sbody.addEventListener('keydown',e=>{
+  if(editing||e.target!==sbody)return;const {r,c}=S.sel;
+  const k=e.key;if(k==='ArrowDown'){e.preventDefault();select(r+1,c)}else if(k==='ArrowUp'){e.preventDefault();select(r-1,c)}
+  else if(k==='ArrowLeft'){e.preventDefault();select(r,c-1)}else if(k==='ArrowRight'){e.preventDefault();select(r,c+1)}
+  else if(k==='Tab'){e.preventDefault();select(r,c+(e.shiftKey?-1:1))}
+  else if(k==='Enter'||k==='F2'){e.preventDefault();startEdit()}
+  else if(k==='Delete'||k==='Backspace'){e.preventDefault();if(view.length){const ri=view[r];pushUndo({cell:true,ri,c,old:D.rows[ri][c]??''});D.rows[ri][c]='';changed()}}
+  else if((e.ctrlKey||e.metaKey)&&k.toLowerCase()==='z'){e.preventDefault();undo()}
+  else if(k.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();startEdit(k)}
+});
+sbody.addEventListener('paste',e=>{
+  if(editing)return;const t=(e.clipboardData||window.clipboardData).getData('text');if(!t)return;e.preventDefault();
+  const rows=parseCSV(t);if(!rows.length)return;snap();
+  let ri=view.length?view[S.sel.r]:D.rows.length,c0=S.sel.c;
+  const needCols=c0+Math.max(...rows.map(r=>r.length));while(D.cols.length<needCols)D.cols.push('column '+(D.cols.length+1));padRows();
+  rows.forEach((r,k)=>{const at=ri+k;while(D.rows.length<=at)D.rows.push(D.cols.map(()=>''));r.forEach((v,j)=>D.rows[at][c0+j]=v)});
+  S.flags.paste=true;changed();msg('#ioMsg',`Pasted ${rows.length} row${rows.length>1?'s':''}.`,true);
+});
+
+/* structure */
+function padRows(){const n=D.cols.length;for(const r of D.rows)while(r.length<n)r.push('')}
+function addRows(n,doSnap=true){if(doSnap)snap();for(let i=0;i<n;i++)D.rows.push(D.cols.map(()=>''));S.flags.addRow=true;
+  if(S.search||S.show!=='all'){S.search='';S.show='all';$('#search').value='';$('#show').value='all'}changed()}
+function shiftCols(at,delta){
+  const fix=v=>delta<0?(v===at?-1:v>at?v-1:v):(v>=at?v+1:v);
+  S.main=fix(S.main);S.grp.cat=fix(S.grp.cat);S.grp.val=fix(S.grp.val);S.cmp.a=fix(S.cmp.a);S.cmp.b=fix(S.cmp.b);S.time.date=fix(S.time.date);S.time.val=fix(S.time.val);S.nc.a=fix(S.nc.a);S.nc.b=fix(S.nc.b)}
+function uniqueName(base){let n=base,k=2;while(D.cols.includes(n))n=base+' '+k++;return n}
+function addCol(at=D.cols.length,name){snap();padRows();shiftCols(at,1);D.cols.splice(at,0,uniqueName(name||'column '+(D.cols.length+1)));for(const r of D.rows)r.splice(at,0,'');if(!D.rows.length)D.rows.push(D.cols.map(()=>''));changed()}
+$('#add1').onclick=()=>{addRows(1);select(view.length-1,S.sel.c)};
+$('#add10').onclick=()=>{addRows(10);select(view.length-10,S.sel.c)};
+$('#add100').onclick=()=>{addRows(100);select(view.length-100,S.sel.c)};
+$('#addCol').onclick=()=>{addCol();select(S.sel.r,D.cols.length-1)};
+$('#insCol').onclick=()=>{addCol(S.sel.c);select(S.sel.r,S.sel.c)};
+$('#delCol').onclick=()=>{if(D.cols.length<=1){msg('#ioMsg','A table needs at least one column.');return}snap();padRows();const c=S.sel.c;shiftCols(c,-1);D.cols.splice(c,1);for(const r of D.rows)r.splice(c,1);S.sel.c=Math.min(c,D.cols.length-1);changed()};
+$('#insRow').onclick=()=>{snap();const at=view.length?view[S.sel.r]:D.rows.length;D.rows.splice(at,0,D.cols.map(()=>''));S.flags.addRow=true;changed()};
+$('#delRow').onclick=()=>{if(!view.length)return;snap();D.rows.splice(view[S.sel.r],1);if(!D.rows.length)D.rows.push(D.cols.map(()=>''));changed()};
+function sortBy(dir){snap();const c=S.sel.c,t=T[c],key=v=>t==='num'?toNum(v):t==='date'?toDate(v):String(v??'').trim().toLowerCase();
+  const blank=v=>v==null||String(v).trim()===''||(t!=='text'&&isNaN(key(v)));
+  D.rows.sort((a,b)=>{const A=a[c],B=b[c],ba=blank(A),bb=blank(B);if(ba||bb)return ba-bb;const x=key(A),y=key(B);return t==='text'?dir*x.localeCompare(y,undefined,{numeric:true}):dir*(x-y)});
+  S.flags.sort=true;changed()}
+$('#sortAsc').onclick=()=>sortBy(1);$('#sortDesc').onclick=()=>sortBy(-1);
+$('#colName').addEventListener('input',e=>{const c=S.sel.c;if(c<0||c>=D.cols.length)return;D.cols[c]=e.target.value;S.flags.rename=true;renderControls();renderGrid();save();scheduleRender()});
+
+/* undo */
+const UNDO=[];
+function snap(){UNDO.push({cols:D.cols.slice(),rows:D.rows.map(r=>r.slice())});if(UNDO.length>15)UNDO.shift()}
+function pushUndo(u){UNDO.push(u);if(UNDO.length>200)UNDO.shift()}
+function undo(){const u=UNDO.pop();if(!u){msg('#ioMsg','Nothing to undo.');return}
+  if(u.cell){if(D.rows[u.ri])D.rows[u.ri][u.c]=u.old}else{D.cols=u.cols;D.rows=u.rows}changed()}
+$('#undo').onclick=undo;
+
+/* ================= controls ================= */
+function fill(id,idxs,cur){const el=$(id);el.innerHTML=idxs.length?idxs.map(i=>`<option value="${i}">${esc(D.cols[i])}</option>`).join(''):'<option value="-1">(none)</option>';el.value=cur}
+function renderControls(){
+  const nums=numCols(),all=D.cols.map((_,i)=>i),dates=all.filter(i=>T[i]==='date');
+  fill('#main',nums,S.main);fill('#gCat',all.filter(i=>i!==S.grp.val),S.grp.cat);fill('#gVal',nums,S.grp.val);
+  fill('#cA',nums,S.cmp.a);fill('#cB',nums,S.cmp.b);fill('#tDate',dates,S.time.date);fill('#tVal',nums,S.time.val);fill('#ncA',nums,S.nc.a);fill('#ncB',nums,S.nc.b);
+  $('#mode').value=S.mode;
+  const vals=S.main>=0?colVals(active,S.main):[],thr=$('#thr');
+  if(vals.length){let lo=Infinity,hi=-Infinity;for(const v of vals){if(v<lo)lo=v;if(v>hi)hi=v}lo=Math.floor(Math.min(lo,S.threshold));hi=Math.ceil(Math.max(hi,S.threshold));
+    thr.min=lo;thr.max=hi;thr.step=(hi-lo)<=20?0.1:(hi-lo)<=2000?1:Math.pow(10,Math.floor(Math.log10(hi-lo))-3);$('#thrLo').textContent=fmt(lo);$('#thrHi').textContent=fmt(hi)}
+  thr.value=S.threshold;if(document.activeElement!==$('#thrNum'))$('#thrNum').value=S.threshold;
+  thr.disabled=$('#thrNum').disabled=S.mode==='all'||S.main<0;
+  $('#keptTag').textContent=`${keptIdx.length.toLocaleString()} of ${active.length.toLocaleString()} rows kept`;
+}
+function renderActive(){
+  readTokens();renderControls();
+  const t=S.tab;if(t==='overview')renderOverview();else if(t==='groups')renderGroups();else if(t==='compare')renderCompare();else if(t==='time')renderTime();else if(t==='rhythm')renderRhythm();else if(t==='python')renderPython();
+  tourCheck();
+}
+const scheduleRender=debounce(renderActive,80);
+function changed(){computeBase();buildView();if(S.sel.r>=view.length)S.sel.r=Math.max(0,view.length-1);if(S.sel.c>=D.cols.length)S.sel.c=Math.max(0,D.cols.length-1);renderGrid();renderControls();scheduleRender();save()}
+function setFilter(){computeBase();buildView();renderGrid();renderActive()}
+
+$('#main').onchange=e=>{S.main=+e.target.value;S.pref.main=colName(S.main);S.flags.main=true;setFilter()};
+$('#mode').onchange=e=>{S.mode=e.target.value;S.flags.mode=true;setFilter()};
+$('#thr').addEventListener('input',e=>{S.threshold=+e.target.value;$('#thrNum').value=S.threshold;S.flags.thr=true;computeBase();buildView();renderGrid();scheduleRender();$('#keptTag').textContent=`${keptIdx.length.toLocaleString()} of ${active.length.toLocaleString()} rows kept`});
+$('#thrNum').addEventListener('input',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){S.threshold=v;S.flags.thr=true;setFilter()}});
+$('#bins').addEventListener('input',e=>{S.bins=+e.target.value;$('#binsVal').textContent=S.bins;drawHist()});
+$('#mathToggle').addEventListener('change',e=>{document.body.classList.toggle('math-on',e.target.checked);S.flags.math=e.target.checked;tourCheck()});
+$('#pctOf').addEventListener('input',()=>{S.flags.pct=true;renderPct(OV.s);$('#pyOv').innerHTML=pyFor('overview');tourCheck()});
+$('#pctP').addEventListener('input',()=>{S.flags.pct=true;renderPct(OV.s);tourCheck()});
+$('#gCat').onchange=e=>{S.grp.cat=+e.target.value;S.pref.cat=colName(S.grp.cat);S.flags.group=true;renderActive()};
+$('#gVal').onchange=e=>{S.grp.val=+e.target.value;S.flags.group=true;renderActive()};
+$('#gMetric').onchange=e=>{S.grp.metric=e.target.value;S.flags.group=true;renderGroups();tourCheck()};
+$('#gTable').addEventListener('click',e=>{const th=e.target.closest('th');if(!th)return;const k=th.dataset.k;if(S.grp.sort===k)S.grp.dir*=-1;else{S.grp.sort=k;S.grp.dir=k==='key'?1:-1}renderGroups()});
+$('#cA').onchange=e=>{S.cmp.a=+e.target.value;S.pref.a=colName(S.cmp.a);S.flags.cmpcol=true;renderActive()};
+$('#cB').onchange=e=>{S.cmp.b=+e.target.value;S.pref.b=colName(S.cmp.b);S.flags.cmpcol=true;renderActive()};
+$('#swapAB').onclick=()=>{[S.cmp.a,S.cmp.b]=[S.cmp.b,S.cmp.a];S.pref.a=colName(S.cmp.a);S.pref.b=colName(S.cmp.b);renderActive()};
+$('#predict').addEventListener('input',()=>{S.flags.predict=true;renderPredict();$('#pyC').innerHTML=pyFor('compare');tourCheck()});
+$('#tDate').onchange=e=>{S.time.date=+e.target.value;S.pref.date=colName(S.time.date);renderActive()};
+$('#tVal').onchange=e=>{S.time.val=+e.target.value;S.pref.tval=colName(S.time.val);renderActive()};
+$('#tPer').onchange=e=>{S.time.period=e.target.value;S.flags.window=true;renderActive()};
+$('#tAgg').onchange=e=>{S.time.agg=e.target.value;renderActive()};
+$('#tWin').addEventListener('input',e=>{S.time.win=+e.target.value;$('#tWinVal').textContent=S.time.win;S.flags.window=true;renderTime();tourCheck()});
+$('#search').addEventListener('input',debounce(e=>{S.search=e.target.value;buildView();S.sel.r=0;sbody.scrollTop=0;renderGrid()},120));
+$('#show').onchange=e=>{S.show=e.target.value;buildView();S.sel.r=0;sbody.scrollTop=0;renderGrid()};
+$('#outChips').addEventListener('click',e=>{const b=e.target.closest('[data-row]');if(b)jumpToRow(+b.dataset.row,S.main)});
+function jumpToRow(ri,c){S.search='';S.show='all';$('#search').value='';$('#show').value='all';buildView();setTab('table');const r=view.indexOf(ri);requestAnimationFrame(()=>{select(r,c>=0?c:0);sbody.focus({preventScroll:true});$('#t-sheet').scrollIntoView({block:'start'})})}
+
+/* new column */
+$('#ncAdd').onclick=()=>{
+  const a=+$('#ncA').value,b=+$('#ncB').value,op=$('#ncOp').value;if(a<0||b<0){msg('#ncMsg','Pick two number columns first.');return}
+  const sym={'/':'÷','*':'×','+':'+','-':'−','%':'as % of'}[op],name=uniqueName($('#ncName').value.trim()||`${colName(a)} ${sym} ${colName(b)}`);
+  snap();padRows();D.cols.push(name);let n=0,bad=0;
+  for(const r of D.rows){const x=toNum(r[a]),y=toNum(r[b]);let v='';
+    if(!isNaN(x)&&!isNaN(y)){const z=op==='/'?(y?x/y:NaN):op==='*'?x*y:op==='+'?x+y:op==='-'?x-y:(y?x/y*100:NaN);if(isFinite(z)){v=String(+z.toFixed(4));n++}else bad++}r.push(v)}
+  S.flags.newcol=true;changed();msg('#ncMsg',`Added "${name}" with ${n} values${bad?` (${bad} skipped: dividing by zero)`:''}. It's now the last column.`,true);$('#ncName').value='';
+};
+
+/* import / export */
+function loadTable(t,name,pref){D=t;S.filename=name||'my_data.csv';S.pref=pref||{};S.main=S.grp.cat=S.grp.val=S.cmp.a=S.cmp.b=S.time.date=S.time.val=S.nc.a=S.nc.b=-1;S.sel={r:0,c:0};S.search='';S.show='all';$('#search').value='';$('#show').value='all';sbody.scrollTop=0;sbody.scrollLeft=0;UNDO.length=0;changed()}
+function loadSample(name){const sm=SAMPLES[name];S.mode=sm.mode;S.threshold=sm.thr;$$('[data-sample]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.sample===name));
+  loadTable(tableFromRows(parseCSV(sampleCSV(name))),name==='videos'?'videos.csv':name==='scores'?'scores.csv':name==='daily'?'daily.csv':'data_points.csv',{...sm.pref});S.flags['sample_'+name]=true;tourCheck()}
+$$('[data-sample]').forEach(b=>b.addEventListener('click',()=>{loadSample(b.dataset.sample);msg('#ioMsg','Loaded the '+b.textContent+' example.',true)}));
+$('#file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{const rows=parseCSV(String(r.result));if(!rows.length){msg('#ioMsg','That file has no rows.');return}snap();S.mode='all';loadTable(tableFromRows(rows),f.name.replace(/\.(tsv|txt)$/i,'.csv'),{});$$('[data-sample]').forEach(b=>b.setAttribute('aria-pressed','false'));S.flags.file=true;msg('#ioMsg',`Opened ${f.name}: ${D.rows.length.toLocaleString()} rows, ${D.cols.length} columns.`,true)};
+  r.onerror=()=>msg('#ioMsg','That file could not be read. Save it as .csv and try again.');r.readAsText(f);e.target.value=''});
+$('#pasteReplace').onclick=()=>{const rows=parseCSV($('#paste').value);if(!rows.length){msg('#ioMsg','Paste some CSV into the box first.');return}snap();S.mode='all';loadTable(tableFromRows(rows),'my_data.csv',{});msg('#ioMsg',`Table replaced: ${D.rows.length} rows.`,true)};
+$('#pasteAppend').onclick=()=>{let rows=parseCSV($('#paste').value);if(!rows.length){msg('#ioMsg','Paste some CSV into the box first.');return}snap();
+  if(rows[0].every((c,i)=>c===D.cols[i]))rows=rows.slice(1);const w=Math.max(...rows.map(r=>r.length));while(D.cols.length<w)D.cols.push('column '+(D.cols.length+1));padRows();
+  for(const r of rows){const a=r.slice();while(a.length<D.cols.length)a.push('');D.rows.push(a)}changed();msg('#ioMsg',`Added ${rows.length} rows.`,true)};
+$('#clearAll').onclick=()=>{snap();S.mode='all';loadTable({cols:['column 1','column 2','column 3'],rows:Array.from({length:10},()=>['','',''])},'my_data.csv',{});msg('#ioMsg','Started a new empty table. Undo brings the old one back.',true)};
+
+function msg(id,t,ok){const el=$(id);el.textContent=t;el.classList.toggle('ok',!!ok)}
+const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
+function copyText(text,id,okMsg,failMsg){const fb=()=>{$('#paste').value=text;$('#paste').focus();$('#paste').select();msg(id,failMsg||'Copy was blocked, so the text is selected in the paste box. Copy it from there.')};
+  try{navigator.clipboard.writeText(text).then(()=>msg(id,okMsg,true),fb)}catch(_){fb()}}
+async function saveCSV(name,text,id){S.flags.dl=true;tourCheck();const dl=await dlP;
+  if(!dl){copyText(text,id,'Downloads are not available here, so the CSV was copied instead. Paste it into a text file named '+name+'.');return}
+  try{await dl.save({filename:name,data:text});msg(id,'Saved '+name+'.',true)}
+  catch(e){const c=e&&e.code;if(c==='declined')msg(id,'Save cancelled.');else if(c==='rate_limited')msg(id,'A save prompt is already open. Finish that one first.');else copyText(text,id,'Saving is not available here, so the CSV was copied instead.')}}
+const keptName=()=>S.filename.replace(/\.csv$/i,'')+'_kept.csv';
+$('#dlAll').onclick=()=>saveCSV(S.filename,toCSV(D.cols,D.rows.filter(r=>!isBlank(r))),'#ioMsg');
+$('#dlKept').onclick=()=>saveCSV(keptName(),toCSV(D.cols,keptIdx.map(i=>D.rows[i])),'#ioMsg');
+$('#copyRes').onclick=()=>copyText(summaryText(),'#ioMsg','Results summary copied.');
+$('#copyCmd').onclick=()=>copyText(fullCmd(),'#cmdMsg','Command copied.');
+$('#copyPy').onclick=()=>copyText($('#pyText').textContent.trim(),'#cmdMsg','Script copied. Paste it into a file named data_analyzer.py.');
+function summaryText(){
+  const L=[`User Data Analyzer — ${S.filename}`,`Rows kept: ${keptIdx.length} of ${active.length} (${ruleText().replace(/&[a-z]+;/g,'')})`,''];
+  const s=describe(colVals(keptIdx,S.main));
+  if(s){L.push(`Overview of ${colName(S.main)}`);for(const [k,v] of [['count',s.count],['total',s.total],['mean',s.mean],['median',s.median],['std dev',s.std],['min',s.min],['max',s.max],['Q1',s.q1],['Q3',s.q3],['IQR',s.iqr],['P10',s.p10],['P90',s.p90],['outliers',s.nOut]])L.push(`  ${k.padEnd(10)} ${fmt(v)}`);L.push(`  mode       ${s.modes.length?s.modes.slice(0,5).map(fmt).join(', '):'none'}`)}
+  if(S.cmp.a>=0&&S.cmp.b>=0){const pts=[];for(const i of keptIdx){const a=toNum(D.rows[i][S.cmp.a]),b=toNum(D.rows[i][S.cmp.b]);if(!isNaN(a)&&!isNaN(b))pts.push([a,b])}
+    if(pts.length>1){const n=pts.length,mx=pts.reduce((t,p)=>t+p[0],0)/n,my=pts.reduce((t,p)=>t+p[1],0)/n;let sxy=0,sxx=0,syy=0;for(const [a,b] of pts){sxy+=(a-mx)*(b-my);sxx+=(a-mx)**2;syy+=(b-my)**2}const r=sxx&&syy?sxy/Math.sqrt(sxx*syy):0;
+      L.push('',`${colName(S.cmp.a)} vs ${colName(S.cmp.b)}: r = ${fmt(r)} (${words(r)}), trend ${colName(S.cmp.b)} = ${fmt(sxx?sxy/sxx:0)} × ${colName(S.cmp.a)} + ${fmt(my-(sxx?sxy/sxx:0)*mx)}`)}}
+  return L.join('\n')}
+
+/* autosave (this device only) */
+const save=debounce(()=>{try{const s=JSON.stringify({cols:D.cols,rows:D.rows,filename:S.filename,pref:S.pref,mode:S.mode,threshold:S.threshold});
+  if(s.length>4.5e6){$('#saveState').textContent='Too big to auto-save on this device';return}localStorage.setItem('uda2',s);$('#saveState').textContent='Saved on this device'}catch(_){$('#saveState').textContent=''}},700);
+
+/* tabs */
+const TABS=['table','overview','groups','compare','time','rhythm','python'];
+function setTab(t,push=true){if(!TABS.includes(t))t='overview';S.tab=t;if(editing)commitEdit();
+  $$('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);$('#t-filter').hidden=t==='rhythm';$$('#tabs a').forEach(a=>a.setAttribute('aria-current',a.dataset.tab===t?'page':'false'));
+  if(push&&location.hash!=='#'+t){try{history.replaceState(null,'','#'+t)}catch(_){location.hash=t}}
+  if(t==='table')requestAnimationFrame(renderGrid);renderActive()}
+$('#tabs').addEventListener('click',e=>{const a=e.target.closest('a[data-tab]');if(!a)return;e.preventDefault();setTab(a.dataset.tab)});
+window.addEventListener('hashchange',()=>setTab(location.hash.slice(1),false));
+let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{renderGrid();renderActive()},100)});
+const mq=window.matchMedia('(prefers-color-scheme: dark)');mq.addEventListener&&mq.addEventListener('change',renderActive);
+new MutationObserver(renderActive).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ================= rhythm math ================= */
+const RM={};
+RM.mod=(a,m)=>((a%m)+m)%m;
+RM.model=function(line){
+  const steps=(line.steps||[]).filter(s=>Number.isFinite(s)&&s!==0),L=steps.length;
+  const v0=(+line.start||0)+(line.mode==='+1'?1:0);
+  const p=[0],a=[0],b=[0];
+  for(const s of steps){p.push(p[p.length-1]+s);a.push(a[a.length-1]+Math.abs(s));b.push(b[b.length-1]+(s>0?1:-1))}
+  const S=p[L],A=a[L],B=b[L];
+  let minP=Infinity,maxP=-Infinity;for(const v of p){if(v<minP)minP=v;if(v>maxP)maxP=v}
+  const M={steps,L,v0,p,a,b,S,A,B,minP,maxP};
+  /* the set of numbers this rhythm can ever land on */
+  if(L===0){M.finite=new Set([v0])}
+  else if(S===0){M.finite=new Set(p.slice(0,L).map(x=>v0+x))}
+  else{const mod=Math.abs(S),cls=new Map();
+    for(let k=0;k<L;k++){const v=v0+p[k],r=RM.mod(v,mod),cur=cls.get(r);
+      if(cur===undefined||(S>0?v<cur:v>cur))cls.set(r,v)}
+    M.mod=mod;M.cls=cls}
+  return M;
+};
+RM.at=function(M,n){
+  if(!M.L) return {n:0,value:M.v0,x:0,y:0,step:null};
+  const m=Math.floor(n/M.L),k=n%M.L;
+  return {n,value:M.v0+m*M.S+M.p[k],x:m*M.A+M.a[k],y:m*M.B+M.b[k],step:n===0?null:M.steps[(n-1)%M.L]};
+};
+RM.contains=function(M,x){
+  if(M.finite) return M.finite.has(x);
+  const bd=M.cls.get(RM.mod(x,M.mod));if(bd===undefined) return false;
+  return M.S>0?x>=bd:x<=bd;
+};
+RM.firstHit=function(M,T){
+  if(!M.L) return T===M.v0?0:-1;
+  let best=-1;
+  for(let k=0;k<M.L;k++){const d=T-M.v0-M.p[k];let n;
+    if(M.S===0){if(d!==0)continue;n=k}
+    else{if(d%M.S!==0)continue;const m=d/M.S;if(m<0)continue;n=m*M.L+k}
+    if(best<0||n<best)best=n}
+  return best;
+};
+/* first landing n whose jump from n-1 skips over T (T strictly between) */
+RM.firstPass=function(M,T){
+  if(!M.L) return -1;
+  let mLo,mHi;const d=T-M.v0;
+  if(M.S>0){mLo=Math.max(0,Math.ceil((d-M.maxP)/M.S));mHi=Math.floor((d-M.minP)/M.S)}
+  else if(M.S<0){mLo=Math.max(0,Math.ceil((d-M.minP)/M.S));mHi=Math.floor((d-M.maxP)/M.S)}
+  else{mLo=0;mHi=0}
+  if(mHi<mLo) return -1;
+  let budget=4e6;
+  for(let m=mLo;m<=mHi&&budget>0;m++){const base=M.v0+m*M.S;
+    for(let k=1;k<=M.L;k++,budget--){const u=base+M.p[k-1],v=base+M.p[k];
+      if((u<T&&T<v)||(v<T&&T<u)) return m*M.L+k}}
+  return -1;
+};
+RM.verdict=function(M,T){
+  const out={T,hit:RM.firstHit(M,T),pass:RM.firstPass(M,T)};
+  if(out.hit>=0&&(out.pass<0||out.hit<out.pass)){out.kind='hit';out.at=RM.at(M,out.hit);out.end=out.hit}
+  else if(out.pass>=0){out.kind=out.hit>=0?'pass-then-hit':'pass';out.at=RM.at(M,out.pass);out.from=RM.at(M,out.pass-1);out.end=out.hit>=0?out.hit:out.pass;if(out.hit>=0)out.hitAt=RM.at(M,out.hit)}
+  else{out.kind='never';out.end=-1}
+  /* proof */
+  if(M.finite){out.proof={type:'loop',values:[...M.finite].sort((a,b)=>a-b)}}
+  else{const res=[...M.cls.keys()].sort((a,b)=>a-b),tr=RM.mod(T,M.mod),bd=M.cls.get(tr);
+    out.proof={type:'mod',mod:M.mod,res,tr,inSet:bd!==undefined,bound:bd,dirOk:bd!==undefined&&(M.S>0?T>=bd:T<=bd)}}
+  return out;
+};
+/* how many distinct numbers the line lands on within [lo,hi] */
+RM.countIn=function(M,lo,hi){
+  if(M.finite){let c=0;for(const v of M.finite)if(v>=lo&&v<=hi)c++;return c}
+  let c=0;for(const [r,bd] of M.cls){const a=M.S>0?Math.max(lo,bd):lo,b=M.S>0?hi:Math.min(hi,bd);if(a<=b)c+=RM.apCount(r,M.mod,a,b)}
+  return c;
+};
+RM.apCount=(r,m,a,b)=>Math.floor((b-r)/m)-Math.floor((a-1-r)/m);
+RM.apFirst=(r,m,a)=>r+Math.ceil((a-r)/m)*m;
+function egcd(a,b){let [or,r]=[a,b],[os,s]=[1,0],[ot,t]=[0,1];while(r!==0){const q=Math.floor(or/r);[or,r]=[r,or-q*r];[os,s]=[s,os-q*s];[ot,t]=[t,ot-q*t]}return [or,os,ot]}
+RM.crt=function(r1,m1,r2,m2){
+  const [g,p]=egcd(m1,m2);if((r2-r1)%g!==0) return null;
+  const l=m1/g*m2,m2g=BigInt(m2/g);let t=(BigInt((r2-r1)/g)*BigInt(p))%m2g;if(t<0n)t+=m2g;
+  const L=BigInt(l);let x=(BigInt(r1)+BigInt(m1)*t)%L;if(x<0n)x+=L;return [Number(x),l];
+};
+/* numbers both lines land on inside [lo,hi]: exact count + first few */
+RM.shared=function(A,B,lo,hi,want=5){
+  const first=[];let count=0,period=null;
+  const push=v=>{first.push(v);first.sort((x,y)=>x-y);if(first.length>want)first.length=want};
+  if(A.finite||B.finite){const F=A.finite?A:B,O=A.finite?B:A;
+    for(const v of F.finite)if(v>=lo&&v<=hi&&RM.contains(O,v)){count++;push(v)}
+    return {count,first,period}}
+  for(const [r1,b1] of A.cls)for(const [r2,b2] of B.cls){
+    const c=RM.crt(r1,A.mod,r2,B.mod);if(!c)continue;const [x0,l]=c;period=period===null?l:period;
+    let a=lo,b=hi;if(A.S>0)a=Math.max(a,b1);else b=Math.min(b,b1);if(B.S>0)a=Math.max(a,b2);else b=Math.min(b,b2);
+    if(a>b)continue;const n=RM.apCount(x0,l,a,b);if(n<=0)continue;count+=n;
+    let v=RM.apFirst(x0,l,a);for(let i=0;i<want&&v<=b;i++,v+=l)push(v)}
+  if(period!==null){const g=egcd(A.mod,B.mod)[0];period=A.mod/g*B.mod}
+  return {count,first,period};
+};
+/* ascending numbers a line lands on inside [lo,hi], up to cap */
+RM.iter=function*(M,lo,hi){
+  if(M.finite){for(const v of [...M.finite].sort((a,b)=>a-b))if(v>=lo&&v<=hi)yield v;return}
+  const res=[...M.cls.entries()].sort((a,b)=>a[0]-b[0]);
+  let block=Math.floor(lo/M.mod)*M.mod;
+  while(block<=hi){for(const [r,bd] of res){const v=block+r;if(v<lo||v>hi)continue;if(M.S>0?v>=bd:v<=bd)yield v}block+=M.mod}
+};
+/* landings whose square run touches columns [x0,x1] */
+RM.landingsInX=function(M,x0,x1,cap=200000){
+  const out=[];if(!M.L){if(x0<=0&&0<=x1)out.push(RM.at(M,0));return out}
+  const mStart=Math.max(0,Math.floor(x0/M.A)-1),mEnd=Math.floor(x1/M.A)+1;
+  for(let m=mStart;m<=mEnd;m++)for(let k=0;k<M.L;k++){const n=m*M.L+k,l=RM.at(M,n);
+    const runStart=n===0?0:l.x-Math.abs(l.step)+1;
+    if(l.x>=x0&&runStart<=x1){out.push(l);if(out.length>=cap)return out}}
+  return out;
+};
+
+
+/* ================= RHYTHM TAB ================= */
+const RY={lines:[],sel:-1,draft:{name:'Steady climb',start:0,mode:'0',steps:[3,5,-2],check:26},
+  v:{x0:-3,yTop:9,cell:14},view:'2d',w3:{x0:0,w:120},pair:null,range:{lo:0,hi:1000000},listEnd:null,find:'',rankFind:'',delArm:-1};
+const PAL=['#111111','#d2452f','#2f6fd2','#1a9a5b','#a54fd6','#e08a1a','#0aa3b5','#c2337a','#6b7d12','#7a4b2a','#4553a6','#b8860b'];
+const lineColor=i=>i<PAL.length?PAL[i]:`hsl(${Math.round((i*137.508)%360)},62%,42%)`;
+const fmtStep=s=>(s>0?'+':'−')+Math.abs(s).toLocaleString('en-US');
+const fmtI=n=>Number(n).toLocaleString('en-US');
+const fmtSigned=n=>(n>0?'+':n<0?'−':'')+fmtI(Math.abs(n));
+function parseSteps(t){return String(t).replace(/[−–—]/g,'-').split(/[\s,;]+/).filter(Boolean).map(s=>Number(s.replace(/^\+/,''))).filter(n=>Number.isInteger(n)&&n!==0)}
+const MC=new Map();
+function getM(l){const k=l.start+'|'+l.mode+'|'+l.steps.join(',');let m=MC.get(k);if(!m){m=RM.model(l);if(MC.size>5000)MC.clear();MC.set(k,m)}return m}
+const VC=new Map();
+function getV(M,T){const k=M.v0+'|'+M.steps.join(',')+'|'+T;let v=VC.get(k);if(!v){v=RM.verdict(M,T);if(VC.size>5000)VC.clear();VC.set(k,v)}return v}
+function rhSave(){try{localStorage.setItem('uda2-rhythms',JSON.stringify(RY.lines.map(({name,start,mode,steps,check,show})=>({name,start,mode,steps,check,show}))))}catch(_){}}
+function rhLoad(){try{const a=JSON.parse(localStorage.getItem('uda2-rhythms')||'null');if(Array.isArray(a)){RY.lines=a.filter(l=>l&&Array.isArray(l.steps)).map(l=>({name:String(l.name||''),start:Math.round(+l.start||0),mode:l.mode==='+1'?'+1':'0',steps:l.steps.map(Number).filter(n=>Number.isInteger(n)&&n!==0),check:Number.isFinite(+l.check)?Math.round(+l.check):0,show:l.show!==false}));return true}}catch(_){}return false}
+const lineName=(l,i)=>l.name||('Line '+(i+1));
+function displayLines(){const out=[];
+  RY.lines.forEach((l,i)=>{const src=i===RY.sel?RY.draft:l;if(!l.show&&i!==RY.sel)return;if(!src.steps.length)return;
+    out.push({i,z:i,name:lineName(src,i),color:lineColor(i),M:getM(src),check:src.check,active:i===RY.sel})});
+  if(RY.sel<0&&RY.draft.steps.length){const i=RY.lines.length;out.push({i,z:i,name:RY.draft.name||'Unsaved rhythm',color:lineColor(i),M:getM(RY.draft),check:RY.draft.check,active:true,draft:true})}
+  return out}
+const activeLine=()=>displayLines().find(l=>l.active)||null;
+
+/* ---------- editor ---------- */
+function rhFillEditor(){const d=RY.draft;$('#rhName').value=d.name;$('#rhStart').value=d.start;$('#rhMode').value=d.mode;$('#rhCheck').value=d.check;$('#rhSteps').value=d.steps.join(', ')}
+function rhReadEditor(){const d=RY.draft;d.name=$('#rhName').value.trim();d.start=Math.round(+$('#rhStart').value||0);d.mode=$('#rhMode').value;
+  const c=parseFloat($('#rhCheck').value);d.check=Number.isFinite(c)?Math.round(c):0;d.steps=parseSteps($('#rhSteps').value)}
+function lineSummary(M){
+  if(!M.L) return '';
+  const dir=M.B>0?`climbs ${M.B} line${M.B>1?'s':''}`:M.B<0?`drops ${-M.B} line${M.B<-1?'s':''}`:'stays level';
+  return `Each pass of the rhythm moves the number <b>${fmtSigned(M.S)}</b>, draws <b>${fmtI(M.A)}</b> squares across and ${dir}.`}
+function landsOnText(M){
+  if(M.finite){const v=[...M.finite].sort((a,b)=>a-b);return `loops forever over ${v.length} number${v.length>1?'s':''}: ${v.slice(0,12).map(fmtI).join(', ')}${v.length>12?' …':''}`}
+  const res=[...M.cls.keys()].sort((a,b)=>a-b),dir=M.S>0?'upward':'downward';
+  if(M.mod===1) return `every whole number ${dir} from ${fmtI(M.S>0?Math.min(...M.cls.values()):Math.max(...M.cls.values()))}`;
+  return `numbers that leave remainder ${res.length>8?res.slice(0,8).join(', ')+' …':res.join(', ').replace(/, ([^,]*)$/,' or $1')} when divided by ${fmtI(M.mod)} (heading ${dir})`}
+function verdictParts(M,T){
+  const v=getV(M,T),pill=(k,t)=>`<span class="pill ${k}">${t}</span>`;let h='';
+  if(v.kind==='hit') h=`${pill('hit','Hit')} Lands on <b>${fmtI(T)}</b> on step <b>${fmtI(v.at.n)}</b>, at X ${fmtI(v.at.x)}, Y ${fmtI(v.at.y)}. The line is <b>${fmtI(v.at.x+1)}</b> squares long there.`;
+  else if(v.kind==='pass-then-hit') h=`${pill('pass','Passes, then hits')} First jumps over ${fmtI(T)} on step ${fmtI(v.at.n)} (${fmtI(v.from.value)} → ${fmtI(v.at.value)}), then comes back and lands on it on step <b>${fmtI(v.hitAt.n)}</b> at X ${fmtI(v.hitAt.x)}, Y ${fmtI(v.hitAt.y)}.`;
+  else if(v.kind==='pass') h=`${pill('pass','Passes over')} Never lands on <b>${fmtI(T)}</b>. On step <b>${fmtI(v.at.n)}</b> it jumps from ${fmtI(v.from.value)} to ${fmtI(v.at.value)}, skipping over it, at X ${fmtI(v.at.x)}, Y ${fmtI(v.at.y)}. The line is ${fmtI(v.at.x+1)} squares long there.`;
+  else h=`${pill('never','Never reaches')} The line never gets to <b>${fmtI(T)}</b>.`;
+  const pr=v.proof;let why='',math='';
+  if(pr.type==='loop'){why=pr.values.includes(T)?'':` This rhythm adds up to 0 each pass, so it repeats the same ${pr.values.length} numbers forever and ${fmtI(T)} is not one of them.`;
+    math=`Sum of one pass = ${M.steps.map(fmtStep).join(' ')} = 0, so after every pass you are back where you started. The only numbers it can ever land on are: ${pr.values.slice(0,40).map(fmtI).join(', ')}${pr.values.length>40?' …':''}.`}
+  else{const m=pr.mod;
+    if(v.kind!=='hit'&&v.kind!=='pass-then-hit'){
+      if(!pr.inSet) why=` <b>Proven:</b> it can never land on ${fmtI(T)}, no matter how long the line gets. ${fmtI(T)} ÷ ${fmtI(m)} leaves remainder ${pr.tr}, and this rhythm only lands on remainders ${pr.res.length>10?pr.res.slice(0,10).join(', ')+' …':pr.res.join(', ')}.`;
+      else if(!pr.dirOk) why=` <b>Proven:</b> ${fmtI(T)} has the right remainder, but it is ${M.S>0?'below':'above'} where that part of the rhythm starts (${fmtI(pr.bound)}), and the rhythm only moves ${M.S>0?'up':'down'}.`}
+    const offs=M.p.slice(0,M.L).map(q=>M.v0+q);
+    math=`One pass moves ${M.steps.map(fmtStep).join(' ')} = ${fmtSigned(M.S)}, so every landing repeats in steps of ${fmtI(m)}. In the first pass it lands on ${offs.slice(0,12).map(fmtI).join(', ')}${offs.length>12?' …':''}. Divided by ${fmtI(m)} those leave remainders {${pr.res.slice(0,24).join(', ')}${pr.res.length>24?' …':''}}. ${fmtI(T)} ÷ ${fmtI(m)} leaves remainder ${pr.tr} → ${pr.inSet?(pr.dirOk?'in the set and on the side the rhythm moves toward, so it is reachable':'in the set but on the wrong side of the start'):'not in the set, so it can never be reached'}.`}
+  return {v,html:h+why,math};
+}
+function renderEditor(){
+  const d=RY.draft,M=getM(d);
+  $('#rhChips').innerHTML=d.steps.length?d.steps.map((s,i)=>`<span class="stepchip ${s>0?'up':'down'}">${i+1}: ${fmtStep(s)}</span>`).join('')+`<span class="hint">then repeat</span>`:'<span class="hint">Type steps separated by commas, like 3, 5, -2. Zero steps are ignored.</span>';
+  if(!M.L){$('#rhVerdict').textContent='Add at least one step to draw a rhythm.';$('#rhProof').textContent='';return}
+  const p=verdictParts(M,d.check);
+  $('#rhVerdict').innerHTML=p.html+`<br><span class="hint">${lineSummary(M)} Start: ${fmtI(M.v0)} (${d.mode==='+1'?'stepped one forward from '+fmtI(d.start):'counting the start'}). Lands on ${landsOnText(M)}.</span>`;
+  $('#rhProof').textContent=p.math;
+  $('#rhUpdate').hidden=RY.sel<0;$('#rhUpdate').textContent=RY.sel>=0?`Update line ${RY.sel+1}`:'Update line';
+  $('#rhSaveNew').textContent=RY.sel>=0?'Save as new line':'Save line';
+}
+function onEditorInput(){rhReadEditor();S.flags.rhEdit=true;renderEditor();rh2dDraw();rhLandRender();rhLegend();schedule3D();tourCheck()}
+['#rhName','#rhStart','#rhMode','#rhSteps'].forEach(id=>$(id).addEventListener('input',onEditorInput));
+$('#rhCheck').addEventListener('input',()=>{S.flags.rhCheck=true;onEditorInput()});
+$('#rhSaveNew').onclick=()=>{rhReadEditor();if(!RY.draft.steps.length){msg('#rhMsg','Add at least one step first.');return}
+  RY.lines.push({...RY.draft,steps:RY.draft.steps.slice(),show:true});RY.sel=RY.lines.length-1;if(!RY.draft.name){RY.lines[RY.sel].name='';}
+  rhSave();corrStart();renderRhythm();msg('#rhMsg',`Saved as line ${RY.sel+1}, layer Z = ${RY.sel}.`,true);S.flags.rhSave=true;tourCheck()};
+$('#rhUpdate').onclick=()=>{if(RY.sel<0)return;rhReadEditor();if(!RY.draft.steps.length){msg('#rhMsg','Add at least one step first.');return}
+  RY.lines[RY.sel]={...RY.draft,steps:RY.draft.steps.slice(),show:RY.lines[RY.sel].show};rhSave();corrStart();renderRhythm();msg('#rhMsg',`Line ${RY.sel+1} updated.`,true)};
+$('#rhNew').onclick=()=>{RY.sel=-1;RY.draft={name:'',start:0,mode:'0',steps:[],check:RY.draft.check};rhFillEditor();renderRhythm();$('#rhSteps').focus();msg('#rhMsg','New rhythm. It draws on the next layer until you save it.')};
+$('#mathToggle2').addEventListener('change',e=>{document.body.classList.toggle('math-on',e.target.checked);$('#mathToggle').checked=e.target.checked;S.flags.math=e.target.checked});
+$('#mathToggle').addEventListener('change',e=>{$('#mathToggle2').checked=e.target.checked});
+
+/* ---------- saved lines list ---------- */
+function renderLineList(){
+  const q=RY.find.trim().toLowerCase();$('#rhCount').textContent=`${RY.lines.length} saved`;
+  if(!RY.lines.length){$('#rhList').innerHTML='<p class="empty">No saved lines yet. Build a rhythm above and tap "Save line". Each saved line gets its own color and its own layer on the Z axis.</p>';return}
+  let shown=0;const html=[];
+  RY.lines.forEach((l,i)=>{const nm=lineName(l,i);if(q&&!(String(i+1)===q||nm.toLowerCase().includes(q)||l.steps.join(',').includes(q)))return;if(shown++>=400)return;
+    const M=getM(l),v=getV(M,l.check),k=v.kind==='hit'?'hit':v.kind==='never'?'never':'pass';
+    html.push(`<div class="rh-line${i===RY.sel?' on':''}" data-i="${i}"><input type="checkbox" data-act="show" ${l.show?'checked':''} aria-label="Show line ${i+1}"><span class="swatch" style="background:${lineColor(i)}"></span>
+      <div style="min-width:0"><div><b>Line ${i+1}</b> · ${esc(nm)}</div><div class="hint mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.mode==='+1'?'+1':'0'} · ${l.steps.map(fmtStep).join(' ')} · check ${fmtI(l.check)} <span class="pill ${k} sm">${k==='hit'?'hit':k==='never'?'never':'passes'}</span></div></div>
+      <div class="row" style="gap:6px"><button class="btn small" type="button" data-act="edit">Edit</button><button class="btn small danger" type="button" data-act="del">${RY.delArm===i?'Tap to confirm':'Delete'}</button></div></div>`)});
+  if(shown>400)html.push(`<p class="hint">${shown-400} more lines. Use "Find a line" to narrow the list.</p>`);
+  $('#rhList').innerHTML=html.join('');
+}
+$('#rhList').addEventListener('click',e=>{const row=e.target.closest('.rh-line');if(!row)return;const i=+row.dataset.i,act=e.target.dataset.act;
+  if(act==='show'){RY.lines[i].show=e.target.checked;rhSave();rh2dDraw();schedule3D();rhLegend();renderAllShared();return}
+  if(act==='del'){if(RY.delArm!==i){RY.delArm=i;renderLineList();setTimeout(()=>{if(RY.delArm===i){RY.delArm=-1;renderLineList()}},4000);return}
+    RY.delArm=-1;RY.lines.splice(i,1);if(RY.sel===i)RY.sel=-1;else if(RY.sel>i)RY.sel--;RY.pair=null;rhSave();corrStart();renderRhythm();msg('#rhMsg',`Line ${i+1} deleted. Lines after it moved forward one layer.`);return}
+  if(act==='edit'||!act){RY.sel=i;RY.draft={...RY.lines[i],steps:RY.lines[i].steps.slice()};rhFillEditor();renderRhythm();$('#t-rh-edit').scrollIntoView({block:'start',behavior:'smooth'})}});
+$('#rhShowAll').onclick=()=>{RY.lines.forEach(l=>l.show=true);rhSave();renderRhythm()};
+$('#rhHideAll').onclick=()=>{RY.lines.forEach(l=>l.show=false);rhSave();renderRhythm()};
+$('#rhFind').addEventListener('input',debounce(e=>{RY.find=e.target.value;renderLineList()},120));
+function rhLegend(){const L=displayLines();
+  $('#rhLegend').innerHTML=`<span><i class="sw" style="background:#fff;border:2px solid #000"></i>Start square</span><span><i class="sw" style="background:#1D9E75;border:1px solid #000"></i>Lands on check number</span><span><i class="sw" style="border:2px dashed #d2452f;background:none"></i>Skips over check number</span>`+
+  L.slice(0,14).map(l=>`<span><i class="sw" style="background:${l.color}"></i>${l.draft?'(unsaved) ':'L'+(l.i+1)+' '}${esc(l.name)}</span>`).join('')+(L.length>14?`<span>+${L.length-14} more</span>`:'')}
+
+/* ---------- 2D pixel grid ---------- */
+function tickLabel(t,step){return Math.abs(t)>=1e4&&step>=Math.abs(t)/2000?fa(t):fmtI(t)}
+function niceStep(v){if(v<=1)return 1;const m=10**Math.floor(Math.log10(v)),f=v/m;return (f<=1?1:f<=2?2:f<=5?5:10)*m}
+let G2={RL:56,RT:24,w:0,h:0};
+function rh2dDraw(){
+  if(S.tab!=='rhythm'||RY.view!=='2d')return;
+  const wrap=$('#rh2dWrap'),c=$('#rh2d'),w=wrap.clientWidth;if(!w)return;
+  const h=Math.max(280,Math.min(480,Math.round(w*.56))),dpr=window.devicePixelRatio||1;
+  c.style.height=h+'px';c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);
+  const RT=G2.RT;x.font='11px '+(TK['--f-mono']||'monospace');
+  const {x0,yTop,cell}=RY.v,tyy=niceStep(44/cell),yBot0=yTop-(h-RT)/cell;let lw=0;for(let t=Math.floor(yTop/tyy)*tyy;t>=yBot0;t-=tyy)lw=Math.max(lw,x.measureText(tickLabel(t,tyy)).width);
+  const RL=Math.max(44,Math.ceil(lw)+14);G2.RL=RL;const PW=w-RL,PH=h-RT;G2.w=w;G2.h=h;
+  const x1=x0+PW/cell,yBot=yTop-PH/cell;
+  const SX=wx=>RL+(wx-x0)*cell,SY=wy=>RT+(yTop-wy)*cell;
+  x.fillStyle=TK['--surface-2']||'#eef';x.fillRect(0,0,w,h);
+  x.fillStyle='#ffffff';x.fillRect(RL,RT,PW,PH);
+  x.save();x.beginPath();x.rect(RL,RT,PW,PH);x.clip();
+  const tx=niceStep(84/cell),ty=niceStep(44/cell);
+  x.lineWidth=1;
+  if(cell>=9){x.strokeStyle='#ececec';x.beginPath();for(let cc=Math.floor(x0);cc<=x1+1;cc++){const p=Math.round(SX(cc))+.5;x.moveTo(p,RT);x.lineTo(p,h)}
+    for(let r=Math.ceil(yTop)+1;r>=yBot-1;r--){const p=Math.round(SY(r))+.5;x.moveTo(RL,p);x.lineTo(w,p)}x.stroke()}
+  x.strokeStyle='#e2e2e2';x.beginPath();for(let t=Math.ceil(x0/tx)*tx;t<=x1;t+=tx){const p=Math.round(SX(t))+.5;x.moveTo(p,RT);x.lineTo(p,h)}
+  for(let t=Math.floor(yTop/ty)*ty;t>=yBot-ty;t-=ty){const p=Math.round(SY(t)+cell)+.5;x.moveTo(RL,p);x.lineTo(w,p)}x.stroke();
+  x.strokeStyle='#bdbdbd';x.beginPath();const ax=Math.round(SX(0))+.5,ay=Math.round(SY(0)+cell)+.5;x.moveTo(ax,RT);x.lineTo(ax,h);x.moveTo(RL,ay);x.lineTo(w,ay);x.stroke();
+  const L=displayLines().sort((a,b)=>(a.active-b.active)||(b.z-a.z));
+  for(const ln of L) draw2dLine(x,ln,{x0,x1,yTop,yBot,cell,SX,SY});
+  x.restore();
+  x.fillStyle=TK['--muted']||'#567';x.font='11px '+(TK['--f-mono']||'monospace');x.textBaseline='middle';x.textAlign='center';
+  for(let t=Math.ceil(x0/tx)*tx;t<=x1;t+=tx){const p=SX(t)+Math.min(cell,16)/2;if(p>RL+12&&p<w-10)x.fillText(tickLabel(t,tx),p,RT/2)}
+  x.textAlign='right';for(let t=Math.floor(yTop/ty)*ty;t>=yBot;t-=ty){const p=SY(t)+Math.min(cell,16)/2;if(p>RT+8&&p<h-6)x.fillText(tickLabel(t,ty),RL-6,p)}
+  x.fillStyle=TK['--fg']||'#123';x.textAlign='left';x.font='600 10.5px '+(TK['--f-mono']||'monospace');x.fillText('X →',4,RT/2);
+  $('#rhPos').textContent=`view X ${fa(Math.max(0,x0))}–${fa(x1)} · square ${cell>=1?fmt(cell)+' px':'1 px = '+fa(1/cell)+' squares'}`;
+}
+function draw2dLine(x,ln,V){
+  const M=ln.M;if(!M.L)return;const v=getV(M,ln.check),{x0,x1,yTop,yBot,cell,SX,SY}=V;
+  const visY=y=>y>=yBot-2&&y<=yTop+2;
+  if(cell>=1.2){
+    const ls=RM.landingsInX(M,Math.floor(x0)-1,Math.ceil(x1)+1,80000);x.fillStyle=ln.color;
+    for(const l of ls){if(l.n===0||!visY(l.y))continue;const s=Math.abs(l.step),cs=l.x-s+1;
+      if(cell>=6){const a=Math.max(cs,Math.floor(x0)-1),b=Math.min(l.x,Math.ceil(x1)+1);for(let cc=a;cc<=b;cc++)x.fillRect(SX(cc)+.5,SY(l.y)+.5,cell-1,cell-1)}
+      else x.fillRect(SX(cs),SY(l.y),s*cell,cell)}
+    if(x0<=1&&x1>=-1&&visY(0)){x.fillStyle='#ffffff';x.fillRect(SX(0)+1,SY(0)+1,cell-2,cell-2);x.strokeStyle='#000';x.lineWidth=Math.max(1,Math.min(2,cell/6));x.strokeRect(SX(0)+1,SY(0)+1,cell-2,cell-2)}
+    const hitL=v.kind==='hit'?v.at:v.kind==='pass-then-hit'?v.hitAt:null;
+    if(hitL&&hitL.x>=x0-1&&hitL.x<=x1+1){x.fillStyle='#1D9E75';x.fillRect(SX(hitL.x)+.5,SY(hitL.y)+.5,cell-1,cell-1);x.strokeStyle='#000';x.lineWidth=1;x.strokeRect(SX(hitL.x)+.5,SY(hitL.y)+.5,cell-1,cell-1)}
+    if((v.kind==='pass'||v.kind==='pass-then-hit')&&v.at.x>=x0-50&&v.at.x-Math.abs(v.at.step)<=x1+1){const s=Math.abs(v.at.step);
+      x.save();x.setLineDash([4,3]);x.strokeStyle='#d2452f';x.lineWidth=2;x.strokeRect(SX(v.at.x-s+1)-2,SY(v.at.y)-2,s*cell+4,cell+4);x.restore()}
+  }else{
+    const mS=Math.max(0,Math.floor(x0/M.A)-1),mE=Math.ceil(x1/M.A)+1,cnt=mE-mS,stride=Math.max(1,Math.ceil(cnt/4000)),detail=cnt*M.L<6000;
+    x.strokeStyle=ln.color;x.lineWidth=ln.active?2.2:1.6;x.lineJoin='round';x.beginPath();let first=true;
+    const pt=l=>{const px=SX(l.x)+cell/2,py=SY(l.y)+cell/2;first?x.moveTo(px,py):x.lineTo(px,py);first=false};
+    for(let m=mS;m<=mE;m+=stride){if(detail)for(let k=0;k<M.L;k++)pt(RM.at(M,m*M.L+k));else pt(RM.at(M,m*M.L))}
+    x.stroke();
+    const dot=(l,f,s)=>{if(!l||l.x<x0-5||l.x>x1+5)return;x.beginPath();x.arc(SX(l.x)+cell/2,SY(l.y)+cell/2,5,0,7);x.fillStyle=f;x.fill();x.strokeStyle=s;x.lineWidth=1.5;x.stroke()};
+    if(x0<=1)dot({x:0,y:0},'#ffffff','#000');
+    if(v.kind==='hit')dot(v.at,'#1D9E75','#000');else if(v.kind==='pass-then-hit'){dot(v.at,'#ffffff','#d2452f');dot(v.hitAt,'#1D9E75','#000')}else if(v.kind==='pass')dot(v.at,'#ffffff','#d2452f');
+  }
+}
+function rhZoomAt(px,py,f){const v=RY.v,cell=Math.min(48,Math.max(1e-7,v.cell*f));const wx=v.x0+(px-G2.RL)/v.cell,wy=v.yTop-(py-G2.RT)/v.cell;
+  v.cell=cell;v.x0=wx-(px-G2.RL)/cell;v.yTop=wy+(py-G2.RT)/cell;rh2dDraw()}
+function rhCenterOn(wx,wy,cell){const v=RY.v;if(cell)v.cell=cell;const PW=G2.w-G2.RL,PH=G2.h-G2.RT;v.x0=wx-PW/v.cell/2;v.yTop=wy+PH/v.cell/2;rh2dDraw()}
+function rhFit(){const L=displayLines();if(!L.length){rhCenterOn(10,2,14);return}
+  let xe=40,ymin=0,ymax=2;
+  for(const ln of L){const v=getV(ln.M,ln.check);const e=v.kind==='hit'?v.at:v.kind==='pass-then-hit'?v.hitAt:v.kind==='pass'?v.at:null;if(e)xe=Math.max(xe,e.x+3)}
+  for(const ln of L){const M=ln.M,mE=Math.ceil(xe/M.A)+1,stride=Math.max(1,Math.ceil(mE/3000));let bmin=Math.min(...M.b),bmax=Math.max(...M.b);
+    for(let m=0;m<=mE;m+=stride){const y=m*M.B;ymin=Math.min(ymin,y+bmin);ymax=Math.max(ymax,y+bmax)}}
+  const PW=G2.w-G2.RL,PH=G2.h-G2.RT,cell=Math.max(1e-7,Math.min(28,PW/(xe+4),PH/(ymax-ymin+3)));
+  RY.v.cell=cell;RY.v.x0=-1.5;RY.v.yTop=ymax+1+((PH/cell)-(ymax-ymin+3))/2;rh2dDraw()}
+function rhJump(){const a=activeLine();if(!a)return;const v=getV(a.M,a.check),e=v.kind==='hit'?v.at:v.kind==='pass-then-hit'?v.hitAt:v.kind==='pass'?v.at:null;
+  S.flags.rhJump=true;tourCheck();if(!e){msg('#rhMsg','This line never reaches the check number, so there is nothing to jump to.');return}rhCenterOn(e.x,e.y,14)}
+$('#rhZoomIn').onclick=()=>rhZoomAt(G2.RL+(G2.w-G2.RL)/2,G2.RT+(G2.h-G2.RT)/2,1.6);
+$('#rhZoomOut').onclick=()=>rhZoomAt(G2.RL+(G2.w-G2.RL)/2,G2.RT+(G2.h-G2.RT)/2,1/1.6);
+$('#rhFit').onclick=rhFit;$('#rhJump').onclick=rhJump;$('#rhHome').onclick=()=>{RY.v={x0:-3,yTop:9,cell:14};rh2dDraw()};
+function squareInfo(wx,wy){
+  for(const ln of displayLines().sort((a,b)=>b.active-a.active)){const M=ln.M;
+    if(wx===0&&wy===0)return `<b>L${ln.i+1}</b> start square · number ${fmtI(M.v0)}`;
+    const ls=RM.landingsInX(M,wx,wx,8);for(const l of ls){if(l.n===0||l.y!==wy)continue;
+      const end=l.x===wx;return `<span class="swatch" style="display:inline-block;vertical-align:middle;background:${ln.color}"></span> <b>${l.n===0?'':'L'+(ln.i+1)}</b> ${esc(ln.name)} · step ${fmtI(l.n)} (${fmtStep(l.step)}) ${end?'lands on':'on its way to'} <b>${fmtI(l.value)}</b> · X ${fmtI(wx)}, Y ${fmtI(wy)}`}}
+  return `X ${fmtI(wx)}, Y ${fmtI(wy)} · empty`;
+}
+(function wire2d(){const c=$('#rh2d'),pts=new Map();let moved=0,pinch=null;
+  const pos=e=>{const r=c.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
+  c.addEventListener('pointerdown',e=>{c.setPointerCapture(e.pointerId);pts.set(e.pointerId,pos(e));moved=0;if(pts.size===2){const [a,b]=[...pts.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1])}}});
+  c.addEventListener('pointermove',e=>{const p=pos(e);
+    if(!pts.has(e.pointerId)){const v=RY.v;if(p[0]>G2.RL&&p[1]>G2.RT)$('#rhHover').innerHTML=squareInfo(Math.floor(v.x0+(p[0]-G2.RL)/v.cell),Math.ceil(v.yTop-(p[1]-G2.RT)/v.cell));return}
+    const prev=pts.get(e.pointerId);pts.set(e.pointerId,p);
+    if(pts.size===1){const dx=p[0]-prev[0],dy=p[1]-prev[1];moved+=Math.abs(dx)+Math.abs(dy);RY.v.x0-=dx/RY.v.cell;RY.v.yTop+=dy/RY.v.cell;rh2dDraw()}
+    else if(pts.size===2&&pinch){const [a,b]=[...pts.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);moved+=10;rhZoomAt((a[0]+b[0])/2,(a[1]+b[1])/2,d/pinch.d);pinch.d=d}});
+  const up=e=>{const p=pos(e);if(pts.size===1&&moved<6&&p[0]>G2.RL&&p[1]>G2.RT){const v=RY.v;$('#rhHover').innerHTML=squareInfo(Math.floor(v.x0+(p[0]-G2.RL)/v.cell),Math.ceil(v.yTop-(p[1]-G2.RT)/v.cell))}pts.delete(e.pointerId);if(pts.size<2)pinch=null};
+  c.addEventListener('pointerup',up);c.addEventListener('pointercancel',e=>{pts.delete(e.pointerId);pinch=null});
+  c.addEventListener('wheel',e=>{e.preventDefault();const p=pos(e);rhZoomAt(p[0],p[1],Math.pow(1.0018,-e.deltaY))},{passive:false});
+})();
+/* row under pointer: square of row r spans SY(r)..SY(r)+cell, so r = floor(yTop - py/cell) + ... */
+
+/* ---------- landings list ---------- */
+const PRIME=new Map();
+function isPrime(n){if(!Number.isInteger(n)||n<2)return false;if(n>1e12)return null;if(PRIME.has(n))return PRIME.get(n);let r=true;
+  if(n<4)r=true;else if(n%2===0||n%3===0)r=false;else{for(let i=5;i*i<=n;i+=6)if(n%i===0||n%(i+2)===0){r=false;break}}if(PRIME.size>20000)PRIME.clear();PRIME.set(n,r);return r}
+function landEnd(){const a=activeLine();if(!a)return -1;const v=getV(a.M,a.check);if(RY.listEnd!=null)return RY.listEnd;return v.end>=0?v.end:999}
+function rhLandRender(){
+  const box=$('#rhLand'),sp=$('#rhLandSpacer'),a=activeLine();
+  if(!a){sp.style.height='0px';sp.innerHTML='';$('#rhLandInfo').textContent='No rhythm yet';return}
+  const end=landEnd(),RHH=30,total=end+1;sp.style.height=total*RHH+'px';
+  const v=getV(a.M,a.check);$('#rhLandInfo').textContent=`${fmtI(total)} landings · ${v.end>=0&&RY.listEnd==null?'up to the step that meets '+fmtI(a.check):'first '+fmtI(total)}`;
+  const st=Math.max(0,box.scrollTop-34),vh=box.clientHeight||330,r0=Math.max(0,Math.floor(st/RHH)-3),r1=Math.min(total,Math.ceil((st+vh)/RHH)+3);
+  let h='';const T=a.check;
+  for(let n=r0;n<r1;n++){const l=RM.at(a.M,n),pr=isPrime(l.value),d=l.value-T,isHit=l.value===T,isPass=(v.kind==='pass'||v.kind==='pass-then-hit')&&n===v.at.n;
+    h+=`<div class="vrow${isHit?' hitrow':isPass?' passrow':''}" style="top:${n*RHH}px"><span>${fmtI(n)}</span><span>${n===0?'start':fmtStep(l.step)}</span><span><b>${fmtI(l.value)}</b></span><span>${Math.abs(l.value)%2===0?'even':'odd'}</span><span>${pr===null?'—':pr?'prime':'no'}</span><span>${fmtI(l.x)}</span><span>${fmtI(l.y)}</span><span>${isHit?'✓ hit':isPass?'skipped':(d>0?'+':'')+fmtI(d)}</span></div>`}
+  sp.innerHTML=h;
+}
+$('#rhLand').addEventListener('scroll',()=>requestAnimationFrame(rhLandRender),{passive:true});
+$('#rhLandGo').addEventListener('change',e=>{const n=Math.max(0,Math.round(+e.target.value||0));if(n>landEnd()){RY.listEnd=n+50;$('#rhLandEnd').value=RY.listEnd}$('#rhLand').scrollTop=n*30;rhLandRender()});
+$('#rhLandEnd').addEventListener('change',e=>{const n=Math.round(+e.target.value);RY.listEnd=n>0?n:null;rhLandRender()});
+$('#rhToTable').onclick=()=>{const a=activeLine();if(!a)return;const total=Math.min(landEnd()+1,100000),rows=[];
+  for(let n=0;n<total;n++){const l=RM.at(a.M,n);rows.push([String(n),n===0?'start':fmtStep(l.step).replace('−','-'),String(l.value),String(l.x),String(l.y)])}
+  snap();S.mode='all';loadTable({cols:['step','move','number','x','y'],rows},(a.name||'rhythm').replace(/[^\w-]+/g,'_').toLowerCase()+'_landings.csv',{main:'number',a:'x',b:'number'});
+  msg('#ioMsg',`Loaded ${fmtI(total)} landings from ${a.name}. Undo brings your old table back.`,true);setTab('table')};
+
+/* ---------- readout ---------- */
+function renderLineCards(){
+  const lo=RY.range.lo,hi=RY.range.hi;
+  if(!RY.lines.length){$('#rhLineRead').innerHTML='<p class="empty">Save a rhythm to record it here. Every saved line gets a full readout and joins the correlation grid.</p>';return}
+  const out=[];const lim=Math.min(RY.lines.length,300);
+  for(let i=0;i<lim;i++){const l=RY.lines[i],M=getM(l),p=verdictParts(M,l.check),cnt=CORR.countLine[i];
+    out.push(`<div class="rh-card"><div class="row" style="gap:8px"><span class="swatch" style="background:${lineColor(i)}"></span><b>Line ${i+1} · ${esc(lineName(l,i))}</b><span class="hint mono">Z = ${i} · start ${fmtI(l.start)} (${l.mode}) · ${l.steps.map(fmtStep).join(' ')}</span></div>
+      <p>${p.html}</p><p class="hint">${lineSummary(M)} Lands on ${landsOnText(M)}.${cnt!=null?` Between ${fmtI(lo)} and ${fmtI(hi)} it lands on <b>${fmtI(cnt)}</b> different numbers.`:''}</p></div>`)}
+  if(RY.lines.length>lim)out.push(`<p class="hint">Showing the first ${lim} of ${fmtI(RY.lines.length)} lines here. All of them are in the grid and the ranked pairs below.</p>`);
+  $('#rhLineRead').innerHTML=out.join('');
+}
+const CORR={job:0,N:0,pct:null,cnt:null,countLine:[],done:0,total:0,ox:0,oy:0,cs:30};
+function corrStart(){
+  const job=++CORR.job,N=RY.lines.length,lo=RY.range.lo,hi=RY.range.hi,Ms=RY.lines.map(getM);
+  CORR.N=N;CORR.countLine=Ms.map(M=>RM.countIn(M,lo,hi));CORR.pct=new Float32Array(N*N).fill(NaN);CORR.cnt=new Float64Array(N*N);
+  for(let i=0;i<N;i++){CORR.pct[i*N+i]=100;CORR.cnt[i*N+i]=CORR.countLine[i]}
+  CORR.total=N*(N-1)/2;CORR.done=0;let i=0,j=1;
+  const step=()=>{if(job!==CORR.job)return;const t0=performance.now();
+    while(i<N-1&&performance.now()-t0<14){const sh=RM.shared(Ms[i],Ms[j],lo,hi,0),mn=Math.min(CORR.countLine[i],CORR.countLine[j]),pc=mn>0?sh.count/mn*100:0;
+      CORR.pct[i*N+j]=CORR.pct[j*N+i]=pc;CORR.cnt[i*N+j]=CORR.cnt[j*N+i]=sh.count;CORR.done++;j++;if(j>=N){i++;j=i+1}}
+    $('#rhProg').textContent=CORR.done<CORR.total?`Comparing pairs… ${Math.floor(CORR.done/CORR.total*100)}%`:`${fmtI(CORR.total)} pairs compared`;
+    if(S.tab==='rhythm'){drawCorr()}
+    if(i<N-1)setTimeout(step,0);else{if(S.tab==='rhythm'){renderRank();renderPair();renderLineCards()}}};
+  if(N<2){$('#rhProg').textContent=N?'Save another line to compare.':'';}
+  step();renderAllShared();
+}
+function drawCorr(){
+  const wrap=$('#rhCorrWrap'),c=$('#rhCorr'),w=wrap.clientWidth;if(!w)return;const N=CORR.N,cs=CORR.cs,LW=56,TH=30;
+  const h=Math.min(440,Math.max(120,TH+N*cs+2)),dpr=window.devicePixelRatio||1;c.style.height=h+'px';c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);
+  const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=TK['--surface']||'#fff';x.fillRect(0,0,w,h);
+  x.font='11px '+(TK['--f-mono']||'monospace');x.textBaseline='middle';
+  if(N<2){x.fillStyle=TK['--muted'];x.textAlign='center';x.fillText(N?'Save a second line to start comparing':'No saved lines yet',w/2,h/2);return}
+  const maxOX=Math.max(0,N-(w-LW)/cs),maxOY=Math.max(0,N-(h-TH)/cs);CORR.ox=Math.min(Math.max(0,CORR.ox),maxOX);CORR.oy=Math.min(Math.max(0,CORR.oy),maxOY);
+  const c0=Math.floor(CORR.ox),c1=Math.min(N,Math.ceil(CORR.ox+(w-LW)/cs)),r0=Math.floor(CORR.oy),r1=Math.min(N,Math.ceil(CORR.oy+(h-TH)/cs));
+  const X=j=>LW+(j-CORR.ox)*cs,Y=i=>TH+(i-CORR.oy)*cs;
+  x.save();x.beginPath();x.rect(LW,TH,w-LW,h-TH);x.clip();
+  for(let i=r0;i<r1;i++)for(let j=c0;j<c1;j++){const v=CORR.pct[i*N+j],px=X(j),py=Y(i);
+    if(i===j){x.fillStyle=TK['--surface-2'];x.fillRect(px,py,cs-1,cs-1);continue}
+    if(isNaN(v)){x.fillStyle=TK['--surface-2'];x.fillRect(px,py,cs-1,cs-1);continue}
+    x.fillStyle=TK['--surface-2'];x.fillRect(px,py,cs-1,cs-1);x.globalAlpha=v<=0?0:.12+.88*Math.min(1,v/100);x.fillStyle=TK['--accent'];x.fillRect(px,py,cs-1,cs-1);x.globalAlpha=1;
+    if(cs>=26){x.fillStyle=v>55?(TK['--accent-ink']||'#fff'):TK['--fg'];x.textAlign='center';x.fillText(v<=0?'0':v<1?'<1':Math.round(v),px+cs/2,py+cs/2)}}
+  if(RY.pair){const [a,b]=RY.pair;x.strokeStyle=TK['--fg'];x.lineWidth=2;for(const [i,j] of [[a,b],[b,a]])x.strokeRect(X(j)+1,Y(i)+1,cs-3,cs-3)}
+  x.restore();
+  x.fillStyle=TK['--surface'];x.fillRect(0,0,w,TH);x.fillRect(0,0,LW,h);
+  x.textAlign='center';for(let j=c0;j<c1;j++){const px=X(j)+cs/2;if(px<LW)continue;x.fillStyle=lineColor(j);x.fillRect(X(j)+4,TH-5,cs-9,3);x.fillStyle=TK['--muted'];x.fillText('L'+(j+1),px,TH/2-2)}
+  x.textAlign='right';for(let i=r0;i<r1;i++){const py=Y(i)+cs/2;if(py<TH)continue;x.fillStyle=lineColor(i);x.fillRect(LW-6,Y(i)+4,3,cs-9);x.fillStyle=TK['--muted'];x.fillText('L'+(i+1),LW-10,py)}
+}
+(function wireCorr(){const c=$('#rhCorr');let down=null,moved=0;
+  const pos=e=>{const r=c.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
+  c.addEventListener('pointerdown',e=>{c.setPointerCapture(e.pointerId);down=pos(e);moved=0});
+  c.addEventListener('pointermove',e=>{if(!down)return;const p=pos(e),dx=p[0]-down[0],dy=p[1]-down[1];moved+=Math.abs(dx)+Math.abs(dy);CORR.ox-=dx/CORR.cs;CORR.oy-=dy/CORR.cs;down=p;drawCorr()});
+  c.addEventListener('pointerup',e=>{const p=pos(e);down=null;if(moved<6&&p[0]>56&&p[1]>30){const j=Math.floor(CORR.ox+(p[0]-56)/CORR.cs),i=Math.floor(CORR.oy+(p[1]-30)/CORR.cs);
+    if(i>=0&&j>=0&&i<CORR.N&&j<CORR.N&&i!==j){selectPair(i,j)}}});
+  c.addEventListener('wheel',e=>{if(CORR.N*CORR.cs<c.clientHeight&&!e.shiftKey&&Math.abs(e.deltaX)<1)return;e.preventDefault();CORR.ox+=(e.shiftKey?e.deltaY:e.deltaX)/CORR.cs;if(!e.shiftKey)CORR.oy+=e.deltaY/CORR.cs;drawCorr()},{passive:false});
+})();
+function selectPair(i,j){RY.pair=[Math.min(i,j),Math.max(i,j)];S.flags.rhPair=true;drawCorr();renderPair();schedule3D();tourCheck()}
+function renderPair(){
+  const el=$('#rhPair');if(!RY.pair||RY.pair[1]>=RY.lines.length){el.innerHTML='<span class="hint">Tap a square in the grid, or a row in the ranked list, to see how two lines connect.</span>';return}
+  const [i,j]=RY.pair,A=getM(RY.lines[i]),B=getM(RY.lines[j]),lo=RY.range.lo,hi=RY.range.hi,sh=RM.shared(A,B,lo,hi,8),ca=CORR.countLine[i],cb=CORR.countLine[j];
+  const nA=`<b style="color:${lineColor(i)}">Line ${i+1}</b>`,nB=`<b style="color:${lineColor(j)}">Line ${j+1}</b>`;
+  if(sh.count===0){const ever=RM.shared(A,B,-1e15,1e15,1);
+    el.innerHTML=`${nA} ↔ ${nB}: <b>no shared numbers</b> between ${fmtI(lo)} and ${fmtI(hi)}. `+(ever.count===0?`<b>Proven:</b> they can never land on the same number at any size. Their remainder patterns can't line up.`:`They do meet outside this range, for example at ${fmtI(ever.first[0])}.`);return}
+  const every=ca?ca/sh.count:0;
+  el.innerHTML=`${nA} ${esc(lineName(RY.lines[i],i))} ↔ ${nB} ${esc(lineName(RY.lines[j],j))}: share <b>${fmtI(sh.count)}</b> numbers between ${fmtI(lo)} and ${fmtI(hi)}. That's ${fmt(sh.count/ca*100)}% of Line ${i+1}'s numbers (1 in every ${fmt(every)}) and ${fmt(sh.count/cb*100)}% of Line ${j+1}'s.`+
+    `${sh.period&&!A.finite&&!B.finite?` The pattern of shared numbers repeats every <b>${fmtI(sh.period)}</b>.`:''} First shared: ${sh.first.map(fmtI).join(', ')}${sh.count>sh.first.length?' …':''}. <span class="hint">Their curves are highlighted in the 3D view.</span>`;
+}
+function renderRank(){
+  const N=CORR.N,q=RY.rankFind.trim().toLowerCase();if(N<2){$('#rhRank').innerHTML='';$('#rhRankInfo').textContent='';return}
+  const pairs=[];let never=0;
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const v=CORR.pct[i*N+j];if(isNaN(v))continue;if(CORR.cnt[i*N+j]===0)never++;
+    if(q){const t=`l${i+1} l${j+1} ${lineName(RY.lines[i],i)} ${lineName(RY.lines[j],j)}`.toLowerCase();if(!(q.split(/\s+/).every(w=>t.includes(w)||t.includes('l'+w+' ')||t.endsWith('l'+w))))continue}
+    pairs.push([v,CORR.cnt[i*N+j],i,j])}
+  pairs.sort((a,b)=>b[0]-a[0]||b[1]-a[1]||a[2]-b[2]);
+  const top=pairs.slice(0,300);
+  $('#rhRankInfo').textContent=`${fmtI(pairs.length)} pairs${q?' match':''} · ${fmtI(never)} never share a number in range`;
+  $('#rhRank').innerHTML=`<thead><tr><th>Pair</th><th>Shared %</th><th>Shared numbers</th><th>Line A count</th><th>Line B count</th></tr></thead><tbody>${top.map(([v,c,i,j])=>`<tr data-p="${i},${j}" style="cursor:pointer"><td><span class="swatch" style="display:inline-block;background:${lineColor(i)}"></span> L${i+1} ↔ <span class="swatch" style="display:inline-block;background:${lineColor(j)}"></span> L${j+1} <span class="hint">${esc(lineName(RY.lines[i],i))} · ${esc(lineName(RY.lines[j],j))}</span></td><td>${c===0?'never':fmt(v)+'%'}</td><td>${fmtI(c)}</td><td>${fmtI(CORR.countLine[i])}</td><td>${fmtI(CORR.countLine[j])}</td></tr>`).join('')}${pairs.length>300?`<tr><td colspan="5">…${fmtI(pairs.length-300)} more. Filter to find a pair.</td></tr>`:''}</tbody>`;
+}
+$('#rhRank').addEventListener('click',e=>{const tr=e.target.closest('tr[data-p]');if(!tr)return;const [i,j]=tr.dataset.p.split(',').map(Number);selectPair(i,j);$('#rhPair').scrollIntoView({block:'nearest'})});
+$('#rhRankFind').addEventListener('input',debounce(e=>{RY.rankFind=e.target.value;renderRank()},150));
+function renderAllShared(){
+  const vis=RY.lines.map((l,i)=>({l,i,M:getM(l)})).filter(o=>o.l.show&&o.l.steps.length),el=$('#rhAll');
+  if(vis.length<2){el.innerHTML='<p class="hint">Show at least two saved lines to find numbers they all share.</p>';return}
+  const lo=RY.range.lo,hi=RY.range.hi;let base=vis[0],bc=Infinity;for(const o of vis){const c=RM.countIn(o.M,lo,hi);if(c<bc){bc=c;base=o}}
+  const others=vis.filter(o=>o!==base),found=[];let count=0,it=0,exact=true;
+  for(const val of RM.iter(base.M,lo,hi)){if(++it>3e6){exact=false;break}if(others.every(o=>RM.contains(o.M,val))){count++;if(found.length<80)found.push(val)}}
+  el.innerHTML=count?`<p>The ${vis.length} visible lines (${vis.slice(0,12).map(o=>'L'+(o.i+1)).join(', ')}${vis.length>12?' …':''}) all land on <b>${exact?'':'at least '}${fmtI(count)}</b> number${count>1?'s':''} between ${fmtI(lo)} and ${fmtI(hi)}.</p><div class="chips">${found.map(v=>`<span class="chip">${fmtI(v)}</span>`).join('')}${count>found.length?'<span class="hint">…</span>':''}</div>`
+    :`<p>The ${vis.length} visible lines share <b>no number</b> that all of them land on between ${fmtI(lo)} and ${fmtI(hi)}${exact?'':' (checked the first 3 million candidates)'}.</p>`;
+}
+const rangeChanged=debounce(()=>{let lo=Math.round(+$('#rhLo').value),hi=Math.round(+$('#rhHi').value);if(!Number.isFinite(lo))lo=0;if(!Number.isFinite(hi)||hi<lo)hi=lo;if(hi-lo>1e13)hi=lo+1e13;RY.range={lo,hi};corrStart();renderLineCards();renderPair()},300);
+$('#rhLo').addEventListener('input',rangeChanged);$('#rhHi').addEventListener('input',rangeChanged);
+
+/* ---------- 3D layers + DNA curves ---------- */
+const T3={ready:false,loading:false,r:60,theta:.75,phi:1.05,target:null,dirty:true};
+function load3D(){return new Promise((res,rej)=>{if(window.THREE)return res();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s)})}
+async function open3D(){
+  if(T3.ready){build3D();return}if(T3.loading)return;T3.loading=true;$('#w3Info').textContent='Loading 3D…';
+  try{await load3D()}catch(_){T3.loading=false;$('#w3Info').textContent='The 3D library could not load. Check your connection and switch views again.';return}
+  const THREE=window.THREE,box=$('#rh3dBox');
+  T3.renderer=new THREE.WebGLRenderer({antialias:true});T3.renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));box.appendChild(T3.renderer.domElement);
+  T3.renderer.domElement.style.touchAction='none';T3.renderer.domElement.setAttribute('aria-label','3D view of rhythm layers');
+  T3.scene=new THREE.Scene();T3.scene.background=new THREE.Color('#eef2f3');
+  T3.camera=new THREE.PerspectiveCamera(45,1,.1,2e6);T3.target=new THREE.Vector3(0,0,0);
+  T3.scene.add(new THREE.AmbientLight(0xffffff,.62));const dl=new THREE.DirectionalLight(0xffffff,.75);dl.position.set(.6,1,1.2);T3.scene.add(dl);
+  const d2=new THREE.DirectionalLight(0xffffff,.25);d2.position.set(-1,-.4,-1);T3.scene.add(d2);
+  T3.group=new THREE.Group();T3.scene.add(T3.group);T3.ready=true;T3.loading=false;wire3D();build3D(true);
+}
+function size3D(){if(!T3.ready)return;const box=$('#rh3dBox'),w=box.clientWidth,h=box.clientHeight||420;T3.renderer.setSize(w,h,false);T3.renderer.domElement.style.width=w+'px';T3.renderer.domElement.style.height=h+'px';T3.camera.aspect=w/h;T3.camera.updateProjectionMatrix()}
+function cam3D(){const t=T3.target,r=T3.r,p=T3.phi,th=T3.theta;T3.camera.position.set(t.x+r*Math.sin(p)*Math.sin(th),t.y+r*Math.cos(p),t.z+r*Math.sin(p)*Math.cos(th));T3.camera.lookAt(t)}
+function render3D(){if(!T3.ready)return;cam3D();T3.renderer.render(T3.scene,T3.camera)}
+function clear3D(){const g=T3.group;while(g.children.length){const o=g.children.pop();o.geometry&&o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose())}}}
+const schedule3D=debounce(()=>{if(S.tab==='rhythm'&&RY.view==='3d')build3D()},120);
+function hue(n){return ((n*0.6180339887)%1+1)%1}
+function build3D(resetCam){
+  if(!T3.ready)return;const THREE=window.THREE;clear3D();size3D();
+  const W=+$('#w3w').value,x0=Math.round(+$('#w3x0').value||0),x1=x0+W-1;RY.w3={x0,w:W};
+  const L=displayLines().sort((a,b)=>a.z-b.z);const cx=x0+W/2;
+  let total=0;const per=L.map(ln=>{const ls=RM.landingsInX(ln.M,x0,x1,200000);let sq=0;for(const l of ls){if(l.n===0){sq++;continue}const s=Math.abs(l.step);sq+=Math.min(l.x,x1)-Math.max(l.x-s+1,x0)+1}total+=sq;return {ln,ls,sq}});
+  const act=L.find(l=>l.active)||L[0];let ys=[];if(act){const a=per.find(p=>p.ln===act);for(const l of a.ls)ys.push(l.y)}
+  const ymid=ys.length?(Math.min(...ys)+Math.max(...ys))/2:0;
+  const pos=(col,row,z)=>new THREE.Vector3(col-cx,row-ymid,-z*1);
+  const cubes=total<=45000;const box=new THREE.BoxGeometry(.9,.9,.9),mat=new THREE.Matrix4();
+  for(const {ln,ls,sq} of per){const color=new THREE.Color(ln.color);
+    if(cubes){const mesh=new THREE.InstancedMesh(box,new THREE.MeshStandardMaterial({color,roughness:.55,metalness:.05}),Math.max(1,sq));let k=0;
+      for(const l of ls){if(l.n===0)continue;const s=Math.abs(l.step);for(let c=Math.max(l.x-s+1,x0);c<=Math.min(l.x,x1);c++){const p=pos(c,l.y,ln.z);mat.makeTranslation(p.x,p.y,p.z);mesh.setMatrixAt(k++,mat)}}
+      mesh.count=k;mesh.instanceMatrix.needsUpdate=true;T3.group.add(mesh)}
+    else{const pts=[];for(const l of ls)pts.push(pos(l.x,l.y,ln.z));if(pts.length>1){const g=new THREE.BufferGeometry().setFromPoints(pts);T3.group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color})))}}
+    if(x0<=0&&x1>=0){const p=pos(0,0,ln.z),m=new THREE.Mesh(new THREE.BoxGeometry(.92,.92,.92),new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.6}));m.position.copy(p);T3.group.add(m);
+      const e=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.94,.94,.94)),new THREE.LineBasicMaterial({color:'#000000'}));e.position.copy(p);T3.group.add(e)}
+    const v=getV(ln.M,ln.check),hl=v.kind==='hit'?v.at:v.kind==='pass-then-hit'?v.hitAt:null;
+    if(hl&&hl.x>=x0&&hl.x<=x1){const m=new THREE.Mesh(new THREE.BoxGeometry(1.02,1.02,1.02),new THREE.MeshStandardMaterial({color:'#1D9E75',emissive:'#0d5a42',emissiveIntensity:.5}));m.position.copy(pos(hl.x,hl.y,ln.z));T3.group.add(m)}}
+  let nCurves=0;
+  if($('#w3Curves').checked&&L.length>1){
+    const byNum=new Map();
+    for(const {ln,ls} of per)for(const l of ls){if(l.x<x0||l.x>x1)continue;let e=byNum.get(l.value);if(!e){e=[];byNum.set(l.value,e)}if(!e.some(q=>q.z===ln.z))e.push({z:ln.z,x:l.x,y:l.y,i:ln.i})}
+    const checks=new Set(L.map(l=>l.check));let cand=[...byNum].filter(([,e])=>e.length>=2);
+    const pairSet=RY.pair?new Set(RY.pair):null,inPair=e=>pairSet&&e.filter(q=>pairSet.has(q.i)).length===2;
+    cand.sort((a,b)=>(checks.has(b[0])-checks.has(a[0]))||((inPair(b[1])?1:0)-(inPair(a[1])?1:0))||(b[1].length-a[1].length)||(a[0]-b[0]));
+    cand=cand.slice(0,total>45000?60:140);
+    for(const [num,e] of cand){e.sort((a,b)=>a.z-b.z);const isCheck=checks.has(num),hot=pairSet?inPair(e):true;
+      const ph=hue(num)*Math.PI*2,pts=[];const P=e.map(q=>pos(q.x,q.y,q.z));
+      const lead=(p,dz,k)=>new THREE.Vector3(p.x+Math.cos(ph+k)*.7,p.y+Math.sin(ph+k)*.7,p.z+dz);
+      pts.push(lead(P[0],.9,0));
+      for(let k=0;k<P.length;k++){pts.push(P[k]);if(k<P.length-1){const A=P[k],B=P[k+1],dist=A.distanceTo(B),
+        R=Math.min(7,.5+.18*Math.sqrt(dist)*2),turns=Math.max(1,Math.min(14,dist/9)),nSeg=Math.max(6,Math.min(140,Math.round(turns*10))),
+        dir=new THREE.Vector3().subVectors(B,A).normalize(),ref=Math.abs(dir.z)<.9?new THREE.Vector3(0,0,1):new THREE.Vector3(1,0,0),
+        u=new THREE.Vector3().crossVectors(dir,ref).normalize(),w=new THREE.Vector3().crossVectors(dir,u).normalize();
+        for(let s=1;s<nSeg;s++){const t=s/nSeg,env=Math.sin(Math.PI*t),ang=ph+k*1.7+t*turns*Math.PI*2,
+          q=new THREE.Vector3().lerpVectors(A,B,t).addScaledVector(u,Math.cos(ang)*R*env).addScaledVector(w,Math.sin(ang)*R*env);pts.push(q)}}}
+      pts.push(lead(P[P.length-1],-.9,Math.PI));
+      const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal'),col=isCheck?new THREE.Color('#f2b705'):new THREE.Color().setHSL(hue(num),.72,.5);
+      const tube=new THREE.TubeGeometry(curve,Math.min(2400,pts.length*5),isCheck?.11:.07,7,false);
+      const m=new THREE.MeshStandardMaterial({color:col,roughness:.35,emissive:col,emissiveIntensity:isCheck?.35:.18,transparent:!hot,opacity:hot?1:.18});
+      T3.group.add(new THREE.Mesh(tube,m));nCurves++}}
+  $('#w3Info').textContent=`${L.length} layer${L.length!==1?'s':''} · columns ${fmtI(x0)}–${fmtI(x1)} · ${cubes?fmtI(total)+' cubes':'trace mode (zoom the window in for cubes)'} · ${nCurves} curve${nCurves!==1?'s':''}`;
+  if(resetCam||T3.lastW!==W){T3.lastW=W;T3.target.set(0,0,-(Math.max(0,L.length-1))/2);T3.r=Math.max(18,W*.85,L.length*2.4);T3.theta=.75;T3.phi=1.05}
+  render3D();
+}
+function wire3D(){const el=T3.renderer.domElement,pts=new Map();let pinch=null;
+  const pos=e=>[e.clientX,e.clientY];
+  el.addEventListener('pointerdown',e=>{el.setPointerCapture(e.pointerId);pts.set(e.pointerId,pos(e));if(pts.size===2){const [a,b]=[...pts.values()];pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]}}});
+  el.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;const prev=pts.get(e.pointerId),p=pos(e);pts.set(e.pointerId,p);
+    if(pts.size===1&&!e.shiftKey){T3.theta-=(p[0]-prev[0])*.006;T3.phi=Math.min(Math.PI-.05,Math.max(.05,T3.phi-(p[1]-prev[1])*.006));S.flags.rh3d=true;render3D();tourCheck()}
+    else if(pts.size===1&&e.shiftKey){pan3D(p[0]-prev[0],p[1]-prev[1])}
+    else if(pts.size===2&&pinch){const [a,b]=[...pts.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]),m=[(a[0]+b[0])/2,(a[1]+b[1])/2];T3.r=Math.max(2,T3.r*pinch.d/d);pan3D(m[0]-pinch.m[0],m[1]-pinch.m[1]);pinch={d,m};render3D()}});
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();T3.r=Math.max(2,T3.r*Math.pow(1.0015,e.deltaY));render3D()},{passive:false});
+}
+function pan3D(dx,dy){const THREE=window.THREE,cam=T3.camera,s=T3.r/600;const right=new THREE.Vector3().setFromMatrixColumn(cam.matrix,0),up=new THREE.Vector3().setFromMatrixColumn(cam.matrix,1);
+  T3.target.addScaledVector(right,-dx*s).addScaledVector(up,dy*s);render3D()}
+$$('[data-cam]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.cam;if(!T3.ready)return;
+  if(k==='front'){T3.theta=0;T3.phi=Math.PI/2}else if(k==='top'){T3.theta=0;T3.phi=.06}else if(k==='side'){T3.theta=Math.PI/2;T3.phi=Math.PI/2}else{T3.theta=.75;T3.phi=1.05}render3D()}));
+['#w3x0','#w3w'].forEach(id=>$(id).addEventListener('change',()=>build3D()));
+$('#w3Curves').addEventListener('change',()=>build3D());
+$('#w3Prev').onclick=()=>{const W=+$('#w3w').value;$('#w3x0').value=Math.max(0,Math.round(+$('#w3x0').value-W/2));build3D()};
+$('#w3Next').onclick=()=>{const W=+$('#w3w').value;$('#w3x0').value=Math.round(+$('#w3x0').value+W/2);build3D()};
+$('#w3Check').onclick=()=>{const a=activeLine();if(!a)return;const v=getV(a.M,a.check),e=v.kind==='hit'?v.at:v.kind==='pass-then-hit'?v.hitAt:v.kind==='pass'?v.at:null;
+  if(!e){msg('#rhMsg','This line never reaches its check number.');return}const W=+$('#w3w').value;$('#w3x0').value=Math.max(0,Math.round(e.x-W/2));build3D(true)};
+function setRhView(v){RY.view=v;$('#rhView2d').setAttribute('aria-pressed',v==='2d');$('#rhView3d').setAttribute('aria-pressed',v==='3d');$('#rh2dBox').hidden=v!=='2d';$('#rh3dPanel').hidden=v!=='3d';
+  if(v==='3d'){S.flags.rh3dOpen=true;open3D()}else requestAnimationFrame(rh2dDraw)}
+$('#rhView2d').onclick=()=>setRhView('2d');$('#rhView3d').onclick=()=>setRhView('3d');
+
+/* ---------- python + render ---------- */
+function pyRhythm(){const d=RY.draft,lines=RY.lines.slice(0,3);
+  const one=`python data_analyzer.py --rhythm "${d.steps.join(',')}" --start ${d.start} --start-mode ${d.mode==='+1'?'+1':'0'} --check ${d.check}`;
+  const many=lines.length>1?`python data_analyzer.py ${lines.map(l=>`--rhythm "${l.steps.join(',')}"`).join(' ')} --range ${RY.range.lo} ${RY.range.hi}`:'';
+  return `<span class="d"># check one rhythm</span>\n<span class="p">$</span> ${esc(one)}`+(many?`\n\n<span class="d"># compare lines (exact shared numbers in a range)</span>\n<span class="p">$</span> ${esc(many)}`:'')+
+    `\n\n<span class="d"># the functions that do the work</span>\nrhythm_model(start, mode, steps)\nlanding(model, n)  →  number, x, y\nverdict(model, check)  →  hit / passes over / never, with the remainder proof\nshared(model_a, model_b, lo, hi)  →  exact shared count using remainders`}
+function renderRhythm(){
+  if(S.tab!=='rhythm')return;readTokens();renderEditor();renderLineList();rhLegend();rh2dDraw();rhLandRender();renderLineCards();drawCorr();renderRank();renderPair();$('#pyR').innerHTML=pyRhythm();
+  if(RY.view==='3d')schedule3D();
+}
+function initRhythm(){
+  if(!rhLoad()||!RY.lines.length){RY.lines=[
+    {name:'Steady climb',start:0,mode:'0',steps:[3,5,-2],check:26,show:true},
+    {name:'Two up, one back',start:0,mode:'0',steps:[4,-1],check:26,show:true},
+    {name:'Big stride',start:0,mode:'0',steps:[7,-3],check:26,show:true},
+    {name:'Even walker',start:0,mode:'+1',steps:[2,4],check:26,show:true}];rhSave()}
+  RY.sel=0;RY.draft={...RY.lines[0],steps:RY.lines[0].steps.slice()};rhFillEditor();corrStart();
+}
+
+/* ================= tutorial ================= */
+const STEPS=[
+  {tab:'overview',el:'#t-top',title:'Welcome',text:'This app is a small spreadsheet joined to a statistics lab, plus a Rhythm tab for your own step patterns. You enter data in the Table tab, and the other tabs analyze it in different ways. Every tab shows the matching Python. About five minutes, one task per step.'},
+  {tab:'table',el:'#t-sheet',title:'The table',text:'This is your data. Each row is one record (here, one video) and each column is one kind of measurement. The little tag on each heading shows what the app detected: 123 for numbers, date, or abc for text.',task:'Tap any cell, tap it again, type a new value and press Enter.',check:()=>S.flags.edit},
+  {tab:'table',el:'#t-addrows',title:'Unlimited rows and columns',text:'The table never runs out. Press Enter on the bottom row, tap the dashed "+ add row" line, or use these buttons. You can also copy a block of cells from Excel or Google Sheets and paste it onto a selected cell.',task:'Add a row with any of the + buttons.',check:()=>S.flags.addRow},
+  {tab:'table',el:'#t-coltools',title:'Sort and rename',text:'These buttons work on the selected column. Sorting reorders whole rows so nothing gets mixed up. Undo reverses the last change.',task:'Select the views column and tap "Sort high→low".',check:()=>S.flags.sort},
+  {tab:'table',el:'#t-newcol',title:'Make a new column',text:'Many good insights come from a ratio. likes ÷ views is the engagement rate: what share of viewers liked the video. A video with fewer views can still win here.',task:'Pick likes ÷ views, name it "rate", and tap Add column.',check:()=>S.flags.newcol},
+  {tab:'table',el:'#t-import',title:'Load and save',text:'Load an example, open a CSV from your device, or paste one in. "Download kept rows" saves only the rows that pass your cutoff. Your table is also saved automatically on this device.'},
+  {tab:'overview',el:'#t-filter',title:'The filter strip',text:'Pick the main column and a cutoff. Rows that fail are dropped everywhere, which works like "threshold" in the script. The counter shows how many rows survive.',task:'Set Keep rows to "Above cutoff" and drag the slider.',check:()=>S.flags.thr},
+  {tab:'overview',el:'#t-ov',title:'Every summary number',text:'Mean is the average and median is the middle value. When the mean is much higher than the median, a few big values are pulling it up, which is common with views. Q1 and Q3 mark where the middle half of your data sits.',task:'Turn on "Show the math" to see each formula worked out with your numbers.',check:()=>S.flags.math},
+  {tab:'overview',el:'#t-box',title:'Box plot and outliers',text:'The box is the middle half of the data, the purple line is the median and the diamond is the mean. Circles are outliers: values beyond 1.5 times the box width past either edge. Tap an outlier chip to jump to its row.'},
+  {tab:'overview',el:'#t-pct',title:'Percentiles',text:'A percentile tells you where a value ranks. If 2,000 views is at the 60th percentile, it beat 60% of your videos.',task:'Type a value in "Where does this value rank?"',check:()=>S.flags.pct},
+  {tab:'groups',el:'#t-groups',title:'Groups',text:'Group rows by a label column to compare categories, like total and average views per topic. Average matters more than total when some groups have more rows.',task:'Change "Chart shows" to Average.',check:()=>S.flags.group},
+  {tab:'compare',el:'#t-scatter',title:'Relationship between two columns',text:'Each dot is one row. r runs from −1 to 1. Near 1 means the two go up together, near 0 means no pattern. The trend line is the best straight-line fit, and you can use it to predict.',task:'Type a views number into "Predict" to see the expected likes.',check:()=>S.flags.predict},
+  {tab:'compare',el:'#t-side',title:'Side by side',text:'This compares the two columns directly: averages, spread and percent change. It is built for before/after data. Try it later with the Test scores example, comparing before and after.'},
+  {tab:'time',el:'#t-time',title:'Over time',text:'With a date column, the app draws the trend. The moving average (orange) smooths out bumps so you can see the real direction. Grouping by week or month helps with daily data.',task:'Drag the moving-average slider, or change "Group dates".',check:()=>S.flags.window},
+  {tab:'rhythm',el:'#t-rh-edit',title:'Rhythm: your own step pattern',text:'Type a rhythm of steps like 3, 5, -2. It repeats in order forever from the start. Start mode 0 counts the starting spot; +1 steps forward first. The verdict says whether the line lands on your check number, passes over it, or can never reach it, with the remainder proof under "Show the math".',task:'Change the check number and watch the verdict change.',check:()=>S.flags.rhCheck},
+  {tab:'rhythm',el:'#t-rh-grid',title:'The pixel line',text:'Each step is a run of squares as long as the step. A positive step starts its run one line up, a negative step one line down, and every run moves forward. The white square is the start, green is where it lands on your check number, and a dashed red box marks a run that skips over it.',task:'Tap "Jump to check", then pinch or scroll to zoom out.',check:()=>S.flags.rhJump},
+  {tab:'rhythm',el:'#t-rh-grid',title:'3D layers and DNA curves',text:'Every saved line sits one cell deeper on the Z axis. In 3D, smooth curves thread through cubes where different lines land on the same number. A tight curve means the lines reach that number close together; a wide loop means they reach it far apart.',task:'Tap "3D layers", then drag to rotate.',check:()=>S.flags.rh3d},
+  {tab:'rhythm',el:'#t-rh-read',title:'Readout and correlation grid',text:'Every saved line is recorded here, with no limit. The grid compares every pair of lines: darker squares share more numbers. Tap a square for that pair: how many numbers they share, the first few, and how often the overlap repeats. The ranked list puts the strongest pairs first.',task:'Tap a square in the correlation grid.',check:()=>S.flags.rhPair},
+  {tab:'python',el:'#t-pycmd',title:'Same thing in Python',text:'This command repeats your settings from every tab using data_analyzer.py. Download your table as CSV, put it in the same folder as the script, and run the command in Pydroid or a terminal.'},
+  {tab:'overview',el:'#t-top',title:'You\'re ready',text:'That\'s everything. Reopen the tutorial any time with the button up top. Good next experiment: load "Daily views", find the outlier spike on the Overview tab, then see it on the Over time chart.'}
+];
+let ti=-1;
+function showStep(i){
+  $$('.tour-focus').forEach(e=>e.classList.remove('tour-focus'));ti=i;const s=STEPS[i];
+  if(S.tab!==s.tab)setTab(s.tab);const el=$(s.el);$('#tour').hidden=false;
+  $('#tourStep').textContent=`Step ${i+1} of ${STEPS.length}`;$('#tourBar').style.width=((i+1)/STEPS.length*100)+'%';
+  $('#tourTitle').textContent=s.title;$('#tourText').textContent=s.text;$('#tourTask').hidden=!s.task;$('#tourTaskText').textContent=s.task||'';
+  $('#tourBack').disabled=i===0;$('#tourNext').textContent=i===STEPS.length-1?'Finish':'Next';
+  el.classList.add('tour-focus');const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;requestAnimationFrame(()=>el.scrollIntoView({behavior:rm?'auto':'smooth',block:'start'}));tourCheck()}
+function tourCheck(){if(ti<0||$('#tour').hidden)return;const s=STEPS[ti];if(!s.task)return;const d=s.check&&s.check();$('#tourTask').classList.toggle('done',!!d);$('#tourTaskLabel').textContent=d?'Done':'Try it'}
+function endTour(){$('#tour').hidden=true;$$('.tour-focus').forEach(e=>e.classList.remove('tour-focus'));ti=-1}
+$('#startTour').onclick=()=>{S.flags={};if(!D.cols.includes('views'))loadSample('videos');showStep(0)};
+$('#tourNext').onclick=()=>ti===STEPS.length-1?endTour():showStep(ti+1);
+$('#tourBack').onclick=()=>ti>0&&showStep(ti-1);
+$('#tourClose').onclick=endTour;
+document.addEventListener('keydown',e=>{if(ti<0)return;if(e.key==='Escape'&&!editing)endTour()});
+
+/* ================= start ================= */
+timeBodyHTML=$('#tBody').innerHTML;
+(function init(){
+  let restored=false;
+  try{const s=JSON.parse(localStorage.getItem('uda2')||'null');if(s&&Array.isArray(s.cols)&&Array.isArray(s.rows)&&s.cols.length){D={cols:s.cols,rows:s.rows};S.filename=s.filename||'my_data.csv';S.pref=s.pref||{};S.mode=s.mode||'all';S.threshold=+s.threshold||0;restored=true}}catch(_){}
+  if(restored){computeBase();buildView();$('#saveState').textContent='Restored your table from this device'}
+  else{const sm=SAMPLES.videos;S.mode=sm.mode;S.threshold=sm.thr;D=tableFromRows(parseCSV(sm.csv));S.filename='videos.csv';S.pref={...sm.pref};computeBase();buildView();$('[data-sample="videos"]').setAttribute('aria-pressed','true')}
+  initRhythm();setTab(location.hash.slice(1)||'overview',false);renderGrid();
+  document.fonts&&document.fonts.ready.then(()=>{renderGrid();renderActive()});
+})();
+</script>
+
+</body></html>

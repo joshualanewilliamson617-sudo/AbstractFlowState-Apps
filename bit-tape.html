@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bit Tape — binary / ASCII translator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#131C26;
+  --panel:#1B2734;
+  --panel-lift:#22323F;
+  --edge:#2E4356;
+  --manila:#E3D4AE;
+  --manila-shade:#C9B98F;
+  --key-paper:#C3CFD2;
+  --key-shade:#A3B3B7;
+  --out-paper:#E9C98F;
+  --out-shade:#CBAB6D;
+  --amber:#F2A93B;
+  --cyan:#67C7D6;
+  --text:#DCE4EC;
+  --muted:#8098AE;
+  --warn:#E4735F;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1140px;margin:0 auto;padding:28px 20px 72px}
+
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin-bottom:22px}
+h1{font-family:var(--mono);font-weight:600;font-size:26px;letter-spacing:-.01em;margin:0}
+h1 .slash{color:var(--amber)}
+.tagline{color:var(--muted);font-size:14px;margin:0}
+
+/* ---------- tape ---------- */
+.tape-shell{background:var(--panel);border:1px solid var(--edge);border-radius:3px;
+  overflow:hidden;margin-bottom:20px}
+.tape-scroll{overflow-x:auto;overflow-y:hidden;padding:16px}
+.tape-scroll::-webkit-scrollbar{height:9px}
+.tape-scroll::-webkit-scrollbar-track{background:var(--bg)}
+.tape-scroll::-webkit-scrollbar-thumb{background:var(--edge);border-radius:5px}
+.tape-empty{color:var(--muted);font-family:var(--mono);font-size:13px;
+  padding:34px 4px;text-align:center}
+.strip-row{display:flex;align-items:center;gap:12px}
+.strip-row + .strip-row{margin-top:12px}
+.strip-tag{font-family:var(--mono);font-size:11px;color:var(--muted);
+  width:56px;flex:0 0 56px;text-align:right}
+.strip-tag.msg{color:var(--manila)}
+.strip-tag.key{color:var(--key-paper)}
+.strip-tag.out{color:var(--out-paper)}
+#tape circle.hit{cursor:pointer}
+#tape circle.hit:hover{stroke:var(--amber);stroke-width:2;stroke-dasharray:none}
+.tape-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:9px 16px;border-top:1px solid var(--edge);background:#17222E;
+  font-family:var(--mono);font-size:12px;color:var(--muted);flex-wrap:wrap}
+
+/* ---------- panes ---------- */
+.panes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:820px){.panes{grid-template-columns:1fr}}
+.pane{background:var(--panel);border:1px solid var(--edge);border-radius:3px;
+  display:flex;flex-direction:column;min-height:220px}
+.pane-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 14px;border-bottom:1px solid var(--edge)}
+.pane-name{font-family:var(--mono);font-size:13px;font-weight:500}
+.pane-bits .pane-name{color:var(--amber)}
+.pane-text .pane-name{color:var(--cyan)}
+textarea{flex:1;width:100%;resize:vertical;min-height:140px;background:transparent;
+  border:0;color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.75;
+  padding:14px;outline:none;letter-spacing:.02em}
+textarea::placeholder{color:#546A80}
+textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+.pane-foot{padding:8px 14px;border-top:1px solid var(--edge);font-family:var(--mono);
+  font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:10px}
+.pane-foot .flag{color:var(--warn)}
+
+/* ---------- controls ---------- */
+.controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;background:var(--panel);
+  border:1px solid var(--edge);border-radius:3px;padding:12px 14px;margin:18px 0}
+.ctl{display:flex;align-items:center;gap:8px}
+.ctl-label{font-size:13px;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
+.seg button{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);
+  border:0;padding:5px 12px;cursor:pointer}
+.seg button + button{border-left:1px solid var(--edge)}
+.seg button[aria-pressed="true"]{background:var(--panel-lift);color:var(--amber)}
+.seg button:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+.btn{font-family:var(--sans);font-size:13px;background:var(--panel-lift);color:var(--text);
+  border:1px solid var(--edge);border-radius:3px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+.btn.on{background:#3A2A12;border-color:var(--amber);color:var(--amber)}
+.check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer}
+.check input{accent-color:var(--amber);width:15px;height:15px}
+
+/* ---------- cipher ---------- */
+.cipher{background:var(--panel);border:1px solid var(--edge);border-radius:3px;
+  margin:18px 0;display:none}
+.cipher.open{display:block}
+.cipher-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  padding:12px 14px;border-bottom:1px solid var(--edge)}
+.cipher-head h2{font-family:var(--mono);font-size:13px;font-weight:500;margin:0;color:var(--out-paper)}
+.keyfield{flex:1;min-width:180px;display:flex;align-items:center;gap:8px}
+.keyfield input{flex:1;background:var(--bg);border:1px solid var(--edge);border-radius:3px;
+  color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;outline:none}
+.keyfield input:focus-visible{outline:2px solid var(--cyan);outline-offset:-1px}
+.cipher-body{padding:14px;display:grid;gap:12px}
+.outrow{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start}
+.outrow .lbl{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:3px}
+.outrow .val{font-family:var(--mono);font-size:13px;line-height:1.7;word-break:break-all;
+  color:var(--text);background:var(--bg);border:1px solid var(--edge);border-radius:3px;
+  padding:8px 10px;min-height:36px}
+.outrow .val.bits{color:var(--out-paper)}
+.cipher-foot{display:flex;flex-wrap:wrap;gap:10px;padding:0 14px 14px}
+.note{font-size:12px;color:var(--muted);padding:0 14px 14px;line-height:1.6;max-width:70ch}
+
+/* ---------- table ---------- */
+.readout{margin-top:22px;background:var(--panel);border:1px solid var(--edge);border-radius:3px}
+.readout h2{font-family:var(--mono);font-size:13px;font-weight:500;margin:0;
+  padding:11px 14px;border-bottom:1px solid var(--edge);color:var(--text)}
+.readout h2 span{color:var(--muted)}
+.tbl-scroll{max-height:300px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:7px 14px;
+  background:#17222E;position:sticky;top:0;border-bottom:1px solid var(--edge)}
+td{padding:6px 14px;border-bottom:1px solid rgba(46,67,86,.45)}
+tr:last-child td{border-bottom:0}
+td.bits{color:var(--amber)}
+td.glyph{color:var(--cyan)}
+td.ctrl{color:var(--muted)}
+td.ctrl b{color:var(--warn);font-weight:500}
+.empty-row td{color:var(--muted);padding:20px 14px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Bit<span class="slash">/</span>Tape</h1>
+  <p class="tagline">Type bits, get text. Type text, get bits. Punch the tape by hand.</p>
+</header>
+
+<div class="tape-shell">
+  <div class="tape-scroll">
+    <div class="tape-empty" id="tapeEmpty">Nothing on the tape yet.</div>
+    <div id="strips"></div>
+  </div>
+  <div class="tape-bar">
+    <span>Punched holes are 1s &middot; click a hole to flip it</span>
+    <span id="tapeCount">&mdash;</span>
+  </div>
+</div>
+
+<div class="panes">
+  <section class="pane pane-bits">
+    <div class="pane-head">
+      <span class="pane-name">Bits</span>
+      <button class="btn" id="copyBits">Copy bits</button>
+    </div>
+    <textarea id="bitsIn" spellcheck="false" placeholder="1001000 1101001&#10;&#10;Anything that isn't a 0 or a 1 is ignored, so paste freely."></textarea>
+    <div class="pane-foot">
+      <span id="bitsStat">0 bits</span>
+      <span id="bitsFlag" class="flag"></span>
+    </div>
+  </section>
+
+  <section class="pane pane-text">
+    <div class="pane-head">
+      <span class="pane-name">Text</span>
+      <button class="btn" id="copyText">Copy text</button>
+    </div>
+    <textarea id="textIn" spellcheck="false" placeholder="Type here and the bits fill in on the left."></textarea>
+    <div class="pane-foot">
+      <span id="textStat">0 characters</span>
+      <span id="textFlag" class="flag"></span>
+    </div>
+  </section>
+</div>
+
+<div class="controls">
+  <div class="ctl">
+    <span class="ctl-label">Bits per character</span>
+    <div class="seg" role="group" aria-label="Bits per character">
+      <button id="w7" aria-pressed="false">7</button>
+      <button id="w8" aria-pressed="true">8</button>
+      <button id="wAuto" aria-pressed="false">Auto</button>
+    </div>
+  </div>
+  <label class="check"><input type="checkbox" id="spaceOut" checked> Space between characters</label>
+  <label class="check"><input type="checkbox" id="showCtrl" checked> Name control characters</label>
+  <button class="btn" id="xorToggle" aria-pressed="false">XOR cipher</button>
+  <button class="btn" id="clearAll">Clear both</button>
+  <button class="btn" id="loadDemo">Load sample</button>
+</div>
+
+<section class="cipher" id="cipher">
+  <div class="cipher-head">
+    <h2>XOR cipher</h2>
+    <div class="keyfield">
+      <label class="ctl-label" for="keyIn">Key</label>
+      <input id="keyIn" spellcheck="false" value="tape" placeholder="any text">
+    </div>
+    <span class="ctl-label" id="keyStat"></span>
+  </div>
+  <div class="cipher-body">
+    <div class="outrow"><span class="lbl">Result bits</span><div class="val bits" id="outBits">&mdash;</div></div>
+    <div class="outrow"><span class="lbl">Result hex</span><div class="val" id="outHex">&mdash;</div></div>
+    <div class="outrow"><span class="lbl">Result text</span><div class="val" id="outText">&mdash;</div></div>
+  </div>
+  <div class="cipher-foot">
+    <button class="btn" id="pushResult">Send result to input</button>
+    <button class="btn" id="copyHex">Copy hex</button>
+  </div>
+  <p class="note">XOR is its own inverse: send the result back to the input with the same key and the original returns. A short repeating key like this is easy to break, so treat it as a way to see the mechanism rather than as real protection.</p>
+</section>
+
+<div class="readout">
+  <h2>Character breakdown <span id="modeNote"></span></h2>
+  <div class="tbl-scroll">
+    <table>
+      <thead>
+        <tr><th style="width:44px">#</th><th>Bits</th><th style="width:60px">Dec</th><th style="width:60px">Hex</th><th>Character</th></tr>
+      </thead>
+      <tbody id="tbody">
+        <tr class="empty-row"><td colspan="5">Enter bits or text to see the breakdown.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<script>
+"use strict";
+
+const CTRL = ["NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL","BS","HT","LF","VT","FF","CR","SO","SI",
+              "DLE","DC1","DC2","DC3","DC4","NAK","SYN","ETB","CAN","EM","SUB","ESC","FS","GS","RS","US"];
+const CTRL_FULL = {
+  NUL:"null", SOH:"start of heading", STX:"start of text", ETX:"end of text", EOT:"end of transmission",
+  ENQ:"enquiry", ACK:"acknowledge", BEL:"bell", BS:"backspace", HT:"tab", LF:"line feed",
+  VT:"vertical tab", FF:"form feed", CR:"carriage return", SO:"shift out", SI:"shift in",
+  DLE:"data link escape", DC1:"device control 1", DC2:"device control 2", DC3:"device control 3",
+  DC4:"device control 4", NAK:"negative acknowledge", SYN:"synchronous idle", ETB:"end of block",
+  CAN:"cancel", EM:"end of medium", SUB:"substitute", ESC:"escape", FS:"file separator",
+  GS:"group separator", RS:"record separator", US:"unit separator", DEL:"delete"
+};
+const NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+
+const state = { bits:"", width:8, xor:false };
+const bitsIn = $("bitsIn"), textIn = $("textIn"), keyIn = $("keyIn");
+
+const cleanBits = s => s.replace(/[^01]/g, "");
+const esc = s => s.replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+
+function effWidth(){
+  if (state.width) return state.width;
+  const n = state.bits.length;
+  if (!n) return 8;
+  if (n % 8 === 0) return 8;
+  if (n % 7 === 0) return 7;
+  return 8;
+}
+
+function groupsOf(bitStr, w){
+  const out = [], n = Math.floor(bitStr.length / w);
+  for (let i = 0; i < n; i++) out.push(bitStr.slice(i*w, i*w + w));
+  return out;
+}
+
+function charInfo(code){
+  if (code < 32) return { kind:"ctrl", name:CTRL[code], full:CTRL_FULL[CTRL[code]] };
+  if (code === 127) return { kind:"ctrl", name:"DEL", full:CTRL_FULL.DEL };
+  if (code === 32) return { kind:"space" };
+  if (code > 127) return { kind:"high", glyph:String.fromCharCode(code) };
+  return { kind:"print", glyph:String.fromCharCode(code) };
+}
+
+function codesToText(codes, named){
+  let out = "";
+  for (const c of codes){
+    const i = charInfo(c);
+    if (i.kind === "ctrl"){
+      if (c === 10) out += "\n";
+      else if (c === 9) out += "\t";
+      else out += named ? "\u27E8" + i.name + "\u27E9" : String.fromCharCode(c);
+    } else out += String.fromCharCode(c);
+  }
+  return out;
+}
+
+function textToBits(txt, w){
+  const parts = []; let over = 0;
+  for (const ch of txt){
+    const code = ch.codePointAt(0);
+    if (code > (w === 7 ? 127 : 255)){ over++; continue; }
+    parts.push(code.toString(2).padStart(w, "0"));
+  }
+  return { bits: parts.join(""), over };
+}
+
+function keyCodes(){
+  const max = effWidth() === 7 ? 127 : 255;
+  return Array.from(keyIn.value).map(c => c.codePointAt(0)).filter(c => c <= max);
+}
+
+function xorCodes(codes){
+  const k = keyCodes();
+  if (!k.length) return codes.slice();
+  const mask = (1 << effWidth()) - 1;
+  return codes.map((c,i) => (c ^ k[i % k.length]) & mask);
+}
+
+function refresh(source){
+  const w = effWidth();
+  const groups = groupsOf(state.bits, w);
+  const codes = groups.map(g => parseInt(g, 2));
+  const leftover = state.bits.length - groups.length * w;
+  const named = $("showCtrl").checked;
+  const sp = $("spaceOut").checked;
+
+  if (source !== "bits"){
+    let v = groups.join(sp ? " " : "");
+    if (leftover) v += (sp && v ? " " : "") + state.bits.slice(groups.length * w);
+    bitsIn.value = v;
+  }
+  if (source !== "text") textIn.value = codesToText(codes, named);
+
+  $("bitsStat").textContent = state.bits.length + (state.bits.length === 1 ? " bit" : " bits");
+  $("bitsFlag").textContent = leftover
+    ? leftover + " leftover bit" + (leftover === 1 ? "" : "s") + " \u2014 needs " + (w - leftover) + " more" : "";
+  $("textStat").textContent = groups.length + (groups.length === 1 ? " character" : " characters");
+  $("modeNote").textContent = state.width ? "" : "(auto: reading as " + w + "-bit)";
+  $("tapeCount").textContent = groups.length
+    ? groups.length + " char \u00B7 " + state.bits.length + " bits \u00B7 " + w + "-bit" : "\u2014";
+
+  let keyG = null, outG = null, outCodes = null;
+  if (state.xor){
+    if (groups.length){
+      const k = keyCodes();
+      outCodes = xorCodes(codes);
+      outG = outCodes.map(c => c.toString(2).padStart(w, "0"));
+      keyG = codes.map((_, i) => (k.length ? k[i % k.length] : 0).toString(2).padStart(w, "0"));
+      $("keyStat").textContent = k.length
+        ? k.length + "-byte key, repeating" : "empty key \u2014 result matches input";
+      $("outBits").textContent = outG.join(" ");
+      $("outHex").textContent = outCodes.map(c => c.toString(16).toUpperCase().padStart(2,"0")).join(" ");
+      $("outText").textContent = codesToText(outCodes, true) || "\u2014";
+    } else {
+      $("keyStat").textContent = "";
+      $("outBits").textContent = $("outHex").textContent = $("outText").textContent = "\u2014";
+    }
+  }
+
+  drawTape(groups, keyG, outG, w);
+  drawTable(outG || groups, w);
+}
+
+function drawTape(msg, key, out, w){
+  const host = $("strips");
+  host.innerHTML = "";
+  if (!msg.length){ $("tapeEmpty").style.display = "block"; return; }
+  $("tapeEmpty").style.display = "none";
+
+  const rows = [{ g:msg, tag:"tape", cls:"msg", paper:"var(--manila)", shade:"var(--manila-shade)", live:true }];
+  if (key) rows.push({ g:key, tag:"key", cls:"key", paper:"var(--key-paper)", shade:"var(--key-shade)" });
+  if (out) rows.push({ g:out, tag:"result", cls:"out", paper:"var(--out-paper)", shade:"var(--out-shade)" });
+
+  for (const r of rows){
+    const row = document.createElement("div");
+    row.className = "strip-row";
+    const tag = document.createElement("span");
+    tag.className = "strip-tag " + r.cls;
+    tag.textContent = r.tag;
+    row.appendChild(tag);
+    row.appendChild(buildStrip(r, w));
+    host.appendChild(row);
+  }
+}
+
+function buildStrip(r, w){
+  const step = 15, pad = 12, hole = 4.4, sprk = 1.9;
+  const sprocketAt = Math.min(3, w);
+  const h = pad*2 + w*step;
+  const wpx = pad*2 + (r.g.length - 1) * step;
+
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("width", wpx); svg.setAttribute("height", h);
+  svg.setAttribute("viewBox", "0 0 " + wpx + " " + h);
+  if (r.live) svg.id = "tape";
+
+  const bg = document.createElementNS(NS, "rect");
+  bg.setAttribute("width", wpx); bg.setAttribute("height", h);
+  bg.setAttribute("fill", r.paper);
+  svg.appendChild(bg);
+
+  [0.5, h - 0.5].forEach(y => {
+    const l = document.createElementNS(NS, "line");
+    l.setAttribute("x1", 0); l.setAttribute("x2", wpx);
+    l.setAttribute("y1", y); l.setAttribute("y2", y);
+    l.setAttribute("stroke", r.shade); l.setAttribute("stroke-width", 1);
+    svg.appendChild(l);
+  });
+
+  r.g.forEach((g, ci) => {
+    const cx = pad + ci * step;
+    let row = 0;
+    for (let b = 0; b < w; b++){
+      if (b === sprocketAt){
+        const s = document.createElementNS(NS, "circle");
+        s.setAttribute("cx", cx); s.setAttribute("cy", pad + row * step);
+        s.setAttribute("r", sprk); s.setAttribute("fill", "var(--bg)");
+        svg.appendChild(s); row++;
+      }
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", cx); c.setAttribute("cy", pad + row * step);
+      c.setAttribute("r", hole);
+      if (g[b] === "1"){
+        c.setAttribute("fill", "var(--bg)");
+      } else {
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", r.shade);
+        c.setAttribute("stroke-width", 1);
+        c.setAttribute("stroke-dasharray", "1.5 2");
+      }
+      if (r.live){
+        c.classList.add("hit");
+        c.dataset.i = ci * w + b;
+        const inf = charInfo(parseInt(g, 2));
+        const t = document.createElementNS(NS, "title");
+        t.textContent = "char " + (ci + 1) + ", bit " + b + " \u2014 " +
+          (inf.kind === "ctrl" ? inf.name : inf.kind === "space" ? "space" : inf.glyph);
+        c.appendChild(t);
+      }
+      svg.appendChild(c);
+      row++;
+    }
+  });
+
+  if (r.live) svg.addEventListener("click", onHoleClick);
+  return svg;
+}
+
+function onHoleClick(e){
+  const t = e.target.closest("circle.hit");
+  if (!t) return;
+  const i = +t.dataset.i, b = state.bits;
+  state.bits = b.slice(0, i) + (b[i] === "1" ? "0" : "1") + b.slice(i + 1);
+  refresh("tape");
+}
+
+function drawTable(groups, w){
+  if (!groups.length){
+    $("tbody").innerHTML = '<tr class="empty-row"><td colspan="5">Enter bits or text to see the breakdown.</td></tr>';
+    return;
+  }
+  $("tbody").innerHTML = groups.map((g, i) => {
+    const code = parseInt(g, 2), inf = charInfo(code);
+    let cell;
+    if (inf.kind === "ctrl") cell = '<td class="ctrl"><b>' + inf.name + '</b> \u2014 ' + inf.full + '</td>';
+    else if (inf.kind === "space") cell = '<td class="ctrl">space</td>';
+    else if (inf.kind === "high") cell = '<td class="glyph">' + esc(inf.glyph) + ' <span style="color:var(--muted)">extended</span></td>';
+    else cell = '<td class="glyph">' + esc(inf.glyph) + '</td>';
+    return "<tr><td style='color:var(--muted)'>" + (i + 1) + "</td><td class='bits'>" + g +
+           "</td><td>" + code + "</td><td>0x" + code.toString(16).toUpperCase().padStart(2, "0") +
+           "</td>" + cell + "</tr>";
+  }).join("");
+}
+
+/* ---------- wiring ---------- */
+bitsIn.addEventListener("input", () => { state.bits = cleanBits(bitsIn.value); refresh("bits"); });
+textIn.addEventListener("input", () => {
+  const w = state.width || 8;
+  const r = textToBits(textIn.value, w);
+  state.bits = r.bits;
+  $("textFlag").textContent = r.over
+    ? r.over + " character" + (r.over === 1 ? "" : "s") + " out of range for " + w + "-bit" : "";
+  refresh("text");
+});
+keyIn.addEventListener("input", () => refresh());
+
+function setWidth(w, id){
+  state.width = w;
+  ["w7","w8","wAuto"].forEach(x => $(x).setAttribute("aria-pressed", x === id ? "true" : "false"));
+  refresh();
+}
+$("w7").onclick = () => setWidth(7, "w7");
+$("w8").onclick = () => setWidth(8, "w8");
+$("wAuto").onclick = () => setWidth(0, "wAuto");
+$("spaceOut").onchange = () => refresh();
+$("showCtrl").onchange = () => refresh();
+
+$("xorToggle").onclick = e => {
+  state.xor = !state.xor;
+  e.currentTarget.classList.toggle("on", state.xor);
+  e.currentTarget.setAttribute("aria-pressed", String(state.xor));
+  $("cipher").classList.toggle("open", state.xor);
+  refresh();
+};
+
+$("clearAll").onclick = () => { state.bits = ""; $("textFlag").textContent = ""; refresh(); textIn.focus(); };
+$("loadDemo").onclick = () => { state.bits = textToBits("Abstract Flow State", state.width || 8).bits; refresh(); };
+
+$("pushResult").onclick = () => {
+  const w = effWidth();
+  const codes = groupsOf(state.bits, w).map(g => parseInt(g, 2));
+  if (!codes.length) return;
+  state.bits = xorCodes(codes).map(c => c.toString(2).padStart(w, "0")).join("");
+  refresh();
+};
+
+async function copyVal(text, btn){
+  try{
+    await navigator.clipboard.writeText(text);
+    const was = btn.textContent;
+    btn.textContent = "Copied";
+    setTimeout(() => { btn.textContent = was; }, 1200);
+  }catch(err){ /* clipboard unavailable */ }
+}
+$("copyBits").onclick = e => copyVal(bitsIn.value, e.currentTarget);
+$("copyText").onclick = e => copyVal(textIn.value, e.currentTarget);
+$("copyHex").onclick  = e => copyVal($("outHex").textContent, e.currentTarget);
+
+refresh();
+</script>
+</body>
+</html>

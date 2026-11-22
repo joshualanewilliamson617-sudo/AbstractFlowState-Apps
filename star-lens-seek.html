@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Starlens Circle Seek</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: full-dome sky canvas (real star positions, stereographic projection), instrument HUD at the edges, observatory console overlay with tabs. Single dark look by design: it is a night sky. */
+:root{
+  --void:#03050c; --panel:rgba(8,13,28,.76); --panel2:rgba(255,255,255,.035); --line:rgba(170,190,255,.15);
+  --ink:#e9edff; --dim:#8b96c0; --cyan:#7fe6ff; --gold:#ffd36b; --rose:#ff7fa9; --mint:#7dffc4; --violet:#b9a2ff; --danger:#ff6b6b;
+  --display:"Michroma","Eurostile","Arial Black",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--void);color:var(--ink);font-family:var(--mono);overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+canvas#sky{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+canvas#sky:active{cursor:grabbing}
+button{font-family:var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+button.on{border-color:var(--cyan);color:var(--cyan)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.lbl{font-size:9px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.val{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 11px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);min-width:0}
+
+/* HUD */
+.hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+.top{position:absolute;top:0;left:0;right:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:8px;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.score{justify-self:start;min-width:132px}
+.score .val{font-family:var(--display);font-weight:400;font-size:20px;color:var(--gold)}
+.combo{display:inline-block;margin-top:5px;font-size:10px;letter-spacing:.14em;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-variant-numeric:tabular-nums}
+.combo.hot{color:#1a1200;background:var(--gold);border-color:var(--gold)}
+.combobar{height:3px;border-radius:2px;background:var(--line);margin-top:5px;overflow:hidden}
+.combobar i{display:block;height:100%;width:0;background:var(--gold)}
+.clock{text-align:center;min-width:112px}
+.clock .val{font-family:var(--display);font-size:22px;font-weight:400}
+.clock.warn .val{color:var(--danger)}
+.right{justify-self:end;text-align:right}
+.dots{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-width:124px;justify-content:flex-end}
+.dots i{width:7px;height:7px;border-radius:50%;border:1px solid var(--dim);display:block}
+.dots i.on{background:var(--gold);border-color:var(--gold)}
+.skyline{position:absolute;left:50%;transform:translateX(-50%);top:calc(96px + env(safe-area-inset-top,0px));font-size:10px;letter-spacing:.14em;color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.bottom{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.btns{display:flex;flex-direction:column;gap:6px;pointer-events:auto}
+.heat{flex:1;max-width:300px}
+.heatbar{height:8px;border-radius:4px;background:linear-gradient(90deg,#3a6cff,#7fe6ff 35%,#ffd36b 70%,#ff5a4f);position:relative;margin-top:6px}
+.heatbar b{position:absolute;top:-4px;width:4px;height:16px;border-radius:2px;background:var(--ink);transform:translateX(-50%);transition:left .15s}
+.heatword{font-family:var(--display);font-size:12px;margin-top:6px;letter-spacing:.08em}
+.hint{font-size:11px;color:var(--ink);margin-top:5px;line-height:1.4;min-height:15px}
+.joy{pointer-events:auto;width:100px;height:100px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.04);position:relative;flex:none;touch-action:none}
+.joy::before{content:"";position:absolute;inset:16px;border-radius:50%;border:1px dashed var(--line)}
+.knob{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:var(--ink);opacity:.9}
+.toast{position:absolute;left:50%;top:60%;transform:translateX(-50%);font-family:var(--display);font-size:13px;letter-spacing:.08em;opacity:0;transition:opacity .2s;white-space:nowrap;text-align:center}
+.toast.show{opacity:1}
+.card{position:absolute;left:50%;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:min(360px,calc(100% - 32px));text-align:center;opacity:0;transition:opacity .25s}
+.card.show{opacity:1}
+.card .nm{font-family:var(--display);font-size:13px;color:var(--cyan);letter-spacing:.06em}
+.card p{margin:4px 0 0;font-size:11px;color:var(--dim);line-height:1.5}
+
+/* Console overlay */
+.ov{position:fixed;inset:0;z-index:5;background:rgba(3,5,12,.74);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
+  padding-block:calc(18px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{width:100%;max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.brand{font-size:10px;letter-spacing:.32em;color:var(--cyan)}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(24px,6.4vw,38px);line-height:1.08;margin:6px 0 0;text-wrap:balance}
+.sub{color:var(--dim);font-size:12.5px;line-height:1.6;max-width:62ch;margin:8px 0 0}
+.profile{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}
+.rankbadge{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--gold);display:grid;place-items:center;font-family:var(--display);font-size:15px;color:var(--gold)}
+.rankname{font-family:var(--display);font-size:13px;letter-spacing:.04em}
+.xpbar{height:5px;border-radius:3px;background:var(--line);margin-top:7px;overflow:hidden}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+.xptxt{font-size:10px;color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
+.dust{text-align:right}
+.dust .val{font-family:var(--display);font-weight:400;font-size:18px;color:var(--gold)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{padding:8px 12px}
+.tabs button.on{background:var(--ink);color:var(--void);border-color:var(--ink)}
+.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:600px){.modes{grid-template-columns:1fr}}
+.mode{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:7px;padding:15px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);min-width:0}
+.mode:hover,.mode:focus-visible{border-color:var(--c);background:rgba(255,255,255,.06)}
+.mode h2{margin:0;font-family:var(--display);font-weight:400;font-size:13px;letter-spacing:.05em;color:var(--c)}
+.mode p{margin:0;font-size:11.5px;line-height:1.5;color:var(--dim)}
+.mode .best{font-size:10px;letter-spacing:.12em;margin-top:auto;padding-top:7px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums;line-height:1.6}
+.sect{display:flex;flex-direction:column;gap:8px}
+.sect h3{margin:6px 0 0;font-size:10px;letter-spacing:.24em;color:var(--dim);font-weight:500;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.item{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2);display:flex;flex-direction:column;gap:6px;min-width:0}
+.item.have{border-color:rgba(127,230,255,.35)}
+.item.lock{opacity:.6}
+.item .t{font-size:12.5px;font-weight:600}
+.item .d{font-size:11px;color:var(--dim);line-height:1.5}
+.item .f{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:4px}
+.price{font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums}
+.pips{display:flex;gap:3px}.pips i{width:14px;height:4px;border-radius:2px;background:var(--line)}.pips i.on{background:var(--cyan)}
+.rare{font-size:9px;letter-spacing:.18em;text-transform:uppercase}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font-size:11px;color:var(--dim)}
+.legend div{display:flex;gap:8px;align-items:center}
+.legend span.sw{width:12px;height:12px;border-radius:50%;border:2px solid;flex:none}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--dim)}
+select,input[type=number]{font-family:var(--mono);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px;width:100%;box-sizing:border-box}
+input[type=range]{width:100%;accent-color:#7fe6ff}
+.toggles{display:flex;gap:6px;flex-wrap:wrap}
+.upnow{font-size:11.5px;color:var(--ink);line-height:1.7}
+.result{font-family:var(--display);font-size:clamp(32px,9vw,52px);font-variant-numeric:tabular-nums;color:var(--gold)}
+.break{display:flex;flex-direction:column;gap:4px;font-size:12px;font-variant-numeric:tabular-nums;max-width:420px}
+.break div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.break div.tot{border-bottom:none;font-weight:600;color:var(--gold)}
+.earn{display:flex;gap:8px;flex-wrap:wrap}
+.earn span{font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2)}
+.earn span.g{border-color:var(--gold);color:var(--gold)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row button{padding:12px 18px;font-size:11px}
+button.primary{background:var(--ink);color:var(--void);border-color:var(--ink);font-weight:600}
+.foot{font-size:10.5px;color:var(--dim);line-height:1.6}
+@media (max-width:560px){.card{bottom:calc(296px + env(safe-area-inset-bottom,0px))}.skyline{top:calc(118px + env(safe-area-inset-top,0px))}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<canvas id="sky" aria-label="Live night sky. Drag to look around, scroll or pinch to zoom."></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="top">
+    <div class="chip score">
+      <div class="lbl">Points</div>
+      <div class="val" id="scoreTxt">0</div>
+      <span class="combo" id="comboTxt">×1.0</span>
+      <div class="combobar"><i id="comboBar"></i></div>
+    </div>
+    <div class="chip clock" id="clockBox">
+      <div class="lbl" id="clockLbl">Elapsed</div>
+      <div class="val" id="clockTxt">00:00.0</div>
+    </div>
+    <div class="chip right">
+      <div class="lbl" id="modeName">Hide &amp; Seek</div>
+      <div class="val" id="foundTxt">0 / 12</div>
+      <div class="dots" id="dots"></div>
+    </div>
+  </div>
+  <div class="skyline" id="skyline">AZ 000° N · ALT +10°</div>
+  <div class="toast" id="toast"></div>
+  <div class="card" id="card"><div class="nm" id="cardNm"></div><p id="cardTx"></p></div>
+  <div class="bottom">
+    <div class="btns">
+      <button id="motionBtn" data-act="motion">Point phone</button>
+      <button id="pingBtn" data-act="ping">Ping −75</button>
+      <button id="sonarBtn" data-act="sonar" class="on">Sonar on</button>
+      <button id="linesBtn" data-act="lines" class="on">Lines on</button>
+      <button data-act="end">End round</button>
+    </div>
+    <div class="chip heat">
+      <div class="lbl">Signal</div>
+      <div class="heatbar"><b id="heatPin" style="left:0%"></b></div>
+      <div class="heatword" id="heatWord">FREEZING</div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <div class="joy" id="joy" aria-label="Look joystick"><div class="knob" id="knob"></div></div>
+  </div>
+</div>
+
+<div class="ov" id="menu">
+  <div class="sheet">
+    <div>
+      <div class="brand">STARLENS · CIRCLE SEEK · LIVE SKY</div>
+      <h1>Circles are hiding among tonight's real stars.</h1>
+      <p class="sub" id="liveLine">The sky behind this panel is computed for your location and the current time: real stars, real constellations, real horizon. Every circle hides near a real constellation, so learning the sky makes you faster.</p>
+    </div>
+    <div class="profile" id="profile"></div>
+    <div class="tabs" role="tablist">
+      <button data-act="tab:play" class="on" id="t-play">Play</button>
+      <button data-act="tab:shop" id="t-shop">Rewards shop</button>
+      <button data-act="tab:log" id="t-log">Sky log</button>
+      <button data-act="tab:badges" id="t-badges">Badges</button>
+      <button data-act="tab:setup" id="t-setup">Sky setup</button>
+    </div>
+    <div id="tab"></div>
+  </div>
+</div>
+
+<div class="ov" id="end" hidden>
+  <div class="sheet" id="endSheet"></div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const D=Math.PI/180, $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmtT=s=>{s=Math.max(0,s);const m=Math.floor(s/60),r=s-m*60;return String(m).padStart(2,'0')+':'+r.toFixed(1).padStart(4,'0')};
+const fmtN=n=>Math.round(n).toLocaleString('en-US');
+
+/* ───────────── STAR CATALOG (J2000) ─────────────
+   name | RA hours | Dec deg | visual magnitude | B−V color index | distance ly (0 = not listed) | constellation */
+const CAT_SRC=`Sirius|6.7525|-16.716|-1.46|0.00|8.6|Canis Major
+Canopus|6.399|-52.696|-0.74|0.15|310|Carina
+Rigil Kentaurus|14.660|-60.834|-0.27|0.71|4.4|Centaurus
+Arcturus|14.261|19.182|-0.05|1.23|37|Bootes
+Vega|18.6156|38.784|0.03|0.00|25|Lyra
+Capella|5.278|45.998|0.08|0.80|43|Auriga
+Rigel|5.2423|-8.202|0.13|-0.03|860|Orion
+Procyon|7.655|5.225|0.34|0.42|11.5|Canis Minor
+Achernar|1.6286|-57.237|0.46|-0.16|139|Eridanus
+Betelgeuse|5.9195|7.407|0.50|1.85|550|Orion
+Hadar|14.0637|-60.373|0.61|-0.23|390|Centaurus
+Altair|19.8464|8.868|0.77|0.22|16.7|Aquila
+Acrux|12.4433|-63.099|0.77|-0.24|320|Crux
+Aldebaran|4.5987|16.509|0.85|1.54|65|Taurus
+Antares|16.490|-26.432|0.96|1.83|550|Scorpius
+Spica|13.4199|-11.161|0.97|-0.23|250|Virgo
+Pollux|7.7553|28.026|1.14|1.00|34|Gemini
+Fomalhaut|22.9608|-29.622|1.16|0.09|25|Piscis Austrinus
+Deneb|20.6905|45.280|1.25|0.09|2600|Cygnus
+Mimosa|12.795|-59.689|1.25|-0.23|280|Crux
+Regulus|10.1395|11.967|1.35|-0.11|79|Leo
+Adhara|6.977|-28.972|1.50|-0.21|430|Canis Major
+Castor|7.5767|31.888|1.58|0.03|51|Gemini
+Shaula|17.560|-37.104|1.62|-0.22|570|Scorpius
+Gacrux|12.519|-57.113|1.63|1.60|88|Crux
+Bellatrix|5.4189|6.350|1.64|-0.22|250|Orion
+Elnath|5.4382|28.608|1.65|-0.13|134|Taurus
+Miaplacidus|9.220|-69.717|1.67|0.07|113|Carina
+Alnilam|5.6036|-1.202|1.69|-0.18|2000|Orion
+Alnair|22.137|-46.961|1.73|-0.07|101|Grus
+Alnitak|5.6793|-1.943|1.74|-0.21|1260|Orion
+Alioth|12.900|55.960|1.76|-0.02|83|Ursa Major
+Dubhe|11.062|61.751|1.79|1.07|123|Ursa Major
+Mirfak|3.405|49.861|1.79|0.48|510|Perseus
+Wezen|7.1398|-26.393|1.83|0.68|1600|Canis Major
+Kaus Australis|18.4029|-34.385|1.85|-0.03|143|Sagittarius
+Avior|8.375|-59.510|1.86|1.28|630|Carina
+Alkaid|13.792|49.313|1.85|-0.10|104|Ursa Major
+Sargas|17.622|-42.998|1.86|0.40|300|Scorpius
+Menkalinan|5.992|44.947|1.90|0.03|81|Auriga
+Atria|16.811|-69.028|1.91|1.45|390|Triangulum Australe
+Alhena|6.628|16.399|1.93|0.00|109|Gemini
+Peacock|20.427|-56.735|1.94|-0.20|180|Pavo
+Polaris|2.530|89.264|1.98|0.60|433|Ursa Minor
+Mirzam|6.378|-17.956|1.98|-0.23|500|Canis Major
+Alphard|9.460|-8.659|1.98|1.44|177|Hydra
+Hamal|2.1196|23.462|2.00|1.15|66|Aries
+Diphda|0.7265|-17.987|2.04|1.02|96|Cetus
+Nunki|18.921|-26.297|2.05|-0.13|228|Sagittarius
+Menkent|14.111|-36.370|2.06|1.01|59|Centaurus
+Alpheratz|0.1398|29.090|2.06|-0.11|97|Andromeda
+Mirach|1.1622|35.621|2.05|1.58|200|Andromeda
+Saiph|5.7959|-9.670|2.09|-0.18|650|Orion
+Kochab|14.845|74.156|2.08|1.47|131|Ursa Minor
+Rasalhague|17.582|12.560|2.08|0.15|49|Ophiuchus
+Algol|3.136|40.956|2.12|-0.05|90|Perseus
+Almach|2.065|42.330|2.10|1.37|350|Andromeda
+Denebola|11.8177|14.572|2.14|0.09|36|Leo
+Algieba|10.333|19.842|2.08|1.15|130|Leo
+Mizar|13.399|54.925|2.23|0.02|83|Ursa Major
+Alphecca|15.578|26.715|2.23|-0.02|75|Corona Borealis
+Mintaka|5.5334|-0.299|2.23|-0.22|1200|Orion
+Eltanin|17.943|51.489|2.24|1.52|154|Draco
+Sadr|20.370|40.257|2.23|0.67|1800|Cygnus
+Schedar|0.675|56.537|2.24|1.17|228|Cassiopeia
+Caph|0.153|59.150|2.28|0.34|55|Cassiopeia
+Dschubba|16.006|-22.622|2.29|-0.12|440|Scorpius
+Larawag|16.836|-34.293|2.29|1.15|64|Scorpius
+Merak|11.031|56.382|2.37|-0.02|80|Ursa Major
+Izar|14.750|27.074|2.37|0.97|200|Bootes
+Enif|21.736|9.875|2.38|1.52|690|Pegasus
+Kappa Scorpii|17.708|-39.030|2.41|-0.22|0|Scorpius
+Scheat|23.063|28.083|2.42|1.67|196|Pegasus
+Sabik|17.173|-15.725|2.43|0.06|88|Ophiuchus
+Phecda|11.897|53.695|2.44|0.00|83|Ursa Major
+Aludra|7.4016|-29.303|2.45|-0.08|2000|Canis Major
+Navi|0.945|60.717|2.47|-0.15|550|Cassiopeia
+Markab|23.079|15.205|2.49|-0.04|133|Pegasus
+Gienah|20.770|33.970|2.48|1.03|72|Cygnus
+Menkar|3.038|4.090|2.54|1.64|250|Cetus
+Zeta Ophiuchi|16.619|-10.567|2.54|0.02|0|Ophiuchus
+Zosma|11.235|20.524|2.56|0.12|58|Leo
+Gienah Corvi|12.263|-17.542|2.59|-0.11|154|Corvus
+Ascella|19.044|-29.880|2.60|0.08|88|Sagittarius
+Acrab|16.091|-19.806|2.62|-0.07|400|Scorpius
+Theta Aurigae|5.995|37.213|2.62|-0.08|0|Auriga
+Sheratan|1.911|20.808|2.64|0.13|60|Aries
+Kraz|12.573|-23.397|2.65|0.89|0|Corvus
+Muphrid|13.911|18.398|2.68|0.58|37|Bootes
+Ruchbah|1.430|60.235|2.68|0.13|99|Cassiopeia
+Hassaleh|4.950|33.166|2.69|1.53|0|Auriga
+Kaus Media|18.350|-29.828|2.70|1.38|0|Sagittarius
+Lesath|17.512|-37.296|2.70|-0.22|0|Scorpius
+Tarazed|19.771|10.613|2.72|1.52|395|Aquila
+Yed Prior|16.239|-3.694|2.73|1.58|0|Ophiuchus
+Porrima|12.694|-1.449|2.74|0.36|38|Virgo
+Cebalrai|17.725|4.567|2.76|1.16|0|Ophiuchus
+Kornephoros|16.504|21.490|2.77|0.94|0|Hercules
+Rastaban|17.507|52.301|2.79|0.98|0|Draco
+Delta Crucis|12.252|-58.749|2.79|-0.23|0|Crux
+Kaus Borealis|18.466|-25.422|2.81|1.02|0|Sagittarius
+Zeta Herculis|16.688|31.603|2.81|0.65|35|Hercules
+Tau Scorpii|16.598|-28.216|2.82|-0.25|0|Scorpius
+Vindemiatrix|13.036|10.959|2.83|0.94|0|Virgo
+Algenib|0.2206|15.184|2.83|-0.23|0|Pegasus
+Deneb Algedi|21.784|-16.127|2.85|0.29|39|Capricornus
+Zeta Persei|3.902|31.884|2.85|0.12|0|Perseus
+Delta Cygni|19.750|45.131|2.87|-0.03|0|Cygnus
+Alcyone|3.791|24.105|2.87|-0.09|440|Taurus
+Sadalsuud|21.526|-5.571|2.87|0.83|0|Aquarius
+Tejat|6.383|22.514|2.87|1.64|0|Gemini
+Gomeisa|7.4525|8.289|2.89|-0.10|0|Canis Minor
+Pi Scorpii|15.981|-26.114|2.89|-0.19|0|Scorpius
+Sigma Scorpii|16.353|-25.593|2.89|0.13|0|Scorpius
+Epsilon Persei|3.964|40.010|2.89|-0.18|0|Perseus
+Gamma Persei|3.080|53.506|2.93|0.70|0|Perseus
+Algorab|12.498|-16.515|2.95|-0.01|0|Corvus
+Sadalmelik|22.096|-0.320|2.95|0.98|0|Aquarius
+Mebsuta|6.732|25.131|2.98|1.40|0|Gemini
+Alnasl|18.097|-30.424|2.98|1.00|0|Sagittarius
+Ras Elased|9.764|23.774|2.98|0.80|0|Leo
+Almaaz|5.033|43.823|2.99|0.54|0|Auriga
+Zeta Aquilae|19.090|13.863|2.99|0.01|0|Aquila
+Zeta Tauri|5.6275|21.143|3.00|-0.19|0|Taurus
+Pherkad|15.345|71.834|3.00|0.05|0|Ursa Minor
+Minkar|12.169|-22.620|3.00|1.33|0|Corvus
+Delta Persei|3.715|47.788|3.01|-0.13|0|Perseus
+Iota Scorpii|17.793|-40.127|3.03|0.51|0|Scorpius
+Seginus|14.535|38.308|3.03|0.19|0|Bootes
+Dabih|20.350|-14.781|3.05|0.79|0|Capricornus
+Altais|19.209|67.661|3.07|1.00|0|Draco
+Albireo|19.512|27.960|3.08|1.13|430|Cygnus
+Mu Scorpii|16.864|-38.047|3.08|-0.20|0|Scorpius
+Pi Herculis|17.251|36.809|3.16|1.44|0|Hercules
+Phi Sagittarii|18.761|-26.991|3.17|-0.11|0|Sagittarius
+Aldhibah|17.146|65.715|3.17|-0.12|0|Draco
+Sulafat|18.982|32.690|3.25|-0.05|0|Lyra
+Theta Aquilae|20.188|-0.821|3.26|-0.07|0|Aquila
+Skat|22.911|-15.820|3.27|0.05|0|Aquarius
+Delta Andromedae|0.655|30.861|3.27|1.28|0|Andromeda
+Edasich|15.415|58.966|3.29|1.16|0|Draco
+Tau Sagittarii|19.116|-27.671|3.32|1.19|0|Sagittarius
+Megrez|12.257|57.033|3.31|0.08|58|Ursa Major
+Eta Scorpii|17.2025|-43.239|3.33|0.41|0|Scorpius
+Chertan|11.237|15.430|3.33|0.00|0|Leo
+Delta Aquilae|19.425|3.115|3.36|0.32|0|Aquila
+Segin|1.907|63.670|3.37|-0.15|0|Cassiopeia
+Delta Virginis|12.927|3.397|3.38|1.58|0|Virgo
+Meissa|5.5856|9.934|3.39|-0.18|1100|Orion
+Homam|22.691|10.831|3.40|-0.09|0|Pegasus
+Adhafera|10.278|23.417|3.43|0.31|0|Leo
+Lambda Aquilae|19.104|-4.882|3.43|-0.09|0|Aquila
+Eta Herculis|16.715|38.922|3.48|0.92|0|Hercules
+Eta Leonis|10.122|16.763|3.48|-0.03|0|Leo
+Delta Bootis|15.258|33.315|3.47|0.95|0|Bootes
+Nekkar|15.032|40.390|3.49|0.96|0|Bootes
+Sheliak|18.835|33.363|3.52|0.00|960|Lyra
+Ain|4.477|19.180|3.53|1.01|0|Taurus
+Wasat|7.335|21.982|3.53|0.34|0|Gemini
+Baham|22.170|6.198|3.53|0.08|0|Pegasus
+Algedi|20.301|-12.545|3.57|0.94|0|Capricornus
+Rho Bootis|14.530|30.371|3.58|1.30|0|Bootes
+Zavijava|11.845|1.765|3.61|0.55|36|Virgo
+Zeta Scorpii|16.910|-42.362|3.62|1.37|0|Scorpius
+Thuban|14.073|64.376|3.65|-0.05|300|Draco
+Gamma Tauri|4.330|15.628|3.65|0.99|0|Taurus
+Nusakan|15.464|29.106|3.68|0.28|0|Corona Borealis
+Alshain|19.922|6.407|3.71|0.86|45|Aquila
+Grumium|17.892|56.873|3.75|1.18|0|Draco
+Delta Tauri|4.382|17.543|3.76|0.98|0|Taurus
+Mekbuda|7.068|20.570|3.79|0.79|0|Gemini
+Gamma Coronae|15.712|26.296|3.84|0.00|0|Corona Borealis
+Mesarthim|1.892|19.294|3.88|-0.10|0|Aries
+Rasalas|9.879|26.007|3.88|1.22|0|Leo
+Epsilon Herculis|17.005|30.926|3.92|-0.01|0|Hercules
+Theta Coronae|15.549|31.359|4.14|-0.13|0|Corona Borealis
+Epsilon Coronae|15.960|26.878|4.15|1.23|0|Corona Borealis
+Epsilon UMi|16.766|82.037|4.21|0.89|0|Ursa Minor
+Zeta UMi|15.734|77.794|4.29|0.04|0|Ursa Minor
+Delta Lyrae|18.908|36.899|4.30|1.68|0|Lyra
+Yildun|17.537|86.586|4.35|0.03|0|Ursa Minor
+Zeta Lyrae|18.746|37.605|4.36|0.19|0|Lyra
+Delta Coronae|15.827|26.068|4.63|0.80|0|Corona Borealis
+Eta UMi|16.292|75.755|4.95|0.37|0|Ursa Minor`;
+
+/* stick figures: chains joined by "-" , chains separated by ";" */
+const LINES={
+ 'Orion':'Betelgeuse-Meissa-Bellatrix;Betelgeuse-Alnitak-Alnilam-Mintaka-Bellatrix;Alnitak-Saiph-Rigel-Mintaka',
+ 'Taurus':'Zeta Tauri-Aldebaran-Gamma Tauri-Delta Tauri-Ain-Elnath;Gamma Tauri-Alcyone',
+ 'Gemini':'Castor-Mebsuta-Tejat;Pollux-Wasat-Mekbuda-Alhena;Castor-Pollux',
+ 'Canis Major':'Mirzam-Sirius-Wezen-Adhara;Wezen-Aludra',
+ 'Canis Minor':'Procyon-Gomeisa',
+ 'Auriga':'Capella-Menkalinan-Theta Aurigae-Elnath-Hassaleh-Almaaz-Capella',
+ 'Ursa Major':'Dubhe-Merak-Phecda-Megrez-Dubhe;Megrez-Alioth-Mizar-Alkaid',
+ 'Ursa Minor':'Polaris-Yildun-Epsilon UMi-Zeta UMi-Kochab-Pherkad-Eta UMi-Zeta UMi',
+ 'Cassiopeia':'Caph-Schedar-Navi-Ruchbah-Segin',
+ 'Cygnus':'Deneb-Sadr-Albireo;Delta Cygni-Sadr-Gienah',
+ 'Lyra':'Vega-Zeta Lyrae-Sheliak-Sulafat-Delta Lyrae-Zeta Lyrae',
+ 'Aquila':'Tarazed-Altair-Alshain-Theta Aquilae;Altair-Delta Aquilae-Lambda Aquilae;Delta Aquilae-Zeta Aquilae',
+ 'Leo':'Ras Elased-Rasalas-Adhafera-Algieba-Eta Leonis-Regulus-Chertan-Denebola-Zosma-Algieba;Zosma-Chertan',
+ 'Bootes':'Arcturus-Izar-Delta Bootis-Nekkar-Seginus-Rho Bootis-Arcturus;Arcturus-Muphrid',
+ 'Corona Borealis':'Theta Coronae-Nusakan-Alphecca-Gamma Coronae-Delta Coronae-Epsilon Coronae',
+ 'Hercules':'Zeta Herculis-Eta Herculis-Pi Herculis-Epsilon Herculis-Zeta Herculis;Zeta Herculis-Kornephoros',
+ 'Draco':'Rastaban-Eltanin-Grumium-Rastaban;Grumium-Altais-Aldhibah-Edasich-Thuban',
+ 'Scorpius':'Acrab-Dschubba-Pi Scorpii;Dschubba-Sigma Scorpii-Antares-Tau Scorpii-Larawag-Mu Scorpii-Zeta Scorpii-Eta Scorpii-Sargas-Iota Scorpii-Kappa Scorpii-Shaula-Lesath',
+ 'Sagittarius':'Alnasl-Kaus Media-Kaus Borealis-Phi Sagittarii-Nunki-Tau Sagittarii-Ascella-Phi Sagittarii-Kaus Media-Kaus Australis-Ascella;Kaus Australis-Alnasl',
+ 'Pegasus':'Alpheratz-Scheat-Markab-Algenib-Alpheratz;Markab-Homam-Baham-Enif',
+ 'Andromeda':'Alpheratz-Delta Andromedae-Mirach-Almach',
+ 'Perseus':'Gamma Persei-Mirfak-Delta Persei-Epsilon Persei-Zeta Persei;Mirfak-Algol',
+ 'Virgo':'Spica-Porrima-Delta Virginis-Vindemiatrix;Porrima-Zavijava',
+ 'Ophiuchus':'Rasalhague-Cebalrai-Sabik-Zeta Ophiuchi-Yed Prior-Rasalhague',
+ 'Aries':'Hamal-Sheratan-Mesarthim',
+ 'Crux':'Acrux-Gacrux;Mimosa-Delta Crucis',
+ 'Centaurus':'Rigil Kentaurus-Hadar',
+ 'Capricornus':'Algedi-Dabih-Deneb Algedi',
+ 'Aquarius':'Sadalmelik-Sadalsuud-Skat',
+ 'Corvus':'Gienah Corvi-Algorab-Kraz-Minkar-Gienah Corvi',
+ 'Carina':'Canopus-Avior',
+ 'Cetus':'Diphda-Menkar'
+};
+const BLURB={
+ 'Orion':'The Hunter. Follow the belt down-left to Sirius and up-right to Aldebaran.',
+ 'Taurus':'The Bull. Orange Aldebaran is its eye; the Pleiades cluster rides its shoulder.',
+ 'Gemini':'The Twins. Castor and Pollux mark their heads.',
+ 'Canis Major':'The Great Dog, home of Sirius, the brightest star in the night sky.',
+ 'Canis Minor':'The Little Dog. Procyon is only 11.5 light-years away.',
+ 'Auriga':'The Charioteer, a pentagon led by golden Capella.',
+ 'Ursa Major':'Holds the Big Dipper. Merak and Dubhe point straight to Polaris.',
+ 'Ursa Minor':'The Little Dipper. Polaris sits within a degree of the north celestial pole.',
+ 'Cassiopeia':'The Queen, a bright W that circles the pole opposite the Dipper.',
+ 'Cygnus':'The Swan, also called the Northern Cross. It flies along the Milky Way.',
+ 'Lyra':'The Lyre. Vega will be the pole star again in about 13,000 years.',
+ 'Aquila':'The Eagle. Altair spins so fast it bulges at its equator.',
+ 'Leo':'The Lion. The Sickle is a backward question mark ending at Regulus.',
+ 'Bootes':'The Herdsman. Arc from the Dipper\'s handle to find Arcturus.',
+ 'Corona Borealis':'The Northern Crown, a small half-circle of stars.',
+ 'Hercules':'The Hero. The Keystone holds the great globular cluster M13.',
+ 'Draco':'The Dragon. Thuban was the pole star when the Egyptian pyramids were built.',
+ 'Scorpius':'The Scorpion. Antares means "rival of Mars" for its red color.',
+ 'Sagittarius':'The Archer, shaped like a teapot. The center of our galaxy lies just past its spout.',
+ 'Pegasus':'The Winged Horse. Its Great Square marks the autumn sky.',
+ 'Andromeda':'The Princess. The Andromeda Galaxy glows faintly near Mirach.',
+ 'Perseus':'The Hero. Algol, the Demon Star, dims every 2.87 days.',
+ 'Virgo':'The Maiden. Spica is a close pair of hot blue stars.',
+ 'Ophiuchus':'The Serpent Bearer, the zodiac\'s forgotten 13th constellation.',
+ 'Aries':'The Ram, a short bent line of three stars.',
+ 'Crux':'The Southern Cross, the smallest of all 88 constellations.',
+ 'Centaurus':'The Centaur. Rigil Kentaurus is the nearest star system to the Sun.',
+ 'Capricornus':'The Sea Goat, a faint triangle in the late-summer south.',
+ 'Aquarius':'The Water Bearer, one of the oldest named constellations.',
+ 'Corvus':'The Crow, a small four-sided sail of stars.',
+ 'Carina':'The Keel of the ship Argo. Canopus is the second-brightest star at night.',
+ 'Cetus':'The Sea Monster. Its neck star Mira brightens and fades over 11 months.',
+ 'Eridanus':'The River. Achernar means "end of the river."',
+ 'Piscis Austrinus':'The Southern Fish. Fomalhaut sits alone in a dark patch of autumn sky.',
+ 'Grus':'The Crane, a southern bird first charted in the 1590s.',
+ 'Pavo':'The Peacock. Its brightest star is simply named Peacock.',
+ 'Triangulum Australe':'The Southern Triangle. Atria glows orange.',
+ 'Hydra':'The Water Snake, the largest constellation. Alphard means "the solitary one."'
+};
+
+function eqVec(raH,decD){const a=raH*15*D,d=decD*D;return [Math.cos(d)*Math.cos(a),Math.cos(d)*Math.sin(a),Math.sin(d)];}
+const CAT=CAT_SRC.trim().split('\n').map(l=>{const[n,ra,de,m,bv,ly,con]=l.split('|');return {n,ra:+ra,de:+de,m:+m,bv:+bv,ly:+ly,con,e:eqVec(+ra,+de)}});
+const BYNAME=Object.fromEntries(CAT.map(s=>[s.n,s]));
+const SEGS=[];
+for(const [con,str] of Object.entries(LINES))for(const ch of str.split(';')){const p=ch.split('-');for(let i=0;i<p.length-1;i++){const a=BYNAME[p[i]],b=BYNAME[p[i+1]];if(a&&b)SEGS.push([a,b])}}
+const CONS={};
+for(const s of CAT){(CONS[s.con]=CONS[s.con]||{name:s.con,stars:[]}).stars.push(s)}
+for(const c of Object.values(CONS)){let v=[0,0,0];c.stars.forEach(s=>{v[0]+=s.e[0];v[1]+=s.e[1];v[2]+=s.e[2]});const L=Math.hypot(...v);c.e=v.map(x=>x/L);c.dec=Math.asin(c.e[2])/D;c.bright=c.stars.reduce((a,b)=>a.m<b.m?a:b)}
+const CON_NAMES=Object.keys(CONS).sort();
+
+/* Faint background field: seeded, densest along the galactic plane (galactic → J2000 equatorial rotation). */
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=rng(2026);
+const G2E=[[-0.0548755604,0.4941094279,-0.8676661490],[-0.8734370902,-0.4448296300,-0.1980763734],[-0.4838350155,0.7469822445,0.4559837762]];
+const FIELD=[];
+for(let i=0;i<1700;i++){
+  let e;
+  if(i<900){const l=R()*360*D,g=(R()+R()+R()-1.5)*14*D;const v=[Math.cos(g)*Math.cos(l),Math.cos(g)*Math.sin(l),Math.sin(g)];
+    e=[G2E[0][0]*v[0]+G2E[0][1]*v[1]+G2E[0][2]*v[2],G2E[1][0]*v[0]+G2E[1][1]*v[1]+G2E[1][2]*v[2],G2E[2][0]*v[0]+G2E[2][1]*v[1]+G2E[2][2]*v[2]];}
+  else{const z=R()*2-1,a=R()*Math.PI*2,r=Math.sqrt(1-z*z);e=[r*Math.cos(a),r*Math.sin(a),z]}
+  FIELD.push({e,m:6.6-2.8*Math.pow(R(),2.2),bv:R()*1.4-0.15,tw:R()*6});
+}
+/* B−V → display color */
+const BV=[[-0.4,[155,176,255]],[0,[202,215,255]],[0.3,[248,247,255]],[0.6,[255,244,234]],[0.9,[255,232,200]],[1.2,[255,210,161]],[1.6,[255,180,107]],[2.0,[255,155,80]]];
+function bvCol(bv){bv=clamp(bv,-0.4,2);for(let i=0;i<BV.length-1;i++){const[a,ca]=BV[i],[b,cb]=BV[i+1];if(bv<=b){const t=(bv-a)/(b-a);return `rgb(${ca.map((c,j)=>Math.round(c+(cb[j]-c)*t)).join(',')})`}}return 'rgb(255,155,80)'}
+CAT.forEach(s=>s.col=bvCol(s.bv));FIELD.forEach(s=>s.col=bvCol(s.bv));
+
+/* point on the sky a given number of degrees away from direction e, at angle ph around it */
+function offsetDir(e,dDeg,ph){const d=dDeg*D;let t1=[-e[1],e[0],0];let L=Math.hypot(...t1);if(L<1e-3){t1=[1,0,0];L=1}t1=t1.map(x=>x/L);
+  const t2=[e[1]*t1[2]-e[2]*t1[1],e[2]*t1[0]-e[0]*t1[2],e[0]*t1[1]-e[1]*t1[0]];
+  return [0,1,2].map(i=>e[i]*Math.cos(d)+(t1[i]*Math.cos(ph)+t2[i]*Math.sin(ph))*Math.sin(d))}
+
+/* ───────────── REAL STAR CLUSTERS (J2000) ─────────────
+   name | RA hours | Dec deg | size (radius °) | type o=open g=globular n=nebula | brightest member mag | distance ly | constellation | fact
+   Member stars are generated around the real position (game look); positions, sizes and distances are real. */
+const CL_SRC=`Pleiades (M45)|3.79|24.12|1.0|o|3.6|444|Taurus|The Seven Sisters. Most people see six stars by eye; binoculars show dozens of hot young blue stars about 100 million years old.
+Hyades|4.45|15.87|2.8|o|3.6|153|Taurus|The nearest star cluster to the Sun, a V shape forming the face of the Bull. Bright Aldebaran sits in front of it but is not a member.
+Beehive Cluster (M44)|8.67|19.67|0.8|o|6.3|577|Cancer|Also called Praesepe, "the manger." A misty patch by eye that binoculars split into a swarm of stars.
+Double Cluster|2.33|57.13|0.7|o|6.5|7500|Perseus|Two clusters side by side (NGC 869 and NGC 884), both glowing with young supergiant stars.
+Great Hercules Cluster (M13)|16.695|36.46|0.3|g|5.8|22200|Hercules|A ball of several hundred thousand stars. In 1974 a radio message from Earth was beamed toward it.
+Omega Centauri|13.447|-47.48|0.6|g|3.9|17000|Centaurus|The biggest globular cluster in our galaxy, about 10 million stars. It may be the leftover core of a small galaxy.
+Jewel Box (NGC 4755)|12.894|-60.33|0.15|o|5.8|6400|Crux|A tiny cluster beside Mimosa in the Southern Cross. One red star sits among blue-white ones like a ruby among sapphires.
+Coma Star Cluster|12.42|26.0|2.5|o|4.3|280|Coma Berenices|A loose spray of faint stars that forms the hair of Queen Berenice.
+Ptolemy Cluster (M7)|17.897|-34.79|0.6|o|5.6|980|Scorpius|Written about by Ptolemy almost 2,000 years ago. It sits near the Scorpion's stinger.
+Butterfly Cluster (M6)|17.668|-32.25|0.3|o|6.2|1600|Scorpius|Its brightest stars outline the open wings of a butterfly.
+47 Tucanae|0.40|-72.08|0.4|g|4.1|13000|Tucana|The second-brightest globular cluster, right next to the Small Magellanic Cloud.
+M22|18.607|-23.90|0.25|g|5.1|10600|Sagittarius|One of the closest globular clusters, just above the lid of the Teapot.
+M35|6.15|24.33|0.4|o|5.3|2800|Gemini|A rich cluster at the feet of the Twins, about the size of the full Moon.
+M37|5.87|32.55|0.3|o|6.2|4500|Auriga|The richest of the Charioteer's three bright clusters, with an orange star at its heart.
+M36|5.60|34.13|0.2|o|6.3|4100|Auriga|A small, tight cluster of young hot stars in the Charioteer.
+Starfish Cluster (M38)|5.48|35.83|0.3|o|6.4|4200|Auriga|Its stars are arranged in a rough cross or starfish shape.
+Wild Duck Cluster (M11)|18.85|-6.27|0.2|o|6.3|6200|Scutum|Its brightest stars form a V, like a flock of ducks in flight.
+Trapezium Cluster|5.588|-5.39|0.5|n|5.1|1344|Orion|Newborn stars inside the Orion Nebula, the Hunter's sword. This is a star nursery.
+Southern Pleiades (IC 2602)|10.72|-64.4|0.8|o|3.5|480|Carina|A bright southern cousin of the Pleiades.
+M41|6.77|-20.73|0.3|o|6.0|2300|Canis Major|An easy binocular cluster four degrees south of Sirius.
+Coathanger|19.43|20.18|0.7|o|5.2|420|Vulpecula|Ten stars shaped exactly like an upside-down coat hanger. A chance line-up, not a true family of stars.
+M4|16.39|-26.53|0.25|g|5.9|7200|Scorpius|One of the nearest globular clusters, sitting just beside red Antares.
+M3|13.70|28.38|0.2|g|6.2|33900|Canes Venatici|Half a million stars, famous for its many pulsing variable stars.
+M5|15.31|2.08|0.2|g|5.7|24500|Serpens|One of the oldest clusters known, about 13 billion years old.
+M92|17.29|43.14|0.15|g|6.4|26700|Hercules|Hercules' second globular cluster, often overlooked next to M13.
+Alpha Persei Cluster|3.40|49.0|1.5|o|4.0|570|Perseus|A loose group of blue-white stars around Mirfak, best in binoculars.
+M47|7.61|-14.5|0.4|o|5.7|1600|Puppis|A bright, scattered cluster in the stern of the old ship Argo.
+M93|7.74|-23.85|0.2|o|6.2|3600|Puppis|A wedge-shaped cluster, the last cluster Charles Messier discovered.`;
+const CLUSTERS=CL_SRC.trim().split('\n').map((l,i)=>{const[n,ra,de,r,t,bri,ly,con,d]=l.split('|');return {n,ra:+ra,de:+de,r:+r,t,bri:+bri,ly:+ly,con,d,e:eqVec(+ra,+de),seed:900+i*37}});
+/* generate each cluster's member stars the first time they're needed, then reuse them */
+function clusterStars(cl){if(cl.mem)return cl.mem;const R=rng(cl.seed),mem=[],bg=[],glob=cl.t==='g';
+  const n=glob?140:Math.round(clamp(cl.r*45+25,25,90));
+  for(let k=0;k<n;k++){const d=glob?cl.r*R()*R():cl.r*Math.sqrt(R());const m=glob?8.3+R()*1.2:cl.bri+(9.3-cl.bri)*Math.sqrt(R());
+    mem.push({e:offsetDir(cl.e,d,R()*6.283),m,bv:glob?0.5+R()*0.8:R()*0.8-0.2,tw:R()*6})}
+  for(let k=0;k<160;k++)bg.push({e:offsetDir(cl.e,7*Math.sqrt(R()),R()*6.283),m:7.2+R()*2.2,bv:R()*1.4-0.15,tw:R()*6});
+  mem.concat(bg).forEach(s=>s.col=bvCol(s.bv));cl.mem=mem;cl.bg=bg;return mem}
+
+/* ───────────── PROFILE (saved in this browser) ───────────── */
+const LOCS={
+  spartanburg:{label:'Spartanburg, SC',lat:34.9496,lon:-81.9320},
+  newyork:{label:'New York, NY',lat:40.7128,lon:-74.0060},
+  london:{label:'London, UK',lat:51.5074,lon:-0.1278},
+  reykjavik:{label:'Reykjavík, Iceland',lat:64.1466,lon:-21.9426},
+  quito:{label:'Quito, Ecuador (equator)',lat:-0.1807,lon:-78.4678},
+  tokyo:{label:'Tokyo, Japan',lat:35.6762,lon:139.6503},
+  sydney:{label:'Sydney, Australia',lat:-33.8688,lon:151.2093},
+  capetown:{label:'Cape Town, South Africa',lat:-33.9249,lon:18.4241}
+};
+const DEF={xp:0,dust:0,owned:{reticle:['classic'],theme:['night']},equip:{reticle:'classic',theme:'night'},up:{lock:0,quick:0,lucky:0,sonar:0},warps:0,
+  log:{},clus:{},ach:{},stats:{finds:0,bulls:0,legend:0,rounds:0,bestCombo:1},best:{},
+  set:{loc:'spartanburg',lat:34.9496,lon:-81.9320,label:'Spartanburg, SC',timeOff:0,lines:true,labels:true,sonar:true,dome:true,diff:'normal'}};
+let P;
+try{P=JSON.parse(localStorage.getItem('slcs2'))}catch(e){P=null}
+P=Object.assign(structuredClone(DEF),P||{});
+for(const k of ['owned','equip','up','stats','set'])P[k]=Object.assign(structuredClone(DEF[k]),P[k]||{});
+function save(){try{localStorage.setItem('slcs2',JSON.stringify(P))}catch(e){}}
+
+const RANKS=[[1,'Backyard Stargazer'],[3,'Night Owl'],[5,'Sky Navigator'],[8,'Observer'],[12,'Astronomer'],[17,'Astrophysicist'],[23,'Cosmologist'],[30,'Keeper of the Sky']];
+const xpFor=L=>500*L*(L-1);
+const levelOf=xp=>{let L=1;while(xpFor(L+1)<=xp)L++;return L};
+const rankOf=L=>RANKS.filter(r=>r[0]<=L).pop()[1];
+
+const TIERS=[
+  {id:'common',name:'Ring',pts:100,r:3.4,col:'#7fe6ff',w:50},
+  {id:'uncommon',name:'Halo',pts:150,r:3.0,col:'#7dffc4',w:28},
+  {id:'rare',name:'Corona',pts:300,r:2.3,col:'#ffd36b',w:14},
+  {id:'epic',name:'Nova',pts:500,r:1.9,col:'#b9a2ff',w:6,drift:1.6},
+  {id:'legendary',name:'Eclipse',pts:1000,r:1.6,col:'#ff7fa9',w:2,drift:3}
+];
+const SHOP={
+  reticle:[
+    {id:'classic',name:'Classic Ring',cost:0,d:'Dashed seeker ring.'},
+    {id:'sextant',name:'Sextant',cost:150,d:'Navigator\'s crosshair with arc ticks.'},
+    {id:'astrolabe',name:'Astrolabe',cost:400,d:'Rotating brass rings with degree marks.'},
+    {id:'finder',name:'Finder Scope',cost:800,d:'Telescope finder with a red-dot center.'}],
+  theme:[
+    {id:'night',name:'Deep Night',cost:0,d:'Dark rural sky.'},
+    {id:'twilight',name:'Astronomical Twilight',cost:300,d:'Last glow of sunset along the horizon.'},
+    {id:'aurora',name:'Aurora',cost:600,d:'Green curtains dancing over the north.'},
+    {id:'nebula',name:'Nebula Dream',cost:900,d:'Glowing gas clouds pinned to real sky positions.'}]
+};
+const UPG=[
+  {id:'lock',name:'Wide Lens',costs:[200,500,1000],d:'Lock zone grows by 0.4° per level.'},
+  {id:'quick',name:'Quick Shutter',costs:[250,600,1200],d:'Locks on about 25% faster per level.'},
+  {id:'lucky',name:'Lucky Lens',costs:[300,700,1500],d:'Rare, Nova and Eclipse circles appear more often.'},
+  {id:'sonar',name:'Sonar Pro',costs:[400],d:'Sonar chirps a higher tone when a Rare or better circle is nearest.'}
+];
+const ACH=[
+  {id:'first',name:'First Light',d:'Find your first circle.',r:50,t:(P)=>P.stats.finds>=1},
+  {id:'combo3',name:'Chain Reaction',d:'Reach a ×3 combo.',r:150,t:(P)=>P.stats.bestCombo>=3},
+  {id:'bull10',name:'Dead Center',d:'Land 10 bullseye locks.',r:200,t:(P)=>P.stats.bulls>=10},
+  {id:'legend',name:'Eclipse Hunter',d:'Find a Legendary Eclipse circle.',r:300,t:(P)=>P.stats.legend>=1},
+  {id:'noping',name:'Unaided Eye',d:'Clear Hide & Seek or Beat the Clock without a ping.',r:250,t:(P,R)=>R&&R.win&&R.key!=='attack'&&R.pings===0},
+  {id:'seek90',name:'Swift Seeker',d:'Clear Hide & Seek in under 90 seconds.',r:300,t:(P,R)=>R&&R.win&&R.key==='seek'&&R.clock<90},
+  {id:'clock20',name:'Spare Time',d:'Beat the Clock with 20 seconds left.',r:300,t:(P,R)=>R&&R.win&&R.key==='clock'&&R.clock>=20},
+  {id:'attack25',name:'Relentless',d:'Find 25 circles in one Time Attack.',r:400,t:(P,R)=>R&&R.key==='attack'&&R.found>=25},
+  {id:'big5k',name:'Big Night',d:'Score 5,000 points in one round.',r:300,t:(P,R)=>R&&R.total>=5000},
+  {id:'log10',name:'Cartographer',d:'Find circles in 10 different constellations.',r:400,t:(P)=>Object.keys(P.log).length>=10},
+  {id:'hemi',name:'Hemisphere Hopper',d:'Find a circle in Crux, the Southern Cross.',r:500,t:(P)=>!!P.log['Crux']},
+  {id:'finds100',name:'Centurion',d:'Find 100 circles in total.',r:500,t:(P)=>P.stats.finds>=100},
+  {id:'hardwin',name:'Sharp Eyes',d:'Win any round on Hard (Time Attack: find 15 circles on Hard).',r:400,t:(P,R)=>R&&R.dk==='hard'&&(R.key==='attack'?R.found>=15:R.win)},
+  {id:'dive1',name:'Deep Diver',d:'Clear your first real star cluster in Deep Field.',r:150,t:(P)=>Object.keys(P.clus).length>=1},
+  {id:'clus10',name:'Cluster Collector',d:'Explore 10 different real star clusters.',r:600,t:(P)=>Object.keys(P.clus).length>=10},
+  {id:'logall',name:'Whole Sky',d:'Find circles in every constellation in the catalog.',r:1500,t:(P)=>CON_NAMES.every(c=>P.log[c])}
+];
+const MODES={
+  seek:{name:'Hide & Seek',total:12,start:0,up:true,pt:5,lbl:'Elapsed',c:'var(--cyan)',d:'Find all 12 circles. The clock counts up. Fast finds stack your combo.'},
+  clock:{name:'Beat the Clock',total:10,start:60,up:false,pt:4,lbl:'Time left',c:'var(--gold)',d:'10 circles, 60 seconds. Every second left over is worth 60 points.'},
+  attack:{name:'Time Attack',total:Infinity,start:45,up:false,pt:3,bonus:4,active:3,lbl:'Time left',c:'var(--rose)',d:'45 seconds that refill: each find adds 4s. Circles drift. Go as long as you can.'},
+  deep:{name:'Deep Field',total:Infinity,clusters:4,start:0,up:true,pt:4,lbl:'Elapsed',c:'var(--violet)',d:'Track a faint cluster signal, center it and zoom in to dive into a real star cluster. Clear every circle inside, then the lens pulls back out. 4 clusters.'}
+};
+/* Difficulty: one setting that changes every mode.
+   vis = [how close (°) a circle must be to start showing, how quickly it fades in]; tol/lockT = lock zone size and lock speed;
+   time = multiplier on countdown clocks; bonus = extra seconds per Time Attack find; ping = ping cost; drift = how fast circles move; pts = final score multiplier; sig = how far away the Deep Field signal shows */
+const DIFF={
+  easy:{name:'Easy',c:'var(--mint)',vis:[10,32],tol:1.4,lockT:0.85,time:1.5,bonus:1,ping:40,drift:0.6,pts:0.75,sig:70,
+    d:'Circles show from farther away, bigger lock zone, 50% more time, cheaper pings. Points ×0.75.'},
+  normal:{name:'Normal',c:'var(--cyan)',vis:[6,22],tol:1,lockT:1,time:1,bonus:0,ping:75,drift:1,pts:1,sig:50,
+    d:'The standard game.'},
+  hard:{name:'Hard',c:'var(--rose)',vis:[3,13],tol:0.7,lockT:1.3,time:0.75,bonus:-1,ping:120,drift:1.4,pts:1.5,sig:32,
+    d:'Circles stay hidden until you\'re nearly on them, tighter lock, 25% less time, faster drift, pricey pings. Points ×1.5.'}
+};
+const DF=()=>DIFF[P.set.diff]||DIFF.normal;
+const bestKey=(k,dk)=>dk&&dk!=='normal'?k+'_'+dk:k;  // Normal keeps your old best scores; Easy and Hard get their own
+const DIVE_HIDE=0.12; // inside a cluster, circles only show when your lens is within about 1–2° of them
+const DIVE_FS=0.2;   // inside a cluster everything is 5× smaller: circles, lock zone, heat distances
+const DIVE_FOV=30;   // zoom in at least this far on a signal to dive
+const SIG={id:'signal',name:'Cluster signal',pts:0,r:5,col:'#c9b8ff'};
+
+/* ───────────── ASTRONOMY ───────────── */
+let LST=0,cL=0,sL=0,cLat=1,sLat=0,nowMs=0;
+function updateSky(){
+  nowMs=Date.now()+P.set.timeOff*3600e3;
+  const jd=nowMs/86400000+2440587.5;
+  const gmst=280.46061837+360.98564736629*(jd-2451545.0);
+  LST=(((gmst+P.set.lon)%360)+360)%360;
+  cL=Math.cos(LST*D);sL=Math.sin(LST*D);cLat=Math.cos(P.set.lat*D);sLat=Math.sin(P.set.lat*D);
+}
+/* equatorial unit vector → local horizon (East, North, Up), with atmospheric refraction near the horizon */
+function toLocal(e,out){
+  const x=e[0]*cL+e[1]*sL, y=-e[0]*sL+e[1]*cL, z=e[2];   // rotate by sidereal time: x = cosδ·cosH, y = −cosδ·sinH
+  let E=y, N=z*cLat-x*sLat, U=z*sLat+x*cLat;
+  if(U>-0.03&&U<0.35){const h=Math.asin(U)/D;const Rm=1.02/Math.tan((h+10.3/(h+5.11))*D)/60;const h2=(h+Rm)*D,c=Math.cos(h2)/Math.sqrt(E*E+N*N||1);E*=c;N*=c;U=Math.sin(h2)}
+  out[0]=E;out[1]=N;out[2]=U;return out;
+}
+const altOf=e=>{const v=toLocal(e,[0,0,0]);return Math.asin(clamp(v[2],-1,1))/D};
+const azOf=v=>((Math.atan2(v[0],v[1])/D)+360)%360;
+const DIRS=['N','NE','E','SE','S','SW','W','NW'];
+const dirName=az=>DIRS[Math.round(az/45)%8];
+
+/* camera: azimuth / altitude, stereographic projection (what planetarium apps use for wide fields) */
+let vAz=150,vAlt=35,tAz=150,tAlt=35,FOV=75,tFOV=75;
+let W=0,H=0,DPR=1,K=1,fr=[0,0,0],rr=[0,0,0],ur=[0,0,0];
+const cv=$('sky'),ctx=cv.getContext('2d');
+function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+function setCam(){
+  const a=vAz*D,h=vAlt*D,ca=Math.cos(a),sa=Math.sin(a),ch=Math.cos(h),sh=Math.sin(h);
+  fr=[sa*ch,ca*ch,sh];rr=[ca,-sa,0];ur=[-sa*sh,-ca*sh,ch];
+  K=(Math.min(W,H)*0.5)/(2*Math.tan(FOV*D/4));
+}
+const PJ={x:0,y:0,z:0,s:1};
+function proj(v){const x=v[0]*rr[0]+v[1]*rr[1]+v[2]*rr[2],y=v[0]*ur[0]+v[1]*ur[1]+v[2]*ur[2],z=v[0]*fr[0]+v[1]*fr[1]+v[2]*fr[2];
+  const d=1+z;PJ.z=z;if(d<0.05){PJ.x=PJ.y=-1e5;PJ.s=0;return PJ}PJ.x=W/2+2*K*x/d;PJ.y=H/2-2*K*y/d;PJ.s=2*K/d;return PJ}
+const local=(az,alt)=>[Math.sin(az*D)*Math.cos(alt*D),Math.cos(az*D)*Math.cos(alt*D),Math.sin(alt*D)];
+
+/* ───────────── GAME STATE ───────────── */
+let S=null;
+const T=()=>performance.now()/1000;
+function pickTier(){
+  const L=P.up.lucky, w=TIERS.map((t,i)=>Math.max(1,t.w+(i===0?-9*L:i===1?-2*L:i===2?5*L:i===3?4*L:2*L)));
+  let r=Math.random()*w.reduce((a,b)=>a+b),i=0;while(r>w[i]){r-=w[i];i++}return TIERS[i];
+}
+function viewLocal(){return local(vAz,vAlt)}
+function angDeg(a,b){return Math.acos(clamp(a[0]*b[0]+a[1]*b[1]+a[2]*b[2],-1,1))/D}
+function spawn(){
+  const tmp=[0,0,0],view=viewLocal();
+  const anchors=CAT.filter(s=>{toLocal(s.e,tmp);return tmp[2]>Math.sin(14*D)});
+  const tier=pickTier();
+  for(let k=0;k<600;k++){
+    const sep=k<300?14:6, away=k<300?26:10; // if the sky is crowded, relax the spacing rules instead of giving up
+    const a=anchors.length?anchors[Math.floor(Math.random()*anchors.length)]:null;
+    let e;
+    if(a)e=offsetDir(a.e,1.8+Math.random()*5.5,Math.random()*Math.PI*2);
+    else{const z=Math.random()*2-1,q=Math.random()*Math.PI*2,r=Math.sqrt(1-z*z);e=[r*Math.cos(q),r*Math.sin(q),z]}
+    const lv=toLocal(e,[0,0,0]);
+    if(lv[2]<Math.sin(9*D))continue;
+    if(angDeg(lv,view)<away)continue;
+    if(S.circles.some(c=>!c.done&&angDeg(c.e,e)<sep))continue;
+    const drift=(tier.drift||(S.key==='attack'?0.7+Math.random()*0.8:0))*S.df.drift;
+    let ax=[Math.random()-.5,Math.random()-.5,Math.random()-.5];const AL=Math.hypot(...ax);ax=ax.map(x=>x/AL);
+    const shrink=S.key==='attack'?Math.max(0.6,1-S.found*0.015):1;
+    return {e,tier,r:tier.r*shrink,ax,w:drift*(Math.random()<.5?-1:1),ph:Math.random()*6,born:S.t,done:false};
+  }
+  return null;
+}
+function nearestStar(e){let best=null,bd=1e9;for(const s of CAT){const d=angDeg(s.e,e);if(d<bd){bd=d;best=s}}return [best,bd]}
+
+function start(key){
+  const M=MODES[key];
+  S={key,M,clock:M.start,found:0,score:0,pings:0,circles:[],lock:null,lockT:0,pingUntil:0,pops:[],bursts:[],over:false,t:0,
+     lastFind:0,combo:0,earned:0,pingLoss:0,maxCombo:1,bulls:0,newCons:[],warp:false,
+     cl:0,dive:null,seen:[],nextSig:0,clusterPts:0,newClus:[],dk:P.set.diff||'normal',df:DF()};
+  if(!M.up)S.clock=Math.round(M.start*S.df.time);   // countdown modes get more or less time by difficulty
+  if(!M.up&&P.warps>0){P.warps--;S.clock+=10;S.warp=true;save()}
+  const n=M.clusters?0:(M.active||M.total);
+  for(let i=0;i<n;i++){const c=spawn();if(c)S.circles.push(c)}
+  $('modeName').textContent=M.name+' · '+S.df.name;$('clockLbl').textContent=M.lbl;
+  $('pingBtn').textContent='Ping −'+S.df.ping;
+  const dots=$('dots');dots.innerHTML='';const dc=M.clusters||M.total;
+  if(dc!==Infinity){for(let i=0;i<dc;i++)dots.appendChild(document.createElement('i'));dots.hidden=false}else dots.hidden=true;
+  $('hint').textContent=S.warp?'Time Warp used: +10s':'Circles hide near real constellations. Ping names the nearest one.';
+  if(M.clusters)spawnSignal();
+  hudFound();
+  $('menu').hidden=true;$('end').hidden=true;$('hud').hidden=false;
+  audioInit();blip(520,900,.15,.12);
+}
+function hudFound(){const M=S.M;
+  $('foundTxt').textContent=M.clusters?S.cl+' / '+M.clusters+' clusters':M.total===Infinity?S.found+' found':S.found+' / '+M.total;
+  [...$('dots').children].forEach((d,i)=>d.classList.toggle('on',i<(M.clusters?S.cl:S.found)))}
+
+/* ───────────── DEEP FIELD: signal → dive → clear → rise ───────────── */
+function spawnSignal(){
+  S.nextSig=0;const view=viewLocal(),tmp=[0,0,0];
+  const altOK=(c,min)=>{toLocal(c.e,tmp);return tmp[2]>Math.sin(min*D)};
+  let pool=CLUSTERS.filter(c=>!S.seen.includes(c.n)&&altOK(c,15));
+  if(!pool.length)pool=CLUSTERS.filter(c=>altOK(c,8));
+  let cl;
+  if(pool.length){
+    const far=pool.filter(c=>angDeg(toLocal(c.e,[0,0,0]),view)>30),src=far.length?far:pool;
+    const fresh=src.filter(c=>!P.clus[c.n]),pick=fresh.length&&Math.random()<.6?fresh:src;  // lean toward clusters you haven't explored yet
+    cl=pick[Math.floor(Math.random()*pick.length)];
+  }else{ // no famous cluster is up from this place and time: dive into an ordinary patch of sky instead
+    const up=CAT.filter(s=>altOK(s,20)),a=(up.length?up:CAT)[Math.floor(Math.random()*(up.length||CAT.length))];
+    cl={n:'Uncharted star field',e:offsetDir(a.e,3,Math.random()*6.283),r:1.5,t:'o',bri:7,ly:0,con:a.con,d:'No famous cluster here, just ordinary faint stars that only show up when you zoom in.',synthetic:true,seed:Math.floor(Math.random()*1e6)};
+  }
+  S.circles=[{sig:true,cl,e:cl.e,tier:SIG,r:SIG.r,ax:[0,0,1],w:0,ph:0,born:S.t,done:false}];
+  $('hint').textContent='A faint cluster signal is out there. Find it, center it, then zoom in.';
+}
+function spawnIn(d,list){
+  for(let k=0;k<200;k++){
+    const sep=d.R*(k<100?0.25:0.12);
+    const e=offsetDir(d.e,d.R*(0.12+0.72*Math.sqrt(Math.random())),Math.random()*6.283);
+    if(list.some(c=>angDeg(c.e,e)<sep))continue;
+    const tier=pickTier();let ax=[Math.random()-.5,Math.random()-.5,Math.random()-.5];const AL=Math.hypot(...ax);ax=ax.map(x=>x/AL);
+    return {e,tier,r:tier.r*0.15,ax,w:(tier.drift||0)*DIVE_FS*S.df.drift*(Math.random()<.5?-1:1),ph:Math.random()*6,born:S.t,done:false};
+  }
+  return null;
+}
+function dive(sig){
+  const cl=sig.cl,R=clamp(cl.r*2.5,4,6);
+  S.dive={cl,e:sig.e,R,n:0};S.lock=null;S.lockT=0;S.pingTarget=null;S.circles=[];
+  const want=4+Math.floor(Math.random()*4);
+  for(let i=0;i<want;i++){const c=spawnIn(S.dive,S.circles);if(c)S.circles.push(c)}
+  S.dive.n=S.circles.length;S.seen.push(cl.n);
+  const lv=toLocal(sig.e,[0,0,0]);tAz=vAz+(((azOf(lv)-vAz+540)%360)-180);tAlt=Math.asin(lv[2])/D;tFOV=14;  // swing to the cluster and zoom the lens in
+  toast('Diving into '+cl.n,'var(--violet)');blip(260,1300,.55,.14);
+  $('hint').textContent=`Inside ${cl.n}. ${S.dive.n} circles hide among its stars. Sweep your lens across the cluster to reveal them.`;
+  if(!S.dive.n)clearCluster();
+}
+function clearCluster(){
+  const d=S.dive,cl=d.cl;S.dive=null;S.cl++;
+  let pts=250+75*d.n,disc=false;
+  if(!cl.synthetic){if(!P.clus[cl.n]){P.clus[cl.n]={first:Date.now(),visits:0};disc=true;pts+=300;S.newClus.push(cl.n)}P.clus[cl.n].visits++}
+  S.score+=pts;S.clusterPts+=pts;
+  S.pops.push({x:W/2,y:H/2-60,t:0,txt:'+'+fmtN(pts),sub:(disc?'NEW CLUSTER · ':'')+'CLUSTER CLEARED',col:'#b9a2ff'});
+  showCard((disc?'New in your Sky Log: ':'')+cl.n,cl.d+(cl.ly?' Distance: '+fmtN(cl.ly)+' light-years.':''));
+  [0,1,2].forEach(i=>setTimeout(()=>blip(400+i*180,800+i*240,.25,.1),i*110));
+  S.circles=[];S.lock=null;S.lockT=0;tFOV=75;   // lens pulls back out
+  hudFound();save();
+  if(S.cl>=S.M.clusters)setTimeout(()=>S&&!S.over&&finish(true),700);
+  else{S.nextSig=S.t+1.2;$('hint').textContent='Cluster cleared. Pulling back out to find the next signal…'}
+}
+
+function collect(c,ang){
+  c.done=true;S.found++;S.lock=null;S.lockT=0;
+  const gap=S.t-S.lastFind;
+  S.combo=S.found>1&&gap<=12?S.combo+1:1;
+  S.lastFind=S.t;
+  const mult=Math.min(3,1+0.5*(S.combo-1));S.maxCombo=Math.max(S.maxCombo,mult);
+  const base=c.tier.pts, speed=Math.round(base*clamp((20-gap)/15,0,1));
+  const bull=ang<0.6*(S.dive?DIVE_FS:1);if(bull){S.bulls++;P.stats.bulls++}
+  let pts=Math.round((base+speed)*mult)+(bull?Math.round(50*mult):0);
+  const [star]=nearestStar(c.e);const con=star.con;let disc=false;
+  if(!P.log[con]){P.log[con]={first:Date.now(),finds:0};disc=true;S.newCons.push(con);pts+=200}
+  P.log[con].finds++;P.stats.finds++;if(c.tier.id==='legendary')P.stats.legend++;
+  P.stats.bestCombo=Math.max(P.stats.bestCombo,mult);
+  S.score+=pts;S.earned+=pts;
+  const p=proj(toLocal(c.e,[0,0,0]));
+  S.bursts.push({x:p.x,y:p.y,t:0,col:c.tier.col});
+  S.pops.push({x:p.x,y:p.y,t:0,txt:'+'+fmtN(pts),sub:(c.tier.id!=='common'?c.tier.name.toUpperCase()+' · ':'')+(mult>1?'×'+mult.toFixed(1)+' COMBO':bull?'BULLSEYE':'FOUND'),col:c.tier.col});
+  blip(620,1500,.32,.18);if(c.tier.pts>=300)setTimeout(()=>blip(900,1900,.25,.12),90);
+  try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
+  if(!S.dive||disc)showCard(disc?'New in your Sky Log: '+con:con,(disc?'+200 discovery bonus. ':'')+(BLURB[con]||'')+(star.ly?' Nearest star: '+star.n+', '+fmtN(star.ly)+' light-years.':' Nearest star: '+star.n+'.'));
+  if(S.key==='attack'){const bs=S.M.bonus+S.df.bonus;S.clock+=bs;toast('+'+bs+'s','var(--gold)');S.circles=S.circles.filter(x=>!x.done);const n=spawn();if(n)S.circles.push(n)}
+  hudFound();save();
+  if(S.dive&&S.circles.every(x=>x.done))clearCluster();
+  if(S.M.total!==Infinity&&S.found>=S.M.total)setTimeout(()=>S&&!S.over&&finish(true),400);
+}
+function ping(){
+  if(!S||S.over)return;
+  S.pings++;S.pingUntil=S.t+3.5;const loss=Math.min(S.score,S.df.ping);S.pingLoss+=loss;S.score-=loss;S.combo=0;
+  S.clock+=S.M.up?S.M.pt:-S.M.pt;
+  toast('−'+S.df.ping+' pts · '+(S.M.up?'+':'−')+S.M.pt+'s','var(--danger)');blip(900,600,.18,.08);
+  const view=viewLocal();let best=null,bd=1e9;
+  for(const c of S.circles){if(c.done)continue;const d=angDeg(toLocal(c.e,[0,0,0]),view);if(d<bd){bd=d;best=c}}
+  if(best){S.pingTarget=best;const [st]=nearestStar(best.e);const lv=toLocal(best.e,[0,0,0]);
+    $('hint').textContent=`Near ${st.n} in ${st.con} · ${dirName(azOf(lv))} ${Math.round(azOf(lv))}°, ${Math.round(Math.asin(lv[2])/D)}° up`;}
+}
+function finish(win){
+  if(!S||S.over)return;S.over=true;
+  const k=S.key,bon=[];
+  if(k==='seek'&&win)bon.push(['Completion',Math.max(300,Math.round(3000-S.clock*15))]);
+  if(k==='clock'&&win)bon.push(['Time left '+S.clock.toFixed(1)+'s × 60',Math.round(S.clock*60)]);
+  if(k==='deep'&&win)bon.push(['Completion',Math.max(400,Math.round(4000-S.clock*12))]);
+  if(k==='attack'&&S.found)bon.push(['Endurance '+S.found+' × 30',S.found*30]);
+  if(S.pings===0&&(win||(k==='attack'&&S.found>=8)))bon.push(['No pings used',500]);
+  const sub=S.score+bon.reduce((a,b)=>a+b[1],0);
+  if(S.df.pts!==1)bon.push([S.df.name+' difficulty ×'+S.df.pts,Math.round(sub*(S.df.pts-1))]);
+  const total=S.score+bon.reduce((a,b)=>a+b[1],0);
+  const R={key:k,win,pings:S.pings,clock:S.clock,found:S.found,total,dk:S.dk};
+  const L0=levelOf(P.xp);
+  let dust=Math.round(total/10);P.xp+=total;
+  const L1=levelOf(P.xp);let lvDust=0;for(let L=L0+1;L<=L1;L++)lvDust+=100*L;
+  P.stats.rounds++;
+  const bk=bestKey(k,S.dk),b=P.best[bk]||{};const rec=total>0&&(!b.score||total>b.score);
+  if(rec)b.score=total;
+  if(win&&(k==='seek'||k==='deep')&&(!b.time||S.clock<b.time))b.time=S.clock;
+  if(win&&k==='clock'&&(b.left==null||S.clock>b.left))b.left=S.clock;
+  if(k==='attack'&&(!b.finds||S.found>b.finds))b.finds=S.found;
+  P.best[bk]=b;
+  const got=[];for(const a of ACH)if(!P.ach[a.id]&&a.t(P,R)){P.ach[a.id]=Date.now();got.push(a)}
+  const achDust=got.reduce((s,a)=>s+a.r,0);
+  P.dust+=dust+lvDust+achDust;save();
+  const head=k==='attack'?'Time ran out.':win?(k==='seek'?'All circles found.':k==='deep'?'Every cluster explored.':'You beat the clock.'):'Round ended.';
+  $('endSheet').innerHTML=`
+    <div><div class="brand">${S.M.name.toUpperCase()} · ${S.df.name.toUpperCase()} · ${P.set.label.toUpperCase()}</div><h1>${head}</h1></div>
+    <div><div class="lbl">Round score</div><div class="result">${fmtN(total)}</div>${rec?'<span class="combo hot" style="margin-top:8px">NEW BEST SCORE</span>':''}</div>
+    <div class="break">
+      <div><span>Circles found (${S.found}) incl. speed, combo, bullseye</span><span>${fmtN(S.earned)}</span></div>
+      ${S.clusterPts?`<div><span>Clusters explored (${S.cl}) incl. discovery</span><span>+${fmtN(S.clusterPts)}</span></div>`:''}
+      ${S.pings?`<div><span>Pings (${S.pings})</span><span>−${fmtN(S.pingLoss)}</span></div>`:''}
+      ${bon.map(x=>`<div><span>${x[0]}</span><span>${x[1]<0?'−'+fmtN(-x[1]):'+'+fmtN(x[1])}</span></div>`).join('')}
+      <div class="tot"><span>Total</span><span>${fmtN(total)}</span></div>
+    </div>
+    <div class="sect"><h3>Rewards earned</h3><div class="earn">
+      <span class="g">✦ ${fmtN(dust)} stardust</span>
+      <span>+${fmtN(total)} XP</span>
+      ${L1>L0?`<span class="g">Level ${L1}: ${rankOf(L1)} · ✦ ${fmtN(lvDust)}</span>`:''}
+      ${got.map(a=>`<span class="g">Badge: ${a.name} · ✦ ${a.r}</span>`).join('')}
+      ${S.newCons.map(c=>`<span>Sky Log: ${c}</span>`).join('')}
+      ${S.newClus.map(c=>`<span class="g">New cluster: ${c}</span>`).join('')}
+      <span>Best combo ×${S.maxCombo.toFixed(1)} · ${S.bulls} bullseye${S.bulls===1?'':'s'}</span>
+    </div></div>
+    <div class="row"><button class="primary" data-act="play:${k}">Play again</button><button data-act="menu">Console</button><button data-act="tab:shop">Spend stardust</button></div>`;
+  $('hud').hidden=true;$('end').hidden=false;
+  if(win||k==='attack')[0,1,2].forEach(i=>setTimeout(()=>blip(500+i*200,900+i*250,.22,.12),i*120));else blip(300,140,.35,.12);
+}
+
+/* ───────────── CONSOLE UI ───────────── */
+let tab='play';
+function renderProfile(){
+  const L=levelOf(P.xp),a=xpFor(L),b=xpFor(L+1),pct=(P.xp-a)/(b-a)*100;
+  $('profile').innerHTML=`<div class="rankbadge">${L}</div>
+   <div style="min-width:0"><div class="rankname">${rankOf(L)}</div><div class="xpbar"><i style="width:${pct.toFixed(1)}%"></i></div>
+   <div class="xptxt">${fmtN(P.xp-a)} / ${fmtN(b-a)} XP to level ${L+1} · ${Object.keys(P.log).length}/${CON_NAMES.length} constellations</div></div>
+   <div class="dust"><div class="lbl">Stardust</div><div class="val">✦ ${fmtN(P.dust)}</div></div>`;
+}
+function bestLine(k){const dk=P.set.diff||'normal',b=P.best[bestKey(k,dk)];const tag=DIFF[dk]?DIFF[dk].name.toUpperCase()+' ':'';if(!b||!b.score)return tag+'BEST —';
+  return tag+'BEST '+fmtN(b.score)+' PTS'+((k==='seek'||k==='deep')&&b.time?'<br>FASTEST '+fmtT(b.time):'')+(k==='clock'&&b.left!=null?'<br>MOST LEFT '+fmtT(b.left):'')+(k==='attack'&&b.finds?'<br>MOST '+b.finds+' CIRCLES':'');}
+function renderTab(){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.id==='t-'+tab));
+  const el=$('tab');renderProfile();
+  if(tab==='play'){
+    el.innerHTML=`<div class="sect"><h3>Difficulty · applies to every mode</h3>
+      <div class="toggles">${Object.entries(DIFF).map(([k,d])=>`<button data-act="diff:${k}" class="${(P.set.diff||'normal')===k?'on':''}">${d.name}</button>`).join('')}</div>
+      <div class="foot">${DF().d}</div>
+      <div class="modes">${Object.entries(MODES).map(([k,m])=>`
+      <button class="mode" data-act="play:${k}" style="--c:${m.c}"><h2>${m.name}</h2><p>${m.d}</p><div class="best">${bestLine(k)}</div></button>`).join('')}</div>
+      ${P.warps?`<div class="foot">Time Warp ready: ${P.warps} charge${P.warps>1?'s':''}. One is used automatically for +10s in timed modes.</div>`:''}
+      <div class="item"><div class="t">Point-your-phone mode</div><div class="d">Tap <b>Point phone</b> in a round, hold the phone up, and turn your body to search the dome. Drag sideways to nudge the compass if the sky doesn't line up. Phone motion sensors only work when the game is opened in your phone's own browser from an https address, not inside the Claude viewer.</div></div>
+      <h3>How points work</h3>
+      <div class="legend">${TIERS.map(t=>`<div><span class="sw" style="border-color:${t.col}"></span>${t.name} · ${t.pts} pts</div>`).join('')}</div>
+      <div class="grid">
+        <div class="item"><div class="t">Speed bonus</div><div class="d">Find the next circle within 5 seconds for up to double its base points.</div></div>
+        <div class="item"><div class="t">Combo ×1 → ×3</div><div class="d">Each find within 12 seconds of the last adds ×0.5. A ping resets it.</div></div>
+        <div class="item"><div class="t">Bullseye +50</div><div class="d">Finish the lock with the circle within 0.6° of the reticle's center.</div></div>
+        <div class="item"><div class="t">Discovery +200</div><div class="d">The first circle you ever find in a constellation adds it to your Sky Log.</div></div>
+      </div>
+      <h3>Controls</h3>
+      <div class="foot">Drag the sky or use the joystick (WASD / arrow keys) to look. Scroll, pinch or press + / − to zoom. Hold a circle in the center ring to lock it. In Deep Field, center the big signal ring and zoom in to dive. Space bar pings. 10 points = 1 stardust.</div></div>`;
+  }else if(tab==='shop'){
+    const itemCard=(cat,it)=>{const own=P.owned[cat].includes(it.id),eq=P.equip[cat]===it.id;
+      return `<div class="item ${own?'have':''}"><div class="t">${it.name}</div><div class="d">${it.d}</div><div class="f">
+       <span class="price">${own?(eq?'Equipped':'Owned'):'✦ '+fmtN(it.cost)}</span>
+       ${own?(eq?'':`<button data-act="equip:${cat}:${it.id}">Equip</button>`):`<button data-act="buy:${cat}:${it.id}" ${P.dust<it.cost?'disabled':''}>Buy</button>`}</div></div>`};
+    el.innerHTML=`<div class="sect">
+      <h3>Upgrades · permanent</h3><div class="grid">${UPG.map(u=>{const lv=P.up[u.id],max=u.costs.length,c=u.costs[lv];
+        return `<div class="item ${lv?'have':''}"><div class="t">${u.name}</div><div class="d">${u.d}</div><div class="pips">${u.costs.map((_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('')}</div>
+        <div class="f"><span class="price">${lv>=max?'Maxed':'✦ '+fmtN(c)}</span>${lv>=max?'':`<button data-act="upg:${u.id}" ${P.dust<c?'disabled':''}>Upgrade</button>`}</div></div>`}).join('')}</div>
+      <h3>Power-up · consumable</h3><div class="grid"><div class="item ${P.warps?'have':''}"><div class="t">Time Warp</div><div class="d">+10 seconds at the start of a Beat the Clock or Time Attack round. You hold ${P.warps}.</div>
+        <div class="f"><span class="price">✦ 120</span><button data-act="warp" ${P.dust<120?'disabled':''}>Buy</button></div></div></div>
+      <h3>Reticles</h3><div class="grid">${SHOP.reticle.map(i=>itemCard('reticle',i)).join('')}</div>
+      <h3>Sky themes</h3><div class="grid">${SHOP.theme.map(i=>itemCard('theme',i)).join('')}</div></div>`;
+  }else if(tab==='log'){
+    const tmp=[0,0,0];
+    el.innerHTML=`<div class="sect"><div class="foot">Find a circle in a constellation to unlock its entry. Each entry holds real facts about its stars. Some only rise from the other hemisphere; change your location in Sky Setup to reach them.</div>
+     <div class="grid">${CON_NAMES.map(n=>{const c=CONS[n],e=P.log[n];const maxAlt=90-Math.abs(P.set.lat-c.dec);toLocal(c.e,tmp);const alt=Math.asin(tmp[2])/D;
+       const where=maxAlt<8?`Never rises above ${Math.max(0,Math.round(maxAlt))}° from ${P.set.label}.`:alt>10?`Up now: ${dirName(azOf(tmp))}, ${Math.round(alt)}° high.`:'Below the horizon right now.';
+       const s=c.bright;
+       return e?`<div class="item have"><div class="t">${n}</div><div class="d">${BLURB[n]||''}</div><div class="d">Brightest: ${s.n}, mag ${s.m.toFixed(2)}${s.ly?', '+fmtN(s.ly)+' ly':''}</div><div class="f"><span class="rare" style="color:var(--cyan)">${e.finds} found</span><span class="rare" style="color:var(--dim)">${where}</span></div></div>`
+        :`<div class="item lock"><div class="t">Undiscovered</div><div class="d">${where}</div><div class="d">Hint: brightest star is magnitude ${s.m.toFixed(1)}.</div></div>`}).join('')}</div>
+     <h3>Star clusters · ${Object.keys(P.clus).length} / ${CLUSTERS.length} explored in Deep Field</h3>
+     <div class="grid">${CLUSTERS.map(c=>{const e=P.clus[c.n],maxAlt=90-Math.abs(P.set.lat-c.de);toLocal(c.e,tmp);const alt=Math.asin(tmp[2])/D;
+       const where=maxAlt<8?`Never rises above ${Math.max(0,Math.round(maxAlt))}° from ${P.set.label}.`:alt>10?`Up now: ${dirName(azOf(tmp))}, ${Math.round(alt)}° high.`:'Below the horizon right now.';
+       const kind=c.t==='g'?'Globular cluster':c.t==='n'?'Cluster in a nebula':'Open cluster';
+       return e?`<div class="item have"><div class="t">${c.n}</div><div class="d">${c.d}</div><div class="d">${kind} in ${c.con} · ${fmtN(c.ly)} light-years</div><div class="f"><span class="rare" style="color:var(--violet)">${e.visits} dive${e.visits>1?'s':''}</span><span class="rare" style="color:var(--dim)">${where}</span></div></div>`
+        :`<div class="item lock"><div class="t">Uncharted cluster</div><div class="d">${kind} in ${c.con}.</div><div class="d">${where}</div></div>`}).join('')}</div></div>`;
+  }else if(tab==='badges'){
+    el.innerHTML=`<div class="sect"><div class="grid">${ACH.map(a=>{const got=P.ach[a.id];return `<div class="item ${got?'have':'lock'}"><div class="t">${a.name}</div><div class="d">${a.d}</div><div class="f"><span class="price">✦ ${a.r}</span><span class="rare" style="color:${got?'var(--mint)':'var(--dim)'}">${got?'Earned':'Locked'}</span></div></div>`}).join('')}</div>
+     <h3>Lifetime</h3><div class="foot">${fmtN(P.stats.finds)} circles · ${P.stats.rounds} rounds · ${P.stats.bulls} bullseyes · ${P.stats.legend} Eclipse finds · best combo ×${(+P.stats.bestCombo).toFixed(1)}</div></div>`;
+  }else if(tab==='setup'){
+    updateSky();
+    const tmp=[0,0,0];const up=CON_NAMES.filter(n=>{toLocal(CONS[n].e,tmp);return tmp[2]>Math.sin(10*D)});
+    const lst=LST/15,lh=Math.floor(lst),lm=Math.floor((lst-lh)*60);
+    const when=new Date(nowMs);
+    el.innerHTML=`<div class="sect"><div class="form">
+      <label class="field">Observing location<select id="locSel">${Object.entries(LOCS).map(([k,l])=>`<option value="${k}" ${P.set.loc===k?'selected':''}>${l.label}</option>`).join('')}<option value="custom" ${P.set.loc==='custom'?'selected':''}>Custom latitude / longitude</option></select></label>
+      <label class="field">Latitude (° north +)<input type="number" id="latIn" step="0.01" min="-89.9" max="89.9" value="${P.set.lat}"></label>
+      <label class="field">Longitude (° east +)<input type="number" id="lonIn" step="0.01" min="-180" max="180" value="${P.set.lon}"></label>
+      <label class="field">Time shift: <span id="toLbl">${P.set.timeOff>0?'+':''}${P.set.timeOff} h</span><input type="range" id="timeIn" min="-12" max="12" step="1" value="${P.set.timeOff}"></label>
+     </div>
+     <div class="toggles"><button data-act="lines" class="${P.set.lines?'on':''}">Constellation lines ${P.set.lines?'on':'off'}</button><button data-act="labels" class="${P.set.labels?'on':''}">Star names ${P.set.labels?'on':'off'}</button><button data-act="sonar" class="${P.set.sonar?'on':''}">Sonar ${P.set.sonar?'on':'off'}</button><button data-act="dome" class="${P.set.dome?'on':''}">Dome grid ${P.set.dome?'on':'off'}</button></div>
+     <h3>Sky computation</h3>
+     <div class="foot">${when.toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit',month:'short',day:'numeric'})} · Local sidereal time ${String(lh).padStart(2,'0')}h ${String(lm).padStart(2,'0')}m · Latitude ${P.set.lat.toFixed(2)}°. The sky is always drawn as full night so the game stays playable in daytime.</div>
+     <h3>Constellations above 10° right now (${up.length})</h3><div class="upnow">${up.join(' · ')||'None'}</div></div>`;
+  }
+}
+function openMenu(t){if(t)tab=t;S=null;$('hud').hidden=true;$('end').hidden=true;$('menu').hidden=false;renderTab()}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const [act,a1,a2]=b.dataset.act.split(':');
+  if(act==='tab'){openMenu(a1);return}
+  if(act==='play'){start(a1);return}
+  if(act==='diff'){if(DIFF[a1]){P.set.diff=a1;save()}renderTab();return}
+  if(act==='menu'){openMenu('play');return}
+  if(act==='ping'){ping();return}
+  if(act==='end'){if(S&&!S.over)finish(false);return}
+  if(act==='sonar'){P.set.sonar=!P.set.sonar;audioInit();save();syncToggles();if(!$('menu').hidden)renderTab();return}
+  if(act==='lines'){P.set.lines=!P.set.lines;save();syncToggles();if(!$('menu').hidden)renderTab();return}
+  if(act==='motion'){toggleMotion();return}
+  if(act==='dome'){P.set.dome=!P.set.dome;save();renderTab();return}
+  if(act==='labels'){P.set.labels=!P.set.labels;save();renderTab();return}
+  if(act==='buy'){const it=SHOP[a1].find(x=>x.id===a2);if(it&&P.dust>=it.cost&&!P.owned[a1].includes(a2)){P.dust-=it.cost;P.owned[a1].push(a2);P.equip[a1]=a2;save();blip(700,1400,.2,.12)}renderTab();return}
+  if(act==='equip'){P.equip[a1]=a2;save();renderTab();return}
+  if(act==='upg'){const u=UPG.find(x=>x.id===a1),c=u.costs[P.up[a1]];if(c!=null&&P.dust>=c){P.dust-=c;P.up[a1]++;save();blip(700,1400,.2,.12)}renderTab();return}
+  if(act==='warp'){if(P.dust>=120){P.dust-=120;P.warps++;save();blip(700,1400,.2,.12)}renderTab();return}
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='locSel'){const k=e.target.value;P.set.loc=k;if(LOCS[k]){Object.assign(P.set,{lat:LOCS[k].lat,lon:LOCS[k].lon,label:LOCS[k].label})}else P.set.label='Custom site';save();renderTab()}
+  if(e.target.id==='latIn'||e.target.id==='lonIn'){const lat=parseFloat($('latIn').value),lon=parseFloat($('lonIn').value);
+    if(isFinite(lat)&&isFinite(lon)){P.set.lat=clamp(lat,-89.9,89.9);P.set.lon=clamp(lon,-180,180);P.set.loc='custom';P.set.label=`${Math.abs(P.set.lat).toFixed(1)}°${P.set.lat>=0?'N':'S'} ${Math.abs(P.set.lon).toFixed(1)}°${P.set.lon>=0?'E':'W'}`;save();renderTab()}}
+});
+document.addEventListener('input',e=>{if(e.target.id==='timeIn'){P.set.timeOff=+e.target.value;$('toLbl').textContent=(P.set.timeOff>0?'+':'')+P.set.timeOff+' h';save()}});
+document.addEventListener('pointerup',e=>{if(e.target.id==='timeIn')renderTab()});
+function syncToggles(){$('sonarBtn').classList.toggle('on',P.set.sonar);$('sonarBtn').textContent='Sonar '+(P.set.sonar?'on':'off');$('linesBtn').classList.toggle('on',P.set.lines);$('linesBtn').textContent='Lines '+(P.set.lines?'on':'off')}
+syncToggles();
+
+/* ───────────── AUDIO ───────────── */
+let actx=null,nextBeep=0;
+function audioInit(){try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume()}catch(e){}}
+function blip(f1,f2,dur,g,type){if(!actx)return;try{const o=actx.createOscillator(),gn=actx.createGain(),t=actx.currentTime;o.type=type||'sine';o.frequency.setValueAtTime(f1,t);o.frequency.exponentialRampToValueAtTime(f2,t+dur*.7);
+  gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(g,t+.01);gn.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(gn);gn.connect(actx.destination);o.start(t);o.stop(t+dur+.02)}catch(e){}}
+
+/* ───────────── INPUT ───────────── */
+const ptrs=new Map();let pinch0=null;
+/* how far you can zoom: normal modes 25°–110°, Deep Field lets you zoom to 12° to dive, and 6°–24° inside a cluster */
+function fovLim(){return S&&S.dive?[6,24]:S&&S.key==='deep'?[12,110]:[25,110]}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch0={d:Math.hypot(a.x-b.x,a.y-b.y),f:tFOV}}});
+cv.addEventListener('pointermove',e=>{const p=ptrs.get(e.pointerId);if(!p)return;
+  if(ptrs.size===2&&pinch0){p.x=e.clientX;p.y=e.clientY;const [a,b]=[...ptrs.values()];tFOV=clamp(pinch0.f*pinch0.d/Math.max(20,Math.hypot(a.x-b.x,a.y-b.y)),...fovLim());return}
+  const k=FOV/Math.min(W,H)*1.05;if(MO.on&&MO.got){MO.yaw+=(e.clientX-p.x)*k;p.x=e.clientX;p.y=e.clientY;return}
+  tAz-=(e.clientX-p.x)*k/Math.max(.35,Math.cos(vAlt*D)*.6+.4);tAlt=clamp(tAlt+(e.clientY-p.y)*k,-20,89);p.x=e.clientX;p.y=e.clientY});
+const up=e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinch0=null};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{e.preventDefault();tFOV=clamp(tFOV*Math.exp(e.deltaY*0.0012),...fovLim())},{passive:false});
+const joyEl=$('joy'),knob=$('knob');let joyId=null;const joy={x:0,y:0};
+function joyMove(e){const r=joyEl.getBoundingClientRect();let dx=(e.clientX-r.left-r.width/2)/(r.width/2),dy=(e.clientY-r.top-r.height/2)/(r.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}joy.x=dx;joy.y=dy;knob.style.transform=`translate(${dx*30}px,${dy*30}px)`}
+joyEl.addEventListener('pointerdown',e=>{e.preventDefault();joyId=e.pointerId;joyEl.setPointerCapture(e.pointerId);joyMove(e)});
+joyEl.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joyMove(e)});
+const je=()=>{joyId=null;joy.x=joy.y=0;knob.style.transform=''};joyEl.addEventListener('pointerup',je);joyEl.addEventListener('pointercancel',je);
+const keys={};
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;keys[e.key.toLowerCase()]=true;
+  if(e.key===' '&&S&&!S.over){e.preventDefault();ping()}if(e.key==='+'||e.key==='=')tFOV=clamp(tFOV/1.15,...fovLim());if(e.key==='-')tFOV=clamp(tFOV*1.15,...fovLim())});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false}); // switching windows mid-keypress used to leave the camera spinning
+
+let toastT=0,cardT=0;
+function toast(t,col){const el=$('toast');el.textContent=t;el.style.color=col||'var(--gold)';el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),900)}
+function showCard(nm,tx){$('cardNm').textContent=nm;$('cardTx').textContent=tx;$('card').classList.add('show');clearTimeout(cardT);cardT=setTimeout(()=>$('card').classList.remove('show'),4200)}
+
+/* ───────────── RENDER ───────────── */
+const THEMES={
+  night:{zen:'#02040d',hor:'#0c1531',ground:'#04060b',ridge:'#020308',glow:'rgba(70,95,170,.16)'},
+  twilight:{zen:'#050a26',hor:'#3a2346',ground:'#07060b',ridge:'#030206',glow:'rgba(255,140,90,.38)'},
+  aurora:{zen:'#02060e',hor:'#0a1d2a',ground:'#03070a',ridge:'#010405',glow:'rgba(80,220,160,.22)'},
+  nebula:{zen:'#05031a',hor:'#160f35',ground:'#05040b',ridge:'#020108',glow:'rgba(160,110,255,.26)'}
+};
+const NEB=[[5.59,-5.4,'255,90,140',9],[20.6,42,'90,200,255',11],[18.0,-24,'255,170,80',12],[10.7,-59.8,'200,110,255',12],[3.8,24,'110,160,255',7]].map(n=>({e:eqVec(n[0],n[1]),col:n[2],r:n[3]}));
+const ridgeAlt=az=>{const a=az*D;return 1.1+0.8*Math.sin(a*2+1.3)+0.55*Math.sin(a*5+0.4)+0.3*Math.sin(a*11+2)+0.35*Math.pow(Math.abs(Math.sin(a*41)),6)+0.25*Math.pow(Math.abs(Math.sin(a*67+1)),8)};
+const tmpV=[0,0,0];
+
+function draw(dt,t){
+  const th=THEMES[P.equip.theme]||THEMES.night;
+  // sky gradient anchored to the real horizon on screen
+  const ph=proj(local(vAz,0)),yH=clamp(ph.y,-3e4,3e4);const pz=proj(local(vAz,55)),yZ=clamp(pz.y,-3e4,3e4);
+  const g=ctx.createLinearGradient(0,yZ,0,yH+1);g.addColorStop(0,th.zen);g.addColorStop(1,th.hor);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const zoom=Math.sqrt(75/FOV);
+  const LIM=6.7+3.4*Math.log10(Math.max(1,75/FOV)); // faintest star shown: zooming in reveals fainter stars, like looking through a telescope
+  // nebula theme
+  if(P.equip.theme==='nebula'){ctx.globalCompositeOperation='lighter';for(const n of NEB){const p=proj(toLocal(n.e,tmpV));if(PJ.z<0)continue;const rad=n.r*D*p.s;if(rad<4)continue;
+    const gg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,rad);gg.addColorStop(0,`rgba(${n.col},.22)`);gg.addColorStop(.5,`rgba(${n.col},.08)`);gg.addColorStop(1,`rgba(${n.col},0)`);ctx.fillStyle=gg;ctx.fillRect(p.x-rad,p.y-rad,rad*2,rad*2)}ctx.globalCompositeOperation='source-over'}
+  // stars: magnitude → size, B−V → color, extinction and twinkle grow toward the horizon
+  const drawStar=(s,bright)=>{
+    const v=toLocal(s.e,tmpV);if(v[2]<-0.02)return;const p=proj(v);if(PJ.z<0||p.x<-10||p.x>W+10||p.y<-10||p.y>H+10)return;
+    const alt=Math.max(v[2],0.02),air=Math.min(12,1/alt);const m=s.m+0.22*(air-1);if(m>LIM)return;
+    const tw=1+(0.08+0.28*(1-v[2]))*Math.sin(t*(5+s.tw)+s.tw*7);
+    const r=Math.max(0.45,(0.95+(4.6-m)*0.38)*zoom)*(bright?1:0.9);
+    const a=clamp((LIM+0.1-m)/4.2,0.12,1)*tw;
+    ctx.fillStyle=s.col;
+    if(r<1.15){ctx.globalAlpha=clamp(a,0,1);ctx.fillRect(p.x-r,p.y-r,r*2,r*2)}
+    else{ctx.globalAlpha=clamp(a*.16,0,1);ctx.beginPath();ctx.arc(p.x,p.y,r*3.2,0,6.283);ctx.fill();ctx.globalAlpha=clamp(a,0,1);ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill()}
+  };
+  for(const s of FIELD)drawStar(s,false);
+  // real star clusters: a soft glow for globulars and nebulae, member stars that appear as you zoom
+  const drawCluster=cl=>{
+    const v=toLocal(cl.e,tmpV);if(v[2]<-0.05)return;const p=proj(v);if(PJ.z<0)return;
+    const px=p.x,py=p.y,rad=Math.max(1,cl.r*D*p.s),reach=Math.max(rad,7*D*p.s);
+    if(px<-reach||px>W+reach||py<-reach||py>H+reach)return;
+    if(cl.t==='g'||cl.t==='n'){const gr=Math.min(4000,cl.t==='g'?rad*1.3:rad*2.4),col=cl.t==='g'?'255,236,200':'255,120,170',al=cl.t==='g'?clamp((9-cl.bri)/14,0.1,0.4):0.22;
+      if(gr>1.5){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=1;const gg=ctx.createRadialGradient(px,py,0,px,py,gr);gg.addColorStop(0,`rgba(${col},${al})`);gg.addColorStop(.45,`rgba(${col},${al*.35})`);gg.addColorStop(1,`rgba(${col},0)`);
+        ctx.fillStyle=gg;ctx.fillRect(px-gr,py-gr,gr*2,gr*2);ctx.globalCompositeOperation='source-over'}}
+    if(LIM>cl.bri-0.3)for(const s of clusterStars(cl))drawStar(s,false);
+    if(LIM>7.3){clusterStars(cl);for(const s of cl.bg)drawStar(s,false)}
+  };
+  for(const cl of CLUSTERS)drawCluster(cl);
+  if(S&&S.dive&&S.dive.cl.synthetic)drawCluster(S.dive.cl);
+  ctx.globalAlpha=1;
+  if(P.set.dome)drawDome();
+  // constellation figures
+  if(P.set.lines){ctx.globalAlpha=1;ctx.strokeStyle='rgba(125,155,235,.24)';ctx.lineWidth=1;ctx.beginPath();
+    const a=[0,0,0],b=[0,0,0];
+    for(const [s1,s2] of SEGS){toLocal(s1.e,a);toLocal(s2.e,b);if(a[2]<-0.05&&b[2]<-0.05)continue;const p1=proj(a);if(PJ.z<0)continue;const x1=p1.x,y1=p1.y;const p2=proj(b);if(PJ.z<0)continue;
+      const dx=p2.x-x1,dy=p2.y-y1,L=Math.hypot(dx,dy);if(L<1||L>W*1.5)continue;const sh=Math.min(6,L*.2);ctx.moveTo(x1+dx/L*sh,y1+dy/L*sh);ctx.lineTo(p2.x-dx/L*sh,p2.y-dy/L*sh)}
+    ctx.stroke();
+    ctx.font='9px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillStyle='rgba(150,170,235,.45)';
+    for(const n of CON_NAMES){if(!LINES[n])continue;const v=toLocal(CONS[n].e,tmpV);if(v[2]<0.05)continue;const p=proj(v);if(PJ.z<0.2)continue;ctx.fillText(n.toUpperCase(),p.x,p.y+22)}
+  }
+  for(const s of CAT)drawStar(s,true);
+  ctx.globalAlpha=1;
+  if(P.set.labels){ctx.font='10px "IBM Plex Mono",monospace';ctx.textAlign='left';ctx.fillStyle='rgba(210,220,255,.62)';
+    const lim=FOV<45?2.6:FOV<65?2.0:1.5;
+    for(const s of CAT){if(s.m>lim)continue;const v=toLocal(s.e,tmpV);if(v[2]<0.01)continue;const p=proj(v);if(PJ.z<0.1||p.x<0||p.x>W||p.y<0||p.y>H)continue;ctx.fillText(s.n,p.x+6,p.y-5)}}
+  // aurora theme
+  if(P.equip.theme==='aurora'){ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+    for(let az=-75;az<=75;az+=3){const h0=5,h1=16+9*Math.sin(az*0.07+t*0.5)+5*Math.sin(az*0.19-t*0.8);const p0=proj(local(az,h0));if(PJ.z<0)continue;const x0=p0.x,y0=p0.y,s=p0.s;const p1=proj(local(az+3*Math.sin(t*.3+az*.05),h1));if(PJ.z<0)continue;
+      const gg=ctx.createLinearGradient(x0,y0,p1.x,p1.y);const k=0.10+0.07*Math.sin(az*0.13+t*1.1);gg.addColorStop(0,`rgba(90,255,170,${k})`);gg.addColorStop(.6,`rgba(80,200,255,${k*.5})`);gg.addColorStop(1,'rgba(160,90,255,0)');
+      ctx.strokeStyle=gg;ctx.lineWidth=Math.max(2,4*D*s);ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(p1.x,p1.y);ctx.stroke()}
+    ctx.globalCompositeOperation='source-over';ctx.lineCap='butt'}
+  // circles
+  if(S){
+    const hide=S.dive?DIVE_HIDE:1,[v0,v1]=S.df.vis;
+    if(S.dive)drawFence();
+    for(const c of S.circles){if(c.done)continue;const v=toLocal(c.e,tmpV);if(v[2]<0)continue;const p=proj(v);if(PJ.z<0)continue;
+      const R=c.r*D*p.s,a=(c.a??90)/hide;   // inside a cluster distances count ~8× bigger, so circles stay hidden until your lens sweeps right over them
+      if(c.sig){drawSignal(c,p.x,p.y,R,a,t);continue}
+      let vis=clamp(1-(a-v0)/v1,0,1);vis=0.03+vis*vis*.95;
+      if(S.pingUntil>S.t&&c===S.pingTarget)vis=Math.max(vis,.6);
+      if(c.tier.id==='legendary')vis*=0.35+0.65*Math.abs(Math.sin(t*1.2+c.ph));
+      vis*=Math.min(1,(S.t-c.born)*2.5)*(.88+.12*Math.sin(t*2+c.ph));
+      const col=c.tier.col;ctx.globalAlpha=vis;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2;ctx.shadowColor=col;ctx.shadowBlur=10*vis;
+      const id=c.tier.id;
+      if(id==='legendary'){ctx.fillStyle='rgba(0,0,0,.85)';ctx.beginPath();ctx.arc(p.x,p.y,R*.92,0,6.283);ctx.fill();ctx.lineWidth=3;ctx.shadowBlur=24*vis}
+      if(id==='epic'){ctx.setLineDash([R*.3,R*.22]);ctx.lineDashOffset=-t*20}
+      ctx.beginPath();ctx.arc(p.x,p.y,R,0,6.283);ctx.stroke();ctx.setLineDash([]);
+      if(id==='uncommon'){ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(p.x,p.y,R*.62,0,6.283);ctx.stroke()}
+      if(id==='rare'){ctx.beginPath();for(let i=0;i<4;i++){const q=i*Math.PI/2+t*.6;ctx.moveTo(p.x+Math.cos(q)*R*1.1,p.y+Math.sin(q)*R*1.1);ctx.lineTo(p.x+Math.cos(q)*R*1.45,p.y+Math.sin(q)*R*1.45)}ctx.stroke()}
+      if(id==='epic'){ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,6.283);ctx.fill()}
+      ctx.shadowBlur=0;ctx.globalAlpha=1;
+    }
+    // ping arrow
+    if(S.pingUntil>S.t&&S.pingTarget&&!S.pingTarget.done){const v=toLocal(S.pingTarget.e,[0,0,0]);const x=v[0]*rr[0]+v[1]*rr[1]+v[2]*rr[2],y=v[0]*ur[0]+v[1]*ur[1]+v[2]*ur[2];const p=proj(v);
+      const on=PJ.z>0&&p.x>40&&p.x<W-40&&p.y>100&&p.y<H-170;
+      if(!on){const an=Math.atan2(-y,x);const ax=W/2+Math.cos(an)*(W/2-56),ay=H/2+Math.sin(an)*(H/2-130);ctx.save();ctx.translate(ax,ay);ctx.rotate(an);ctx.fillStyle='#ffd36b';ctx.shadowColor='#ffd36b';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(18,0);ctx.lineTo(-10,-11);ctx.lineTo(-4,0);ctx.lineTo(-10,11);ctx.closePath();ctx.fill();ctx.restore()}
+      else{ctx.strokeStyle='rgba(255,211,107,.8)';ctx.lineWidth=1.5;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(p.x,p.y,S.pingTarget.r*D*p.s+12+4*Math.sin(t*6),0,6.283);ctx.stroke();ctx.setLineDash([])}}
+  }
+  // ground & horizon ridge (drawn after stars so it hides them)
+  ctx.fillStyle=th.ground;ctx.strokeStyle=th.ground;ctx.lineWidth=1;
+  const bands=[null,-6,-18,-40,-70,-89];
+  for(let az=0;az<360;az+=4){
+    for(let bI=0;bI<bands.length-1;bI++){
+      const h0a=bI===0?ridgeAlt(az):bands[bI],h0b=bI===0?ridgeAlt(az+4):bands[bI],h1=bands[bI+1];
+      const pts=[local(az,h0a),local(az+4,h0b),local(az+4,h1),local(az,h1)].map(v=>{const p=proj(v);return PJ.z>-0.55?[p.x,p.y]:null});
+      if(pts.some(q=>!q))continue;ctx.beginPath();ctx.moveTo(...pts[0]);for(let i=1;i<4;i++)ctx.lineTo(...pts[i]);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+  }
+  // horizon glow
+  ctx.strokeStyle=th.glow;ctx.lineWidth=Math.max(4,1.6*D*K*2);ctx.globalCompositeOperation='lighter';ctx.beginPath();let st=false;
+  for(let az=0;az<=360;az+=3){const p=proj(local(az,ridgeAlt(az)+1.2));if(PJ.z<-0.2){st=false;continue}st?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);st=true}ctx.stroke();ctx.globalCompositeOperation='source-over';
+  // cardinal marks
+  ctx.font='11px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillStyle='rgba(170,190,250,.6)';
+  for(let i=0;i<8;i++){const p=proj(local(i*45,-3));if(PJ.z>0.1)ctx.fillText(DIRS[i],p.x,p.y)}
+  // bursts & score pops
+  if(S){
+    S.bursts=S.bursts.filter(b=>(b.t+=dt)<.7);
+    for(const b of S.bursts){const q=b.t/.7;ctx.globalAlpha=1-q;ctx.strokeStyle=b.col;ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,18+q*80,0,6.283);ctx.stroke();ctx.fillStyle=b.col;for(let i=0;i<12;i++){const an=i/12*6.283;ctx.fillRect(b.x+Math.cos(an)*q*95-1.5,b.y+Math.sin(an)*q*95-1.5,3,3)}}
+    S.pops=S.pops.filter(p=>(p.t+=dt)<1.6);
+    for(const p of S.pops){const q=p.t/1.6;ctx.globalAlpha=q<.75?1:1-(q-.75)/.25;ctx.textAlign='center';ctx.fillStyle=p.col;ctx.font='22px Michroma, "Arial Black", sans-serif';const y=clamp(p.y,110,H-200)-q*50;ctx.fillText(p.txt,clamp(p.x,80,W-80),y);ctx.font='10px "IBM Plex Mono",monospace';ctx.fillStyle='#e9edff';ctx.fillText(p.sub,clamp(p.x,80,W-80),y+18)}
+    ctx.globalAlpha=1;
+    drawReticle(t);
+  }
+}
+/* Deep Field: the faint, wide signal ring that marks a hidden cluster */
+function drawSignal(c,x,y,R,a,t){
+  let vis=clamp(1-(a-8)/S.df.sig,0,1);vis=(0.05+vis*0.75)*Math.min(1,(S.t-c.born)*2)*(.8+.2*Math.sin(t*2.4));
+  if(S.pingUntil>S.t&&c===S.pingTarget)vis=Math.max(vis,.6);
+  const gr=Math.min(R,4000),g=ctx.createRadialGradient(x,y,0,x,y,gr);g.addColorStop(0,`rgba(201,184,255,${.16*vis})`);g.addColorStop(1,'rgba(201,184,255,0)');
+  ctx.globalAlpha=1;ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,gr,0,6.283);ctx.fill();
+  ctx.globalAlpha=vis;ctx.strokeStyle=SIG.col;ctx.lineWidth=1.5;ctx.setLineDash([10,9]);ctx.lineDashOffset=-t*14;ctx.beginPath();ctx.arc(x,y,R,0,6.283);ctx.stroke();
+  ctx.setLineDash([3,6]);ctx.lineDashOffset=t*10;ctx.beginPath();ctx.arc(x,y,R*.55,0,6.283);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+}
+/* Deep Field: the dashed fence around the cluster you dived into, with its name */
+function drawFence(){
+  const d=S.dive,v=[0,0,0];ctx.strokeStyle='rgba(185,162,255,.45)';ctx.lineWidth=1.5;ctx.setLineDash([8,10]);ctx.beginPath();let st=false;
+  for(let i=0;i<=72;i++){toLocal(offsetDir(d.e,d.R,i/72*6.283),v);const p=proj(v);if(PJ.z<0){st=false;continue}st?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);st=true}
+  ctx.stroke();ctx.setLineDash([]);
+  const p=proj(toLocal(d.e,v));if(PJ.z>0){const top=clamp(p.y-d.R*D*p.s-12,130,H-200);ctx.font='11px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillStyle='rgba(185,162,255,.8)';
+    ctx.fillText(d.cl.n.toUpperCase()+' · '+S.circles.filter(c=>!c.done).length+' LEFT',p.x,top)}
+}
+function drawReticle(t){
+  const cx=W/2,cy=H/2,locking=S.lock&&S.lockT>0,col=locking?'#ffd36b':'#7fe6ff',sk=P.equip.reticle;
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.2;ctx.globalAlpha=.85;
+  if(sk==='classic'){ctx.globalAlpha=.55;ctx.setLineDash([4,6]);ctx.lineDashOffset=-t*8;ctx.beginPath();ctx.arc(cx,cy,40,0,6.283);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(cx,cy,16,0,6.283);ctx.stroke();
+    ctx.beginPath();[[0,-52,0,-44],[0,44,0,52],[-52,0,-44,0],[44,0,52,0]].forEach(l=>{ctx.moveTo(cx+l[0],cy+l[1]);ctx.lineTo(cx+l[2],cy+l[3])});ctx.stroke()}
+  else if(sk==='sextant'){ctx.beginPath();ctx.moveTo(cx-60,cy);ctx.lineTo(cx-10,cy);ctx.moveTo(cx+10,cy);ctx.lineTo(cx+60,cy);ctx.moveTo(cx,cy-60);ctx.lineTo(cx,cy-10);ctx.moveTo(cx,cy+10);ctx.lineTo(cx,cy+60);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,44,Math.PI*1.1,Math.PI*1.9);ctx.stroke();for(let i=0;i<=8;i++){const q=Math.PI*(1.1+i*.1);const l=i%4===0?9:5;ctx.beginPath();ctx.moveTo(cx+Math.cos(q)*44,cy+Math.sin(q)*44);ctx.lineTo(cx+Math.cos(q)*(44-l),cy+Math.sin(q)*(44-l));ctx.stroke()}}
+  else if(sk==='astrolabe'){ctx.strokeStyle=locking?col:'#e8c27a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.arc(cx,cy,46,0,6.283);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,30,0,6.283);ctx.stroke();
+    for(let i=0;i<36;i++){const q=i*10*D+t*.25,l=i%9===0?8:4;ctx.beginPath();ctx.moveTo(cx+Math.cos(q)*46,cy+Math.sin(q)*46);ctx.lineTo(cx+Math.cos(q)*(46-l),cy+Math.sin(q)*(46-l));ctx.stroke()}
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.4);ctx.beginPath();ctx.moveTo(-30,0);ctx.lineTo(30,0);ctx.stroke();ctx.restore()}
+  else if(sk==='finder'){ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,48,0,6.283);ctx.stroke();ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx-48,cy);ctx.lineTo(cx-6,cy);ctx.moveTo(cx+6,cy);ctx.lineTo(cx+48,cy);ctx.moveTo(cx,cy-48);ctx.lineTo(cx,cy-6);ctx.moveTo(cx,cy+6);ctx.lineTo(cx,cy+48);ctx.stroke();
+    ctx.fillStyle='#ff4040';ctx.shadowColor='#ff4040';ctx.shadowBlur=8;ctx.beginPath();ctx.arc(cx,cy,2.5,0,6.283);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle=col}
+  if(sk!=='finder'){ctx.beginPath();ctx.arc(cx,cy,2.2,0,6.283);ctx.fill()}
+  if(locking){const R=sk==='classic'?40:sk==='finder'?48:46;ctx.globalAlpha=1;ctx.lineWidth=3;ctx.strokeStyle='#ffd36b';ctx.shadowColor='#ffd36b';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(cx,cy,R+6,-Math.PI/2,-Math.PI/2+6.283*Math.min(1,S.lockT));ctx.stroke();ctx.shadowBlur=0;
+    ctx.fillStyle='#ffd36b';ctx.font='10px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillText((S.lock.sig?'DIVING ':'LOCKING ')+Math.round(Math.min(1,S.lockT)*100)+'%',cx,cy+76)}
+  ctx.globalAlpha=1;
+}
+
+
+/* ───────────── POINT-THE-PHONE (device orientation → camera) ─────────────
+   W3C DeviceOrientation: alpha about Up, beta about device X, gamma about device Y.
+   Rotation matrix columns = device axes in the East/North/Up frame. Camera looks out the back (−Z). */
+const MO={on:false,got:false,abs:false,a:0,b:0,g:0,off:null,yaw:0,f:null,r:null,lock:null};
+function onOri(e){
+  if(!MO.on||e.alpha==null)return;
+  if(e.type==='deviceorientationabsolute'||e.absolute)MO.abs=true;
+  else if(MO.abs)return;
+  let a=e.alpha;
+  if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading)){ // iOS: alpha is relative, so anchor it to the compass
+    const want=(360-e.webkitCompassHeading)-a;const w=((want%360)+540)%360-180;
+    MO.off=MO.off==null?w:MO.off+(((w-MO.off+540)%360)-180)*0.05;a+=MO.off;MO.abs=true;}
+  MO.a=a;MO.b=e.beta||0;MO.g=e.gamma||0;
+  if(!MO.got){MO.got=true;toast(MO.abs?'Compass locked: point at the sky':'Relative mode: drag sideways to line up','var(--cyan)')}
+}
+const nrm=v=>{const L=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/L,v[1]/L,v[2]/L]};
+const crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+function sensorCam(){
+  const A=(MO.a+MO.yaw)*D,B=MO.b*D,G=MO.g*D,cA=Math.cos(A),sA=Math.sin(A),cB=Math.cos(B),sB=Math.sin(B),cG=Math.cos(G),sG=Math.sin(G);
+  const X=[cA*cG-sA*sB*sG,cG*sA+cA*sB*sG,-cB*sG],Y=[-cB*sA,cA*cB,sB],Z=[cG*sA*sB+cA*sG,sA*sG-cA*cG*sB,cB*cG];
+  const th=((screen.orientation&&screen.orientation.angle)||window.orientation||0)*D,ct=Math.cos(th),st=Math.sin(th);
+  let f=[-Z[0],-Z[1],-Z[2]],r=[X[0]*ct-Y[0]*st,X[1]*ct-Y[1]*st,X[2]*ct-Y[2]*st];
+  const k=0.28; // low-pass filter so the sky doesn't jitter
+  if(MO.f){f=nrm(MO.f.map((v,i)=>v+(f[i]-v)*k));r=MO.r.map((v,i)=>v+(r[i]-v)*k)}
+  const d=r[0]*f[0]+r[1]*f[1]+r[2]*f[2];r=nrm([r[0]-d*f[0],r[1]-d*f[1],r[2]-d*f[2]]);
+  MO.f=f;MO.r=r;fr=f;rr=r;ur=crs(r,f);
+  K=(Math.min(W,H)*0.5)/(2*Math.tan(FOV*D/4));
+  vAlt=Math.asin(clamp(f[2],-1,1))/D;vAz=((Math.atan2(f[0],f[1])/D)+360)%360;tAz=vAz;tAlt=vAlt;
+  return true;
+}
+async function toggleMotion(){
+  audioInit();
+  if(MO.on){MO.on=false;MO.got=false;MO.f=null;syncMotion();try{MO.lock&&MO.lock.release()}catch(e){}return}
+  try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    const r=await DeviceOrientationEvent.requestPermission();if(r==='denied'){motionBlocked('Motion access was declined. Allow Motion & Orientation for this site in your browser settings.');return}}}
+  catch(e){motionBlocked();return}
+  if(typeof DeviceOrientationEvent==='undefined'){motionBlocked();return}
+  MO.on=true;MO.got=false;MO.abs=false;MO.off=null;MO.f=null;MO.yaw=0;syncMotion();
+  addEventListener('deviceorientationabsolute',onOri,true);addEventListener('deviceorientation',onOri,true);
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(l=>MO.lock=l).catch(()=>{})}catch(e){}
+  setTimeout(()=>{if(MO.on&&!MO.got){MO.on=false;syncMotion();motionBlocked()}},1800);
+}
+function motionBlocked(msg){showCard('Motion sensors unavailable',msg||'No motion data reached the game. The Claude viewer blocks phone sensors, and so do desktop computers. Open the game file in your phone\'s browser from an https address to point and look.')}
+function syncMotion(){const b=$('motionBtn');b.classList.toggle('on',MO.on);b.textContent=MO.on?'Phone aim on':'Point phone'}
+/* dome grid: altitude rings + azimuth spokes, so you can feel the shell around you */
+function drawDome(){
+  ctx.strokeStyle='rgba(127,230,255,.075)';ctx.lineWidth=1;ctx.beginPath();
+  for(const h of [15,30,45,60,75]){let st=false;for(let az=0;az<=360;az+=4){const p=proj(local(az,h));if(PJ.z<-0.3){st=false;continue}st?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);st=true}}
+  for(let az=0;az<360;az+=30){let st=false;for(let h=0;h<=86;h+=4){const p=proj(local(az,h));if(PJ.z<-0.3){st=false;continue}st?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);st=true}}
+  ctx.stroke();
+  ctx.font='9px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillStyle='rgba(127,230,255,.28)';
+  for(const h of [30,60]){const p=proj(local(vAz,h));if(PJ.z>0.2)ctx.fillText(h+'°',p.x+14,p.y-3)}
+  for(let az=0;az<360;az+=30){if(az%90===0)continue;const p=proj(local(az,4));if(PJ.z>0.15)ctx.fillText(az+'°',p.x,p.y)}
+}
+
+/* ───────────── LOOP ───────────── */
+let last=performance.now(),hudTick=0;
+function rot(v,ax,ang){const c=Math.cos(ang),s=Math.sin(ang),d=ax[0]*v[0]+ax[1]*v[1]+ax[2]*v[2];
+  const cr=[ax[1]*v[2]-ax[2]*v[1],ax[2]*v[0]-ax[0]*v[2],ax[0]*v[1]-ax[1]*v[0]];return [0,1,2].map(i=>v[i]*c+cr[i]*s+ax[i]*d*(1-c))}
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;const t=now/1000;
+  let jx=joy.x,jy=joy.y;if(keys.a||keys.arrowleft)jx-=1;if(keys.d||keys.arrowright)jx+=1;if(keys.w||keys.arrowup)jy-=1;if(keys.s||keys.arrowdown)jy+=1;
+  const sp=FOV/75;tAz+=jx*Math.abs(jx)*95*sp*dt;tAlt=clamp(tAlt-jy*Math.abs(jy)*70*sp*dt,-20,89);
+  if(!S&&!ptrs.size)tAz+=dt*2.2;
+  {const [lo,hi]=fovLim();tFOV=clamp(tFOV,lo,hi)}
+  if(S&&S.dive&&!(MO.on&&MO.got)){ // inside a cluster: keep the view within its fence
+    const lv=toLocal(S.dive.e,[0,0,0]),caz=azOf(lv),calt=Math.asin(lv[2])/D,da=((tAz-caz+540)%360)-180,dh=tAlt-calt;
+    const dd=Math.hypot(da*Math.cos(calt*D),dh),lim=S.dive.R*0.9;if(dd>lim){const f=lim/dd;tAz=caz+da*f;tAlt=calt+dh*f}}
+  const k=Math.min(1,dt*12);let dA=((tAz-vAz+540)%360)-180;vAz=(vAz+dA*k+360)%360;tAz=vAz+(((tAz-vAz+540)%360)-180);vAlt+=(tAlt-vAlt)*k;FOV+=(tFOV-FOV)*k;
+  if(MO.on&&MO.got)MO.yaw-=jx*Math.abs(jx)*60*dt;
+  updateSky();if(!(MO.on&&MO.got&&sensorCam()))setCam();
+  let near=null,nearA=999;
+  if(S&&!S.over){
+    S.t+=dt;S.clock+=S.M.up?dt:-dt;
+    const view=viewLocal(),lv=[0,0,0];
+    for(const c of S.circles){if(c.done)continue;
+      if(c.w){c.e=rot(c.e,c.ax,c.w*D*dt);toLocal(c.e,lv);
+        const out=lv[2]<Math.sin(6*D)||(S.dive&&angDeg(c.e,S.dive.e)>S.dive.R*0.85);  // bounce off the horizon, or off the cluster fence
+        if(out&&S.t-(c.flipT??-9)>1.5){c.w*=-1;c.flipT=S.t}}
+      toLocal(c.e,lv);c.a=angDeg(lv,view);if(c.a<nearA){nearA=c.a;near=c}}
+    const fs=S.dive?DIVE_FS:1;
+    if(near&&near.sig){ // Deep Field signal: center it AND zoom in to dive
+      if(nearA<Math.max(2.5,near.r*0.5)&&FOV<=DIVE_FOV+0.5){S.lock=near;S.lockT+=dt/0.8}
+      else{S.lockT=Math.max(0,S.lockT-dt*2.5);if(S.lockT===0)S.lock=null}
+      if(S.lock&&S.lockT>=1)dive(S.lock);
+    }else{
+      const tol=(0.9+0.4*P.up.lock)*fs*S.df.tol,lockTime=0.55/(1+0.33*P.up.quick)*S.df.lockT;
+      if(near&&nearA<near.r*0.7+tol){if(S.lock!==near){S.lock=near;S.lockT=0}S.lockT+=dt/lockTime}
+      else{S.lockT=Math.max(0,S.lockT-dt*2.5);if(S.lockT===0)S.lock=null}
+      if(S.lock&&S.lockT>=1)collect(S.lock,nearA);
+    }
+    if(S.key==='deep'&&!S.dive&&S.nextSig&&S.t>=S.nextSig)spawnSignal();
+    if(!S.over&&!S.M.up&&S.clock<=0){S.clock=0;finish(false)}
+    if(P.set.sonar&&actx&&near&&!S.over&&S.t>=nextBeep){const h=1-Math.min(nearA/fs,120)/120;const pro=P.up.sonar&&near.tier.pts>=300;const f=(260+h*760)*(pro?1.5:1);
+      blip(f,pro?f*1.3:f,.07,.05+h*.05,pro?'triangle':'sine');nextBeep=S.t+.18+(1-h)*1.4}
+  }
+  draw(dt,t);
+  if(S&&!S.over&&(hudTick+=dt)>.05){hudTick=0;
+    $('clockTxt').textContent=fmtT(S.clock);$('clockBox').classList.toggle('warn',!S.M.up&&S.clock<10);
+    $('scoreTxt').textContent=fmtN(S.score);
+    const mult=S.combo?Math.min(3,1+0.5*(S.combo-1)):1,left=S.lastFind?clamp(1-(S.t-S.lastFind)/12,0,1):0;
+    const live=S.combo>1&&left>0;$('comboTxt').textContent='×'+(live?mult:1).toFixed(1)+' COMBO';$('comboTxt').classList.toggle('hot',live);$('comboBar').style.width=(S.combo>=1?left*100:0)+'%';
+    const na=nearA/(S.dive?DIVE_FS:1);
+    const h=near?1-Math.min(na,120)/120:0;$('heatPin').style.left=(h*100).toFixed(1)+'%';
+    $('heatWord').textContent=na<6?'ON IT':na<15?'BURNING':na<30?'HOT':na<55?'WARM':na<85?'COLD':'FREEZING';
+    $('heatWord').style.color=na<15?'var(--danger)':na<30?'var(--gold)':na<55?'var(--ink)':'var(--cyan)';
+    if(near&&near.sig&&nearA<near.r*1.3&&FOV>DIVE_FOV+0.5){if(!S.zh){S.zh=1;$('hint').textContent='You found the signal. Zoom in (pinch, scroll or +) to dive.'}}else S.zh=0;
+    if(P.up.sonar&&near&&near.tier.pts>=300&&na<55)$('heatWord').textContent+=' · RARE SIGNAL';
+    const azr=Math.round(vAz)%360;$('skyline').textContent=`${W<560?'':P.set.label.toUpperCase()+' · '}AZ ${String(azr).padStart(3,'0')}° ${dirName(azr)} · ALT ${vAlt>=0?'+':''}${Math.round(vAlt)}° · FOV ${Math.round(FOV)}°${MO.on&&MO.got?' · PHONE AIM':''}`;
+  }
+  requestAnimationFrame(frame);
+}
+renderTab();
+requestAnimationFrame(frame);
+})();
+</script>

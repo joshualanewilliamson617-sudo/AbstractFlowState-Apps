@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA and RNA — a working model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0e1626;
+  --ink2:#141e33;
+  --panel:#1a2540;
+  --line:#2b3a58;
+  --paper:#e9edf6;
+  --muted:#98a6c2;
+  --A:#3ddc84;
+  --C:#4da3ff;
+  --G:#f5b642;
+  --T:#ff5c63;
+  --U:#b98cff;
+  --maxw:72ch;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--paper);
+  font-family:"Source Serif 4",Georgia,serif;
+  font-size:17px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4,.ui{font-family:"Space Grotesk",system-ui,sans-serif;line-height:1.15}
+a{color:var(--C);text-decoration:none;border-bottom:1px solid rgba(77,163,255,.35)}
+a:hover{border-bottom-color:var(--C)}
+:focus-visible{outline:2px solid var(--A);outline-offset:3px;border-radius:3px}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+.col{max-width:var(--maxw)}
+
+/* ---------- masthead ---------- */
+header.top{
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#121b2e,#0e1626);
+}
+.masthead{padding:44px 0 26px}
+.masthead h1{
+  font-size:clamp(34px,6.4vw,62px);
+  font-weight:700;
+  letter-spacing:-.025em;
+  margin:0 0 14px;
+}
+.standfirst{color:var(--muted);max-width:60ch;margin:0;font-size:18px}
+nav.jump{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 18px}
+nav.jump a{
+  font-family:"Space Grotesk",sans-serif;font-size:13.5px;
+  color:var(--muted);border:1px solid var(--line);border-radius:100px;
+  padding:5px 13px;background:rgba(255,255,255,.02);
+}
+nav.jump a:hover{color:var(--paper);border-color:#44557c}
+
+/* ---------- sections ---------- */
+section{padding:64px 0;border-bottom:1px solid var(--line)}
+section h2{
+  font-size:clamp(24px,3.6vw,34px);font-weight:500;letter-spacing:-.02em;
+  margin:0 0 8px;
+}
+.deck{color:var(--muted);margin:0 0 34px;max-width:62ch}
+p{margin:0 0 18px}
+.col p:last-child{margin-bottom:0}
+
+/* ---------- 3D stage ---------- */
+#stage{
+  position:relative;
+  border:1px solid var(--line);
+  border-radius:14px;
+  overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%,#1c2947 0%,#0c1322 70%);
+  height:min(72vh,620px);
+  touch-action:none;
+  cursor:grab;
+}
+#stage.dragging{cursor:grabbing}
+#stage canvas{display:block;width:100%;height:100%}
+.stage-hint{
+  position:absolute;left:14px;top:12px;
+  font-family:"Space Grotesk",sans-serif;font-size:12.5px;color:var(--muted);
+  background:rgba(10,17,31,.72);border:1px solid var(--line);
+  padding:6px 11px;border-radius:8px;pointer-events:none;
+  backdrop-filter:blur(4px);
+}
+.controls{
+  position:absolute;left:0;right:0;bottom:0;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:12px 14px;
+  background:linear-gradient(180deg,rgba(10,17,31,0),rgba(10,17,31,.88) 45%);
+}
+.chip{
+  font-family:"Space Grotesk",sans-serif;font-size:13px;
+  color:var(--paper);background:rgba(255,255,255,.05);
+  border:1px solid var(--line);border-radius:8px;
+  padding:7px 13px;cursor:pointer;
+}
+.chip:hover{border-color:#4a5c85;background:rgba(255,255,255,.09)}
+.chip[aria-pressed="true"]{background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:500}
+.readout{
+  position:absolute;right:14px;top:12px;width:236px;
+  background:rgba(10,17,31,.82);border:1px solid var(--line);
+  border-radius:10px;padding:13px 14px;
+  font-family:"Space Grotesk",sans-serif;font-size:13.5px;
+  backdrop-filter:blur(6px);
+}
+.readout .rt{color:var(--muted);font-size:12px;margin-bottom:7px}
+.readout .rb{font-size:22px;font-weight:700;margin-bottom:5px}
+.readout .rd{color:var(--muted);line-height:1.45;font-size:12.5px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;font-family:"Space Grotesk",sans-serif;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+/* ---------- pairing table ---------- */
+.pairs{width:100%;border-collapse:collapse;margin:26px 0 8px;font-family:"Space Grotesk",sans-serif;font-size:14.5px}
+.pairs th{text-align:left;color:var(--muted);font-weight:400;font-size:13px;padding:0 12px 9px 0;border-bottom:1px solid var(--line)}
+.pairs td{padding:11px 12px 11px 0;border-bottom:1px solid rgba(43,58,88,.5);vertical-align:top}
+.pairs td:first-child{white-space:nowrap;font-weight:500}
+
+/* ---------- dogma strip ---------- */
+.dogma{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:30px 0}
+.dogma div{background:var(--ink2);padding:20px 18px}
+.dogma h4{margin:0 0 6px;font-size:16px;font-weight:500}
+.dogma p{margin:0;font-size:14.5px;color:var(--muted);line-height:1.5}
+.dogma .step{font-family:"Space Grotesk",sans-serif;font-size:12px;color:var(--A);margin-bottom:10px}
+
+/* ---------- findings ---------- */
+.finding{padding:26px 0;border-top:1px solid rgba(43,58,88,.55)}
+.finding:first-of-type{border-top:0}
+.finding h3{font-size:19px;font-weight:500;margin:0 0 4px}
+.finding .tag{font-family:"Space Grotesk",sans-serif;font-size:12px;color:var(--G);margin-bottom:9px}
+.finding p{font-size:16px;margin-bottom:10px;max-width:70ch}
+.src{font-family:"Space Grotesk",sans-serif;font-size:12.5px;color:var(--muted)}
+.src a{color:var(--muted);border-bottom-color:rgba(152,166,194,.4)}
+.src a:hover{color:var(--paper)}
+
+/* ---------- ahead ---------- */
+.ahead{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:22px;margin-top:8px}
+.ahead article{border-left:2px solid var(--line);padding-left:18px}
+.ahead h3{font-size:17px;font-weight:500;margin:0 0 7px}
+.ahead p{font-size:15px;color:var(--muted);margin:0}
+
+/* ---------- ask ---------- */
+.ask{max-width:78ch}
+textarea,input[type=text]{
+  width:100%;background:var(--ink2);color:var(--paper);
+  border:1px solid var(--line);border-radius:10px;
+  padding:13px 15px;font-family:"Source Serif 4",serif;font-size:16px;resize:vertical;
+}
+textarea::placeholder,input::placeholder{color:#71809e}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:11px}
+button.go{
+  font-family:"Space Grotesk",sans-serif;font-size:14.5px;font-weight:500;
+  background:var(--A);color:#06220f;border:0;border-radius:9px;
+  padding:11px 20px;cursor:pointer;
+}
+button.go:hover{filter:brightness(1.08)}
+button.go:disabled{opacity:.5;cursor:default}
+.seeds{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 18px}
+.seed{font-family:"Space Grotesk",sans-serif;font-size:13px;color:var(--muted);background:transparent;border:1px dashed var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;text-align:left}
+.seed:hover{color:var(--paper);border-color:#4a5c85;border-style:solid}
+#answer{margin-top:22px;background:var(--ink2);border:1px solid var(--line);border-left:2px solid var(--A);border-radius:0 12px 12px 0;padding:20px 22px;display:none}
+#answer.err{border-left-color:var(--T)}
+#answer p{font-size:16px}
+#answer p:last-child{margin-bottom:0}
+
+/* ---------- recommendations ---------- */
+.recs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin:8px 0 34px}
+.rec{background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:18px 19px}
+.rec .kind{font-family:"Space Grotesk",sans-serif;font-size:11.5px;color:var(--C);margin-bottom:8px}
+.rec h4{margin:0 0 7px;font-size:16px;font-weight:500}
+.rec p{margin:0;font-size:14.5px;color:var(--muted);line-height:1.5}
+.rec .del{margin-top:12px;background:none;border:0;color:#6f7f9f;font-family:"Space Grotesk",sans-serif;font-size:12.5px;cursor:pointer;padding:0}
+.rec .del:hover{color:var(--T)}
+.rec.mine{border-color:#3a4d78;border-style:dashed}
+.addbox{background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:20px 21px;max-width:64ch}
+.addbox h3{margin:0 0 4px;font-size:17px;font-weight:500}
+.addbox .deck{margin-bottom:18px;font-size:14.5px}
+.field{margin-bottom:11px}
+.field label{display:block;font-family:"Space Grotesk",sans-serif;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.status{font-family:"Space Grotesk",sans-serif;font-size:13px;color:var(--muted)}
+
+footer{padding:46px 0 72px;color:var(--muted);font-size:14.5px}
+footer p{max-width:70ch}
+
+@media (max-width:760px){
+  body{font-size:16px}
+  .dogma{grid-template-columns:1fr}
+  .readout{position:static;width:auto;margin:14px 14px 0;}
+  #stage{height:66vh}
+  .stage-hint{display:none}
+  .controls{position:static;background:var(--ink2);border-top:1px solid var(--line)}
+  #stage{height:auto}
+  #stage canvas{height:58vh}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap masthead">
+    <h1>DNA and RNA</h1>
+    <p class="standfirst">Two molecules, one job: carry the instructions for building a living thing. Turn the model, read the basics, then see where the field actually stands in 2026.</p>
+  </div>
+  <div class="wrap">
+    <nav class="jump">
+      <a href="#model">The model</a>
+      <a href="#basics">Basics</a>
+      <a href="#new">What's new</a>
+      <a href="#ahead">What's ahead</a>
+      <a href="#ask">Ask a question</a>
+      <a href="#recs">Recommendations</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ 3D MODEL ============ -->
+<section id="model">
+  <div class="wrap">
+    <div id="stage">
+      <canvas id="c"></canvas>
+      <div class="stage-hint" id="hint">Hold and drag to turn · scroll or pinch to zoom · shift-drag to slide · click any base</div>
+      <div class="readout" id="readout">
+        <div class="rt" id="r-title">Nothing selected</div>
+        <div class="rb" id="r-base">—</div>
+        <div class="rd" id="r-desc">Click any colored rung to read what that base is and what it pairs with.</div>
+      </div>
+      <div class="controls">
+        <button class="chip" id="btn-dna" aria-pressed="true">DNA</button>
+        <button class="chip" id="btn-rna" aria-pressed="false">RNA</button>
+        <button class="chip" id="btn-detail" aria-pressed="true">Atomic detail</button>
+        <button class="chip" id="btn-transcribe" aria-pressed="false">Transcribe</button>
+        <button class="chip" id="btn-labels" aria-pressed="true">Labels</button>
+        <button class="chip" id="btn-spin" aria-pressed="true">Auto-spin</button>
+        <button class="chip" id="btn-reset">Reset view</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--A)"></i> A — adenine, purine</span>
+      <span><i class="dot" style="background:var(--G)"></i> G — guanine, purine</span>
+      <span><i class="dot" style="background:var(--T)"></i> T — thymine, pyrimidine</span>
+      <span><i class="dot" style="background:var(--C)"></i> C — cytosine, pyrimidine</span>
+      <span><i class="dot" style="background:var(--U)"></i> U — uracil, RNA only</span>
+      <span><i class="dot" style="background:#ffb454"></i> phosphate</span>
+      <span><i class="dot" style="background:#7f93bd"></i> sugar ring</span>
+      <span><i class="dot" style="background:#cfe0ff"></i> hydrogen bonds</span>
+      <span><i class="dot" style="background:#ff6b6b"></i> 2′-OH — RNA's extra oxygen</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BASICS ============ -->
+<section id="basics">
+  <div class="wrap">
+    <h2>The basics, in plain terms</h2>
+    <p class="deck">Everything above is made of one repeating part. Once you see the part, the whole thing gets simple.</p>
+    <div class="col">
+      <p>The repeating part is a <strong>nucleotide</strong>. Each one has three pieces: a sugar, a phosphate group, and a base. The sugar and phosphate of one nucleotide link to the sugar and phosphate of the next, over and over, making a long chain — that's the smooth rail you see winding through the model. The bases stick off that rail like teeth.</p>
+      <p>There are only four bases in play at a time, and their order along the chain <em>is</em> the information. Three bases in a row spell one amino acid; strings of those spell a protein. A gene is a stretch of that code long enough to build something useful. Your full set of it — the genome — runs about 3.2 billion base pairs, packed into 23 pairs of chromosomes inside almost every cell you have.</p>
+      <p>DNA is the archive. It's double-stranded, and the two strands are complements of each other: wherever one says A the other says T, wherever one says G the other says C. That redundancy is why a cell can copy it cleanly and why it can repair damage — the intact strand is the answer key for the broken one. The two rails run in opposite directions and twist around each other roughly once every ten and a half rungs, which is where the helix comes from.</p>
+      <p>RNA is the working copy. Same idea, three differences: its sugar is ribose instead of deoxyribose (one extra oxygen, which makes it more chemically reactive and much shorter-lived), it uses uracil where DNA uses thymine, and it's usually a single strand. Because it's single-stranded it folds back on itself into loops and pockets, and those shapes do things — some RNAs act as switches, scaffolds, or even catalysts, not just messages.</p>
+    </div>
+
+    <table class="pairs">
+      <thead><tr><th>Base</th><th>Pairs with</th><th>What to know</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--A)">A · adenine</td><td>T in DNA, U in RNA</td><td>A purine — the larger, two-ring kind. Held to its partner by two hydrogen bonds.</td></tr>
+        <tr><td style="color:var(--T)">T · thymine</td><td>A</td><td>A pyrimidine, single-ring. DNA only. Carries a methyl group that uracil lacks, which helps cells spot damage.</td></tr>
+        <tr><td style="color:var(--U)">U · uracil</td><td>A</td><td>Thymine's stand-in in RNA. Cheaper for the cell to make, which suits a molecule meant to be disposable.</td></tr>
+        <tr><td style="color:var(--G)">G · guanine</td><td>C</td><td>A purine. Bound to cytosine by three hydrogen bonds, so G–C regions are the sturdier parts of a strand.</td></tr>
+        <tr><td style="color:var(--C)">C · cytosine</td><td>G</td><td>A pyrimidine. When a methyl group is added to it, the nearby gene usually gets switched off — that's the core of epigenetics.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:19px;font-weight:500;margin:44px 0 4px">How information actually moves</h3>
+    <p class="deck" style="margin-bottom:0">Often called the central dogma. It is the through-line of the whole field.</p>
+    <div class="dogma">
+      <div>
+        <div class="step">Step one — replication</div>
+        <h4>DNA copies itself</h4>
+        <p>Before a cell divides it unzips its DNA and builds a matching partner for each strand, so both daughter cells get a complete set.</p>
+      </div>
+      <div>
+        <div class="step">Step two — transcription</div>
+        <h4>DNA is read into RNA</h4>
+        <p>An enzyme opens a bubble in the helix, reads one strand, and builds a messenger RNA copy of a single gene. Press "Transcribe" on the model to watch this.</p>
+      </div>
+      <div>
+        <div class="step">Step three — translation</div>
+        <h4>RNA is built into protein</h4>
+        <p>A ribosome walks the mRNA three bases at a time while transfer RNAs deliver the matching amino acids. The finished protein does the work.</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <p style="margin-top:8px">Messenger RNA isn't the only kind. Transfer RNA fetches amino acids. Ribosomal RNA forms the structural core of the ribosome itself. And a large class of non-coding RNAs — microRNAs, long non-coding RNAs, circular RNAs — never become protein at all; they regulate which genes run and how hard. That last group is most of what's driving the field right now.</p>
+      <p><strong>Where this sits academically.</strong> The home discipline is molecular biology, with molecular genetics as the sub-area. It borders biochemistry (the chemistry of these molecules), genetics (inheritance), genomics (reading whole genomes at scale), structural biology (their 3D shapes), bioinformatics (the computing needed to handle the data), and synthetic biology plus genetic engineering on the applied side. All of it sits under biology. You'd meet it first in high-school biology, again in an introductory college biology course, and seriously in biochemistry or molecular biology.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHAT'S NEW ============ -->
+<section id="new">
+  <div class="wrap">
+    <h2>Where the field is right now</h2>
+    <p class="deck">Seven things that have changed in the last couple of years. Sources are linked under each — worth clicking, because this area moves fast enough that any snapshot goes stale.</p>
+
+    <div class="finding">
+      <div class="tag">RNA therapeutics</div>
+      <h3>RNA stopped being a bit player</h3>
+      <p>For fifty years RNA was taught as the courier between DNA and protein. That framing is gone. It's now treated as an active, programmable component of cell biology and a drug class in its own right — the industry has taken to calling this stretch an "RNAissance." The mRNA vaccines were the public proof; the deeper shift is that you can design an RNA sequence on a computer and have a working therapeutic far faster than you can develop a conventional small-molecule drug.</p>
+      <div class="src">Sources: <a href="https://convention.bio.org/program-1/rnaissance-era-recent-breakthroughs-future-prospects-challenges-rna-therapeutics" target="_blank" rel="noopener">BIO 2026</a> · <a href="https://www.nature.com/subjects/rna" target="_blank" rel="noopener">Nature RNA hub</a></div>
+    </div>
+
+    <div class="finding">
+      <div class="tag">Gene editing</div>
+      <h3>CRISPR moved past cutting</h3>
+      <p>The original CRISPR-Cas9 worked by slicing both strands of DNA and letting the cell's messy repair machinery patch the gap. The newer tools don't cut all the way through. Base editors chemically convert one letter into another in place. Prime editors write a short specified sequence directly. CRISPR-associated transposases can drop whole cargo sequences at a chosen spot. The practical effect is that a far wider range of disease-causing mutations is now addressable, with less collateral damage.</p>
+      <div class="src">Source: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13299588/" target="_blank" rel="noopener">Genes, June 2026</a></div>
+    </div>
+
+    <div class="finding">
+      <div class="tag">Clinical</div>
+      <h3>Editing is in patients, and increasingly inside the body</h3>
+      <p>The first approved CRISPR therapy cleared regulators in 2023 for sickle cell disease and beta thalassemia, and blood disorders still lead the Phase 3 pipeline. Roughly 250 gene-editing trials are being tracked, with over 150 active, spanning cancer, autoimmune disease and inherited conditions. The bigger change is the shift from ex vivo work — pull cells out, edit them, put them back — toward editing organs in place: one in-body trial reported a single dose driving a durable drop in cholesterol-raising PCSK9 and in LDL itself.</p>
+      <div class="src">Sources: <a href="https://crisprmedicinenews.com/clinical-trials/" target="_blank" rel="noopener">CRISPR Medicine News trial register</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13299588/" target="_blank" rel="noopener">Genes, June 2026</a></div>
+    </div>
+
+    <div class="finding">
+      <div class="tag">Regulation</div>
+      <h3>Medicine built for one person</h3>
+      <p>Because the editing machinery is modular — swap the guide sequence, keep everything else — it's become possible to build a therapy for a single patient with a single rare mutation. The field calls this N-of-1 medicine, and it breaks the traditional trial model, which assumes a population to test on. In February 2026 the FDA announced a regulatory framework specifically for individualized genetic therapies, which is the kind of unglamorous administrative step that decides whether a technology actually reaches anyone.</p>
+      <div class="src">Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13299588/" target="_blank" rel="noopener">Genes, June 2026</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/42379944/" target="_blank" rel="noopener">Trends in Molecular Medicine, 2026</a></div>
+    </div>
+
+    <div class="finding">
+      <div class="tag">AI</div>
+      <h3>Language models trained on genomes instead of English</h3>
+      <p>Evo and its successor Evo 2 treat DNA as a language and learn it the way a chat model learns text. Evo 2 was trained on genomes from more than 100,000 species across the whole tree of life, reads up to a million nucleotides of context at once, and was published in Nature. It can flag disease-causing mutations in human genes and generate sequences at the scale of a simple bacterial genome. In validation work, AI-designed regulatory sequences were synthesized, inserted into mouse and human cells, and measurably changed how open or closed those regions of DNA were — meaning a generated sequence did something real in a living cell.</p>
+      <div class="src">Sources: <a href="https://arcinstitute.org/tools/evo" target="_blank" rel="noopener">Arc Institute</a> · <a href="https://biopharmatrend.com/news/evo-2-open-source-ai-model-for-generative-genomics-validated-and-published-in-nature-1519" target="_blank" rel="noopener">BioPharmaTrend, March 2026</a></div>
+    </div>
+
+    <div class="finding">
+      <div class="tag">New RNA tools</div>
+      <h3>Stitching, circles, and RNA-level switches</h3>
+      <p>A recurring problem in gene therapy is that the delivery vehicles are too small to carry large genes. One answer, called StitchR, uses the cell's own repair pathways to fuse two RNA halves into one functional message, so a big protein can be delivered in two parts. A companion approach, CirculR, loops a strand into a circle, which makes it markedly more stable — useful for vaccines and therapies that need to persist. Separately, engineered Cas13 systems now let researchers degrade, block or boost specific transcripts, controlling gene activity at the RNA level rather than editing DNA at all.</p>
+      <div class="src">Sources: <a href="https://www.urmc.rochester.edu/news/publications/rochester-medicine/rna-discoveries-leading-to-cutting-edge-cures" target="_blank" rel="noopener">University of Rochester Medicine</a> · <a href="https://www.nature.com/subjects/rna" target="_blank" rel="noopener">Nature</a></div>
+    </div>
+
+    <div class="finding">
+      <div class="tag">Synthesis &amp; storage</div>
+      <h3>Writing DNA, not just reading it</h3>
+      <p>Reading genomes got cheap years ago. Writing them is the current frontier. The Synthetic Human Genome project, funded by Wellcome at £10 million over five years, isn't trying to build a whole human genome — the near-term goal is proof of concept via one fully synthetic human chromosome, with any synthetic DNA confined to lab cell lines, and a parallel social-science program on the ethics running alongside it. In a different direction entirely, the same synthesis capability is being used for archival data storage: DNA can hold enormous amounts of information in a very small, very stable volume, and the first commercial DNA storage cards reached market in early 2026.</p>
+      <div class="src">Sources: <a href="https://wellcome.org/news/new-project-pioneer-principles-human-genome-synthesis" target="_blank" rel="noopener">Wellcome</a> · <a href="https://www.chemistryworld.com/news/whats-the-point-of-the-synthetic-human-genome-project/4021810.article" target="_blank" rel="noopener">Chemistry World</a> · <a href="https://techxplore.com/news/2026-06-textadna-advances-dna-based-storage.html" target="_blank" rel="noopener">TechXplore</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AHEAD ============ -->
+<section id="ahead">
+  <div class="wrap">
+    <h2>What the next decade probably looks like</h2>
+    <p class="deck">Informed extrapolation, not prophecy. The honest summary is that the editing itself is close to solved and everything around it isn't.</p>
+    <div class="ahead">
+      <article>
+        <h3>Delivery is the real bottleneck</h3>
+        <p>Getting the editing machinery into the right cells, in enough of them, without triggering an immune reaction, is harder than designing the edit. Liver and blood are relatively easy. Brain, muscle and lung are not. Expect most of the next decade's engineering effort to go here.</p>
+      </article>
+      <article>
+        <h3>From treating to preventing</h3>
+        <p>In-body editing of risk genes — cholesterol, clotting factors — points toward one-time preventive doses rather than lifelong daily pills. That reframes what a "drug" is, and nobody has worked out how to price or regulate a permanent one.</p>
+      </article>
+      <article>
+        <h3>Design moves upstream to models</h3>
+        <p>If a genomic model can predict which sequence produces which behavior, wet-lab work shifts from searching to confirming. The constraint becomes experimental validation throughput, and a lot of biology becomes an iteration loop that looks more like software.</p>
+      </article>
+      <article>
+        <h3>RNA as a standing platform</h3>
+        <p>Same manufacturing line, different sequence, different disease. That's already how vaccine production works, and it's spreading to therapeutics. It shortens development time dramatically and makes rapid response to new pathogens plausible.</p>
+      </article>
+      <article>
+        <h3>The germline question won't stay quiet</h3>
+        <p>Everything above edits body cells, so changes stop with the patient. Editing embryos would make changes heritable. It's broadly banned and broadly opposed, but the technical barrier keeps dropping, which means governance has to carry weight the technology no longer does.</p>
+      </article>
+      <article>
+        <h3>Biosecurity gets harder</h3>
+        <p>Cheap synthesis plus generative sequence design is genuinely dual-use. Screening what gets synthesized, and by whom, is an unsolved problem that the field is now taking seriously and publicly — the synthetic genome project built an ethics program in from day one for exactly this reason.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ASK ============ -->
+<section id="ask">
+  <div class="wrap ask">
+    <h2>Ask a question</h2>
+    <p class="deck">Type anything you got stuck on above and get a plain-language answer. Needs a live connection.</p>
+    <div class="seeds" id="seeds"></div>
+    <div class="field">
+      <textarea id="q" rows="3" placeholder="For example: why does the helix twist at all?"></textarea>
+    </div>
+    <div class="row">
+      <button class="go" id="askBtn">Get an answer</button>
+      <span class="status" id="askStatus"></span>
+    </div>
+    <div id="answer"></div>
+  </div>
+</section>
+
+<!-- ============ RECOMMENDATIONS ============ -->
+<section id="recs">
+  <div class="wrap">
+    <h2>Where to go next</h2>
+    <p class="deck">A starting shelf, plus room for your own. Anything you add is saved and will still be here when you reopen this page.</p>
+    <div class="recs" id="recList"></div>
+    <div class="addbox">
+      <h3>Add your own</h3>
+      <p class="deck">A book, a channel, a paper, a tool, a question you want to come back to.</p>
+      <div class="field">
+        <label for="rTitle">Title</label>
+        <input type="text" id="rTitle" placeholder="What is it called?">
+      </div>
+      <div class="field">
+        <label for="rKind">Kind</label>
+        <input type="text" id="rKind" placeholder="Book, video, paper, tool, note…">
+      </div>
+      <div class="field">
+        <label for="rNote">Why it's worth it</label>
+        <input type="text" id="rNote" placeholder="One line for future you">
+      </div>
+      <div class="row">
+        <button class="go" id="addBtn">Save it</button>
+        <span class="status" id="recStatus"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Built as a study page. The model is drawn to approximate B-form proportions — 3.4 Å rise per base pair, about 10.5 pairs per turn, purines as fused double rings and pyrimidines as single rings — but it is still a simplification: individual atoms, sugar puckering and base tilt are not represented, and real RNA folds into complex three-dimensional shapes rather than staying as the open strand shown here. Research items reflect sources published through mid-2026; check the links for anything more recent.</p>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   BASE DATA  — dimensions in ångströms (1 unit = 1 Å)
+   ============================================================ */
+var COLORS = { A:0x3ddc84, T:0xff5c63, U:0xb98cff, G:0xf5b642, C:0x4da3ff };
+var NAMES  = { A:'Adenine', T:'Thymine', U:'Uracil', G:'Guanine', C:'Cytosine' };
+var KIND   = { A:'purine', G:'purine', T:'pyrimidine', C:'pyrimidine', U:'pyrimidine' };
+var HBONDS = { A:2, T:2, U:2, G:3, C:3 };
+var NOTES  = {
+  A:'A purine — two fused rings, the larger kind of base. Two hydrogen bonds hold it to its partner.',
+  T:'A pyrimidine — one ring. DNA only. Its methyl group is one way a cell tells intact DNA from damaged DNA.',
+  U:'A pyrimidine. Uracil stands in for thymine in RNA — cheaper to make, which suits a disposable molecule.',
+  G:'A purine. Three hydrogen bonds to cytosine instead of two, so G–C stretches are the sturdier regions.',
+  C:'A pyrimidine. Methylate it and the nearby gene usually goes quiet — the chemical basis of epigenetics.'
+};
+var COMP = { A:'T', T:'A', G:'C', C:'G' };
+var SEQ = 'ATGGCGTTACCGATCGGTACGATTCAGGTC'.split('');
+
+var RISE = 3.4;                    // Å per base pair
+var TWIST = 34.3 * Math.PI / 180;  // ~10.5 bp per turn
+var OFFSET = 140 * Math.PI / 180;  // strand separation -> major/minor grooves
+var R_C1 = 5.9;                    // C1' (sugar-base junction) radius
+var R_P  = 9.4;                    // phosphate radius
+var BACKBONE_C = 0x9db0d6, PHOS_C = 0xffb454, SUGAR_C = 0x7f93bd, HB_C = 0xcfe0ff;
+var RIBOSE_OH = 0xff6b6b;
+
+/* ============================================================
+   SCENE
+   ============================================================ */
+var canvas = document.getElementById('c');
+var stage  = document.getElementById('stage');
+var renderer, scene, camera, root, ok = true;
+
+try { renderer = new THREE.WebGLRenderer({ canvas:canvas, antialias:true, alpha:true }); }
+catch(e){ ok = false; }
+
+if (!window.THREE || !ok) {
+  stage.innerHTML = '<div style="padding:40px;font-family:Space Grotesk,sans-serif;color:#98a6c2">'
+    + 'The 3D model needs WebGL and a live connection, and one of them is missing right now. '
+    + 'Everything else on the page still works.</div>';
+} else {
+
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+scene  = new THREE.Scene();
+camera = new THREE.PerspectiveCamera(42, 1, 0.5, 4000);
+root   = new THREE.Group();
+scene.add(root);
+
+scene.add(new THREE.AmbientLight(0xa8bcdf, 0.5));
+var key  = new THREE.DirectionalLight(0xffffff, 0.8);  key.position.set(60, 110, 130); scene.add(key);
+var fill = new THREE.DirectionalLight(0x6f9bff, 0.42); fill.position.set(-110, -50, -70); scene.add(fill);
+var rim  = new THREE.PointLight(0xffd9a0, 0.55, 700);  rim.position.set(0, 0, -170); scene.add(rim);
+
+var view = { yaw:0.6, pitch:-0.10, dist:150, panX:0, panY:0 };
+var HOME = { yaw:0.6, pitch:-0.10, dist:150, panX:0, panY:0 };
+var autoSpin = true;
+
+function applyCamera(){
+  var cp = Math.cos(view.pitch);
+  camera.position.set(
+    view.panX + view.dist * cp * Math.sin(view.yaw),
+    view.panY + view.dist * Math.sin(view.pitch),
+    view.dist * cp * Math.cos(view.yaw)
+  );
+  camera.lookAt(view.panX, view.panY, 0);
+}
+
+function resize(){
+  var w = stage.clientWidth;
+  var h = canvas.clientHeight || Math.round(stage.clientHeight);
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+/* ============================================================
+   RING SHAPES  — real fused-ring outlines
+   ============================================================ */
+function shapeFrom(pts){
+  var s = new THREE.Shape();
+  s.moveTo(pts[0][0], pts[0][1]);
+  for (var i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]);
+  s.closePath();
+  return s;
+}
+/* purine: 5-ring fused to 6-ring, attached at the 5-ring, reaching 6.0 Å inward */
+var PURINE_PTS = [[1.40,0],[2.23,-1.141],[3.571,-0.705],[4.783,-1.40],[5.995,-0.705],
+                  [5.995,0.705],[4.783,1.40],[3.571,0.705],[2.23,1.141]];
+/* pyrimidine: single 6-ring, reaching 4.3 Å inward */
+var PYRIM_PTS  = [[1.47,0],[2.17,-1.212],[3.57,-1.212],[4.27,0],[3.57,1.212],[2.17,1.212]];
+var PURINE_LEN = 5.995, PYRIM_LEN = 4.27;
+
+var EX = { depth:0.42, bevelEnabled:false, curveSegments:2 };
+var GEO = {
+  purine: new THREE.ExtrudeGeometry(shapeFrom(PURINE_PTS), EX),
+  pyrim:  new THREE.ExtrudeGeometry(shapeFrom(PYRIM_PTS), EX),
+  glyco:  null, sugar: null, phos: null, bond: null, dash: null, hb: null
+};
+GEO.purine.translate(0, 0, -EX.depth/2);
+GEO.pyrim.translate(0, 0, -EX.depth/2);
+
+/* furanose sugar ring, sitting just outside C1' */
+var SUGAR_PTS = [];
+for (var si = 0; si < 5; si++){
+  var sa = Math.PI + si * (2*Math.PI/5);
+  SUGAR_PTS.push([-1.25 + 1.15*Math.cos(sa), 1.15*Math.sin(sa)]);
+}
+GEO.sugar = new THREE.ExtrudeGeometry(shapeFrom(SUGAR_PTS), { depth:0.36, bevelEnabled:false, curveSegments:2 });
+GEO.sugar.translate(0, 0, -0.18);
+
+GEO.phos  = new THREE.SphereGeometry(0.95, 14, 12);
+GEO.oh    = new THREE.SphereGeometry(0.52, 10, 8);
+GEO.glyco = new THREE.CylinderGeometry(0.22, 0.22, 1.40, 8);
+GEO.glyco.translate(0, 0.70, 0);
+GEO.dash  = new THREE.CylinderGeometry(0.11, 0.11, 0.62, 6);
+
+var MAT = {
+  sugar: new THREE.MeshStandardMaterial({ color:SUGAR_C, roughness:0.45, metalness:0.15 }),
+  phos:  new THREE.MeshStandardMaterial({ color:PHOS_C, roughness:0.3, metalness:0.35, emissive:PHOS_C, emissiveIntensity:0.12 }),
+  bond:  new THREE.MeshStandardMaterial({ color:BACKBONE_C, roughness:0.5, metalness:0.2 }),
+  hb:    new THREE.MeshStandardMaterial({ color:HB_C, roughness:0.6, transparent:true, opacity:0.72 }),
+  oh:    new THREE.MeshStandardMaterial({ color:RIBOSE_OH, roughness:0.35, emissive:RIBOSE_OH, emissiveIntensity:0.35 })
+};
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+var UP = new THREE.Vector3(0,1,0);
+
+function helixPt(i, phase, radius){
+  var a = i * TWIST + phase;
+  return new THREE.Vector3(Math.cos(a)*radius, i*RISE, Math.sin(a)*radius);
+}
+
+/* orient a group so local +X points along `inward`, local +Z points up the helix axis */
+function orient(group, pos, inward){
+  var e1 = inward.clone().normalize();
+  var e3 = UP.clone();
+  var e2 = new THREE.Vector3().crossVectors(e3, e1).normalize();
+  e3.crossVectors(e1, e2).normalize();
+  var m = new THREE.Matrix4().makeBasis(e1, e2, e3);
+  group.quaternion.setFromRotationMatrix(m);
+  group.position.copy(pos);
+}
+
+function bondMesh(p1, p2, r){
+  var d = new THREE.Vector3().subVectors(p2, p1);
+  var len = d.length();
+  if (len < 0.001) return null;
+  var g = new THREE.CylinderGeometry(r, r, len, 7);
+  g.translate(0, len/2, 0);
+  var m = new THREE.Mesh(g, MAT.bond);
+  m.position.copy(p1);
+  m.quaternion.setFromUnitVectors(UP, d.normalize());
+  return m;
+}
+
+function labelSprite(text, color){
+  var cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 96;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = color || '#cfe0ff';
+  ctx.font = '600 56px "Space Grotesk", sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 50);
+  var tex = new THREE.CanvasTexture(cv);
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false }));
+  sp.scale.set(14, 5.25, 1);
+  return sp;
+}
+
+/* ============================================================
+   BUILD
+   ============================================================ */
+var mode = 'dna', detailed = true, showLabels = true;
+var clickable = [], pairs = [], rnaBeads = [], labelObjs = [];
+
+function disposeNode(o){
+  o.traverse(function(n){
+    if (n.geometry && n.geometry.dispose && !isCached(n.geometry)) n.geometry.dispose();
+    if (n.material && n.material.dispose && !isCachedMat(n.material)) n.material.dispose();
+  });
+}
+function isCached(g){ for (var k in GEO) if (GEO[k] === g) return true; return false; }
+function isCachedMat(m){ for (var k in MAT) if (MAT[k] === m) return true; return false; }
+
+function clearRoot(){
+  while (root.children.length){ var ch = root.children.pop(); disposeNode(ch); }
+  clickable = []; pairs = []; rnaBeads = []; labelObjs = [];
+}
+
+/* one nucleotide's base, as a group anchored at its C1' attachment point */
+function makeBase(base, attachPos, inward, meta){
+  var g = new THREE.Group();
+  orient(g, attachPos, inward);
+
+  var mat = new THREE.MeshStandardMaterial({
+    color: COLORS[base], roughness:0.28, metalness:0.08,
+    emissive: COLORS[base], emissiveIntensity:0.14,
+    side: THREE.DoubleSide
+  });
+
+  var plate;
+  if (detailed){
+    plate = new THREE.Mesh(KIND[base] === 'purine' ? GEO.purine : GEO.pyrim, mat);
+    var gly = new THREE.Mesh(GEO.glyco, MAT.bond);
+    gly.rotation.z = -Math.PI/2;   // lay the bond along local +X
+    g.add(gly);
+  } else {
+    var L = (KIND[base] === 'purine') ? PURINE_LEN : PYRIM_LEN;
+    var cg = new THREE.CylinderGeometry(0.85, 0.85, L, 10);
+    cg.translate(0, L/2, 0);
+    plate = new THREE.Mesh(cg, mat);
+    plate.rotation.z = -Math.PI/2;
+  }
+  plate.userData = meta;
+  g.add(plate);
+  clickable.push(plate);
+  g.userData.plate = plate;
+  g.userData.baseQuat = g.quaternion.clone();
+  return g;
+}
+
+function makeSugar(attachPos, inward, isRibose){
+  var g = new THREE.Group();
+  orient(g, attachPos, inward);
+  g.add(new THREE.Mesh(GEO.sugar, MAT.sugar));
+  if (isRibose){
+    var oh = new THREE.Mesh(GEO.oh, MAT.oh);   // the 2'-OH that makes RNA RNA
+    oh.position.set(-1.6, -1.5, 0);
+    g.add(oh);
+  }
+  return g;
+}
+
+function buildBackbone(phase, radius, tint, isRibose){
+  var grp = new THREE.Group();
+  var i, sugarOut = [];
+
+  for (i = 0; i < SEQ.length; i++){
+    var c1 = helixPt(i, phase, R_C1);
+    var inward = new THREE.Vector3(-c1.x, 0, -c1.z).normalize();
+    if (detailed) grp.add(makeSugar(c1, inward, isRibose));
+    sugarOut.push(helixPt(i, phase, R_C1 + 1.9));
+  }
+
+  if (detailed){
+    for (i = 0; i < SEQ.length - 1; i++){
+      var p = helixPt(i + 0.5, phase, R_P);
+      var ph = new THREE.Mesh(GEO.phos, MAT.phos);
+      ph.position.copy(p);
+      grp.add(ph);
+      var b1 = bondMesh(sugarOut[i], p, 0.26);      if (b1) grp.add(b1);
+      var b2 = bondMesh(p, sugarOut[i+1], 0.26);    if (b2) grp.add(b2);
+    }
+  }
+
+  // translucent ribbon tracing the strand
+  var pts = [];
+  for (var t = -0.4; t <= SEQ.length - 0.6; t += 0.2) pts.push(helixPt(t, phase, R_P - 0.4));
+  var tube = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length, detailed ? 0.5 : 1.15, 9, false),
+    new THREE.MeshStandardMaterial({
+      color: tint, roughness:0.4, metalness:0.25,
+      transparent: detailed, opacity: detailed ? 0.55 : 1
+    })
+  );
+  grp.add(tube);
+  return grp;
+}
+
+function addHydrogenBonds(group, base, tipL, tipR, axis){
+  var n = HBONDS[base];
+  var perp = new THREE.Vector3().crossVectors(UP, axis).normalize();
+  var span = new THREE.Vector3().subVectors(tipR, tipL);
+  var gapLen = span.length();
+  var made = [];
+  for (var k = 0; k < n; k++){
+    var off = perp.clone().multiplyScalar((k - (n-1)/2) * 1.15);
+    var a = tipL.clone().add(off), b = tipR.clone().add(off);
+    var dashes = Math.max(2, Math.round(gapLen / 0.95));
+    for (var d = 0; d < dashes; d++){
+      var t0 = (d + 0.15) / dashes;
+      var pos = a.clone().lerp(b, t0);
+      var m = new THREE.Mesh(GEO.dash, MAT.hb);
+      m.position.copy(pos);
+      m.quaternion.setFromUnitVectors(UP, span.clone().normalize());
+      group.add(m);
+      made.push(m);
+    }
+  }
+  return made;
+}
+
+function build(){
+  clearRoot();
+  var i;
+
+  if (mode === 'dna'){
+    root.add(buildBackbone(0, R_C1, 0x8fa4cc, false));
+    root.add(buildBackbone(OFFSET, R_C1, 0x8fa4cc, false));
+
+    for (i = 0; i < SEQ.length; i++){
+      var b = SEQ[i], comp = COMP[b];
+      var A1 = helixPt(i, 0, R_C1);
+      var A2 = helixPt(i, OFFSET, R_C1);
+      var axis = new THREE.Vector3().subVectors(A2, A1).normalize();
+
+      var pair = new THREE.Group();
+      var gL = makeBase(b,    A1, axis,                  { base:b,    partner:comp, index:i, strand:'left'  });
+      var gR = makeBase(comp, A2, axis.clone().negate(), { base:comp, partner:b,    index:i, strand:'right' });
+      pair.add(gL); pair.add(gR);
+
+      var lenL = (KIND[b] === 'purine' ? PURINE_LEN : PYRIM_LEN) - 0.75;
+      var lenR = (KIND[comp] === 'purine' ? PURINE_LEN : PYRIM_LEN) - 0.75;
+      var tipL = A1.clone().add(axis.clone().multiplyScalar(lenL));
+      var tipR = A2.clone().add(axis.clone().multiplyScalar(-lenR));
+
+      var hb = addHydrogenBonds(pair, b, tipL, tipR, axis);
+      root.add(pair);
+      pairs.push({ left:gL, right:gR, hb:hb, index:i });
+    }
+
+    // mRNA product, hidden until Transcribe runs
+    for (i = 0; i < SEQ.length; i++){
+      var rb = (SEQ[i] === 'T') ? 'A' : (SEQ[i] === 'A' ? 'U' : COMP[SEQ[i]]);
+      var bead = new THREE.Mesh(
+        new THREE.SphereGeometry(1.5, 12, 10),
+        new THREE.MeshStandardMaterial({ color:COLORS[rb], roughness:0.25, emissive:COLORS[rb], emissiveIntensity:0.4 })
+      );
+      bead.position.copy(helixPt(i, OFFSET + 1.0, R_P + 8));
+      bead.visible = false;
+      bead.userData = { base:rb, partner:SEQ[i], index:i, strand:'mRNA' };
+      root.add(bead); rnaBeads.push(bead); clickable.push(bead);
+    }
+
+    if (showLabels){
+      addLabel("5'", helixPt(-1.1, 0, R_P + 3));
+      addLabel("3'", helixPt(SEQ.length + 0.1, 0, R_P + 3));
+      addLabel("3'", helixPt(-1.1, OFFSET, R_P + 3));
+      addLabel("5'", helixPt(SEQ.length + 0.1, OFFSET, R_P + 3));
+      addLabel('major groove', helixPt(SEQ.length * 0.62, OFFSET/2 + Math.PI, R_P + 11), '#9db0d6');
+      addLabel('minor groove', helixPt(SEQ.length * 0.30, OFFSET/2, R_P + 11), '#9db0d6');
+    }
+
+  } else {
+    root.add(buildBackbone(0, R_C1, 0xb59ad8, true));
+    for (i = 0; i < SEQ.length; i++){
+      var rbase = (SEQ[i] === 'T') ? 'U' : SEQ[i];
+      var A = helixPt(i, 0, R_C1);
+      var inward = new THREE.Vector3(-A.x, 0, -A.z).normalize();
+      var g = makeBase(rbase, A, inward, {
+        base:rbase, partner:(rbase === 'U' ? 'A' : COMP[rbase]), index:i, strand:'single'
+      });
+      root.add(g);
+      pairs.push({ left:g, right:null, hb:[], index:i });
+    }
+    if (showLabels){
+      addLabel("5'", helixPt(-1.1, 0, R_P + 3));
+      addLabel("3'", helixPt(SEQ.length + 0.1, 0, R_P + 3));
+      addLabel("2'-OH", helixPt(SEQ.length * 0.5, -0.55, R_P + 9), '#ff9b9b');
+    }
+  }
+
+  root.position.y = -(SEQ.length - 1) * RISE / 2;
+}
+
+function addLabel(text, pos, color){
+  var sp = labelSprite(text, color);
+  if (text.length > 3) sp.scale.set(26, 9.75, 1);
+  sp.position.copy(pos);
+  root.add(sp);
+  labelObjs.push(sp);
+}
+
+/* ============================================================
+   TRANSCRIPTION  — bases swing out of the duplex around their sugars
+   ============================================================ */
+var transcribing = false, bubble = -5;
+var qTmp = new THREE.Quaternion();
+
+function stepTranscription(dt){
+  if (mode !== 'dna') return;
+  if (transcribing){
+    bubble += dt * 3.0;
+    if (bubble > SEQ.length + 5) bubble = -5;
+  }
+  for (var i = 0; i < pairs.length; i++){
+    var p = pairs[i];
+    var open = transcribing ? Math.max(0, 1 - Math.abs(p.index - bubble) / 2.8) : 0;
+    var ang = open * 1.15;
+
+    qTmp.setFromAxisAngle(UP, ang);
+    p.left.quaternion.copy(p.left.userData.baseQuat).premultiply(qTmp);
+    qTmp.setFromAxisAngle(UP, -ang);
+    p.right.quaternion.copy(p.right.userData.baseQuat).premultiply(qTmp);
+
+    for (var h = 0; h < p.hb.length; h++){
+      p.hb[h].visible = open < 0.12;
+      p.hb[h].material.opacity = 0.72 * (1 - open * 3.5 > 0 ? 1 - open * 3.5 : 0);
+    }
+    if (rnaBeads[i]){
+      var made = transcribing && bubble > p.index;
+      rnaBeads[i].visible = made;
+      if (made) rnaBeads[i].scale.setScalar(0.35 + Math.min(1, (bubble - p.index) / 1.5) * 0.65);
+    }
+  }
+}
+
+function resetTranscription(){
+  bubble = -5;
+  for (var i = 0; i < pairs.length; i++){
+    var p = pairs[i];
+    if (p.left)  p.left.quaternion.copy(p.left.userData.baseQuat);
+    if (p.right) p.right.quaternion.copy(p.right.userData.baseQuat);
+    for (var h = 0; h < p.hb.length; h++){ p.hb[h].visible = true; p.hb[h].material.opacity = 0.72; }
+    if (rnaBeads[i]) rnaBeads[i].visible = false;
+  }
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+var raycaster = new THREE.Raycaster();
+var pointerNDC = new THREE.Vector2();
+var selected = null;
+var rTitle = document.getElementById('r-title');
+var rBase  = document.getElementById('r-base');
+var rDesc  = document.getElementById('r-desc');
+
+function hexCss(n){ return '#' + ('000000' + n.toString(16)).slice(-6); }
+
+function select(mesh){
+  if (selected && selected.material) selected.material.emissiveIntensity = selected.userData.strand === 'mRNA' ? 0.4 : 0.14;
+  selected = mesh;
+  if (!mesh) return;
+  mesh.material.emissiveIntensity = 1.0;
+  var d = mesh.userData;
+  var where = d.strand === 'mRNA'   ? 'Messenger RNA, position ' + (d.index + 1)
+            : d.strand === 'single' ? "RNA strand, 5'→3' position " + (d.index + 1)
+            : 'Position ' + (d.index + 1) + ' · ' + (d.strand === 'left' ? 'template side' : 'coding side');
+  rTitle.textContent = where;
+  rBase.textContent = d.base + ' — ' + NAMES[d.base];
+  rBase.style.color = hexCss(COLORS[d.base]);
+  rDesc.textContent = NOTES[d.base] + ' ' + (d.strand === 'mRNA'
+    ? 'Copied from ' + d.partner + ' on the template strand.'
+    : 'Paired here with ' + d.partner + ' by ' + HBONDS[d.base] + ' hydrogen bonds.');
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+var dragging = false, lastX = 0, lastY = 0, moved = 0, panning = false, pinchDist = 0;
+
+canvas.addEventListener('pointerdown', function(e){
+  dragging = true; moved = 0; stage.classList.add('dragging');
+  panning = e.shiftKey || e.button === 2;
+  lastX = e.clientX; lastY = e.clientY;
+  if (canvas.setPointerCapture && e.pointerId !== undefined){ try { canvas.setPointerCapture(e.pointerId); } catch(err){} }
+});
+window.addEventListener('pointermove', function(e){
+  if (!dragging) return;
+  var dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  moved += Math.abs(dx) + Math.abs(dy);
+  if (panning){
+    view.panX -= dx * view.dist * 0.0016;
+    view.panY += dy * view.dist * 0.0016;
+  } else {
+    view.yaw -= dx * 0.0075;
+    view.pitch = Math.max(-1.35, Math.min(1.35, view.pitch - dy * 0.0060));
+  }
+});
+window.addEventListener('pointerup', function(e){
+  if (!dragging) return;
+  dragging = false; stage.classList.remove('dragging');
+  if (moved < 6) pick(e);
+  panning = false;
+});
+function pick(e){
+  var rect = canvas.getBoundingClientRect();
+  pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointerNDC, camera);
+  var hits = raycaster.intersectObjects(clickable.filter(function(m){ return m.visible; }), false);
+  if (hits.length){ select(hits[0].object); setSpin(false); }
+}
+canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+canvas.addEventListener('wheel', function(e){
+  e.preventDefault();
+  view.dist = Math.max(28, Math.min(520, view.dist * (1 + (e.deltaY > 0 ? 0.11 : -0.11))));
+}, { passive:false });
+canvas.addEventListener('touchstart', function(e){
+  if (e.touches.length === 2){
+    dragging = false;
+    pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+}, { passive:true });
+canvas.addEventListener('touchmove', function(e){
+  if (e.touches.length === 2 && pinchDist){
+    e.preventDefault();
+    var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    view.dist = Math.max(28, Math.min(520, view.dist * (pinchDist / d)));
+    pinchDist = d;
+  }
+}, { passive:false });
+canvas.addEventListener('touchend', function(){ pinchDist = 0; }, { passive:true });
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+var bDNA = document.getElementById('btn-dna');
+var bRNA = document.getElementById('btn-rna');
+var bDetail = document.getElementById('btn-detail');
+var bSpin = document.getElementById('btn-spin');
+var bTr = document.getElementById('btn-transcribe');
+var bLab = document.getElementById('btn-labels');
+var bReset = document.getElementById('btn-reset');
+
+function setSpin(on){ autoSpin = on; bSpin.setAttribute('aria-pressed', on ? 'true':'false'); }
+
+function rebuild(){
+  transcribing = false;
+  bTr.setAttribute('aria-pressed','false');
+  selected = null;
+  build();
+  resetTranscription();
+}
+
+function setMode(m){
+  mode = m;
+  bDNA.setAttribute('aria-pressed', m === 'dna' ? 'true':'false');
+  bRNA.setAttribute('aria-pressed', m === 'rna' ? 'true':'false');
+  bTr.disabled = (m === 'rna');
+  bTr.style.opacity = (m === 'rna') ? 0.4 : 1;
+  rebuild();
+  rTitle.textContent = m === 'dna' ? 'B-form double helix' : 'Single RNA strand';
+  rBase.textContent = m === 'dna' ? '30 base pairs' : '30 bases';
+  rBase.style.color = '#e9edf6';
+  rDesc.textContent = m === 'dna'
+    ? 'Two antiparallel strands, about 10.5 pairs per turn. Dashed lines are hydrogen bonds — two for A–T, three for G–C. Click any base.'
+    : 'One strand, bases exposed, with the 2\u2032-OH marked in red — the single oxygen that separates RNA from DNA. Real RNA folds back on itself.';
+}
+
+bDNA.addEventListener('click', function(){ setMode('dna'); });
+bRNA.addEventListener('click', function(){ setMode('rna'); });
+bDetail.addEventListener('click', function(){
+  detailed = !detailed;
+  bDetail.setAttribute('aria-pressed', detailed ? 'true':'false');
+  bDetail.textContent = detailed ? 'Atomic detail' : 'Schematic';
+  rebuild();
+});
+bLab.addEventListener('click', function(){
+  showLabels = !showLabels;
+  bLab.setAttribute('aria-pressed', showLabels ? 'true':'false');
+  rebuild();
+});
+bSpin.addEventListener('click', function(){ setSpin(!autoSpin); });
+bTr.addEventListener('click', function(){
+  if (mode !== 'dna') return;
+  transcribing = !transcribing;
+  bTr.setAttribute('aria-pressed', transcribing ? 'true':'false');
+  if (!transcribing) resetTranscription(); else bubble = -5;
+});
+bReset.addEventListener('click', function(){
+  view.yaw = HOME.yaw; view.pitch = HOME.pitch; view.dist = HOME.dist;
+  view.panX = HOME.panX; view.panY = HOME.panY;
+});
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+var prev = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  var dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+  if (autoSpin && !dragging) view.yaw += dt * 0.20;
+  stepTranscription(dt);
+  applyCamera();
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', resize);
+setMode('dna');
+resize();
+applyCamera();
+requestAnimationFrame(loop);
+
+} /* end WebGL guard */
+
+/* ============================================================
+   ASK PANEL
+   ============================================================ */
+var SEED_QS = [
+  'Why does DNA twist into a helix at all?',
+  'What actually is a gene, physically?',
+  'How is mRNA in a vaccine different from my own RNA?',
+  'What does CRISPR physically do to a strand?',
+  'Why is RNA so much less stable than DNA?'
+];
+var seedWrap = document.getElementById('seeds');
+var qBox = document.getElementById('q');
+SEED_QS.forEach(function(s){
+  var b = document.createElement('button');
+  b.className = 'seed'; b.type = 'button'; b.textContent = s;
+  b.addEventListener('click', function(){ qBox.value = s; qBox.focus(); });
+  seedWrap.appendChild(b);
+});
+
+var askBtn = document.getElementById('askBtn');
+var askStatus = document.getElementById('askStatus');
+var answerBox = document.getElementById('answer');
+
+function renderAnswer(text, isError){
+  answerBox.className = isError ? 'err' : '';
+  answerBox.innerHTML = '';
+  text.split(/\n{2,}/).forEach(function(para){
+    var p = document.createElement('p');
+    p.textContent = para.trim();
+    if (p.textContent) answerBox.appendChild(p);
+  });
+  answerBox.style.display = 'block';
+}
+
+askBtn.addEventListener('click', function(){
+  var q = qBox.value.trim();
+  if (!q) { qBox.focus(); return; }
+  askBtn.disabled = true;
+  askStatus.textContent = 'Working on it…';
+  answerBox.style.display = 'none';
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: 'You are answering questions on a study page about DNA, RNA and molecular biology, '
+          + 'for a curious adult with no formal biology background. Answer in plain, concrete language. '
+          + 'Use analogies where they genuinely clarify. Two to four short paragraphs, no headers, no bullet lists, '
+          + 'no markdown formatting characters. Be accurate; if something is genuinely contested or unknown, say so. '
+          + 'If the question is outside biology, answer it briefly anyway.\n\nQuestion: ' + q
+      }]
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var text = (data.content || [])
+      .filter(function(i){ return i.type === 'text'; })
+      .map(function(i){ return i.text; })
+      .join('\n\n');
+    if (!text) throw new Error('empty');
+    renderAnswer(text, false);
+    askStatus.textContent = '';
+  })
+  .catch(function(){
+    renderAnswer('That didn\'t come back. The answer box needs a live connection to work. Try again in a moment, or ask in the chat instead.', true);
+    askStatus.textContent = '';
+  })
+  .then(function(){ askBtn.disabled = false; });
+});
+
+/* ============================================================
+   RECOMMENDATIONS
+   ============================================================ */
+var SEEDED = [
+  { kind:'Book', title:'The Gene: An Intimate History', note:'Siddhartha Mukherjee. The history of the idea, told as a story. Best single entry point if you want the why before the how.', seeded:true },
+  { kind:'Free course', title:'Khan Academy — Molecular Biology', note:'Short videos with practice questions. Covers replication, transcription and translation properly and costs nothing.', seeded:true },
+  { kind:'Reference', title:'NHGRI Talking Glossary of Genomics', note:'Every term on this page, explained by a working scientist in a minute or less. Good for filling gaps as they appear.', seeded:true },
+  { kind:'Tool', title:'RCSB Protein Data Bank + Mol*', note:'Real experimentally-determined 3D structures you can rotate in the browser. Search a molecule name and look at actual data instead of a schematic.', seeded:true },
+  { kind:'News', title:'CRISPR Medicine News', note:'Tracks every gene-editing clinical trial as it moves. The fastest way to see what is real versus what is a press release.', seeded:true },
+  { kind:'Frontier', title:'Arc Institute — Evo', note:'The genomic foundation model itself, open source, with the papers. Worth a look if the AI side is what pulled you in.', seeded:true }
+];
+
+var recList = document.getElementById('recList');
+var recStatus = document.getElementById('recStatus');
+var KEY = 'dna-rna-recs';
+var mine = [];
+var storageOK = !!(window.storage && window.storage.get);
+
+function paint(){
+  recList.innerHTML = '';
+  SEEDED.concat(mine).forEach(function(r, idx){
+    var el = document.createElement('div');
+    el.className = 'rec' + (r.seeded ? '' : ' mine');
+    var k = document.createElement('div'); k.className = 'kind'; k.textContent = r.kind || 'Note';
+    var h = document.createElement('h4'); h.textContent = r.title;
+    var p = document.createElement('p'); p.textContent = r.note || '';
+    el.appendChild(k); el.appendChild(h); el.appendChild(p);
+    if (!r.seeded) {
+      var d = document.createElement('button');
+      d.className = 'del'; d.type = 'button'; d.textContent = 'Remove';
+      d.addEventListener('click', function(){
+        mine.splice(idx - SEEDED.length, 1);
+        save(); paint();
+      });
+      el.appendChild(d);
+    }
+    recList.appendChild(el);
+  });
+}
+
+function save(){
+  if (!storageOK) { recStatus.textContent = 'Saved for this session only.'; return; }
+  window.storage.set(KEY, JSON.stringify(mine))
+    .then(function(){ recStatus.textContent = 'Saved.'; })
+    .catch(function(){ recStatus.textContent = 'Saved for this session only.'; });
+}
+
+function load(){
+  if (!storageOK) { paint(); return; }
+  window.storage.get(KEY)
+    .then(function(res){ if (res && res.value) mine = JSON.parse(res.value) || []; paint(); })
+    .catch(function(){ paint(); });
+}
+
+document.getElementById('addBtn').addEventListener('click', function(){
+  var t = document.getElementById('rTitle');
+  var k = document.getElementById('rKind');
+  var n = document.getElementById('rNote');
+  if (!t.value.trim()) { recStatus.textContent = 'Give it a title first.'; t.focus(); return; }
+  mine.push({ title: t.value.trim(), kind: k.value.trim() || 'Note', note: n.value.trim(), seeded: false });
+  t.value = ''; k.value = ''; n.value = '';
+  save(); paint();
+});
+
+load();
+
+})();
+</script>
+</body>
+</html>

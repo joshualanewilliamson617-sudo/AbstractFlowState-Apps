@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Burn-Out app icon: the yellow hopper car mid-crossing at night, headlights up,
+       tyre smoke and skid marks behind it, traffic closing in from both sides.
+       Full-bleed so it also works as a "maskable" icon (phones crop it to a circle/squircle). -->
+  <defs>
+    <linearGradient id="beam" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#fff2b8" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#fff2b8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff2b8" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#fff2b8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beamL" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#fff2b8" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#fff2b8" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="vig" cx=".5" cy=".55" r=".75">
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".6"/>
+    </radialGradient>
+    <radialGradient id="heat" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ff9a1a" stop-opacity=".85"/>
+      <stop offset=".5" stop-color="#ff3d57" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#ff3d57" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feFlood flood-color="#ffd21f" flood-opacity=".9"/>
+      <feComposite in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="smoke" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <!-- ground: grass verge, four-lane road, grass verge -->
+  <rect width="512" height="512" fill="#07080c"/>
+  <rect y="0" width="512" height="120" fill="#183726"/>
+  <rect y="392" width="512" height="120" fill="#163222"/>
+  <rect y="120" width="512" height="272" fill="#1b1c22"/>
+  <rect y="117" width="512" height="5" fill="#6c6f78"/>
+  <rect y="390" width="512" height="5" fill="#6c6f78"/>
+  <!-- lane markings -->
+  <g fill="#ffffff" fill-opacity=".75">
+    <rect x="-10" y="186" width="56" height="5"/><rect x="86" y="186" width="56" height="5"/><rect x="182" y="186" width="56" height="5"/><rect x="278" y="186" width="56" height="5"/><rect x="374" y="186" width="56" height="5"/><rect x="470" y="186" width="56" height="5"/>
+    <rect x="-40" y="322" width="56" height="5"/><rect x="56" y="322" width="56" height="5"/><rect x="152" y="322" width="56" height="5"/><rect x="248" y="322" width="56" height="5"/><rect x="344" y="322" width="56" height="5"/><rect x="440" y="322" width="56" height="5"/>
+  </g>
+  <rect y="249" width="512" height="5" fill="#ffc21a"/>
+  <rect y="258" width="512" height="5" fill="#ffc21a"/>
+
+  <!-- red sedan coming in from the left, headlights first -->
+  <polygon points="120,208 250,184 250,250 120,228" fill="url(#beamR)"/>
+  <g>
+    <rect x="-20" y="196" width="142" height="44" rx="14" fill="#ff4d6d"/>
+    <rect x="70" y="202" width="26" height="32" rx="5" fill="#0b0c10"/>
+    <rect x="10" y="203" width="18" height="30" rx="5" fill="#0b0c10"/>
+    <rect x="117" y="199" width="5" height="9" fill="#fff6d0"/>
+    <rect x="117" y="228" width="5" height="9" fill="#fff6d0"/>
+  </g>
+
+  <!-- cyan van coming in from the right -->
+  <polygon points="392,284 262,266 262,316 392,300" fill="url(#beamL)"/>
+  <g>
+    <rect x="392" y="272" width="150" height="42" rx="8" fill="#3fd3ff"/>
+    <rect x="410" y="278" width="22" height="30" rx="4" fill="#0b0c10"/>
+    <rect x="392" y="275" width="5" height="9" fill="#fff6d0"/>
+    <rect x="392" y="302" width="5" height="9" fill="#fff6d0"/>
+  </g>
+
+  <!-- skid marks + tyre smoke: the burn-out -->
+  <g fill="none" stroke="#040406" stroke-linecap="round" stroke-opacity=".9">
+    <path d="M226 350 C 222 410, 196 450, 168 520" stroke-width="16"/>
+    <path d="M286 350 C 290 410, 312 450, 340 520" stroke-width="16"/>
+  </g>
+  <ellipse cx="256" cy="372" rx="70" ry="34" fill="url(#heat)"/>
+  <g filter="url(#smoke)" fill="#c9ccd6">
+    <circle cx="214" cy="402" r="34" fill-opacity=".55"/>
+    <circle cx="300" cy="410" r="38" fill-opacity=".5"/>
+    <circle cx="256" cy="440" r="42" fill-opacity=".45"/>
+    <circle cx="180" cy="452" r="30" fill-opacity=".35"/>
+    <circle cx="334" cy="460" r="32" fill-opacity=".32"/>
+  </g>
+  <g fill="#ffd21f">
+    <rect x="196" y="372" width="7" height="7"/>
+    <rect x="318" y="380" width="6" height="6" fill="#ff3d57"/>
+    <rect x="232" y="392" width="5" height="5" fill="#ffffff"/>
+    <rect x="290" y="368" width="5" height="5"/>
+  </g>
+
+  <!-- headlight beam ahead of the hero car -->
+  <polygon points="222,188 290,188 344,40 168,40" fill="url(#beam)"/>
+
+  <!-- the hero: yellow hopper car, nose up -->
+  <g filter="url(#glow)">
+    <rect x="198" y="186" width="116" height="170" rx="36" fill="#ffd21f"/>
+  </g>
+  <rect x="238" y="186" width="10" height="170" fill="#111"/>
+  <rect x="264" y="186" width="10" height="170" fill="#111"/>
+  <rect x="212" y="222" width="88" height="34" rx="8" fill="#0b0c10"/>
+  <rect x="216" y="314" width="80" height="24" rx="7" fill="#0b0c10"/>
+  <rect x="210" y="186" width="22" height="6" fill="#fff6d0"/>
+  <rect x="280" y="186" width="22" height="6" fill="#fff6d0"/>
+  <rect x="210" y="350" width="22" height="6" fill="#ff2240"/>
+  <rect x="280" y="350" width="22" height="6" fill="#ff2240"/>
+
+  <rect width="512" height="512" fill="url(#vig)"/>
+</svg>

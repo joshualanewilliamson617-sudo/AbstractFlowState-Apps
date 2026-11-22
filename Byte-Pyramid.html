@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Byte Pyramid</title>
+<style>
+/* Layout: header + control bar, then the 4-sided pyramid stage beside a reading panel (stacked on phones). Single dark look, matching Apex Prism. */
+:root{
+  color-scheme:dark;
+  --bg:#0f172a; --panel:rgba(30,41,59,.82); --text:#f8fafc; --muted:#94a3b8; --line:rgba(255,255,255,.09);
+  --accent:#facc15; --ok:#22c55e; --bad:#f43f5e;
+  --g0:#facc15; --g1:#38bdf8; --g2:#f472b6; --h0:#a78bfa; --h1:#34d399;
+  --stone-b:#16161a; --stone-w:#ece8dc;
+  --display:"Avenir Next","Trebuchet MS",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*,::before,::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 var(--display);background-image:radial-gradient(900px 500px at 70% -10%,rgba(56,189,248,.07),transparent 60%);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;margin:0}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,p{margin:0}
+.wrap{max-width:1420px;margin:0 auto;display:flex;flex-direction:column;gap:12px;padding-block:16px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.glass{background:var(--panel);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(10px)}
+.chip{border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;letter-spacing:.04em;background:rgba(255,255,255,.1);font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:6px}
+#state i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.title{font:900 26px/1 var(--display);letter-spacing:-.025em;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.title span{color:var(--g1)}
+.badge{font-style:normal;font-size:11px;font-weight:800;letter-spacing:.1em;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.1)}
+@media (min-width:640px){.title{font-size:34px}}
+.sub{margin-top:6px;font-size:12px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px}
+.seg{display:flex;flex-wrap:wrap;background:rgba(0,0,0,.3);border-radius:999px;padding:4px;gap:2px}
+.seg button{border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;color:#cbd5e1}
+.seg button:hover{background:rgba(255,255,255,.1)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#000}
+.bar-end{margin-left:auto;display:flex;flex-wrap:wrap;gap:8px}
+.btn{background:rgba(255,255,255,.1);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;transition:background .15s,color .15s}
+.btn:hover:not(:disabled){background:var(--accent);color:#000}
+.btn.primary{background:var(--accent);color:#000}
+.btn[aria-pressed="true"]{background:#10b981;color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:1000px){.grid{grid-template-columns:minmax(0,1fr) 380px}}
+.stage{position:relative;overflow:hidden;padding-bottom:8px}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 220px at 50% 80%,rgba(56,189,248,.10),transparent 65%)}
+#cv{display:block;width:100%;height:470px;touch-action:none;position:relative}
+@media (min-width:1000px){#cv{height:600px}}
+@media (max-width:520px){#cv{height:400px}}
+.tag{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.5);border:1px solid var(--line)}
+.banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-weight:900;font-size:16px;padding:10px 16px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.4);text-align:center;max-width:calc(100% - 32px);animation:pop .35s ease}
+@keyframes pop{0%{transform:translateX(-50%) scale(.7);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+.hint{padding:0 16px;text-align:center;font-size:11px;color:var(--muted);position:relative}
+.side{padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;align-items:start}
+@media (min-width:1000px){.side{grid-template-columns:minmax(0,1fr)}}
+.card{display:flex;flex-direction:column;gap:8px;min-width:0}
+.h{font-size:12px;font-weight:900;letter-spacing:.1em}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.small{font-size:12px;line-height:1.55;color:#cbd5e1}
+.muted{color:var(--muted)}
+.target{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tbox{background:rgba(0,0,0,.28);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;border:1px solid transparent}
+.tbox.ok{border-color:var(--ok)}
+.tlab{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--muted);display:flex;justify-content:space-between}
+.tval{font:900 30px/1.1 var(--mono);letter-spacing:.04em}
+.tval small{font-size:12px;color:var(--muted);font-weight:700;margin-left:4px}
+.tnote{font-size:11px;color:#cbd5e1}
+.nibs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.nibs.two{grid-template-columns:repeat(2,1fr)}
+.nib{background:rgba(0,0,0,.28);border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:2px;border-top:3px solid var(--c,#fff)}
+.nib .bits{font:800 14px var(--mono);letter-spacing:.12em}
+.nib .w{font:600 9px var(--mono);color:var(--muted);letter-spacing:.32em}
+.nib .d{font:900 20px var(--mono)}
+.nib .d.bad{color:var(--bad);font-size:13px;text-align:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px}
+.kv dt{color:var(--muted);font-weight:700}
+.kv dd{margin:0;font-family:var(--mono);font-weight:700}
+.big{font-size:16px}
+.call{position:absolute;left:50%;top:12px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;text-align:center;max-width:calc(100% - 32px)}
+.call b{font:900 30px/1 var(--display);letter-spacing:.02em;color:var(--accent);background:rgba(2,6,23,.78);border:1px solid rgba(250,204,21,.35);padding:6px 16px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.call span{font-size:13px;font-weight:800;color:#e2e8f0;background:rgba(0,0,0,.45);padding:3px 10px;border-radius:999px}
+.call.pop b{animation:callpop .28s ease}
+@keyframes callpop{0%{transform:scale(.6);opacity:.3}100%{transform:scale(1);opacity:1}}
+.gscore{display:flex;align-items:baseline;gap:8px}
+.gscore b{font:900 40px/1 var(--mono);font-variant-numeric:tabular-nums}
+.gscore span{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.meter{height:8px;border-radius:99px;background:rgba(0,0,0,.35);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--accent)}
+.msg{grid-column:1/-1;font-size:12px;line-height:1.5;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);color:#bae6fd;border-radius:12px;padding:8px 12px}
+.rules{margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:#cbd5e1}
+@media (prefers-reduced-motion:reduce){.banner,.call.pop b{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1 class="title">BYTE <span>PYRAMID</span> <em class="badge">12 + 8 BITS</em></h1>
+      <p class="sub" id="sub">The answer is already on the pyramid • Slide each ring until it reads the key • The point lights when both are right</p>
+    </div>
+    <div class="chips">
+      <span class="chip" id="state"><i></i><b>READY</b></span>
+      <span class="chip" id="time">0:00</span>
+      <span class="chip" id="flips">0 moves</span>
+    </div>
+  </header>
+
+  <div class="glass bar">
+    <div class="seg" role="group" aria-label="Mode">
+      <button type="button" id="mChal" data-mode="challenge">Challenge</button>
+      <button type="button" id="mFree" data-mode="free">Free play</button>
+      <button type="button" id="mTap" data-mode="tapit">Tap It</button>
+      <button type="button" id="mEcho" data-mode="echo">Bit Echo</button>
+      <button type="button" id="mRush" data-mode="rush">Byte Rush</button>
+      <button type="button" id="mStorm" data-mode="storm">Bit Storm</button>
+    </div>
+    <div class="seg" role="group" aria-label="Key" id="keySeg">
+      <button type="button" id="kHidden" data-key="hidden">Hidden key</button>
+      <button type="button" id="kOpen" data-key="open">Open key</button>
+    </div>
+    <div class="seg" role="group" aria-label="Live reading">
+      <button type="button" id="rOn" data-read="1">Live reading on</button>
+      <button type="button" id="rOff" data-read="0">Off (hard)</button>
+    </div>
+    <div class="bar-end">
+      <button type="button" class="btn primary" id="newGame">New game</button>
+      <button type="button" class="btn" id="clear">Clear bits</button>
+      <button type="button" class="btn" id="resetView">Reset view</button>
+      <button type="button" class="btn" id="sound" aria-pressed="true">Sound on</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="glass stage">
+      <canvas id="cv" aria-label="Four-sided pyramid: 12-bit bottom ring, 8-bit middle ring and a single-color point"></canvas>
+      <span class="chip tag" id="tag">ROUND 1 OF 8</span>
+      <div class="banner" id="banner" hidden></div>
+      <div class="call" id="call" hidden><b id="callTxt"></b><span id="callSub"></span></div>
+      <p class="hint" id="hint"></p>
+    </div>
+
+    <div class="glass side">
+      <div class="card" id="cardGame">
+        <div class="row"><h2 class="h" id="gName">TAP IT</h2><span class="small" id="gBest">Best: 0</span></div>
+        <p class="small" id="gDesc"></p>
+        <div class="gscore"><b id="gScore">0</b><span id="gLab">hits</span></div>
+        <div class="meter"><i id="gMeter"></i></div>
+        <button type="button" class="btn primary" id="gStart">Start</button>
+      </div>
+
+      <div class="card" id="cardTarget">
+        <div class="row"><h2 class="h">TARGET</h2><span class="small" id="roundTxt">Round 1 of 8</span></div>
+        <div class="target">
+          <div class="tbox" id="tbBottom">
+            <span class="tlab"><span>BOTTOM RING</span><span id="okBottom">•</span></span>
+            <span class="tval" id="tBottom">7A3<small>₁₂</small></span>
+            <span class="tnote" id="tBottomDec">= 1059 in base 10</span>
+          </div>
+          <div class="tbox" id="tbMiddle">
+            <span class="tlab"><span>MIDDLE RING</span><span id="okMiddle">•</span></span>
+            <span class="tval" id="tMiddle">K</span>
+            <span class="tnote" id="tMiddleCode">in EBCDIC</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="cardBottom">
+        <div class="row"><h2 class="h">BOTTOM RING • BASE 12</h2><span class="small" id="bValue"></span></div>
+        <div class="nibs" id="nibs"></div>
+        <p class="small muted" id="bNote">Each colored group of 4 squares is one base-12 digit (0–9, then A = 10, B = 11). Patterns worth 12–15 are not digits.</p>
+      </div>
+
+      <div class="card" id="cardMiddle">
+        <div class="row"><h2 class="h">MIDDLE RING • ONE BYTE</h2><span class="small" id="mBits"></span></div>
+        <div class="nibs two" id="hexNibs"></div>
+        <dl class="kv" id="mKv"></dl>
+      </div>
+
+      <div class="card" id="cardRules">
+        <h2 class="h">HOW IT READS</h2>
+        <ul class="rules">
+          <li>Black square = 1, white = 0. Bit weights in each group of 4 are 8, 4, 2, 1.</li>
+          <li>Bottom: 12 bits = three base-12 digits, coded like BCD but stopping at B. No real hardware uses this; it is this game's own code.</li>
+          <li>Middle: 8 bits = one byte. ASCII only defines 0–127, so the first bit must be 0. EBCDIC (code page 037, IBM mainframes) puts its letters and digits up high, with the first bit 1.</li>
+          <li>So no byte is the same letter in both codes. In EBCDIC, A–I are C1–C9, J–R are D1–D9, S–Z are E2–E9.</li>
+        </ul>
+      </div>
+
+      <p class="msg" id="msg" hidden></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  // ---------- codes ----------
+  const EB = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", " ", "", "â", "ä", "à", "á", "ã", "å", "ç", "ñ", "¢", ".", "<", "(", "+", "|", "&", "é", "ê", "ë", "è", "í", "î", "ï", "ì", "ß", "!", "$", "*", ")", ";", "¬", "-", "/", "Â", "Ä", "À", "Á", "Ã", "Å", "Ç", "Ñ", "¦", ",", "%", "_", ">", "?", "ø", "É", "Ê", "Ë", "È", "Í", "Î", "Ï", "Ì", "`", ":", "#", "@", "'", "=", "\"", "Ø", "a", "b", "c", "d", "e", "f", "g", "h", "i", "«", "»", "ð", "ý", "þ", "±", "°", "j", "k", "l", "m", "n", "o", "p", "q", "r", "ª", "º", "æ", "¸", "Æ", "¤", "µ", "~", "s", "t", "u", "v", "w", "x", "y", "z", "¡", "¿", "Ð", "Ý", "Þ", "®", "^", "£", "¥", "·", "©", "§", "¶", "¼", "½", "¾", "[", "]", "¯", "¨", "´", "×", "{", "A", "B", "C", "D", "E", "F", "G", "H", "I", "", "ô", "ö", "ò", "ó", "õ", "}", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "¹", "û", "ü", "ù", "ú", "ÿ", "\\", "÷", "S", "T", "U", "V", "W", "X", "Y", "Z", "²", "Ô", "Ö", "Ò", "Ó", "Õ", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "³", "Û", "Ü", "Ù", "Ú", ""];
+  const CTRL = ["NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL","BS","TAB","LF","VT","FF","CR","SO","SI","DLE","DC1","DC2","DC3","DC4","NAK","SYN","ETB","CAN","EM","SUB","ESC","FS","GS","RS","US"];
+  const DIG = "0123456789AB";
+  const POOL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?#$%&*+";
+  const ROUNDS = 8;
+  function asciiOf(b) {
+    if (b < 32) return { ok: false, txt: `${CTRL[b]} (control code)` };
+    if (b === 32) return { ok: true, txt: "space", ch: " " };
+    if (b === 127) return { ok: false, txt: "DEL (control code)" };
+    if (b > 127) return { ok: false, txt: "not ASCII (first bit is 1)" };
+    return { ok: true, txt: `"${String.fromCharCode(b)}"`, ch: String.fromCharCode(b) };
+  }
+  function ebcdicOf(b) {
+    const c = EB[b];
+    if (b === 0x40) return { ok: true, txt: "space", ch: " " };
+    if (!c) return { ok: false, txt: b < 0x40 ? "control code" : "unassigned / control" };
+    return { ok: true, txt: `"${c}"`, ch: c };
+  }
+
+  // ---------- geometry: square pyramid, base side 3, height 3 ----------
+  const RINGS = [{ k: 0, w: 3, n: 12 }, { k: 1, w: 2, n: 8 }];
+  const PEAK = 3, MIDY = 1.3, CAM = 30, INS = 0.07, R2 = Math.SQRT2;
+  const FACES = ["A", "B", "C", "D"];
+  const mod = (a, n) => ((a % n) + n) % n;
+  const vert = (L, f) => { const a = (3 * Math.PI) / 4 - (f * Math.PI) / 2, R = L / R2; return [R * Math.cos(a), R * Math.sin(a)]; };
+  function at(r, s, y) {
+    s = mod(s, r.n);
+    let f = Math.floor(s / r.w); if (f > 3) f = 3;
+    const u = (s - f * r.w) / r.w, L = PEAK - y, a = vert(L, f), b = vert(L, (f + 1) % 4);
+    return [a[0] + (b[0] - a[0]) * u, y, a[1] + (b[1] - a[1]) * u];
+  }
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (v) => { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); };
+
+  // ---------- state ----------
+  const S = {
+    mode: "challenge", key: "hidden", live: true, sound: true,
+    bits: [new Array(12).fill(0), new Array(8).fill(0)],
+    disp: [new Array(12).fill(0), new Array(8).fill(0)],
+    due: [new Array(12).fill(0), new Array(8).fill(0)],
+    round: 1, tNum: 0, tByte: 0, tCode: "ebcdic", tChar: "K",
+    moves: 0, t0: 0, elapsed: 0, running: false, solved: false, done: false, best: 0,
+    yaw: 0.5, pitch: 0.38, anim: null, busy: false, apexGlow: 0, flash: [0, 0]
+  };
+  try { S.best = +localStorage.getItem("bytePyrBest") || 0; } catch (e) {}
+
+  const nibble = (bits, i) => bits[i] * 8 + bits[i + 1] * 4 + bits[i + 2] * 2 + bits[i + 3];
+  const byteOf = (bits) => bits.reduce((a, v) => a * 2 + v, 0);
+  const numToBits = (num) => { const d = [Math.floor(num / 144), Math.floor(num / 12) % 12, num % 12]; return d.flatMap((x) => [8, 4, 2, 1].map((w) => (x & w ? 1 : 0))); };
+  const toDoz = (num) => DIG[Math.floor(num / 144)] + DIG[Math.floor(num / 12) % 12] + DIG[num % 12];
+  const bottomOk = () => byteOf(S.bits[0]) === byteOf(numToBits(S.tNum));
+  const middleOk = () => byteOf(S.bits[1]) === S.tByte;
+
+  const rotArr = (a, n) => { const N = a.length, o = new Array(N); for (let i = 0; i < N; i++) o[mod(i + n, N)] = a[i]; return o; };
+  const sameArr = (a, b) => a.every((v, i) => v === b[i]);
+  const byteBits = (b) => [7, 6, 5, 4, 3, 2, 1, 0].map((p) => (b >> p) & 1);
+  // scramble a target ring into a rotation that does not already read right
+  function scrambleRing(target) {
+    const N = target.length, opts = [];
+    for (let n = 1; n < N; n++) { const r = rotArr(target, n); if (!sameArr(r, target)) opts.push(r); }
+    return opts[Math.floor(Math.random() * opts.length)];
+  }
+  function newTargets() {
+    S.tNum = 1 + Math.floor(Math.random() * 1727);
+    S.tCode = Math.random() < 0.5 ? "ascii" : "ebcdic";
+    S.tChar = POOL[Math.floor(Math.random() * POOL.length)];
+    S.tByte = S.tCode === "ascii" ? S.tChar.charCodeAt(0) : EB.indexOf(S.tChar);
+    S.solved = false;
+    if (S.mode === "challenge") {
+      S.bits = [numToBits(S.tNum), byteBits(S.tByte)].map(scrambleRing);
+      const now = performance.now();
+      S.due = S.bits.map((r, k) => r.map((_, i) => now + i * 30 + k * 140));
+    }
+  }
+  const rightCount = (k) => {
+    const t = k === 0 ? numToBits(S.tNum) : byteBits(S.tByte);
+    return S.bits[k].reduce((c, v, i) => c + (v === t[i] ? 1 : 0), 0);
+  };
+  // ================= arcade games: Tap It, Bit Echo, Byte Rush, Bit Storm =================
+  const ARC = ["tapit", "echo", "rush", "storm"];
+  const isArc = () => ARC.includes(S.mode);
+  const INFO = {
+    tapit: { name: "TAP IT", lab: "hits", desc: "Follow each call before the clock runs out. TAP IT: hit the glowing square. SLIDE IT: drag the glowing ring. SPIN IT: orbit the pyramid until that face is in front. Hits add time (tap +1 s, slide +1.5 s, spin +2 s). Wrong moves cost time, and the clock drains faster as you score." },
+    echo: { name: "BIT ECHO", lab: "in a row", desc: "Watch the squares light up, each with its own tone, then tap them back in the same order. Every round adds one more square. One wrong tap ends the run." },
+    rush: { name: "BYTE RUSH", lab: "built", desc: "Build each base-12 number or character by tapping squares. Sliding a ring helps too. Each one you build adds time: +6 s for a number, +5 s for a character. The clock drains faster as you go." },
+    storm: { name: "BIT STORM", lab: "cleared", desc: "Squares flip black on their own, faster and faster. Tap them back to white. If a whole ring turns black, the storm wins." }
+  };
+  const G = { on: false, over: false, id: 0, score: 0, clock: 0, t0: 0, call: null, seq: [], pos: 0, phase: "", nextSpawn: 0, interval: 1.1, q: null, fx: {}, apexHit: 0, best: {} };
+  try { ARC.forEach((m) => (G.best[m] = +localStorage.getItem("bytePyr_" + m) || 0)); } catch (e) {}
+  const fx = (k, i, c, ms) => { G.fx[k + ":" + i] = { c, until: performance.now() + ms, dur: ms }; };
+  function setBoard(make) {
+    const now = performance.now();
+    S.bits = RINGS.map((r) => Array.from({ length: r.n }, make));
+    S.due = RINGS.map((r, k) => Array.from({ length: r.n }, (_, i) => now + i * 22 + k * 110));
+  }
+  function arcadeReady() {
+    G.id++; G.on = false; G.over = false; G.score = 0; G.call = null; G.seq = []; G.phase = ""; G.q = null; G.fx = {};
+    S.done = false; S.solved = false; S.running = false; S.apexGlow = 0;
+    setBoard(() => (S.mode === "tapit" ? (Math.random() < 0.5 ? 1 : 0) : 0));
+    G.clock = S.mode === "tapit" ? 10 : S.mode === "rush" ? 20 : 0;
+    $("banner").hidden = true;
+    say(`${INFO[S.mode].desc} Press Start when you're ready.`);
+    ui();
+  }
+  function arcadeStart() {
+    if (S.busy) return;
+    arcadeReady();
+    const now = performance.now(), id = G.id;
+    G.on = true; G.t0 = now;
+    if (S.mode === "tapit") { G.clock = 10; nextCall(); say("Go! Follow the calls."); }
+    if (S.mode === "echo") { extendSeq(); playSeq(id); }
+    if (S.mode === "rush") { G.clock = 20; nextQuestion(); }
+    if (S.mode === "storm") { G.interval = 1.1; G.nextSpawn = now + 700; say("The storm is coming. Tap black squares back to white."); }
+    ui();
+  }
+  function arcadeOver(msg) {
+    if (!G.on) return;
+    G.on = false; G.over = true; G.call = null;
+    let nb = "";
+    if (G.score > (G.best[S.mode] || 0)) { G.best[S.mode] = G.score; nb = " New best!"; try { localStorage.setItem("bytePyr_" + S.mode, String(G.score)); } catch (e) {} }
+    tone(220, 110, 0.6, 0.09);
+    banner(`GAME OVER • ${G.score} ${INFO[S.mode].lab.toUpperCase()}`);
+    say(`${msg} Score: ${G.score} ${INFO[S.mode].lab}.${nb} Press Start to go again.`);
+    ui();
+  }
+  function pickVisible() {
+    const list = hits.length ? hits : [{ k: Math.floor(Math.random() * 2), i: 0 }];
+    const h = list[Math.floor(Math.random() * list.length)];
+    return { k: h.k, i: h.i };
+  }
+  function frontFace() {
+    const r = RINGS[0];
+    let best = 0, bz = -1e9;
+    for (let f = 0; f < 4; f++) { const z = view(at(r, f * 3 + 1.5, 0.5))[2]; if (z > bz) { bz = z; best = f; } }
+    return best;
+  }
+  function popCall() { const c = $("call"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); }
+  // --- Tap It ---
+  function nextCall() {
+    const r = Math.random();
+    let type = r < 0.6 ? "tap" : r < 0.85 ? "slide" : "spin";
+    if (type === "spin" && G.score < 3) type = "tap";
+    if (type === "tap") { const h = pickVisible(); G.call = { type, k: h.k, i: h.i }; tone(660, 660, 0.12, 0.07); }
+    else if (type === "slide") { G.call = { type, k: Math.random() < 0.5 ? 0 : 1 }; tone(440, 660, 0.22, 0.07); }
+    else { const f0 = frontFace(); let f; do f = Math.floor(Math.random() * 4); while (f === f0); G.call = { type, f, hold: 0 }; tone(330, 880, 0.3, 0.07); }
+    popCall();
+  }
+  function tapHit(add) {
+    G.score++; G.clock = Math.min(30, G.clock + add); G.apexHit = performance.now();
+    tone(880, 1175, 0.15, 0.06);
+    nextCall(); ui();
+  }
+  function tapMiss(sub, why) { G.clock -= sub; tone(160, 120, 0.25, 0.09); say(why); }
+  function tapItTap(k, i) {
+    const c = G.call;
+    if (c && c.type === "tap" && c.k === k && c.i === i) { S.bits[k][i] ^= 1; S.due[k][i] = performance.now(); fx(k, i, "gold", 350); tapHit(1); }
+    else { fx(k, i, "red", 450); tapMiss(1.5, c && c.type === "tap" ? "Wrong square: −1.5 s. Hit the glowing one." : `Wrong move: −1.5 s. The call is ${c ? c.type.toUpperCase() + " IT" : ""}.`); }
+  }
+  function tapItSlide(k) {
+    const c = G.call;
+    if (c && c.type === "slide" && c.k === k) tapHit(1.5);
+    else tapMiss(1, `Wrong move: −1 s. The call is ${c ? c.type.toUpperCase() + " IT" : ""}.`);
+  }
+  // --- Bit Echo ---
+  const NOTE = [0, 2, 4, 7, 9];
+  const freqOf = (k, i) => { const x = k * 12 + i; return 220 * Math.pow(2, (NOTE[x % 5] + 12 * Math.floor(x / 5)) / 12); };
+  function extendSeq() {
+    let h, guard = 0;
+    do h = pickVisible(); while (G.seq.length && G.seq[G.seq.length - 1][0] === h.k && G.seq[G.seq.length - 1][1] === h.i && guard++ < 10);
+    G.seq.push([h.k, h.i]);
+  }
+  function playSeq(id) {
+    G.phase = "show"; G.pos = 0;
+    const step = Math.max(260, 520 - G.seq.length * 18), lead = 650;
+    G.seq.forEach(([k, i], j) => setTimeout(() => {
+      if (G.id !== id || !G.on) return;
+      fx(k, i, "gold", step * 0.85); const f = freqOf(k, i); tone(f, f, (step / 1000) * 0.9, 0.08);
+    }, lead + j * (step + 120)));
+    setTimeout(() => { if (G.id !== id || !G.on) return; G.phase = "input"; G.pos = 0; say(`Your turn: tap the ${G.seq.length} square${G.seq.length > 1 ? "s" : ""} back in order.`); popCall(); ui(); }, lead + G.seq.length * (step + 120));
+    say(`Watch: ${G.seq.length} square${G.seq.length > 1 ? "s" : ""}.`); popCall(); ui();
+  }
+  function echoTap(k, i) {
+    if (G.phase !== "input") { if (G.phase === "show") say("Watch first. Your turn starts when the sequence ends."); return; }
+    const [ek, ei] = G.seq[G.pos];
+    if (ek === k && ei === i) {
+      fx(k, i, "gold", 300); const f = freqOf(k, i); tone(f, f, 0.3, 0.08);
+      G.pos++;
+      if (G.pos >= G.seq.length) {
+        G.score = G.seq.length; G.apexHit = performance.now(); G.phase = "wait";
+        say(`${G.seq.length} in a row. Watch the next one.`);
+        const id = G.id;
+        setTimeout(() => { if (G.id !== id || !G.on) return; extendSeq(); playSeq(id); }, 850);
+      }
+      ui();
+    } else {
+      fx(k, i, "red", 600); fx(ek, ei, "gold", 1200);
+      arcadeOver(`Wrong square. The gold one was next.`);
+    }
+  }
+  // --- Byte Rush ---
+  function nextQuestion() {
+    if (Math.random() < 0.5) {
+      let n; do n = 1 + Math.floor(Math.random() * 1727); while (sameArr(numToBits(n), S.bits[0]));
+      G.q = { k: 0, bits: numToBits(n), label: `${toDoz(n)} in base 12`, sub: `= ${n} in base 10` };
+    } else {
+      let ch, code, by;
+      do { code = Math.random() < 0.5 ? "ascii" : "ebcdic"; ch = POOL[Math.floor(Math.random() * POOL.length)]; by = code === "ascii" ? ch.charCodeAt(0) : EB.indexOf(ch); } while (byteOf(S.bits[1]) === by);
+      G.q = { k: 1, bits: byteBits(by), label: `"${ch}" in ${code === "ascii" ? "ASCII" : "EBCDIC"}`, sub: code === "ascii" ? "ASCII: first bit 0" : "EBCDIC: letters and digits start with 1" };
+    }
+    tone(523, 659, 0.2, 0.06); popCall();
+    say(`Build ${G.q.label} on the ${G.q.k ? "middle" : "bottom"} ring.`);
+  }
+  function rushCheck() {
+    if (!G.q || !sameArr(S.bits[G.q.k], G.q.bits)) return;
+    G.score++; G.clock = Math.min(45, G.clock + (G.q.k ? 5 : 6)); G.apexHit = performance.now();
+    RINGS[G.q.k] && S.bits[G.q.k].forEach((_, i) => fx(G.q.k, i, "gold", 500));
+    chime(); nextQuestion();
+  }
+  // --- Bit Storm ---
+  function stormSpawn(now) {
+    const white = [];
+    S.bits.forEach((r, k) => r.forEach((v, i) => { if (!v) white.push([k, i]); }));
+    if (white.length) {
+      const [k, i] = white[Math.floor(Math.random() * white.length)];
+      S.bits[k][i] = 1; S.due[k][i] = now; fx(k, i, "red", 400);
+      tone(180, 150, 0.12, 0.05);
+    }
+    G.interval = Math.max(0.28, G.interval * 0.965);
+    G.nextSpawn = now + G.interval * 1000;
+    for (let k = 0; k < 2; k++) if (S.bits[k].every((v) => v === 1)) return arcadeOver(`The ${k ? "middle" : "bottom"} ring filled up with black.`);
+  }
+  function stormTap(k, i) {
+    if (!S.bits[k][i]) return;
+    S.bits[k][i] = 0; S.due[k][i] = performance.now(); fx(k, i, "gold", 300);
+    G.score++; tick(0); ui();
+  }
+  function arcadeTick(now, dt) {
+    if (!isArc() || !G.on) return;
+    if (S.mode === "tapit") {
+      G.clock -= dt * (1 + G.score * 0.03);
+      const c = G.call;
+      if (c && c.type === "spin") { if (frontFace() === c.f) { c.hold += dt; if (c.hold > 0.25) tapHit(2); } else c.hold = 0; }
+      if (G.clock <= 0) { G.clock = 0; arcadeOver("Time ran out."); }
+    } else if (S.mode === "rush") {
+      G.clock -= dt * (1 + G.score * 0.04);
+      if (G.clock <= 0) { G.clock = 0; arcadeOver("Time ran out."); }
+    } else if (S.mode === "storm") {
+      G.clock = (now - G.t0) / 1000;
+      if (now >= G.nextSpawn) stormSpawn(now);
+    }
+  }
+  function arcadeHud() {
+    if (!isArc()) return;
+    const m = S.mode;
+    $("time").textContent = m === "storm" ? fmt(G.clock) : `${Math.max(0, G.clock).toFixed(1)} s`;
+    $("gScore").textContent = G.score;
+    let fill = 0;
+    if (m === "tapit") fill = G.clock / 30;
+    else if (m === "rush") fill = G.clock / 45;
+    else if (m === "storm") fill = Math.max(...S.bits.map((r) => r.reduce((a, v) => a + v, 0) / r.length));
+    else fill = G.seq.length ? (G.phase === "input" ? G.pos / G.seq.length : 0) : 0;
+    $("gMeter").style.width = Math.max(0, Math.min(1, fill)) * 100 + "%";
+    $("gMeter").style.background = m === "storm" && fill > 0.7 ? "var(--bad)" : (m === "tapit" || m === "rush") && G.clock < 4 ? "var(--bad)" : "var(--accent)";
+  }
+
+  function newGame() {
+    if (isArc()) return arcadeReady();
+    S.round = 1; S.moves = 0; S.elapsed = 0; S.running = false; S.done = false; S.solved = false;
+    S.bits = [new Array(12).fill(0), new Array(8).fill(0)];
+    S.due = [new Array(12).fill(0), new Array(8).fill(0)];
+    const now = performance.now();
+    S.due.forEach((r, k) => r.forEach((_, i) => (r[i] = now + i * 25 + k * 120)));
+    newTargets();
+    S.flash = [0, 0];
+    $("banner").hidden = true;
+    say(S.mode === "challenge" ? roundMsg()
+      : "Free play: flip and rotate bits and watch both readings. The point lights when the byte is a printable character in both codes and all three base-12 digits are valid.");
+    ui();
+  }
+
+  // ---------- moves ----------
+  function roundMsg() {
+    const code = S.tCode === "ascii" ? "ASCII" : "EBCDIC";
+    return S.key === "open"
+      ? `Round ${S.round} of ${ROUNDS}. The right bits are already on the pyramid. Slide the bottom ring until it reads ${toDoz(S.tNum)} in base 12, and the middle ring until it reads "${S.tChar}" in ${code}.`
+      : `Round ${S.round} of ${ROUNDS}. The key is hidden. The bottom ring is a base-12 number and the middle ring is a character in ${code}. Slide each ring and watch how many bits turn out right.`;
+  }
+  function started() { if (!S.running && !S.done && S.mode === "challenge") { S.running = true; S.t0 = performance.now() - S.elapsed * 1000; } }
+  function flip(k, i) {
+    if (isArc()) {
+      if (!G.on) { say(G.over ? "Game over. Press Start to play again." : "Press Start to play."); return; }
+      if (S.mode === "tapit") return tapItTap(k, i);
+      if (S.mode === "echo") return echoTap(k, i);
+      if (S.mode === "storm") return stormTap(k, i);
+      S.bits[k][i] ^= 1; S.due[k][i] = performance.now(); tick(S.bits[k][i]);
+      rushCheck(); ui(); return;
+    }
+    if (S.busy || S.done || S.solved) return;
+    if (S.mode === "challenge") { say("In Challenge the answer is already on the pyramid, so squares can't be flipped. Drag a ring sideways to slide it. Tapping squares is for Free play."); return; }
+    started();
+    S.bits[k][i] ^= 1; S.due[k][i] = performance.now(); S.moves++;
+    tick(S.bits[k][i]);
+    after();
+  }
+  function rotate(k, n) {
+    const N = RINGS[k].n, rot = (a) => { const o = new Array(N); for (let i = 0; i < N; i++) o[mod(i + n, N)] = a[i]; return o; };
+    S.bits[k] = rot(S.bits[k]); S.disp[k] = rot(S.disp[k]); S.due[k] = rot(S.due[k]);
+  }
+  function commitRotate(k, n) {
+    if (!n) return;
+    if (isArc()) {
+      if (!G.on) return;
+      rotate(k, n); tick(1);
+      if (S.mode === "tapit") tapItSlide(k);
+      if (S.mode === "rush") rushCheck();
+      ui(); return;
+    }
+    started();
+    rotate(k, n); S.moves++;
+    tick(1);
+    after();
+  }
+  function after() {
+    const now = performance.now();
+    if (S.mode === "challenge") {
+      if (bottomOk() && !S.flash[0]) S.flash[0] = now; if (!bottomOk()) S.flash[0] = 0;
+      if (middleOk() && !S.flash[1]) S.flash[1] = now; if (!middleOk()) S.flash[1] = 0;
+      if (!(bottomOk() && middleOk())) {
+        const any = bottomOk() || middleOk();
+        say(`Bottom ring: ${rightCount(0)} of 12 bits right. Middle ring: ${rightCount(1)} of 8 bits right.${any ? " A ring that reads right locks in green." : ""}`);
+      }
+      if (bottomOk() && middleOk()) {
+        S.solved = true; S.apexGlow = now; chime();
+        if (S.round >= ROUNDS) {
+          S.done = true; S.running = false;
+          const t = Math.round(S.elapsed);
+          let best = "";
+          if (!S.best || t < S.best) { S.best = t; best = " New best time."; try { localStorage.setItem("bytePyrBest", String(t)); } catch (e) {} }
+          banner(`ALL ${ROUNDS} SOLVED • ${fmt(t)}`);
+          say(`All ${ROUNDS} rounds solved in ${fmt(t)} with ${S.moves} moves.${best} Press New game to play again.`);
+        } else {
+          banner(`ROUND ${S.round} SOLVED`, 1500);
+          say(`Round ${S.round} solved. Next targets coming up.`);
+          setTimeout(() => { if (S.solved && !S.done) { S.round++; newTargets(); S.flash = [0, 0]; say(roundMsg()); ui(); } }, 1500);
+        }
+      }
+    } else {
+      const both = freeLit();
+      if (both && !S.apexGlow) { S.apexGlow = now; chime(); }
+      if (!both) S.apexGlow = 0;
+    }
+    ui();
+  }
+  function freeLit() {
+    const b = byteOf(S.bits[1]);
+    const digitsOk = [0, 4, 8].every((i) => nibble(S.bits[0], i) < 12);
+    return digitsOk && asciiOf(b).ok && ebcdicOf(b).ok;
+  }
+
+  // ---------- sound ----------
+  let actx = null;
+  function tone(f0, f1, dur, vol) {
+    if (!S.sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.05);
+    } catch (e) {}
+  }
+  const tick = (v) => tone(v ? 330 : 494, v ? 262 : 392, 0.25, 0.07);
+  const chime = () => { tone(523, 523, 0.5, 0.08); setTimeout(() => tone(784, 784, 0.7, 0.07), 120); };
+
+  // ---------- projection ----------
+  const cv = $("cv"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, DPR = 1, F = 1;
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    F = Math.min((H * 0.86 * CAM) / (PEAK * 1.2), (W * 0.84 * CAM) / (PEAK * 1.6));
+  }
+  new ResizeObserver(resize).observe(cv);
+  function rot3(v) {
+    const cy = Math.cos(S.yaw), sy = Math.sin(S.yaw), cp = Math.cos(S.pitch), sp = Math.sin(S.pitch);
+    const x1 = v[0] * cy - v[2] * sy, z1 = v[0] * sy + v[2] * cy;
+    return [x1, v[1] * cp - z1 * sp, v[1] * sp + z1 * cp];
+  }
+  const view = (p) => rot3([p[0], p[1] - MIDY, p[2]]);
+  function scr(p) { const v = view(p), d = CAM - v[2]; return [W / 2 + (F * v[0]) / d, H / 2 + 4 - (F * v[1]) / d]; }
+  const LD = norm([-0.4, 0.55, 0.75]);
+  const lightOf = (nv) => 0.42 + 0.58 * Math.max(0, nv[0] * LD[0] + nv[1] * LD[1] + nv[2] * LD[2]);
+  const C_BODY = [58, 66, 90], C_B = [24, 24, 29], C_W = [238, 234, 222], C_SEAL = [96, 104, 124], C_GOLD = [250, 204, 21];
+  const rgb = (c, L) => `rgb(${c.map((x) => Math.round(Math.min(255, x * L))).join(",")})`;
+  function stoneFill(d, L) {
+    const lb = 0.75 + 0.65 * L, lw = 0.6 + 0.4 * L, glow = d > 0.02 && d < 0.98 ? 1 + 0.5 * Math.max(0, 1 - Math.abs(d - 0.5) * 4) : 1;
+    return `rgb(${[0, 1, 2].map((i) => Math.round(Math.min(255, (C_B[i] * lb * d + C_W[i] * lw * (1 - d)) * glow))).join(",")})`;
+  }
+  function visible(nW, cW) { const nv = rot3(nW), c = view(cW); return nv[0] * -c[0] + nv[1] * -c[1] + nv[2] * (CAM - c[2]) > 0 ? nv : null; }
+  function path(pts) { ctx.beginPath(); pts.forEach((q, i) => { const s = scr(q); i ? ctx.lineTo(s[0], s[1]) : ctx.moveTo(s[0], s[1]); }); ctx.closePath(); }
+  function faceNormal(a, b, d, ctr) { let n = norm(cross(sub(b, a), sub(d, a))); if (n[0] * ctr[0] + n[2] * ctr[2] < 0) n = n.map((x) => -x); return n; }
+
+  const GROUP = [[250, 204, 21], [56, 189, 248], [244, 114, 182]], HEXC = [[167, 139, 250], [52, 211, 153]];
+  let hits = [], bands = [], hoverHit = null, hoverBand = -1;
+  function draw(now) {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    hits = []; bands = [];
+    drawGround();
+    const vis = RINGS.map(() => [null, null, null, null]);
+    RINGS.forEach((r, k) => {
+      for (let f = 0; f < 4; f++) {
+        const a = at(r, f * r.w, k), b = at(r, (f + 1) * r.w, k), c = at(r, (f + 1) * r.w, k + 1), d = at(r, f * r.w, k + 1);
+        const ctr = [(a[0] + b[0] + c[0] + d[0]) / 4, k + 0.5, (a[2] + b[2] + c[2] + d[2]) / 4];
+        const nv = visible(faceNormal(a, b, d, ctr), ctr);
+        if (!nv) continue;
+        const L = lightOf(nv);
+        vis[k][f] = L;
+        path([a, b, c, d]); ctx.fillStyle = rgb(C_BODY, L); ctx.fill();
+        bands.push({ k, q: [a, b, c, d].map(scr) });
+      }
+    });
+    RINGS.forEach((r, k) => {
+      const off = S.anim && S.anim.k === k ? S.anim.off : 0, yb = k + INS, yt = k + 1 - INS;
+      const okRow = S.mode === "challenge" && (k === 0 ? bottomOk() : middleOk());
+      const fl = S.flash[k] ? Math.max(0, 1 - (now - S.flash[k]) / 900) : 0;
+      for (let i = 0; i < r.n; i++) {
+        const s = i + off, pa = s + INS, pb = s + 1 - INS;
+        const F0 = Math.floor(pa / r.w), F1 = Math.floor((pb - 1e-9) / r.w);
+        const gc = k === 0 ? GROUP[Math.floor(i / 4)] : HEXC[Math.floor(i / 4)];
+        for (let FF = F0; FF <= F1; FF++) {
+          const f = mod(FF, 4), L = vis[k][f];
+          if (L == null) continue;
+          const sa = Math.max(pa, FF * r.w), sb = Math.min(pb, (FF + 1) * r.w);
+          const poly = [at(r, sa, yb), at(r, sb, yb), at(r, sb, yt), at(r, sa, yt)];
+          path(poly);
+          ctx.fillStyle = stoneFill(S.disp[k][i], L); ctx.fill();
+          const hov = hoverHit && hoverHit.k === k && hoverHit.i === i && !S.anim;
+          if (okRow) { ctx.strokeStyle = `rgba(34,197,94,${0.7 + fl * 0.3})`; ctx.lineWidth = 1.6 + fl * 2; }
+          else { ctx.strokeStyle = `rgba(${gc.join(",")},${hov ? 1 : 0.7})`; ctx.lineWidth = hov ? 2.6 : 1.5; }
+          ctx.stroke();
+          const e = G.fx[k + ":" + i];
+          if (e && now < e.until) { const a = (e.until - now) / e.dur; ctx.fillStyle = e.c === "red" ? `rgba(244,63,94,${0.75 * a})` : `rgba(250,204,21,${0.85 * a})`; ctx.fill(); }
+          if (S.mode === "tapit" && G.on && G.call) {
+            if (G.call.type === "tap" && G.call.k === k && G.call.i === i) {
+              const p = 0.5 + 0.5 * Math.sin(now / 90);
+              ctx.fillStyle = `rgba(250,204,21,${0.35 + 0.35 * p})`; ctx.fill(); ctx.strokeStyle = "#facc15"; ctx.lineWidth = 3.5; ctx.stroke();
+            } else if (G.call.type === "slide" && G.call.k === k) {
+              const p = 0.5 + 0.5 * Math.sin(now / 120);
+              ctx.fillStyle = `rgba(56,189,248,${0.12 + 0.18 * p})`; ctx.fill(); ctx.strokeStyle = `rgba(56,189,248,${0.6 + 0.4 * p})`; ctx.lineWidth = 3; ctx.stroke();
+            }
+          }
+          if (S.mode === "rush" && G.on && G.q && G.q.k === k) { ctx.strokeStyle = "rgba(250,204,21,.9)"; ctx.lineWidth = 2.4; ctx.stroke(); }
+          // bit index dot on the first stone (start of reading)
+          if (i === 0 && !S.anim) {
+            const c = scr(at(r, s + 0.18, k + 0.22));
+            ctx.beginPath(); ctx.arc(c[0], c[1], 3, 0, 7); ctx.fillStyle = "#facc15"; ctx.fill();
+          }
+          if (!S.anim && F0 === F1) hits.push({ poly: poly.map(scr), k, i });
+        }
+      }
+    });
+    // the point: four triangles, one color
+    const top = { k: 2, w: 1, n: 4 }, pk = [0, PEAK, 0];
+    let lit = 0;
+    if (S.apexGlow) lit = S.mode === "challenge" ? (S.solved ? 1 : 0) : freeLit() ? 1 : 0;
+    if (isArc()) lit = now - G.apexHit < 380 ? 1 : 0;
+    const pulse = lit ? (isArc() ? 1 : 0.85 + 0.15 * Math.sin((now - S.apexGlow) / 220)) : 0;
+    for (let f = 0; f < 4; f++) {
+      const a = at(top, f, 2), b = at(top, f + 1, 2);
+      const ctr = [(a[0] + b[0]) / 3, (a[1] + b[1] + PEAK) / 3, (a[2] + b[2]) / 3];
+      let n = norm(cross(sub(b, a), sub(pk, a)));
+      if (n[0] * ctr[0] + n[2] * ctr[2] < 0) n = n.map((x) => -x);
+      const nv = visible(n, ctr);
+      if (!nv) continue;
+      const L = lightOf(nv);
+      path([a, b, pk]);
+      ctx.fillStyle = lit ? rgb(C_GOLD, (0.7 + 0.45 * L) * pulse) : rgb(C_SEAL, L); ctx.fill();
+      ctx.strokeStyle = lit ? "rgba(255,255,255,.6)" : "rgba(148,163,184,.4)"; ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+  function drawGround() {
+    const c = scr([0, 0, 0]), d = CAM - view([0, 0, 0])[2];
+    const rx = (F * 2.8) / d, ry = Math.max(6, rx * Math.abs(Math.sin(S.pitch)));
+    const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], rx);
+    g.addColorStop(0, "rgba(0,0,0,.55)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(1, ry / rx); ctx.translate(-c[0], -c[1]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], rx, 0, 7); ctx.fill(); ctx.restore();
+    const r = RINGS[0];
+    ctx.font = "800 13px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let f = 0; f < 4; f++) {
+      const m = at(r, f * r.w + r.w / 2, 0), k = 1 + 0.6 / Math.hypot(m[0], m[2]);
+      if (view(m)[2] < -0.3) continue;
+      const s = scr([m[0] * k, -0.15, m[2] * k]);
+      const tgt = S.mode === "tapit" && G.on && G.call && G.call.type === "spin" && G.call.f === f;
+      ctx.font = tgt ? "900 22px system-ui" : "800 13px system-ui";
+      ctx.fillStyle = tgt ? "#38bdf8" : "rgba(250,204,21,.85)"; ctx.fillText(FACES[f], s[0], s[1]);
+    }
+    const st = at(r, 0.2, 0), k2 = 1 + 0.55 / Math.hypot(st[0], st[2]);
+    if (view(st)[2] > -0.3) {
+      const s = scr([st[0] * k2, -0.15, st[2] * k2]);
+      ctx.font = "800 10px system-ui"; ctx.fillStyle = "rgba(250,204,21,.9)"; ctx.fillText("START ▸", s[0], s[1]);
+    }
+  }
+
+  // ---------- input ----------
+  function inPoly(x, y, poly) {
+    let ins = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins;
+    }
+    return ins;
+  }
+  const hitAt = (x, y) => { for (let i = hits.length - 1; i >= 0; i--) if (inPoly(x, y, hits[i].poly)) return hits[i]; return null; };
+  const bandAt = (x, y) => { for (const b of bands) if (inPoly(x, y, b.q)) return b.k; return -1; };
+  let visF = [];
+  function captureVis(k) {
+    const r = RINGS[k];
+    visF = [0, 1, 2, 3].map((f) => {
+      const a = at(r, f * r.w, k), b = at(r, (f + 1) * r.w, k), d = at(r, f * r.w, k + 1), ctr = at(r, f * r.w + r.w / 2, k + 0.5);
+      return !!visible(faceNormal(a, b, d, ctr), ctr);
+    });
+  }
+  function pickS(k, x, y) {
+    const r = RINGS[k];
+    let best = null, bd = Infinity, gap = 0;
+    for (let s = 0; s < r.n; s += 0.04) {
+      if (!visF[Math.min(3, Math.floor(s / r.w))]) continue;
+      const q = scr(at(r, s, k + 0.5)), d = (q[0] - x) ** 2 + (q[1] - y) ** 2 * 0.15;
+      if (d < bd) { bd = d; best = s; gap = Math.abs(q[0] - x); }
+    }
+    return best === null ? null : { s: best, gap };
+  }
+  function frontRate(k) {
+    const r = RINGS[k];
+    let best = 0;
+    for (let s = 0; s < r.n; s += 0.25) {
+      if (!visF[Math.min(3, Math.floor(s / r.w))]) continue;
+      const a = scr(at(r, s - 0.2, k + 0.5)), b = scr(at(r, s + 0.2, k + 0.5)), v = (b[0] - a[0]) / 0.4;
+      if (Math.abs(v) > Math.abs(best)) best = v;
+    }
+    return best || 40;
+  }
+  const wrapD = (d, n) => { d = mod(d, n); return d > n / 2 ? d - n : d; };
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  let drag = null;
+  cv.addEventListener("pointerdown", (e) => {
+    const [x, y] = pt(e);
+    cv.setPointerCapture(e.pointerId);
+    drag = { mode: "pending", x, y, px: x, hit: S.busy ? null : hitAt(x, y), band: S.busy ? -1 : bandAt(x, y), yaw: S.yaw, pitch: S.pitch, btn: e.button };
+  });
+  cv.addEventListener("pointermove", (e) => {
+    const [x, y] = pt(e);
+    if (!drag) {
+      hoverHit = hitAt(x, y); hoverBand = bandAt(x, y);
+      cv.style.cursor = hoverHit ? "pointer" : hoverBand >= 0 ? "grab" : "";
+      return;
+    }
+    const dx = x - drag.x, dy = y - drag.y;
+    if (drag.mode === "pending") {
+      if (Math.abs(dx) + Math.abs(dy) < 7) return;
+      const locked = S.mode === "challenge" && drag.band >= 0 && (drag.band === 0 ? bottomOk() : middleOk());
+      if (locked) say(`The ${drag.band === 0 ? "bottom" : "middle"} ring already reads right, so it is locked.`);
+      const arcBlock = isArc() && (!G.on || S.mode === "echo" || S.mode === "storm");
+      const canRing = drag.band >= 0 && !locked && !arcBlock && !S.busy && !S.done && !S.solved && Math.abs(dx) > Math.abs(dy) * 0.8;
+      if (canRing) {
+        const k = drag.band; captureVis(k);
+        const p0 = pickS(k, drag.x, drag.y);
+        if (p0) { Object.assign(drag, { mode: "ring", k, last: p0.s, rate: frontRate(k), off: 0 }); S.anim = { k, off: 0 }; cv.style.cursor = "grabbing"; }
+        else drag.mode = "orbit";
+      } else drag.mode = "orbit";
+    }
+    if (drag.mode === "orbit") {
+      S.yaw = drag.yaw + dx * 0.009;
+      S.pitch = Math.max(-0.1, Math.min(1.2, drag.pitch + dy * 0.006));
+      return;
+    }
+    const r = RINGS[drag.k], q = pickS(drag.k, x, y), stepX = x - drag.px;
+    drag.px = x;
+    if (!q) return;
+    drag.off += q.gap > 10 ? stepX / drag.rate : wrapD(q.s - drag.last, r.n);
+    drag.last = q.s;
+    S.anim.off = drag.off;
+  });
+  function end(e) {
+    if (!drag) return;
+    const d = drag; drag = null; cv.style.cursor = "";
+    if (d.mode === "pending") { if (e.type === "pointerup" && d.btn === 0 && d.hit) flip(d.hit.k, d.hit.i); return; }
+    if (d.mode !== "ring") return;
+    const n = Math.round(S.anim.off), k = d.k, from = S.anim.off, t0 = performance.now();
+    S.busy = true;
+    const step = (now) => {
+      const q = Math.min(1, (now - t0) / 160), ez = 1 - (1 - q) ** 3;
+      S.anim.off = from + (n - from) * ez;
+      if (q < 1) return requestAnimationFrame(step);
+      S.anim = null; S.busy = false;
+      commitRotate(k, n);
+    };
+    requestAnimationFrame(step);
+  }
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+  cv.addEventListener("pointerleave", () => { if (!drag) { hoverHit = null; hoverBand = -1; } });
+
+  // ---------- UI ----------
+  function say(t) { const m = $("msg"); m.textContent = t; m.hidden = !t; }
+  function fmt(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+  let bannerT = 0;
+  function banner(t, ms = 4000) { const b = $("banner"); b.textContent = t; b.hidden = false; clearTimeout(bannerT); bannerT = setTimeout(() => (b.hidden = true), ms); }
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+  function ui() {
+    const chal = S.mode === "challenge";
+    document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)));
+    document.querySelectorAll("[data-read]").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.read === (S.live ? 1 : 0))));
+    $("sound").textContent = S.sound ? "Sound on" : "Sound off"; $("sound").setAttribute("aria-pressed", String(S.sound));
+    $("cardTarget").hidden = !chal;
+    $("keySeg").hidden = !chal;
+    $("clear").hidden = chal;
+    document.querySelectorAll("[data-key]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.key === S.key)));
+    $("hint").textContent = chal
+      ? "Drag a ring sideways to slide its bits around the pyramid. The answer is already on the rings, so squares can't be flipped here. Drag the background to orbit. Bits read from START on face A, left to right."
+      : "Tap a square to flip its bit (black = 1, white = 0). Drag a ring sideways to rotate its bits. Drag the background to orbit. Bits read from START on face A, left to right.";
+    $("time").hidden = !chal;
+    const st = $("state");
+    st.querySelector("b").textContent = !chal ? "FREE PLAY" : S.done ? "ALL SOLVED" : S.solved ? "SOLVED" : S.running ? "PLAYING" : "READY";
+    st.style.color = S.solved || S.done ? "#22c55e" : "#facc15";
+    $("flips").textContent = `${S.moves} moves`;
+    if (!S.running) $("time").textContent = fmt(S.elapsed);
+    $("tag").textContent = chal ? (S.done ? `ALL ${ROUNDS} SOLVED` : `ROUND ${S.round} OF ${ROUNDS}`) : freeLit() ? "POINT LIT" : "FREE PLAY";
+    $("roundTxt").textContent = `Round ${S.round} of ${ROUNDS}${S.best ? ` • best ${fmt(S.best)}` : ""}`;
+    // targets
+    const showB = S.key === "open" || bottomOk() || S.done, showM = S.key === "open" || middleOk() || S.done;
+    $("tBottom").innerHTML = showB ? `${toDoz(S.tNum)}<small>base 12</small>` : `???<small>base 12</small>`;
+    $("tBottomDec").textContent = showB ? `= ${S.tNum} in base 10` : `${rightCount(0)} of 12 bits right`;
+    $("tMiddle").textContent = showM ? S.tChar : "?";
+    $("tMiddleCode").textContent = (S.tCode === "ascii" ? "in ASCII" : "in EBCDIC") + (showM ? "" : ` • ${rightCount(1)} of 8 bits right`);
+    $("tbBottom").classList.toggle("ok", bottomOk()); $("okBottom").textContent = bottomOk() ? "✓" : "•";
+    $("tbMiddle").classList.toggle("ok", middleOk()); $("okMiddle").textContent = middleOk() ? "✓" : "•";
+    // bottom reading
+    const b0 = S.bits[0];
+    let html = "", allOk = true, val = 0;
+    ["--g0", "--g1", "--g2"].forEach((c, g) => {
+      const nb = nibble(b0, g * 4), ok = nb < 12; allOk = allOk && ok; val = val * 12 + (ok ? nb : 0);
+      const bits = b0.slice(g * 4, g * 4 + 4).join("");
+      html += `<div class="nib" style="--c:var(${c})"><span class="bits">${S.live ? bits : "????"}</span><span class="w">8 4 2 1</span>` +
+        (S.live ? (ok ? `<span class="d">${DIG[nb]}</span>` : `<span class="d bad">${nb}: not a digit</span>`) : `<span class="d">?</span>`) + `</div>`;
+    });
+    $("nibs").innerHTML = html;
+    $("bValue").textContent = S.live ? (allOk ? `${b0.length ? [0, 4, 8].map((i) => DIG[nibble(b0, i)]).join("") : ""} = ${val} in base 10` : "invalid number") : "reading hidden";
+    // middle reading
+    const by = byteOf(S.bits[1]), hx = by.toString(16).toUpperCase().padStart(2, "0");
+    $("mBits").textContent = S.live ? `byte ${hx} hex` : "reading hidden";
+    $("hexNibs").innerHTML = ["--h0", "--h1"].map((c, g) => {
+      const nb = nibble(S.bits[1], g * 4);
+      return `<div class="nib" style="--c:var(${c})"><span class="bits">${S.live ? S.bits[1].slice(g * 4, g * 4 + 4).join("") : "????"}</span><span class="w">8 4 2 1</span><span class="d">${S.live ? nb.toString(16).toUpperCase() : "?"}</span></div>`;
+    }).join("");
+    const A = asciiOf(by), E = ebcdicOf(by);
+    $("mKv").innerHTML = S.live
+      ? `<dt>Decimal</dt><dd>${by}</dd><dt>ASCII</dt><dd class="${A.ok ? "big" : ""}" style="color:${A.ok ? "inherit" : "var(--muted)"}">${esc(A.txt)}</dd><dt>EBCDIC</dt><dd class="${E.ok ? "big" : ""}" style="color:${E.ok ? "inherit" : "var(--muted)"}">${esc(E.txt)}</dd>`
+      : `<dt>Readings</dt><dd style="color:var(--muted)">hidden: decode it yourself</dd>`;
+    arcadeUi();
+  }
+  function arcadeUi() {
+    const arc = isArc(), m = S.mode;
+    $("sub").textContent = {
+      challenge: "The answer is already on the pyramid • Slide each ring until it reads the key • The point lights when both are right",
+      free: "Flip and slide bits freely • Watch the base-12 number and both character codes change live",
+      tapit: "Tap it • Slide it • Spin it • Every hit buys more time",
+      echo: "Watch the squares light up • Tap them back in order • One more every round",
+      rush: "Build base-12 numbers and characters bit by bit • Every one you build adds time",
+      storm: "Squares turn black on their own • Tap them back before a ring fills up"
+    }[m];
+    $("cardGame").hidden = !arc;
+    $("call").hidden = !arc || !G.on;
+    $("clear").hidden = m !== "free";
+    const hideRead = arc && m !== "rush";
+    $("cardBottom").hidden = $("cardMiddle").hidden = hideRead;
+    $("cardRules").hidden = arc && m !== "rush";
+    if (!arc) return;
+    const I = INFO[m];
+    $("gName").textContent = I.name;
+    $("gBest").textContent = `Best: ${G.best[m] || 0}`;
+    $("gDesc").textContent = I.desc;
+    $("gLab").textContent = I.lab;
+    $("gStart").textContent = G.on ? "Restart" : G.over ? "Play again" : "Start";
+    $("time").hidden = m === "echo";
+    $("flips").textContent = `${G.score} ${I.lab}`;
+    const st = $("state");
+    st.querySelector("b").textContent = G.on ? (m === "echo" ? (G.phase === "show" ? "WATCH" : G.phase === "input" ? "YOUR TURN" : "NICE") : "PLAYING") : G.over ? "GAME OVER" : "READY";
+    st.style.color = G.over ? "#f43f5e" : "#facc15";
+    $("tag").textContent = I.name;
+    let t = "", sub = "";
+    const c = G.call;
+    if (m === "tapit" && c) {
+      if (c.type === "tap") { t = "TAP IT!"; sub = `the glowing square on the ${c.k ? "middle" : "bottom"} ring`; }
+      else if (c.type === "slide") { t = "SLIDE IT!"; sub = `the glowing ${c.k ? "middle" : "bottom"} ring`; }
+      else { t = "SPIN IT!"; sub = `turn face ${FACES[c.f]} to the front`; }
+    } else if (m === "echo") { t = G.phase === "show" ? "WATCH" : G.phase === "input" ? "ECHO IT" : "NICE!"; sub = G.phase === "input" ? `${G.pos} of ${G.seq.length}` : `${G.seq.length} square${G.seq.length > 1 ? "s" : ""}`; }
+    else if (m === "rush" && G.q) { t = "BUILD IT"; sub = `${G.q.label} on the ${G.q.k ? "middle" : "bottom"} ring`; }
+    else if (m === "storm") { t = "CLEAR IT"; sub = "tap the black squares back to white"; }
+    $("callTxt").textContent = t; $("callSub").textContent = sub;
+    $("hint").textContent = m === "tapit" ? "Do what the call says: tap the glowing square, drag the glowing ring sideways, or orbit (drag the background) until the named face is in front."
+      : m === "echo" ? "Watch the squares flash, then tap them back in order. Drag the background to orbit if one is out of view."
+      : m === "rush" ? "Tap squares to flip bits until the gold-outlined ring reads the target. Black = 1, white = 0. Readings below help unless Live reading is off."
+      : "Tap black squares to clear them. Don't let either ring fill up. Drag the background to orbit and catch the ones around the back.";
+    arcadeHud();
+  }
+
+  document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { if (S.busy) return; S.mode = b.dataset.mode; S.apexGlow = 0; S.flash = [0, 0]; newGame(); }));
+  document.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => { if (S.busy) return; S.key = b.dataset.key; S.apexGlow = 0; newGame(); }));
+  document.querySelectorAll("[data-read]").forEach((b) => b.addEventListener("click", () => { S.live = b.dataset.read === "1"; ui(); }));
+  $("gStart").addEventListener("click", () => arcadeStart());
+  $("newGame").addEventListener("click", () => { if (!S.busy) { S.apexGlow = 0; S.flash = [0, 0]; newGame(); } });
+  $("clear").addEventListener("click", () => {
+    if (S.busy || S.solved || S.done) return;
+    const now = performance.now();
+    S.bits.forEach((r, k) => r.forEach((v, i) => { if (v) { r[i] = 0; S.due[k][i] = now + i * 20; } }));
+    after();
+  });
+  $("resetView").addEventListener("click", () => { S.yaw = 0.5; S.pitch = 0.38; });
+  $("sound").addEventListener("click", () => { S.sound = !S.sound; ui(); });
+
+  let lastT = performance.now(), lastSec = -1;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+    const k = Math.min(1, dt * 12);
+    for (let a = 0; a < 2; a++) for (let i = 0; i < S.bits[a].length; i++) {
+      const t = S.bits[a][i], d = S.disp[a][i];
+      if (d !== t && now >= S.due[a][i]) S.disp[a][i] = Math.abs(t - d) < 0.01 ? t : d + (t - d) * k;
+    }
+    if (S.running) {
+      S.elapsed = (now - S.t0) / 1000;
+      const s = Math.floor(S.elapsed);
+      if (s !== lastSec) { lastSec = s; $("time").textContent = fmt(S.elapsed); }
+    }
+    arcadeTick(now, dt);
+    if (isArc()) arcadeHud();
+    if (W && H) draw(now);
+    requestAnimationFrame(frame);
+  }
+  resize();
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

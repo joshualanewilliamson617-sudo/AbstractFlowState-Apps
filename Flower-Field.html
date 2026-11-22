@@ -1,0 +1,525 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flower Field — AbstractFlowState</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ece9e1; --ink:#1b1915; --guide:rgba(27,25,21,.09);
+    --panel:#e3e0d7; --line:rgba(27,25,21,.14); --txt:#2a2721; --dim:rgba(42,39,33,.6);
+    --accent:#2f8f84;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0); padding-bottom:env(safe-area-inset-bottom,0);
+  }
+  :root[data-theme="dark"]{
+    --paper:#131210; --ink:#ece7da; --guide:rgba(236,231,218,.10);
+    --panel:#1b1a16; --line:rgba(236,231,218,.16); --txt:#ded9cc; --dim:rgba(222,217,204,.6);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#131210; --ink:#ece7da; --guide:rgba(236,231,218,.10);
+      --panel:#1b1a16; --line:rgba(236,231,218,.16); --txt:#ded9cc; --dim:rgba(222,217,204,.6);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--paper);color:var(--txt);font-family:"Space Grotesk",system-ui,sans-serif;
+    display:flex;flex-direction:column;min-height:100%}
+  header{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;padding:.8rem 1.1rem .3rem}
+  header h1{font-family:"Fraunces",Georgia,serif;font-weight:600;margin:0;color:var(--ink);
+    font-size:clamp(1.15rem,4.6vw,1.65rem);letter-spacing:-.01em}
+  header .sub{font-size:.72rem;color:var(--dim)}
+  header .theme{margin-left:auto;background:none;border:1px solid var(--line);color:var(--dim);
+    border-radius:999px;padding:.28rem .7rem;font:inherit;font-size:.72rem;cursor:pointer}
+
+  /* flower-type chips */
+  .chips{display:flex;gap:.4rem;overflow-x:auto;padding:.55rem 1.1rem;scrollbar-width:thin;
+    border-bottom:1px solid var(--line)}
+  .chip{flex:0 0 auto;background:transparent;border:1px solid var(--line);color:var(--dim);
+    font:inherit;font-size:.76rem;padding:.35rem .7rem;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+  main{flex:1;display:grid;grid-template-columns:1fr;min-height:0}
+  @media (min-width:880px){ main{grid-template-columns:1fr 320px} }
+  .stage-wrap{display:flex;align-items:center;justify-content:center;padding:.6rem 1rem 1rem;min-height:0}
+  #stage{width:min(90vw,76vh,600px);height:min(90vw,76vh,600px);max-width:100%}
+  #stage svg{display:block;width:100%;height:100%;overflow:visible}
+
+  .panel{background:var(--panel);border-top:1px solid var(--line);overflow-y:auto;
+    padding:.95rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom,0))}
+  @media (min-width:880px){ .panel{border-top:none;border-left:1px solid var(--line)} }
+  .note{font-size:.72rem;line-height:1.55;color:var(--dim);margin:0 0 .9rem;
+    border-left:2px solid var(--line);padding-left:.6rem}
+  .note b{color:var(--txt);font-weight:500}
+  .ctrl{margin-bottom:.8rem}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;font-size:.74rem;
+    color:var(--dim);margin-bottom:.3rem}
+  .ctrl label b{color:var(--txt);font-weight:500;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--ink);height:1.1rem}
+  .divide{border:none;border-top:1px solid var(--line);margin:.9rem 0 .8rem}
+  .row{display:flex;gap:.5rem;align-items:center}
+  .seed{flex:1;background:transparent;border:1px solid var(--line);color:var(--txt);font:inherit;
+    font-size:.82rem;padding:.4rem .55rem;border-radius:.4rem;min-width:0}
+  button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line);font:inherit;
+    font-size:.78rem;padding:.5rem .7rem;border-radius:.4rem;cursor:pointer}
+  button.act{background:var(--ink);color:var(--paper);border:none;font:inherit;font-size:.78rem;
+    padding:.5rem .7rem;border-radius:.4rem;cursor:pointer}
+  .swatches{display:flex;gap:.45rem;flex-wrap:wrap}
+  .sw{width:1.55rem;height:1.55rem;border-radius:999px;border:2px solid transparent;cursor:pointer}
+  .sw[aria-pressed="true"]{border-color:var(--ink)}
+  .sw.none{display:grid;place-items:center;background:transparent;border:1px solid var(--line);
+    font-size:.6rem;color:var(--dim)}
+  .btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.3rem}
+  .copied{font-size:.68rem;color:var(--accent);margin-left:.3rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>Flower Field</h1>
+  <span class="sub">thirteen kinds, every one adjustable</span>
+  <button class="theme" id="themeBtn">theme</button>
+</header>
+
+<div class="chips" id="chips"></div>
+
+<main>
+  <div class="stage-wrap"><div id="stage"></div></div>
+  <section class="panel">
+    <p class="note" id="note"></p>
+    <div id="dynamic"></div>
+    <hr class="divide">
+    <div class="ctrl">
+      <label for="weight">Line weight <b id="weightV">1.2</b></label>
+      <input type="range" id="weight" min="0.4" max="3" step="0.1" value="1.2">
+    </div>
+    <div class="ctrl">
+      <label>Accent</label>
+      <div class="swatches" id="swatches">
+        <button class="sw none" data-c="none" aria-pressed="true">ink</button>
+        <button class="sw" data-c="#2f8f84" style="background:#2f8f84"></button>
+        <button class="sw" data-c="#4b5ba8" style="background:#4b5ba8"></button>
+        <button class="sw" data-c="#b0872e" style="background:#b0872e"></button>
+        <button class="sw" data-c="#b0506a" style="background:#b0506a"></button>
+      </div>
+    </div>
+    <div class="ctrl">
+      <label for="seed">Seed <b style="font-weight:400;color:var(--dim)" id="seedUse"></b></label>
+      <div class="row">
+        <input class="seed" id="seed" value="1083" inputmode="numeric">
+        <button class="ghost" id="shuffle">shuffle</button>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="act" id="dl">Download SVG</button>
+      <button class="ghost" id="copy">Copy<span class="copied" id="copiedMsg"></span></button>
+      <button class="ghost" id="open">Open tab</button>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ---------------- shared helpers ---------------- */
+const C=400, RAD=360, TAU=Math.PI*2, GOLD=Math.PI*(3-Math.sqrt(5));
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function palette(){
+  const a=document.documentElement.getAttribute('data-theme');
+  const dark=a==='dark'||(!a&&matchMedia('(prefers-color-scheme:dark)').matches);
+  return dark?{paper:'#131210',ink:'#ece7da',guide:'rgba(236,231,218,.10)'}
+             :{paper:'#ece9e1',ink:'#1b1915',guide:'rgba(27,25,21,.09)'};
+}
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a||1}
+const F=n=>Number.isFinite(n)?n.toFixed(2):'0';
+function fit(pts,target){let m=0;for(const p of pts){const d=Math.hypot(p[0],p[1]);if(d>m)m=d;}
+  const s=m>1e-6?target/m:1;return pts.map(p=>[C+p[0]*s,C+p[1]*s]);}
+function xf(pts,s,rot){const c=Math.cos(rot),si=Math.sin(rot);
+  return pts.map(([x,y])=>{const dx=(x-C)*s,dy=(y-C)*s;return[C+dx*c-dy*si,C+dx*si+dy*c];});}
+function path(pts,close){if(!pts.length)return'';let d='M'+F(pts[0][0])+' '+F(pts[0][1]);
+  for(let i=1;i<pts.length;i++)d+='L'+F(pts[i][0])+' '+F(pts[i][1]);return d+(close?'Z':'');}
+function g(inner,stroke,w,extra){return `<g fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"${extra||''}>${inner}</g>`;}
+
+/* teardrop / pointed petal from base radius ri to tip ro along angle, half-width hw */
+function petal(ang,ri,ro,hw){
+  const u=[Math.cos(ang),Math.sin(ang)],p=[-Math.sin(ang),Math.cos(ang)];
+  const B=[C+u[0]*ri,C+u[1]*ri],T=[C+u[0]*ro,C+u[1]*ro],mr=(ri+ro)/2;
+  const L=[C+u[0]*mr+p[0]*hw,C+u[1]*mr+p[1]*hw],R=[C+u[0]*mr-p[0]*hw,C+u[1]*mr-p[1]*hw];
+  return `M${F(B[0])} ${F(B[1])} Q${F(L[0])} ${F(L[1])} ${F(T[0])} ${F(T[1])} Q${F(R[0])} ${F(R[1])} ${F(B[0])} ${F(B[1])}Z`;
+}
+
+/* ---------------- flower generators ---------------- */
+const FLOWERS=[
+{
+  id:'rose', name:'Rose', seeded:false,
+  note:'<b>Rhodonea curve.</b> r = a·cos(k·θ), k = n/d. Odd n,d give n petals; otherwise 2n. Pure geometry — the oldest flower in math, named by Grandi in the 1720s.',
+  params:[
+    {k:'n',label:'n (frequency)',min:1,max:12,step:1,def:5,int:1},
+    {k:'d',label:'d (divisor)',min:1,max:9,step:1,def:1,int:1},
+    {k:'layers',label:'layers',min:1,max:6,step:1,def:3,int:1},
+    {k:'fillbloom',label:'inner shade',min:0,max:1,step:1,def:0,int:1,fmt:v=>v?'on':'off'}
+  ],
+  draw(v,ctx){
+    const n=v.n,d=v.d,bothOdd=(n%2)&&(d%2);
+    const period=Math.PI*d*(bothOdd?1:2), steps=1400, pts=[];
+    for(let i=0;i<=steps;i++){const t=period*i/steps,r=Math.cos(n/d*t);
+      pts.push([r*Math.cos(t),r*Math.sin(t)]);}
+    const base=fit(pts,RAD);
+    let out='';
+    for(let l=0;l<v.layers;l++){
+      const s=Math.pow(0.70,l), rot=l*0.14, w=(ctx.weight*(1-l*0.07)).toFixed(2);
+      const col=l%2?ctx.accent:ctx.ink;
+      out+=g(`<path d="${path(xf(base,s,rot),false)}"/>`,col,w,l?' opacity="0.9"':'');
+    }
+    if(v.fillbloom){out=g(`<path d="${path(xf(base,0.70*0.70,0.28),false)}"/>`,ctx.accent,1,` fill="${ctx.accent}" fill-opacity="0.06"`)+out;}
+    return out;
+  }
+},
+{
+  id:'maurer', name:'Maurer rose', seeded:false,
+  note:'<b>Maurer rose.</b> Walk 360 straight chords across a rose r=sin(nθ), stepping d degrees each time. Tiny changes in d swing it from lace to lattice. Introduced by Peter Maurer, 1987.',
+  params:[
+    {k:'n',label:'n (petals)',min:2,max:14,step:1,def:6,int:1},
+    {k:'d',label:'d (degree step)',min:1,max:179,step:1,def:71,int:1},
+    {k:'base',label:'show rose outline',min:0,max:1,step:1,def:1,int:1,fmt:v=>v?'on':'off'}
+  ],
+  draw(v,ctx){
+    const n=v.n, d=v.d, lace=[];
+    for(let th=0;th<=360;th++){const k=th*d*Math.PI/180,r=Math.sin(n*k);
+      lace.push([r*Math.cos(k),r*Math.sin(k)]);}
+    const laceP=fit(lace,RAD);
+    let out=g(`<path d="${path(laceP,false)}"/>`,ctx.ink,(ctx.weight*0.55).toFixed(2),' opacity="0.95"');
+    if(v.base){
+      const rose=[];for(let th=0;th<=720;th++){const k=th*Math.PI/180,r=Math.sin(n*k);
+        rose.push([r*Math.cos(k),r*Math.sin(k)]);}
+      out=g(`<path d="${path(fit(rose,RAD),false)}"/>`,ctx.accent,(ctx.weight*1.3).toFixed(2),' opacity="0.9"')+out;
+    }
+    return out;
+  }
+},
+{
+  id:'phyllo', name:'Seed head', seeded:false,
+  note:'<b>Phyllotaxis (Vogel model).</b> Each seed sits one golden angle (≈137.5°) from the last, at radius c·√i — the real packing of a sunflower. Nudge the angle a fraction of a degree and the spiral family flips.',
+  params:[
+    {k:'angle',label:'divergence°',min:135,max:140,step:0.1,def:137.5,fmt:v=>v.toFixed(1)},
+    {k:'count',label:'seeds',min:120,max:1200,step:20,def:620,int:1},
+    {k:'dot',label:'seed size',min:0.4,max:2.4,step:0.1,def:1.2,fmt:v=>v.toFixed(1)}
+  ],
+  draw(v,ctx){
+    const div=v.angle*Math.PI/180, maxR=RAD, scale=maxR/Math.sqrt(v.count);
+    let dots='';
+    for(let i=0;i<v.count;i++){
+      const r=scale*Math.sqrt(i),a=i*div,x=C+Math.cos(a)*r,y=C+Math.sin(a)*r;
+      const rad=(v.dot*(0.6+0.9*(i/v.count))).toFixed(2);
+      dots+=`<circle cx="${F(x)}" cy="${F(y)}" r="${rad}"/>`;
+    }
+    return `<g fill="${ctx.ink}">${dots}</g>`;
+  }
+},
+{
+  id:'super', name:'Supershape', seeded:false,
+  note:'<b>Gielis superformula.</b> One equation that morphs between petals, stars, polygons and shells by its exponents. m sets the lobe count; n1/n2/n3 bend the edges. Try m=12, n1=0.3 for a starburst.',
+  params:[
+    {k:'m',label:'m (lobes)',min:3,max:24,step:1,def:8,int:1},
+    {k:'n1',label:'n1',min:0.2,max:12,step:0.1,def:1,fmt:v=>v.toFixed(1)},
+    {k:'n2',label:'n2',min:0.2,max:12,step:0.1,def:1,fmt:v=>v.toFixed(1)},
+    {k:'n3',label:'n3',min:0.2,max:12,step:0.1,def:1,fmt:v=>v.toFixed(1)},
+    {k:'layers',label:'layers',min:1,max:7,step:1,def:4,int:1}
+  ],
+  draw(v,ctx){
+    const steps=1200, pts=[];
+    for(let i=0;i<=steps;i++){
+      const t=TAU*i/steps;
+      const a=Math.pow(Math.abs(Math.cos(v.m*t/4)),v.n2);
+      const b=Math.pow(Math.abs(Math.sin(v.m*t/4)),v.n3);
+      let r=Math.pow(a+b,-1/v.n1);
+      if(!Number.isFinite(r))r=0; r=Math.min(r,50);
+      pts.push([r*Math.cos(t),r*Math.sin(t)]);
+    }
+    const base=fit(pts,RAD);
+    let out='';
+    for(let l=0;l<v.layers;l++){
+      const s=Math.pow(0.68,l),rot=l*0.11,w=(ctx.weight*(1-l*0.06)).toFixed(2),col=l%2?ctx.accent:ctx.ink;
+      out+=g(`<path d="${path(xf(base,s,rot),true)}"/>`,col,w,l?' opacity="0.9"':'');
+    }
+    return out;
+  }
+},
+{
+  id:'spiro', name:'Spirograph', seeded:false,
+  note:'<b>Hypotrochoid.</b> A pen fixed in a small gear rolling inside a big one. x=(R−r)cosθ+p·cos((R−r)/r·θ). The ratio R:r decides the petals; the pen offset p decides how open they bloom.',
+  params:[
+    {k:'R',label:'outer R',min:3,max:13,step:1,def:9,int:1},
+    {k:'r',label:'inner r',min:1,max:12,step:1,def:4,int:1},
+    {k:'p',label:'pen offset',min:0.1,max:1.4,step:0.05,def:0.8,fmt:v=>v.toFixed(2)}
+  ],
+  draw(v,ctx){
+    const R=v.R,r=Math.min(v.r,R-1)||1,p=v.p,diff=R-r,ratio=diff/r;
+    const revs=r/gcd(R,r), steps=Math.max(1400,revs*400), pts=[];
+    for(let i=0;i<=steps;i++){const t=TAU*revs*i/steps;
+      pts.push([diff*Math.cos(t)+p*r*Math.cos(ratio*t), diff*Math.sin(t)-p*r*Math.sin(ratio*t)]);}
+    return g(`<path d="${path(fit(pts,RAD),true)}"/>`,ctx.ink,ctx.weight.toFixed(2));
+  }
+},
+{
+  id:'harmo', name:'Harmonograph', seeded:true,
+  note:'<b>Harmonograph.</b> Two decaying pendulums, one per axis: a sum of sines fading as e^(−δt). The Victorian drawing machine. Seed sets the phases, so every seed is a different fall of the pendulum.',
+  params:[
+    {k:'f',label:'frequency',min:1,max:6,step:1,def:3,int:1},
+    {k:'detune',label:'detune',min:0,max:0.08,step:0.004,def:0.02,fmt:v=>v.toFixed(3)},
+    {k:'damp',label:'damping',min:0.002,max:0.04,step:0.002,def:0.012,fmt:v=>v.toFixed(3)}
+  ],
+  draw(v,ctx){
+    const R=mulberry32((ctx.seed*2654435761)>>>0);
+    const ph=[0,1,2,3].map(()=>R()*TAU);
+    const f=v.f, de=v.detune;
+    const fx1=f+de*(R()-0.5), fx2=f+ (R()<0.5?1:-1) + de*(R()-0.5);
+    const fy1=f+de*(R()-0.5), fy2=f+ (R()<0.5?1:-1) + de*(R()-0.5);
+    const d1=v.damp,d2=v.damp*1.3,d3=v.damp,d4=v.damp*1.3;
+    const steps=6000,T=60,pts=[];
+    for(let i=0;i<=steps;i++){const t=T*i/steps;
+      const x=Math.sin(fx1*t+ph[0])*Math.exp(-d1*t)+Math.sin(fx2*t+ph[1])*Math.exp(-d2*t);
+      const y=Math.sin(fy1*t+ph[2])*Math.exp(-d3*t)+Math.sin(fy2*t+ph[3])*Math.exp(-d4*t);
+      pts.push([x,y]);}
+    return g(`<path d="${path(fit(pts,RAD),false)}"/>`,ctx.ink,(ctx.weight*0.7).toFixed(2),' opacity="0.92"');
+  }
+},
+{
+  id:'lotus', name:'Lotus', seeded:false,
+  note:'<b>Layered petal mandala.</b> Concentric rings of teardrop petals, each ring offset half a step from the one beneath so the gaps are covered — the construction of a lotus or a rose window.',
+  params:[
+    {k:'rings',label:'rings',min:2,max:7,step:1,def:4,int:1},
+    {k:'petals',label:'petals / ring',min:5,max:22,step:1,def:12,int:1},
+    {k:'width',label:'petal width',min:0.4,max:1.3,step:0.05,def:0.8,fmt:v=>v.toFixed(2)},
+    {k:'offset',label:'ring offset',min:0,max:1,step:0.05,def:0.5,fmt:v=>v.toFixed(2)}
+  ],
+  draw(v,ctx){
+    let out='';
+    for(let ring=0;ring<v.rings;ring++){
+      const t=ring/(v.rings-1||1);
+      const ri=40+ring*((RAD-70)/v.rings)*0.55;
+      const ro=ri+((RAD-ri)/(v.rings-ring))*0.95;
+      const hw=(Math.PI*((ri+ro)/2)/v.petals)*v.width;
+      const rot=(ring*v.offset)*(TAU/v.petals);
+      const col=ring%2?ctx.accent:ctx.ink;
+      let p='';
+      for(let k=0;k<v.petals;k++){const a=k/v.petals*TAU - Math.PI/2 + rot;p+=`<path d="${petal(a,ri,Math.min(ro,RAD),hw)}"/>`;}
+      out+=g(p,col,(ctx.weight*(1-t*0.2)).toFixed(2),ring%2?' opacity="0.9"':'');
+    }
+    return out;
+  }
+},
+{
+  id:'dahlia', name:'Dahlia', seeded:false,
+  note:'<b>Golden-spiral dahlia.</b> Petals placed one golden angle apart, marching out along a log spiral and growing as they go — the way a real dahlia or succulent stacks its florets.',
+  params:[
+    {k:'count',label:'petals',min:20,max:160,step:2,def:90,int:1},
+    {k:'tight',label:'spiral spread',min:0.5,max:1.6,step:0.05,def:1,fmt:v=>v.toFixed(2)},
+    {k:'size',label:'petal size',min:0.5,max:1.8,step:0.05,def:1,fmt:v=>v.toFixed(2)}
+  ],
+  draw(v,ctx){
+    const scale=RAD/Math.pow(v.count,0.5*v.tight);
+    let p='';
+    for(let i=1;i<=v.count;i++){
+      const a=i*GOLD, r=scale*Math.pow(i,0.5*v.tight);
+      const t=i/v.count, len=(14+t*70)*v.size, hw=(5+t*22)*v.size;
+      const ri=Math.max(0,r-len*0.5), ro=Math.min(RAD,r+len*0.5);
+      p+=`<path d="${petal(a,ri,ro,hw)}" opacity="${(0.55+0.4*t).toFixed(2)}"/>`;
+    }
+    return g(p,ctx.ink,ctx.weight.toFixed(2));
+  }
+},
+{
+  id:'fourier', name:'Epicycles', seeded:true,
+  note:'<b>Fourier flower.</b> A closed loop drawn by stacked rotating circles whose speeds are all ≡1 (mod k) — that shared remainder is what forces k-fold symmetry. Seed sets each circle\u2019s starting phase.',
+  params:[
+    {k:'sym',label:'symmetry k',min:3,max:12,step:1,def:6,int:1},
+    {k:'harm',label:'harmonics',min:1,max:6,step:1,def:3,int:1},
+    {k:'decay',label:'falloff',min:0.6,max:2.4,step:0.1,def:1.3,fmt:v=>v.toFixed(1)}
+  ],
+  draw(v,ctx){
+    const R=mulberry32((ctx.seed*40503+7)>>>0);
+    const phases=[];for(let h=0;h<v.harm;h++)phases.push(R()*TAU);
+    const steps=2400,pts=[];
+    for(let i=0;i<=steps;i++){const t=TAU*i/steps;let x=0,y=0;
+      for(let h=0;h<v.harm;h++){const freq=1+h*v.sym,amp=1/Math.pow(h*v.sym+1,v.decay),ph=phases[h];
+        x+=amp*Math.cos(freq*t+ph);y+=amp*Math.sin(freq*t+ph);}
+      pts.push([x,y]);}
+    return g(`<path d="${path(fit(pts,RAD),true)}"/>`,ctx.ink,ctx.weight.toFixed(2));
+  }
+},
+{
+  id:'guilloche', name:'Guilloché', seeded:false,
+  note:'<b>Guilloché rosette.</b> The engine-turned linework on banknotes and watch faces: many near-identical wavy rings, each phase-shifted a hair from the last, so the lines weave a moiré band.',
+  params:[
+    {k:'lobes',label:'lobes',min:4,max:28,step:1,def:14,int:1},
+    {k:'amp',label:'wave depth',min:4,max:60,step:2,def:28,int:1},
+    {k:'rings',label:'rings',min:6,max:48,step:1,def:24,int:1},
+    {k:'shift',label:'phase shift',min:0,max:0.4,step:0.01,def:0.12,fmt:v=>v.toFixed(2)}
+  ],
+  draw(v,ctx){
+    let out='';
+    for(let ring=0;ring<v.rings;ring++){
+      const base=70+ring*((RAD-80)/v.rings);
+      const phase=ring*v.shift, pts=[];
+      for(let i=0;i<=240;i++){const t=TAU*i/240,r=base+v.amp*Math.sin(v.lobes*t+phase);
+        pts.push([C+Math.cos(t)*r,C+Math.sin(t)*r]);}
+      const col=ring%5===0?ctx.accent:ctx.ink;
+      out+=g(`<path d="${path(pts,true)}"/>`,col,(ctx.weight*0.5).toFixed(2),' opacity="0.8"');
+    }
+    return out;
+  }
+},
+{
+  id:'moire', name:'Interference', seeded:false,
+  note:'<b>Moiré bloom.</b> Several sets of concentric wavefronts, their centres spread evenly around the middle. Where the rings cross, petals of interference appear — the same physics as your Interference Lab.',
+  params:[
+    {k:'sources',label:'sources',min:2,max:9,step:1,def:5,int:1},
+    {k:'spread',label:'source spread',min:10,max:120,step:5,def:55,int:1},
+    {k:'wave',label:'wavelength',min:8,max:40,step:1,def:16,int:1},
+    {k:'rings',label:'rings',min:8,max:34,step:1,def:22,int:1}
+  ],
+  draw(v,ctx){
+    let out='';
+    for(let s=0;s<v.sources;s++){
+      const a=s/v.sources*TAU - Math.PI/2, cx=C+Math.cos(a)*v.spread, cy=C+Math.sin(a)*v.spread;
+      const col=s%2?ctx.accent:ctx.ink; let circ='';
+      for(let k=1;k<=v.rings;k++)circ+=`<circle cx="${F(cx)}" cy="${F(cy)}" r="${(k*v.wave).toFixed(1)}"/>`;
+      out+=g(circ,col,(ctx.weight*0.5).toFixed(2),' opacity="0.55"');
+    }
+    return out;
+  }
+},
+{
+  id:'defect', name:'Defect bloom', seeded:true,
+  note:'<b>Defect bloom.</b> Your original: a jittered seed-spiral core that resolves outward into perfect petals, each still carrying a faint echo of the core\u2019s skew. The defect becomes the signature.',
+  params:[
+    {k:'sym',label:'symmetry',min:8,max:30,step:1,def:21,int:1},
+    {k:'defect',label:'core defect',min:0,max:1,step:0.01,def:0.6,fmt:v=>Math.round(v*100)},
+    {k:'echo',label:'defect echo',min:0,max:1,step:1,def:1,int:1,fmt:v=>v?'on':'off'}
+  ],
+  draw(v,ctx){
+    const PHI=0.6180339887,d=v.defect,lw=ctx.weight,ink=ctx.ink;
+    const bands=[{rB:252,rT:374,mu:1,ji:0,ech:1},{rB:176,rT:300,mu:PHI,ji:0.05,ech:1},
+      {rB:118,rT:232,mu:PHI*PHI,ji:0.42,ac:1,bk:0.45},{rB:66,rT:168,mu:PHI**3,ji:1,bk:0.9}];
+    let out='';
+    bands.forEach((b,bi)=>{
+      const rng=mulberry32((ctx.seed*131+bi*977)>>>0),count=Math.max(3,Math.round(v.sym*b.mu)),jit=b.ji*d;
+      const col=b.ac?ctx.accent:ink; let p='';
+      for(let k=0;k<count;k++){
+        let ang=k/count*TAU-Math.PI/2+(rng()-0.5)*jit*0.9;
+        const ri=b.rB+(rng()-0.5)*jit*34,ro=b.rT+(rng()-0.5)*jit*44;
+        const hw=Math.max(3,(Math.PI*((ri+ro)/2)/count)*0.92*(1+(rng()-0.5)*jit*0.7));
+        const sw=(lw*(1+(rng()-0.5)*jit*0.8)).toFixed(2),op=(1-jit*0.25*rng()).toFixed(2);
+        let dash=(b.bk&&rng()<b.bk)?` stroke-dasharray="${(10+rng()*20).toFixed(0)} ${(6+rng()*12).toFixed(0)}"`:'';
+        p+=`<path d="${petal(ang,ri,ro,hw)}" stroke-width="${sw}" opacity="${op}"${dash}/>`;
+        if(b.ech&&v.echo){const pp=[-Math.sin(ang),Math.cos(ang)],sh=hw*0.16;
+          p+=`<path d="${petal(ang,ri+(ro-ri)*0.18,ro-(ro-ri)*0.1,hw*0.52)}" stroke-width="${(lw*0.5).toFixed(2)}" opacity="0.5" transform="translate(${F(pp[0]*sh)} ${F(pp[1]*sh)})"/>`;}
+      }
+      out+=g(p,col,lw);
+    });
+    const rng=mulberry32((ctx.seed*911+7)>>>0),M=200,maxR=146,sc=maxR/Math.sqrt(M);let dots='';
+    for(let i=0;i<M;i++){const r=sc*Math.sqrt(i),dec=1-r/maxR,a=i*GOLD+(rng()-0.5)*d*dec*2.4,rr=r+(rng()-0.5)*d*dec*10;
+      const x=C+Math.cos(a)*rr,y=C+Math.sin(a)*rr,rad=Math.max(0.5,2.5*(1-0.55*(r/maxR))*(1+(rng()-0.5)*d*dec*0.9));
+      dots+=`<circle cx="${F(x)}" cy="${F(y)}" r="${rad.toFixed(2)}" opacity="${(0.85-0.3*(r/maxR)).toFixed(2)}"/>`;}
+    return out+`<g fill="${ink}">${dots}</g>`;
+  }
+}
+];
+
+/* ---------------- state + UI ---------------- */
+const state={flower:'rose',weight:1.2,accent:'none',seed:1083,vals:{}};
+FLOWERS.forEach(f=>{state.vals[f.id]={};f.params.forEach(p=>state.vals[f.id][p.k]=p.def);});
+
+const stage=document.getElementById('stage');
+function current(){return FLOWERS.find(f=>f.id===state.flower);}
+
+function build(){
+  const P=palette(), f=current();
+  const accent=state.accent==='none'?P.ink:state.accent;
+  const ctx={ink:P.ink,accent,paper:P.paper,weight:state.weight,seed:state.seed};
+  let inner;
+  try{inner=f.draw(state.vals[f.id],ctx);}catch(e){console.error(e);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><rect width="800" height="800" fill="${P.paper}"/><text x="400" y="400" fill="${P.ink}" font-size="16" text-anchor="middle">couldn\u2019t draw: ${(e.message||e)}</text></svg>`;}
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${f.name} flower">`
+    +`<rect x="0" y="0" width="800" height="800" fill="${P.paper}"/>${inner}</svg>`;
+}
+function render(){ stage.innerHTML=build(); }
+
+/* chips */
+const chipWrap=document.getElementById('chips');
+FLOWERS.forEach(f=>{const b=document.createElement('button');b.className='chip';b.textContent=f.name;
+  b.setAttribute('aria-pressed',f.id===state.flower);b.dataset.id=f.id;
+  b.addEventListener('click',()=>{state.flower=f.id;
+    [...chipWrap.children].forEach(c=>c.setAttribute('aria-pressed',c.dataset.id===f.id));
+    buildControls();render();});
+  chipWrap.appendChild(b);});
+
+/* dynamic controls */
+const dyn=document.getElementById('dynamic'), noteEl=document.getElementById('note'), seedUse=document.getElementById('seedUse');
+function buildControls(){
+  const f=current(); noteEl.innerHTML=f.note;
+  seedUse.textContent=f.seeded?'(changes this flower)':'(no effect here)';
+  dyn.innerHTML='';
+  f.params.forEach(p=>{
+    const val=state.vals[f.id][p.k];
+    const d=document.createElement('div');d.className='ctrl';
+    const disp=p.fmt?p.fmt(val):(p.int?val:val);
+    d.innerHTML=`<label for="c_${p.k}">${p.label} <b id="cv_${p.k}">${disp}</b></label>
+      <input type="range" id="c_${p.k}" min="${p.min}" max="${p.max}" step="${p.step}" value="${val}">`;
+    dyn.appendChild(d);
+    d.querySelector('input').addEventListener('input',e=>{
+      let x=parseFloat(e.target.value); if(p.int)x=Math.round(x);
+      state.vals[f.id][p.k]=x;
+      document.getElementById('cv_'+p.k).textContent=p.fmt?p.fmt(x):x;
+      render();
+    });
+  });
+}
+
+/* global controls */
+const wEl=document.getElementById('weight');
+wEl.addEventListener('input',()=>{state.weight=parseFloat(wEl.value);document.getElementById('weightV').textContent=state.weight.toFixed(1);render();});
+document.getElementById('swatches').addEventListener('click',e=>{const b=e.target.closest('.sw');if(!b)return;
+  state.accent=b.dataset.c;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-pressed',c===b));render();});
+const seedEl=document.getElementById('seed');
+seedEl.addEventListener('input',()=>{const n=parseInt(seedEl.value,10);if(!isNaN(n)){state.seed=n;render();}});
+document.getElementById('shuffle').addEventListener('click',()=>{state.seed=Math.floor(Math.random()*9999);seedEl.value=state.seed;render();});
+
+/* export */
+function svgString(){return '<?xml version="1.0" encoding="UTF-8"?>\n'+stage.querySelector('svg').outerHTML;}
+function blobDownload(str,name){const b=new Blob([str],{type:'image/svg+xml'});const u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),2000);}
+document.getElementById('dl').addEventListener('click',async()=>{
+  const str=svgString(), name=`${state.flower}-${state.seed}.svg`;
+  if(window.claude&&claude.use){               // published on claude.ai -> use the save capability
+    try{const dl=await claude.use('downloads');
+      if(dl){await dl.save({filename:name,data:str});return;}}
+    catch(e){if(e&&e.code==='declined')return;} // viewer said no; don't fall through
+  }
+  blobDownload(str,name);                       // self-hosted / standalone file
+});
+document.getElementById('copy').addEventListener('click',async()=>{const m=document.getElementById('copiedMsg');
+  try{await navigator.clipboard.writeText(svgString());m.textContent='copied';}
+  catch{const t=document.createElement('textarea');t.value=svgString();document.body.appendChild(t);t.select();try{document.execCommand('copy');m.textContent='copied';}catch{}t.remove();}
+  setTimeout(()=>m.textContent='',1600);});
+document.getElementById('open').addEventListener('click',()=>{const blob=new Blob([svgString()],{type:'image/svg+xml'});window.open(URL.createObjectURL(blob),'_blank');});
+
+/* theme */
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const sysDark=matchMedia('(prefers-color-scheme:dark)').matches;
+  document.documentElement.setAttribute('data-theme',cur?(cur==='dark'?'light':'dark'):(sysDark?'light':'dark'));
+  render();});
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!document.documentElement.getAttribute('data-theme'))render();});
+
+buildControls();
+render();
+</script>
+</body>
+</html>
+
+</body></html>

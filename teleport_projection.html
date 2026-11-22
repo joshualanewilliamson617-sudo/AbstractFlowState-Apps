@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teleport as reprojection</title>
+<style>
+  :root {
+    --ink: #07070b;
+    --copper: #c07a45;
+    --violet: #7c6f9a;
+    --rose: #e8a87c;
+    --light: #d8ecff;
+    --paper: #cfc9bd;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--paper); }
+  body {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    display: flex; flex-direction: column;
+  }
+  #stage { position: relative; flex: 1 1 auto; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  #readout {
+    position: absolute; left: 18px; top: 16px; pointer-events: none;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.7; color: #8e8779; letter-spacing: .02em;
+  }
+  #readout b { color: var(--rose); font-weight: 400; }
+  #title { position: absolute; right: 20px; top: 16px; text-align: right; pointer-events: none; }
+  #title h1 { margin: 0; font-size: 17px; font-weight: 400; letter-spacing: .04em; color: #b9b0a0; }
+  #title p { margin: 3px 0 0; font-size: 12px; color: #6d6659; font-style: italic; }
+  #panel {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    padding: 14px 20px; border-top: 1px solid #1c1b22; background: #0a0a10;
+  }
+  label { font-size: 12px; color: #857e70; display: flex; align-items: center; gap: 10px; }
+  input[type=range] { width: 150px; accent-color: var(--copper); }
+  button {
+    font-family: inherit; font-size: 13px; letter-spacing: .03em;
+    color: #e8dfd0; background: transparent; border: 1px solid #3a3229;
+    padding: 8px 18px; border-radius: 2px; cursor: pointer;
+  }
+  button:hover { border-color: var(--copper); color: #fff; }
+  button:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+  .hint { font-size: 12px; color: #57524a; font-style: italic; margin-left: auto; }
+  @media (max-width: 620px) { .hint { display: none; } #title { display: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="readout">
+    slice angle &nbsp;<b id="r-slice">0.00</b><br>
+    lattice index&nbsp;<b id="r-index">—</b><br>
+    state &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b id="r-state">resting</b>
+  </div>
+  <div id="title">
+    <h1>Teleport as reprojection</h1>
+    <p>a body lifts into the lattice and falls back at a different address</p>
+  </div>
+</div>
+<div id="panel">
+  <button id="go">Teleport</button>
+  <label>Slice angle <input type="range" id="slice" min="0" max="628" value="0"></label>
+  <label><input type="checkbox" id="auto" checked> Auto</label>
+  <span class="hint">drag to orbit &middot; click a tile to jump there</span>
+</div>
+
+<script>
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cvs.parentElement.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cvs.width = W * DPR; cvs.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+/* ---------- the aperiodic slice: de Bruijn pentagrid ---------- */
+const DIR = [];
+for (let k = 0; k < 5; k++) DIR.push([Math.cos(2 * Math.PI * k / 5), Math.sin(2 * Math.PI * k / 5)]);
+const BASE = [0.13, 0.31, -0.22, 0.07, -0.29];
+const ALT  = [-0.20, 0.09, 0.27, -0.31, 0.15];
+
+let tiles = [];
+let sliceAngle = 0;
+
+function buildTiles(theta) {
+  const g = [];
+  for (let k = 0; k < 5; k++) g.push(BASE[k] * Math.cos(theta) + ALT[k] * Math.sin(theta));
+  const N = 7, R = 9.2, out = [];
+  for (let r = 0; r < 5; r++) for (let s = r + 1; s < 5; s++) {
+    const a = DIR[r], b = DIR[s];
+    const det = a[0] * b[1] - a[1] * b[0];
+    if (Math.abs(det) < 1e-9) continue;
+    for (let kr = -N; kr <= N; kr++) for (let ks = -N; ks <= N; ks++) {
+      const c1 = kr - g[r], c2 = ks - g[s];
+      const px = (c1 * b[1] - c2 * a[1]) / det;
+      const py = (a[0] * c2 - b[0] * c1) / det;
+      if (px * px + py * py > (R + 2) * (R + 2)) continue;
+      const K = [];
+      for (let k = 0; k < 5; k++) {
+        K.push(k === r ? kr : k === s ? ks : Math.ceil(px * DIR[k][0] + py * DIR[k][1] + g[k]));
+      }
+      const verts = [];
+      let cx = 0, cy = 0;
+      for (const [dr, ds] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
+        const KK = K.slice(); KK[r] = kr + dr; KK[s] = ks + ds;
+        let x = 0, y = 0;
+        for (let k = 0; k < 5; k++) { x += KK[k] * DIR[k][0]; y += KK[k] * DIR[k][1]; }
+        verts.push([x, y]); cx += x / 4; cy += y / 4;
+      }
+      if (cx * cx + cy * cy > R * R) continue;
+      const d = Math.min(s - r, 5 - (s - r));
+      out.push({ v: verts, cx, cy, fat: d === 2, K });
+    }
+  }
+  return out;
+}
+
+/* ---------- the lattice above ---------- */
+const CUBE_E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+const LATTICE_Y = 8.6;
+const cubes = [];
+for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
+  cubes.push({ x: (i - 1) * 3.1 + j * 1.0, y: LATTICE_Y + j * 1.5, z: (j - 0.5) * 2.6 });
+}
+const SIDE = 1.25;
+function cubeVerts(c) {
+  const h = SIDE / 2, v = [];
+  for (const sy of [-h, h]) for (const [sx, sz] of [[-h,-h],[h,-h],[h,h],[-h,h]]) v.push([c.x + sx, c.y + sy, c.z + sz]);
+  return v;
+}
+
+/* ---------- camera ---------- */
+let yaw = 0.5, pitch = 0.68, dragging = false, lastX = 0, lastY = 0;
+const CAM_D = 27, FOCAL = 780;
+
+function project(p) {
+  const cy_ = Math.cos(yaw), sy_ = Math.sin(yaw);
+  const x1 = p[0] * cy_ - p[2] * sy_;
+  const z1 = p[0] * sy_ + p[2] * cy_;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const y2 = p[1] * cp - z1 * sp;
+  const z2 = p[1] * sp + z1 * cp;
+  const d = z2 + CAM_D;
+  if (d < 1.5) return null;
+  const f = (FOCAL * Math.min(W, H * 1.6) / 900) / d;
+  return [W / 2 + x1 * f, H * 0.60 - y2 * f, d];
+}
+
+cvs.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; cvs.setPointerCapture(e.pointerId); });
+cvs.addEventListener('pointerup', e => { dragging = false; });
+cvs.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  yaw += (e.clientX - lastX) * 0.006;
+  pitch = Math.max(0.22, Math.min(1.25, pitch + (e.clientY - lastY) * 0.004));
+  lastX = e.clientX; lastY = e.clientY;
+});
+cvs.addEventListener('click', e => {
+  if (phase !== 'rest') return;
+  const r = cvs.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = -1, bd = 60 * 60;
+  for (let i = 0; i < tiles.length; i++) {
+    const s = project([tiles[i].cx, 0, tiles[i].cy]);
+    if (!s) continue;
+    const d = (s[0] - mx) ** 2 + (s[1] - my) ** 2;
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best >= 0) teleport(best);
+});
+
+/* ---------- the traveler ---------- */
+let home = 0, dest = 0, phase = 'rest', t0 = 0, nextAuto = 0;
+const DUR = 2600;
+
+function teleport(target) {
+  if (phase !== 'rest') return;
+  dest = (typeof target === 'number') ? target : (Math.random() * tiles.length) | 0;
+  if (dest === home) dest = (dest + 37) % tiles.length;
+  phase = 'jump'; t0 = performance.now();
+}
+document.getElementById('go').onclick = () => teleport();
+
+function ease(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
+
+function travelerState(now) {
+  const A = tiles[home], B = tiles[dest];
+  if (phase === 'rest') return { x: A.cx, y: 0.1, z: A.cy, lift: 0, label: 'resting', K: A.K };
+  const u = Math.min(1, (now - t0) / DUR);
+  if (u >= 1) { home = dest; phase = 'rest'; return { x: B.cx, y: 0.1, z: B.cy, lift: 0, label: 'resting', K: B.K }; }
+  if (u < 0.32) {
+    const e = ease(u / 0.32);
+    return { x: A.cx, y: 0.1 + e * (LATTICE_Y - 0.4), z: A.cy, lift: e, label: 'lifting out of the slice', K: A.K };
+  }
+  if (u < 0.66) {
+    const e = ease((u - 0.32) / 0.34);
+    return {
+      x: A.cx + (B.cx - A.cx) * e,
+      y: LATTICE_Y - 0.4 + Math.sin(e * Math.PI) * 1.6,
+      z: A.cy + (B.cy - A.cy) * e,
+      lift: 1, label: 'moving inside the lattice', K: e < 0.5 ? A.K : B.K
+    };
+  }
+  const e = ease((u - 0.66) / 0.34);
+  return { x: B.cx, y: 0.1 + (1 - e) * (LATTICE_Y - 0.4), z: B.cy, lift: 1 - e, label: 're-entering the slice', K: B.K };
+}
+
+/* ---------- drawing ---------- */
+function ring(x, z, rad, alpha, color) {
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i <= 48; i++) {
+    const a = i / 48 * Math.PI * 2;
+    const s = project([x + Math.cos(a) * rad, 0.02, z + Math.sin(a) * rad]);
+    if (!s) { started = false; continue; }
+    if (!started) { ctx.moveTo(s[0], s[1]); started = true; } else ctx.lineTo(s[0], s[1]);
+  }
+  ctx.strokeStyle = color; ctx.globalAlpha = alpha; ctx.lineWidth = 1.4; ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+function draw(now) {
+  ctx.fillStyle = '#07070b';
+  ctx.fillRect(0, 0, W, H);
+
+  const tr = travelerState(now);
+  const jumpU = phase === 'jump' ? Math.min(1, (now - t0) / DUR) : 0;
+
+  // fan of projection lines from the lattice down to the slice
+  ctx.lineWidth = 0.5;
+  for (const c of cubes) {
+    for (const v of cubeVerts(c)) {
+      const a = project(v);
+      const b = project([v[0] * 2.15, 0, v[2] * 2.15 + (v[2] >= 0 ? 3.4 : -3.4)]);
+      if (!a || !b) continue;
+      ctx.strokeStyle = 'rgba(150,116,86,0.13)';
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+  }
+
+  // the slice itself
+  for (const tl of tiles) {
+    const pts = [];
+    let ok = true;
+    for (const v of tl.v) { const s = project([v[0], 0, v[1]]); if (!s) { ok = false; break; } pts.push(s); }
+    if (!ok) continue;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+
+    const dx = tl.cx - tr.x, dz = tl.cy - tr.z;
+    const near = Math.max(0, 1 - Math.sqrt(dx * dx + dz * dz) / 2.6) * (1 - tr.lift * 0.75);
+    if (near > 0.01) {
+      ctx.fillStyle = tl.fat ? `rgba(232,168,124,${0.30 * near})` : `rgba(216,236,255,${0.24 * near})`;
+      ctx.fill();
+    } else {
+      ctx.fillStyle = tl.fat ? 'rgba(40,28,22,0.55)' : 'rgba(24,24,36,0.55)';
+      ctx.fill();
+    }
+    ctx.strokeStyle = tl.fat ? 'rgba(192,122,69,0.62)' : 'rgba(124,111,154,0.55)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+  }
+
+  // departure and arrival rings
+  if (phase === 'jump') {
+    const A = tiles[home], B = tiles[dest];
+    if (jumpU < 0.55) {
+      const e = Math.min(1, jumpU / 0.5);
+      ring(A.cx, A.cy, 0.4 + e * 3.4, (1 - e) * 0.75, 'rgba(216,236,255,1)');
+    }
+    if (jumpU > 0.62) {
+      const e = Math.min(1, (jumpU - 0.62) / 0.38);
+      ring(B.cx, B.cy, 3.6 - e * 3.1, e * 0.8, 'rgba(232,168,124,1)');
+    }
+  }
+
+  ctx.globalCompositeOperation = 'lighter';
+
+  // the beam: the column the body travels along
+  if (tr.lift > 0.01) {
+    const base = project([tr.x, 0.02, tr.z]);
+    const top = project([tr.x, LATTICE_Y + 1.2, tr.z]);
+    if (base && top) {
+      ctx.strokeStyle = `rgba(180,214,255,${0.30 * tr.lift})`;
+      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(top[0], top[1]); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${0.85 * tr.lift})`;
+      ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(top[0], top[1]); ctx.stroke();
+    }
+  }
+
+  // the lattice strip
+  for (const c of cubes) {
+    const v = cubeVerts(c).map(p => project(p));
+    const heat = Math.max(0, 1 - Math.abs(c.x - tr.x) / 5) * tr.lift;
+    ctx.strokeStyle = `rgba(${180 + 60 * heat | 0},${140 + 90 * heat | 0},${110 + 130 * heat | 0},${0.34 + 0.5 * heat})`;
+    ctx.lineWidth = 0.9 + heat;
+    for (const [i, j] of CUBE_E) {
+      if (!v[i] || !v[j]) continue;
+      ctx.beginPath(); ctx.moveTo(v[i][0], v[i][1]); ctx.lineTo(v[j][0], v[j][1]); ctx.stroke();
+    }
+  }
+
+  // the body
+  const p = project([tr.x, tr.y, tr.z]);
+  if (p) {
+    const r = 16 - Math.min(9, p[2] * 0.16);
+    for (let i = 3; i >= 1; i--) {
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], r * i * 0.55, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(190,220,255,${0.05 * (4 - i)})`;
+      ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(p[0], p[1], 3.1, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  document.getElementById('r-state').textContent = tr.label;
+  document.getElementById('r-index').textContent = '(' + tr.K.join(', ') + ')';
+}
+
+function frame(now) {
+  if (!dragging && phase === 'rest') yaw += 0.0009;
+  if (document.getElementById('auto').checked && phase === 'rest') {
+    if (!nextAuto) nextAuto = now + 2200;
+    else if (now > nextAuto) { teleport(); nextAuto = 0; }
+  } else if (phase !== 'rest') nextAuto = 0;
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+const slider = document.getElementById('slice');
+slider.addEventListener('input', () => {
+  sliceAngle = slider.value / 100;
+  tiles = buildTiles(sliceAngle);
+  home = Math.min(home, tiles.length - 1);
+  dest = Math.min(dest, tiles.length - 1);
+  document.getElementById('r-slice').textContent = sliceAngle.toFixed(2);
+});
+
+resize();
+tiles = buildTiles(0);
+home = tiles.reduce((b, t, i, a) => (t.cx * t.cx + t.cy * t.cy < a[b].cx * a[b].cx + a[b].cy * a[b].cy ? i : b), 0);
+dest = home;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

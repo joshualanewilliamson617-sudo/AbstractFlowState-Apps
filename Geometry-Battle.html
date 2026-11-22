@@ -1,0 +1,3379 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Geometry Battle</title>
+<style>
+  :root{
+    --vw:100vw; --vh:100vh;      /* the box we can actually be seen in; JS keeps these true */
+    --bg:#03020a; --panel:rgba(12,9,26,.95); --bone:#ece7f5; --dim:#8b83a6;
+    --edge:rgba(150,130,215,.24); --gold:#f2a33a;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --bg:#03020a; --bone:#ece7f5; --dim:#8b83a6; } }
+  :root[data-theme="dark"]{ --bg:#03020a; --bone:#ece7f5; --dim:#8b83a6; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg)}
+  body{font:14px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif;color:var(--bone)}
+  canvas{display:block;position:fixed;left:0;top:0;width:var(--vw);height:var(--vh);touch-action:none}
+  button{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--bone);outline-offset:2px}
+
+  #rail{position:fixed;top:0;left:0;height:var(--vh);width:310px;z-index:10;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,rgba(14,10,30,.95),rgba(3,2,10,.97));border-right:1px solid var(--edge);
+    transition:transform .22s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(12px)}
+  #rail.hide{transform:translateX(-310px)}
+  #head{padding:16px 20px 12px;border-bottom:1px solid var(--edge);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  #head h1{font:400 24px/1 "Iowan Old Style",Palatino,Georgia,serif}
+  #head p{color:var(--dim);font-size:12.5px;margin-top:4px}
+  #hideBtn{background:none;border:1px solid var(--edge);border-radius:6px;padding:3px 9px;font-size:12px;color:var(--dim);cursor:pointer}
+  #body{flex:1;overflow-y:auto;padding:14px 20px 24px}
+  #body::-webkit-scrollbar{width:6px} #body::-webkit-scrollbar-thumb{background:var(--edge);border-radius:3px}
+
+  .grp{margin-bottom:20px}
+  .grp h2{font-size:12px;font-weight:600;color:var(--dim);margin-bottom:8px}
+  .hint{color:var(--dim);font-size:11.5px;line-height:1.45;margin-top:7px}
+
+  /* roster */
+  .row{display:grid;grid-template-columns:18px 1fr auto;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;margin:0 -6px}
+  .row.sel{background:rgba(255,255,255,.05)}
+  .row.out{opacity:.38}
+  .row.hot{box-shadow:inset 3px 0 0 var(--c);background:rgba(255,255,255,.045)}
+  .tog{width:20px;height:20px;border-radius:50%;border:2px solid var(--c);background:transparent;cursor:pointer;padding:0}
+  .tog[aria-pressed="true"]{background:var(--c);box-shadow:0 0 10px var(--c)}
+  .nm{background:none;border:0;text-align:left;cursor:pointer;min-width:0;padding:0}
+  .nm span{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nm small{display:block;font-size:11px;color:var(--dim);line-height:1.3}
+  .rt{display:flex;align-items:center;gap:6px}
+  .ms{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+  .pick{background:none;border:0;cursor:pointer;font-size:16px;line-height:1;color:var(--dim);padding:2px 3px}
+  .pick[aria-pressed="true"]{color:var(--gold)}
+  .sk{grid-column:2/4;display:flex;align-items:center;gap:8px;margin:1px 0 3px}
+  .sk input{flex:1;accent-color:var(--c);cursor:pointer;height:16px;min-width:0}
+  .sk label{font-size:11px;color:var(--dim);white-space:nowrap}
+  .sk b{font-size:11.5px;font-weight:600;color:var(--c);min-width:16px;text-align:right;font-variant-numeric:tabular-nums}
+  body.running .sk{display:none}
+  .spx{grid-column:2/4;display:flex;align-items:center;gap:7px;margin:2px 0 4px}
+  .spx label{font-size:11px;color:var(--dim);white-space:nowrap}
+  .glyphs{display:flex;gap:3px;flex:1;min-width:0}
+  .gl{flex:1 1 0;min-width:0;max-width:26px;aspect-ratio:1;padding:2px;border:1px solid transparent;border-radius:5px;
+    background:transparent;cursor:pointer;color:var(--dim);line-height:0}
+  .gl svg{width:100%;height:100%;display:block}
+  .gl:hover{color:var(--bone);border-color:var(--edge)}
+  .gl[aria-pressed="true"]{color:var(--c2);border-color:var(--c2);background:rgba(255,255,255,.07)}
+  body.running .spx{display:none}
+  .mini{grid-column:2/4;height:3px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;display:none}
+  .mini i{display:block;height:100%;background:var(--c)}
+  body.running .mini{display:block}
+
+  .x{background:none;border:0;cursor:pointer;color:var(--dim);font-size:15px;line-height:1;padding:2px 4px}
+  .x:hover{color:var(--bone)}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);justify-self:center}
+  #chips{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .chip{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;border:1px solid var(--edge);background:transparent;cursor:pointer;font-size:12px;text-align:left;min-width:0}
+  .chip:hover:not(:disabled){border-color:var(--c);background:rgba(255,255,255,.04)}
+  .chip:disabled{opacity:.35;cursor:not-allowed}
+  .chip i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+  .chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .count{float:right;font-weight:400;font-variant-numeric:tabular-nums}
+  #empty{color:var(--dim);font-size:12px;padding:6px 0}
+  canvas#gizmo{position:fixed;left:calc(var(--vw) - 134px);top:calc(var(--vh) - 134px);width:120px;height:120px;z-index:8;pointer-events:none}
+  #detail{margin-top:10px;padding:11px 12px;border-radius:8px;border:1px solid var(--edge);background:rgba(255,255,255,.025)}
+  #detail h3{font:400 17px/1.2 "Iowan Old Style",Palatino,Georgia,serif;margin-bottom:5px}
+  #detail p{font-size:12px;color:#cfc8e2;line-height:1.5}
+  #detail p+p{margin-top:6px}
+  #detail b{font-weight:600;color:var(--bone)}
+  #detail .st{color:var(--dim);font-size:11px;margin-top:7px}
+
+  /* tabs, switches, segmented controls */
+  #tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--edge);background:rgba(3,2,10,.45);flex:none}
+  .tab{flex:1;padding:9px 3px;background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font-size:12.5px;cursor:pointer;white-space:nowrap}
+  .tab:hover{color:var(--bone)}
+  .tab[aria-selected="true"]{color:var(--bone);border-bottom-color:var(--gold)}
+  .pane[hidden]{display:none}
+  #foot{flex:none;padding:10px 20px 14px;border-top:1px solid var(--edge);background:rgba(3,2,10,.65)}
+  .sw{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:8px 11px;border:1px solid var(--edge);
+    border-radius:8px;background:transparent;cursor:pointer;font-size:13px;margin-bottom:6px;text-align:left}
+  .sw:hover:not(:disabled){border-color:var(--bone)}
+  .sw:disabled{opacity:.35;cursor:not-allowed}
+  .sw i{width:34px;height:19px;border-radius:10px;background:rgba(255,255,255,.1);position:relative;flex:none;transition:background .15s}
+  .sw i::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--dim);transition:transform .15s,background .15s}
+  .sw[aria-pressed="true"] i{background:rgba(242,163,58,.32)}
+  .sw[aria-pressed="true"] i::after{transform:translateX(15px);background:var(--gold)}
+  .seg{display:flex;border:1px solid var(--edge);border-radius:8px;overflow:hidden;margin-bottom:6px}
+  .seg button{flex:1;padding:8px 4px;background:transparent;border:0;border-right:1px solid var(--edge);font-size:12.5px;color:var(--dim);cursor:pointer}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:rgba(255,255,255,.05);color:var(--bone)}
+  .seg button[aria-pressed="true"]{background:rgba(242,163,58,.16);color:var(--bone)}
+  .lbl{font-size:11px;color:var(--dim);margin:12px 0 5px}
+  details.more{margin-top:9px;border-top:1px solid var(--edge);padding-top:8px}
+  details.more summary{font-size:11.5px;color:var(--dim);cursor:pointer;list-style:none}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more summary::before{content:"▸  "}
+  details.more[open] summary::before{content:"▾  "}
+  details.more .hint:first-of-type{margin-top:6px}
+  #keys{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:12px;align-items:center}
+  #keys b{font:600 11px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--bone);background:rgba(255,255,255,.07);
+    border:1px solid var(--edge);border-radius:4px;padding:0 6px;text-align:center;white-space:nowrap}
+  #keys span{color:var(--dim)}
+
+  .sl{margin-bottom:12px}
+  .sl .lab{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
+  .sl .lab b{font-weight:500;color:var(--gold);font-variant-numeric:tabular-nums}
+  .sl input{width:100%;accent-color:var(--gold);cursor:pointer}
+
+  .btn{width:100%;padding:9px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid var(--edge);font-size:13px;transition:background .13s,border-color .13s}
+  .btn:hover:not(:disabled){background:rgba(255,255,255,.07);border-color:var(--bone)}
+  .btn:disabled{opacity:.3;cursor:not-allowed}
+  .btn.go{background:var(--gold);border-color:var(--gold);color:#1d1304;font-weight:600}
+  .btn.go:hover:not(:disabled){background:#ffb84e;border-color:#ffb84e}
+  .btn+.btn{margin-top:6px}
+  .r2{display:flex;gap:6px}.r2 .btn{margin-top:0}
+
+  #log{list-style:none;font-size:12px;line-height:1.35}
+  #log li{display:grid;grid-template-columns:34px 10px 1fr;gap:6px;align-items:baseline;padding:3px 0}
+  #log li i{width:8px;height:8px;border-radius:50%;display:block;transform:translateY(-1px)}
+  #log li em{font-style:normal;color:var(--dim);font-variant-numeric:tabular-nums;font-size:11px}
+  #log:empty::after{content:"Nothing has happened yet.";color:var(--dim);font-size:11.5px}
+
+  #rec{font-size:12px}
+  #rec div{display:flex;justify-content:space-between;padding:2px 0}
+  #rec div span:last-child{color:var(--dim);font-variant-numeric:tabular-nums}
+
+  /* top mass bar */
+  #hud{position:fixed;top:14px;left:calc(var(--vw)/2 + 155px);transform:translateX(-50%);z-index:9;width:min(600px,calc(var(--vw) - 350px));
+    background:rgba(8,5,18,.9);border:1px solid var(--edge);border-radius:11px;padding:10px 15px 12px;backdrop-filter:blur(10px);
+    box-shadow:0 8px 34px rgba(0,0,0,.65);transition:left .22s}
+  body.railHidden #hud{left:calc(var(--vw)/2);width:min(600px,calc(var(--vw) - 40px))}
+  #hudTop{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px;font-size:12px;color:var(--dim)}
+  #hudTop b{color:var(--bone);font-weight:600}
+  #lead b{font-size:15px}
+  #bar{height:8px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;display:flex}
+  #bar i{display:block;height:100%;transition:width .35s}
+  #tip{position:relative;height:0}
+  #tip::after{content:"";position:absolute;left:70%;top:-8px;width:1px;height:8px;background:rgba(255,255,255,.5)}
+
+  #peek{position:fixed;top:14px;left:14px;z-index:11;display:none;padding:8px 13px;border-radius:8px;background:rgba(14,10,30,.94);border:1px solid var(--edge);font-size:12.5px;cursor:pointer}
+  body.railHidden #peek{display:block}
+  body.railHidden #hud{top:58px}
+  @media (min-width:760px){ body.railHidden #hud{top:14px} }
+
+  #cut{position:fixed;left:calc(var(--vw)/2);top:calc(var(--vh) - 56px);transform:translateX(-50%);z-index:9;padding:8px 17px;border-radius:8px;background:rgba(8,5,18,.88);
+    border:1px solid var(--edge);font-size:12.5px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+  #cut.on{opacity:1}
+  #actcard{position:fixed;left:calc(var(--vw)/2);top:calc(var(--vh)/2 - 70px);transform:translateX(-50%) scale(.95);z-index:10;
+    text-align:center;opacity:0;transition:opacity .55s,transform .55s;pointer-events:none;white-space:nowrap;
+    padding:18px 46px;isolation:isolate}
+  /* the card has to stay readable over a field at full glow, without becoming a box */
+  #actcard::before{content:"";position:absolute;inset:-24px -10px;z-index:-1;border-radius:50%;
+    background:radial-gradient(ellipse at center,rgba(5,4,12,.9) 0%,rgba(5,4,12,.72) 45%,rgba(5,4,12,0) 72%)}
+  #actcard.on{opacity:1;transform:translateX(-50%) scale(1)}
+  #actcard b{display:block;font:400 34px/1.1 "Iowan Old Style",Palatino,Georgia,serif;
+    text-shadow:0 2px 16px #000,0 0 34px rgba(0,0,0,.95)}
+  #actcard span{display:block;margin-top:8px;font-size:12px;color:#aab3c6;letter-spacing:.16em;text-transform:uppercase;
+    text-shadow:0 1px 10px #000,0 0 22px rgba(0,0,0,.95)}
+  #special{position:fixed;left:calc(var(--vw)/2);top:calc(var(--vh) - 104px);transform:translateX(-50%) translateY(8px);z-index:9;padding:9px 20px;border-radius:10px;
+    background:rgba(8,5,18,.9);border:1px solid var(--edge);opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;
+    display:flex;align-items:baseline;gap:10px;white-space:nowrap;max-width:calc(100vw - 30px)}
+  #special.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  #special b{font:400 19px/1 "Iowan Old Style",Palatino,Georgia,serif}
+  #special span{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .chg{grid-column:2/4;height:3px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;display:none;margin-top:2px}
+  .chg i{display:block;height:100%;background:var(--c);opacity:.55}
+  .chg.full i{opacity:1;box-shadow:0 0 8px var(--c)}
+  body.running .chg{display:block}
+  #toast{position:fixed;left:calc(var(--vw)/2);top:calc(var(--vh) - 128px);transform:translateX(-50%);z-index:12;padding:9px 16px;border-radius:8px;font-size:13px;
+    background:rgba(155,107,255,.18);border:1px solid rgba(155,107,255,.45);opacity:0;pointer-events:none;transition:opacity .2s}
+  #toast.on{opacity:1}
+
+  #modal{position:fixed;left:0;top:0;width:var(--vw);height:var(--vh);z-index:20;display:none;align-items:center;justify-content:center;background:rgba(3,2,9,.8);backdrop-filter:blur(4px);pointer-events:none}
+  #modal.on{display:flex}
+  #card{pointer-events:auto;width:420px;max-width:calc(100vw - 40px);padding:32px;border-radius:15px;text-align:center;background:linear-gradient(165deg,#1b1033,#0a0618);border:1px solid var(--edge)}
+  #card h2{font:400 30px/1.15 "Iowan Old Style",Palatino,Georgia,serif;margin-bottom:10px}
+  #card p{color:#bdb5d4;font-size:13.5px;line-height:1.55;margin-bottom:12px}
+  #card .btn{margin-top:10px}
+
+  html.phone #rail{width:min(310px,88vw)} html.phone #rail.hide{transform:translateX(-100%)}
+  html.phone #hud{left:calc(var(--vw)/2)!important;width:calc(var(--vw) - 20px)!important;top:52px;padding:7px 11px 9px;border-radius:9px}
+  html.phone #peek{top:8px;left:10px;padding:7px 12px}
+  html.phone canvas#gizmo{display:none}
+  html.phone #hudTop{font-size:11px;margin-bottom:5px}
+  html.phone #lead b{font-size:13px} html.phone #bar{height:6px}
+  html.phone #special{top:calc(var(--vh) - 86px);padding:7px 14px} html.phone #special b{font-size:16px}
+  html.phone #cut{top:calc(var(--vh) - 42px);padding:6px 12px;font-size:11.5px}
+  html.phone #actcard b{font-size:23px} html.phone #actcard span{font-size:10.5px;letter-spacing:.12em}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<button id="peek">Controls</button>
+
+<div id="hud" aria-live="polite">
+  <div id="hudTop">
+    <div id="lead">Leading<br><b>—</b></div>
+    <div id="status" style="text-align:center">Build your platform, then release gravity</div>
+    <div id="left" style="text-align:right">Standing<br><b>9</b></div>
+  </div>
+  <div id="bar"></div><div id="tip" title="A form that holds 70% of the mass ignites"></div>
+</div>
+
+<div id="cut"></div>
+<div id="actcard"><b></b><span></span></div>
+<div id="special"><b id="spName"></b><span id="spHit"></span></div>
+<canvas id="gizmo" width="120" height="120" aria-hidden="true"></canvas>
+
+<aside id="rail">
+  <div id="head">
+    <div><h1>White Hole</h1><p id="sub">Sacred geometry arena</p></div>
+    <button id="hideBtn" title="Hide panel (H)">Hide</button>
+  </div>
+  <nav id="tabs" role="tablist" aria-label="Controls">
+    <button class="tab" id="tabForms" data-tab="forms" role="tab" aria-selected="true">Forms</button>
+    <button class="tab" id="tabArena" data-tab="arena" role="tab" aria-selected="false">Arena</button>
+    <button class="tab" id="tabView" data-tab="view" role="tab" aria-selected="false">View</button>
+    <button class="tab" id="tabGuide" data-tab="guide" role="tab" aria-selected="false">Guide</button>
+  </nav>
+  <div id="body">
+
+    <section class="pane" id="pane-forms" role="tabpanel" aria-labelledby="tabForms">
+      <div class="grp">
+        <h2>On the platform <span class="count" id="count"></span></h2>
+        <div id="roster"></div>
+        <div class="r2" style="margin-top:8px" id="skillBtns"><button class="btn" id="randSkill">Random skills</button><button class="btn" id="evenSkill">All skill 5</button></div>
+        <button class="btn" id="ownSpec" style="margin-top:6px" hidden>Give every form its own move back</button>
+      </div>
+
+      <div class="grp" id="gAdd">
+        <h2>Add a form <span class="count">14 available</span></h2>
+        <div id="chips"></div>
+        <div class="r2" style="margin-top:7px"><button class="btn" id="allBtn">One of each</button><button class="btn" id="clearBtn">Clear platform</button></div>
+      </div>
+
+      <div id="detail"></div>
+
+      <details class="more">
+        <summary>About the star, the skill slider and the move row</summary>
+        <p class="hint">The row of sigils under each form picks which special it fights with. Each sigil is that form's own geometry, and a form starts with its own move — but you can hand any move to any form, so a Tree of Life can open a Torus vortex.</p>
+        <p class="hint">Star a form to back it as your champion. Tap a name to read how it fights.</p>
+        <p class="hint">Skill runs from 1 to 10 and doesn't add mass. A skilled form hunts lighter forms and backs away from heavier ones, recharges its ability faster and hits harder with it, holds its geometry together better, and can take a core up to 15% heavier than its own. At 1 a form just drifts where gravity takes it.</p>
+      </details>
+    </section>
+
+    <section class="pane" id="pane-arena" role="tabpanel" aria-labelledby="tabArena" hidden>
+      <div class="grp" id="gSetup">
+        <div class="sl"><div class="lab"><span>Starting spread</span><b id="vSpread">1500</b></div>
+          <input type="range" id="sSpread" min="1000" max="2600" step="50" value="1500"></div>
+        <div class="sl"><div class="lab"><span>Arena height</span><b id="vHeight">60%</b></div>
+          <input type="range" id="sHeight" min="0" max="1" step="0.05" value="0.6"></div>
+        <div class="sl"><div class="lab"><span>Time limit</span><b id="vLen">120 s</b></div>
+          <input type="range" id="sLen" min="60" max="240" step="10" value="120"></div>
+
+        <p class="lbl">Dragging a form moves it</p>
+        <div class="seg"><button id="liftFloor" aria-pressed="true">Across the floor</button><button id="liftHeight" aria-pressed="false">Up and down</button></div>
+        <div class="r2"><button class="btn" id="shuffleBtn">Shuffle seats</button><button class="btn" id="clearPos" disabled>Clear placements</button></div>
+
+        <details class="more">
+          <summary>Placing forms by hand</summary>
+          <p class="hint">Drag any form to move it on the field. Hold Ctrl or Alt while dragging to raise and lower it instead of using the buttons above. You can shove them around mid-match too, and a form keeps the speed you throw it at.</p>
+        </details>
+      </div>
+
+      <div class="grp" id="gRun" style="display:none">
+        <div class="sl"><div class="lab"><span>Speed</span><b id="vSpeed">1×</b></div>
+          <input type="range" id="sSpeed" min="0.25" max="3" step="0.25" value="1"></div>
+        <button class="sw" id="followBtn" aria-pressed="false"><span>Follow my champion</span><i></i></button>
+        <h2 style="margin-top:16px">What just happened</h2>
+        <ul id="log"></ul>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-view" role="tabpanel" aria-labelledby="tabView" hidden>
+      <div class="grp">
+        <div class="sl"><div class="lab"><span>Ambient light</span><b id="vAmb">30%</b></div>
+          <input type="range" id="sAmb" min="0" max="1" step="0.05" value="0.3"></div>
+
+        <p class="lbl">Angle</p>
+        <div class="seg"><button id="topBtn">From above</button><button id="threeBtn" aria-pressed="true">Angled</button><button id="sideBtn">From the side</button></div>
+        <div class="seg"><button id="orbitBtn">Panorama orbit</button></div>
+        <p class="hint" id="orbitNote" hidden>The panorama holds the camera, so cuts and follow stand down while it runs. Their banners still appear.</p>
+        <div class="sl" id="orbitRow" hidden><div class="lab"><span>Orbit speed</span><b id="vOrbit">1×</b></div>
+          <input type="range" id="sOrbit" min="0.25" max="3" step="0.25" value="1"></div>
+        <p class="lbl">Zoom</p>
+        <div class="seg"><button id="zOut">−</button><button id="fitBtn">Frame all</button><button id="zIn">+</button></div>
+
+        <div class="sl"><div class="lab"><span>Line glow</span><b id="vGlow">60%</b></div>
+          <input type="range" id="sGlow" min="0" max="1" step="0.05" value="0.6"></div>
+
+        <p class="lbl">Effects</p>
+        <button class="sw" id="hiBtn" aria-pressed="true"><span>Fight highlights</span><i></i></button>
+        <button class="sw" id="autoBtn" aria-pressed="true"><span>Camera cuts</span><i></i></button>
+        <button class="sw" id="attackCam" aria-pressed="true"><span>Attack cam</span><i></i></button>
+        <button class="sw" id="nameBtn" aria-pressed="false"><span>Name tags on the field</span><i></i></button>
+
+        <details class="more">
+          <summary>Moving the camera yourself</summary>
+          <p class="hint">Press the scroll wheel and drag to orbit: sideways turns around the z axis, up and down tilts. Right-drag or Shift-drag does the same. The wheel zooms toward the pointer, left-drag pans. On touch, drag with two fingers to orbit and pinch to zoom.</p>
+          <p class="hint">When a form takes the field, the capture frames itself — but the moment you scroll or drag, the camera is yours and stays where you put it, so you can go right in on the winner. The result card steps aside as soon as you reach for the field. Press <b>R</b> to hand the frame back.</p>
+          <p class="hint">The camera is kept on a leash: it won't pan past the edge of the field, zoom out into empty space, or tip past the horizon. Lost anyway? Frame all brings everything back.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-guide" role="tabpanel" aria-labelledby="tabGuide" hidden>
+      <div class="grp">
+        <h2>Keys</h2>
+        <div id="keys">
+          <b>Space</b><span>Pause and resume</span>
+          <b>F</b><span>Follow your champion</span>
+          <b>Q</b> <span>Turn the view left</span>
+          <b>E</b><span>Turn the view right</span>
+          <b>↑ ↓</b><span>Tilt the view</span>
+          <b>1–4</b><span>Switch these tabs</span>
+          <b>O</b><span>Panorama orbit on or off</span>
+          <b>H</b><span>Hide this panel</span>
+          <b>Esc</b><span>Dismiss the result card</span>
+          <b>R</b><span>Re-frame the field, or the winner after you have moved in</span>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h2>The four acts</h2>
+        <p class="hint">A match is staged rather than simply simulated. <b>The Approach</b> holds gravity back while the forms close, and the camera makes a slow turn of the whole field. <b>The Clash</b> releases it: abilities come round at full rate and the camera cuts to every connection. <b>Duels</b> begins once the field has thinned — the ring tightens, abilities recharge half again as fast, and the camera stops surveying and holds the two heaviest in one frame. <b>Last Stand</b> is the finish: a lead alone will not end it, so the two left have to settle it on the field or on the clock.</p>
+        <p class="hint">Each act ends on something read off the fight — first contact, how many are standing, how much of the field one form holds — so no two matches are cut the same way. The ring never pushes forms together; it only bleeds off the speed they are drifting apart with, so a thinning field tightens instead of stalemating.</p>
+      </div>
+
+      <div class="grp">
+        <h2>How a form dies</h2>
+        <p class="hint">Every form is built from bodies held on its true geometry by springs. When bodies from two forms meet slowly, the heavier absorbs the lighter. When they meet fast, both shatter and the debris goes to whichever core has the strongest pull nearby. Gas softens impacts, so gas-rich forms merge where others shatter.</p>
+        <p class="hint">A form is out when a heavier core swallows its core, or when less than 6% of its geometry is still standing and the core comes unbound. A form that holds 70% of all mass ignites and wins. If time runs out, the heaviest form ignites.</p>
+        <p class="hint">Any single body over 140 solar masses tears itself apart. That's pair instability, and it's real.</p>
+        <p class="hint">When a form wins it captures the field: every loose body is drawn into it, the platform takes its colour, and its own geometry unfolds across the whole arena. Each of the nine does that differently, and a form fighting with a borrowed move captures the field with that move's geometry instead.</p>
+      </div>
+
+      <div class="grp">
+        <h2>Line glow</h2>
+        <p class="hint">Every form is drawn from its own construction: the circles that generate it, the chords between them, the hull it sits in. The lit scene is then blurred once over itself, which is why the lines read as lit tubes rather than flat strokes. The Line glow slider in View sets how far that spreads.</p>
+        <p class="hint">On a slow device the picture steps itself down rather than dropping frames: the bloom goes first, then line detail on the forms that are small on screen. It comes back on its own when there is room for it.</p>
+      </div>
+
+      <div class="grp">
+        <h2>Record on this device</h2>
+        <div id="rec"></div>
+        <button class="btn" id="clearRec" style="margin-top:8px">Clear record</button>
+      </div>
+    </section>
+
+  </div>
+  <footer id="foot">
+    <div id="footSetup"><button class="btn go" id="goBtn">Release gravity</button></div>
+    <div id="footRun" style="display:none" class="r2"><button class="btn" id="pauseBtn">Pause</button><button class="btn go" id="resetBtn">New match</button></div>
+  </footer>
+</aside>
+
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div id="card">
+  <h2 id="mTitle">Ignition</h2>
+  <p id="mBody"></p>
+  <p id="mPick"></p>
+  <button class="btn go" id="againBtn">Next match</button>
+  <button class="btn" id="replayBtn">Watch the capture again</button>
+  <button class="btn" id="closeBtn">Look at the field</button>
+</div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   ENGINE — pure simulation, no DOM. The page's UI script drives it.
+   ===================================================================== */
+
+const TAU = Math.PI*2;
+const PHI = (1+Math.sqrt(5))/2;
+const GOLDEN_ANGLE = TAU*(1-1/PHI);        // 137.508°
+const NEUTRAL = -1;
+const KIND = { NODE:0, LINE:1 };
+
+let seed = 123456789;
+function srand(){ seed = (seed*1664525 + 1013904223) >>> 0; return seed/4294967296; }
+function setSeed(s){ seed = s>>>0; }
+
+/* ---------- geometry helpers (unit radius, y points down on screen) ---------- */
+function circle(cx,cy,r,n,grp){
+  const pts=[]; for(let i=0;i<=n;i++){ const t=i/n*TAU; pts.push([cx+Math.cos(t)*r, cy+Math.sin(t)*r, 0]); }
+  return {pts, grp:grp||0};
+}
+function line(a,b,grp){ return {pts:[[a[0],a[1],a[2]||0],[b[0],b[1],b[2]||0]], grp:grp||0}; }
+function poly(list,closed,grp){
+  const pts=list.map(p=>[p[0],p[1],p[2]||0]); if(closed) pts.push(pts[0].slice());
+  return {pts, grp:grp||0};
+}
+function arc(cx,cy,r,a0,a1,n,grp){
+  const pts=[]; n=n||24; for(let i=0;i<=n;i++){ const t=a0+(a1-a0)*i/n; pts.push([cx+Math.cos(t)*r, cy+Math.sin(t)*r, 0]); }
+  return {pts, grp:grp||0};
+}
+function nd(x,y,z,w,grp){ return {x, y, z:z||0, w:w||1, grp:grp||0}; }
+
+/* ---------- solid helpers: every form is constructed in space ---------- */
+const EX=[1,0,0], EY=[0,1,0], EZ=[0,0,1];
+function d3(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1], (a[2]||0)-(b[2]||0)); }
+function circle3(c,u,v,r,n,grp){
+  const pts=[];
+  for(let i=0;i<=n;i++){ const t=i/n*TAU, ct=Math.cos(t)*r, st=Math.sin(t)*r;
+    pts.push([c[0]+u[0]*ct+v[0]*st, c[1]+u[1]*ct+v[1]*st, (c[2]||0)+u[2]*ct+v[2]*st]); }
+  return {pts, grp:grp||0};
+}
+function arc3(cx,cy,cz,r,a0,a1,n,grp){
+  const pts=[]; n=n||24;
+  for(let i=0;i<=n;i++){ const t=a0+(a1-a0)*i/n; pts.push([cx+Math.cos(t)*r, cy+Math.sin(t)*r, cz]); }
+  return {pts, grp:grp||0};
+}
+// three great circles read as a sphere for a third of the cost of a wireframe
+function ball(cx,cy,cz,r,n,grp){
+  const c=[cx,cy,cz];
+  return [circle3(c,EX,EY,r,n,grp), circle3(c,EY,EZ,r,n,grp), circle3(c,EZ,EX,r,n,grp)];
+}
+function shell(cx,cy,cz,r,lat,lon,n,grp){
+  const out=[], c=[cx,cy,cz];
+  for(let i=1;i<lat;i++){ const p=i/lat*Math.PI;
+    out.push(circle3([cx,cy,cz+r*Math.cos(p)],EX,EY,r*Math.sin(p),n,grp)); }
+  for(let j=0;j<lon;j++){ const a=j/lon*Math.PI;
+    out.push(circle3(c,[Math.cos(a),Math.sin(a),0],EZ,r,n,grp)); }
+  return out;
+}
+// join every pair of vertices sitting at the shortest distance: the edges of the solid
+function hull(V,tol,grp){
+  let m=Infinity;
+  for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++){ const d=d3(V[i],V[j]); if(d>1e-9&&d<m) m=d; }
+  const out=[];
+  for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++) if(d3(V[i],V[j])<m*(tol||1.06)) out.push(line(V[i],V[j],grp));
+  return out;
+}
+function atR(V,R){ let m=0; for(const p of V) m=Math.max(m,Math.hypot(p[0],p[1],p[2]));
+  return V.map(p=>[p[0]/m*R, p[1]/m*R, p[2]/m*R]); }
+const SOLID={
+  tetra:()=>[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]],
+  cube:()=>{ const v=[]; for(const x of[-1,1])for(const y of[-1,1])for(const z of[-1,1]) v.push([x,y,z]); return v; },
+  octa:()=>[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]],
+  icosa:()=>{ const v=[]; for(const s of[-1,1])for(const t of[-1,1]) v.push([0,s,t*PHI],[s,t*PHI,0],[t*PHI,0,s]); return v; },
+  dodeca:()=>{ const q=1/PHI, v=[]; for(const x of[-1,1])for(const y of[-1,1])for(const z of[-1,1]) v.push([x,y,z]);
+    for(const s of[-1,1])for(const t of[-1,1]) v.push([0,s*q,t*PHI],[s*q,t*PHI,0],[t*PHI,0,s*q]); return v; },
+  cubocta:()=>{ const v=[]; for(const [a,b] of [[0,1],[1,2],[2,0]]) for(const s of[-1,1]) for(const t of[-1,1]){
+    const p=[0,0,0]; p[a]=s; p[b]=t; v.push(p); } return v; }
+};
+// put a set of coplanar points in order round their plane, so a ring or a star can be drawn through them
+function ringSort(P,n){
+  const L=Math.hypot(n[0],n[1],n[2]), k=[n[0]/L,n[1]/L,n[2]/L];
+  let u=Math.abs(k[0])<.9?[1,0,0]:[0,1,0];
+  const dt=u[0]*k[0]+u[1]*k[1]+u[2]*k[2];
+  u=[u[0]-k[0]*dt, u[1]-k[1]*dt, u[2]-k[2]*dt];
+  const lu=Math.hypot(u[0],u[1],u[2]); u=[u[0]/lu,u[1]/lu,u[2]/lu];
+  const w=[k[1]*u[2]-k[2]*u[1], k[2]*u[0]-k[0]*u[2], k[0]*u[1]-k[1]*u[0]];
+  return P.map(p=>[Math.atan2(p[0]*w[0]+p[1]*w[1]+p[2]*w[2], p[0]*u[0]+p[1]*u[1]+p[2]*u[2]), p])
+          .sort((a,b)=>a[0]-b[0]).map(([,p])=>p);
+}
+// the ring of nearest neighbours around a vertex, in order round it
+function around(V,i,k){
+  const c=V[i];
+  const nb=V.map((p,j)=>[d3(c,p),j]).filter(([d])=>d>1e-9).sort((a,b)=>a[0]-b[0]).slice(0,k).map(([,j])=>V[j]);
+  return ringSort(nb,c);
+}
+
+/* ---------- the forms ---------- */
+const FORMS = [
+  {
+    id:"vesica", name:"Vesica Piscis", color:"#ff7ac2",
+    fact:"Two equal circles, each passing through the other's centre. The lens is exactly √3 times taller than it is wide, and the two triangles inside it are perfectly equilateral.",
+    ability:"Birth", abilityText:"Every few seconds the lens gives birth: a lost node is rebuilt from core mass.",
+    stats:{ core:320, rad:310, k:3.0, spin:0.010, gas:0.45, nodeBudget:430, lineBudget:300, lines:150, breakD:85, tilt:0.55 },
+    build(){
+      const r=.5, h=r*Math.sqrt(3)/2, strokes=[], nodes=[];
+      // two spheres, each one passing through the other's centre
+      for(const s of [-1,1]) strokes.push(...shell(s*r/2,0,0,r,3,3,26));
+      // the lens they share, swept right round the axis they share
+      for(let k=0;k<8;k++){
+        const a=k/8*Math.PI, uy=Math.cos(a), uz=Math.sin(a), pts=[];
+        for(let i=0;i<=22;i++){ const t=-Math.PI/3+(TAU/3)*i/22, R=Math.sin(t)*r;
+          pts.push([-r/2+Math.cos(t)*r, uy*R, uz*R]); }
+        for(let i=22;i>=0;i--){ const t=-Math.PI/3+(TAU/3)*i/22, R=Math.sin(t)*r;
+          pts.push([r/2-Math.cos(t)*r, uy*R, uz*R]); }
+        strokes.push({pts,grp:0});
+      }
+      // the circle where the two surfaces actually cross, standing upright between them
+      for(const f of [.34,.67,1]) strokes.push(circle3([0,0,0],EY,EZ,h*f,44));
+      // the two triangles stand up off the page as tetrahedra on that circle
+      const T=[]; for(let k=0;k<3;k++){ const a=k*TAU/3; T.push([0,Math.cos(a)*h,Math.sin(a)*h]); }
+      strokes.push(poly(T,true));
+      for(const s of [-1,1]){
+        const ap=[s*r*1.5,0,0];
+        for(const p of T) strokes.push(line(p,ap));
+        nodes.push(nd(ap[0],ap[1],ap[2],2));
+      }
+      for(const p of T) nodes.push(nd(p[0],p[1],p[2],1.7));
+      for(const s of [-1,1]) nodes.push(nd(s*r/2,0,0,1.8));
+      strokes.push(line([-r*1.7,0,0],[r*1.7,0,0]));
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"seed", name:"Seed of Life", color:"#8fe07a",
+    fact:"Seven circles of one radius: one centre, six around it. Their overlaps draw a six-petal rosette, and the six centres are the corners of a perfect hexagon.",
+    ability:"Sixfold regrowth", abilityText:"Every few seconds it regrows up to twelve missing bodies, nodes first, paid for out of its core.",
+    stats:{ core:330, rad:340, k:3.0, spin:0.008, gas:0.50, nodeBudget:470, lineBudget:280, lines:200, breakD:85, tilt:0.7 },
+    build(){
+      const r=.42, strokes=[], nodes=[nd(0,0,0,1.8)];
+      strokes.push(...shell(0,0,0,r,3,4,26));
+      // six spheres round one, each sitting on the surface of the first
+      const dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+      const V=dirs.map(d=>[d[0]*r,d[1]*r,d[2]*r]);
+      for(const c of V){
+        strokes.push(...ball(c[0],c[1],c[2],r,24));
+        strokes.push(line([0,0,0],c));
+        nodes.push(nd(c[0],c[1],c[2],1.6));
+      }
+      strokes.push(...hull(V));                       // the octahedron the six centres make
+      // the circles where the shells cut each other, and the sphere that holds the lot
+      for(const [u,v] of [[EX,EY],[EY,EZ],[EZ,EX]])
+        strokes.push(circle3([0,0,0],u,v,r*Math.sqrt(2),52), circle3([0,0,0],u,v,2*r,64));
+      for(const d of dirs) nodes.push(nd(d[0]*r*2,d[1]*r*2,d[2]*r*2,1));
+      // the twelve midpoints of the octahedron: the next shell of seats
+      for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++){
+        if(d3(V[i],V[j])>r*1.5) continue;
+        nodes.push(nd((V[i][0]+V[j][0])/2,(V[i][1]+V[j][1])/2,(V[i][2]+V[j][2])/2,.9));
+      }
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"flower", name:"Flower of Life", color:"#ffe066",
+    fact:"Overlapping circles on a hexagonal lattice, every centre sitting on the rim of its neighbours. The thirteen circles at its heart are the Fruit of Life.",
+    ability:"Lattice bond", abilityText:"The stiffest structure in the field. Its gas-rich lattice turns shattering hits into merges.",
+    stats:{ core:270, rad:400, k:3.2, spin:0.005, gas:0.70, nodeBudget:360, lineBudget:430, lines:300, breakD:95, tilt:0.8 },
+    build(){
+      const r=.26, nodes=[], strokes=[];
+      // twelve spheres fit exactly round one, and no more: the Flower built in space
+      const C=[[0,0,0]].concat(atR(SOLID.cubocta(),2*r));
+      for(let i=0;i<C.length;i++){
+        const c=C[i];
+        strokes.push(...ball(c[0],c[1],c[2],r,i?20:26));
+        strokes.push(...ball(c[0],c[1],c[2],r*.5,i?10:14));
+        nodes.push(nd(c[0],c[1],c[2],i?1.2:1.9));
+      }
+      const V=C.slice(1);
+      strokes.push(...hull(V));
+      // four hexagons run clean through the middle of it, one for each pair of opposite faces
+      for(const n of [[1,1,1],[1,-1,1],[1,1,-1],[1,-1,-1]]){
+        const ring=V.filter(p=>Math.abs(p[0]*n[0]+p[1]*n[1]+p[2]*n[2])<1e-6);
+        if(ring.length===6) strokes.push(poly(ringSort(ring,n),true));
+      }
+      // the twenty-four seats where the outer spheres touch
+      for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++){
+        if(d3(V[i],V[j])>2*r*1.05) continue;
+        nodes.push(nd((V[i][0]+V[j][0])/2,(V[i][1]+V[j][1])/2,(V[i][2]+V[j][2])/2,.8));
+      }
+      strokes.push(...shell(0,0,0,3*r,3,4,40));
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"metatron", name:"Metatron's Cube", color:"#4fd4e8",
+    fact:"Thirteen circles of the Fruit of Life joined by all 78 possible lines. All five Platonic solids hide inside it.",
+    ability:"Containment", abilityText:"Loose bodies that drift inside its hull are pulled toward its core two and a half times harder.",
+    stats:{ core:340, rad:380, k:3.0, spin:0.007, gas:0.40, nodeBudget:420, lineBudget:320, lines:260, breakD:80, tilt:0.9 },
+    build(){
+      const r=.17, nodes=[], strokes=[];
+      // the thirteen circles are thirteen spheres: one in the middle, twelve packed round it
+      const C=[[0,0,0]].concat(atR(SOLID.cubocta(),4*r));
+      for(let i=0;i<C.length;i++){
+        strokes.push(...ball(C[i][0],C[i][1],C[i][2],r,i?16:20));
+        nodes.push(nd(C[i][0],C[i][1],C[i][2],i?1.1:1.7));
+      }
+      // every chord between them, as in the flat figure: seventy-eight lines
+      for(let i=0;i<C.length;i++) for(let j=i+1;j<C.length;j++) strokes.push(line(C[i],C[j]));
+      // and the five solids the cube was always holding
+      for(const [k,R] of [["dodeca",.95],["icosa",.80],["cube",.63],["octa",.50],["tetra",.42]])
+        strokes.push(...hull(atR(SOLID[k](),R)));
+      strokes.push(...shell(0,0,0,.99,3,4,40));
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"sri", name:"Sri Yantra", color:"#ff5a4e",
+    fact:"Nine interlocking triangles, four pointing up and five down, weaving 43 smaller triangles around a central point, the bindu. Two lotus rings and a four-gated square enclose it.",
+    ability:"Bindu pulse", abilityText:"Fires a radial shockwave from the bindu that knocks enemies loose and breaks their bonds.",
+    stats:{ core:320, rad:350, k:2.4, spin:0.004, gas:0.25, nodeBudget:440, lineBudget:300, lines:240, breakD:70, tilt:0.5 },
+    build(){
+      const R0=.56, TOP=.86, strokes=[], seen=[], nodes=[nd(0,0,TOP,3)];
+      const tris=[[.79,-1],[.55,-.64],[.38,-.47],[.2,-.28],[-.02,-.42],
+                  [-.79,1],[-.62,.66],[-.45,.42],[-.25,.14]];
+      // the Meru: every one of the nine triangles rises to its own terrace, bindu at the summit
+      const lift=i=>.05+Math.pow(i/(tris.length-1),.85)*(TOP-.05);
+      tris.forEach(([b,a],i)=>{
+        const h=Math.abs(a-b), w=Math.min(Math.sqrt(Math.max(0,1-b*b)), .66*h), z=lift(i);
+        const v=[[-w*R0,-b*R0,z],[w*R0,-b*R0,z],[0,-a*R0,z]];
+        strokes.push(poly(v,true));
+        if(i) for(const p of v) strokes.push(line(p,[p[0],p[1],lift(i-1)]));   // the wall of the step
+        for(const p of v){
+          if(seen.some(s=>d3(s,p)<.03)) continue;
+          seen.push(p); nodes.push(nd(p[0],p[1],p[2],1));
+        }
+      });
+      strokes.push(...ball(0,0,TOP,.07,18));
+      for(const [z,rr] of [[TOP,.1],[.58,.3],[.3,.48],[0,.62],[0,.65]]) strokes.push(arc3(0,0,z,rr,0,TAU,72));
+      // the two lotus rings, laid out flat round the foot of the mountain
+      for(const [n,r0,r1] of [[8,.65,.76],[16,.78,.88]]){
+        strokes.push(arc3(0,0,0,r0,0,TAU,88), arc3(0,0,0,r1,0,TAU,88));
+        for(let k=0;k<n;k++){
+          const a0=k/n*TAU, a1=(k+1)/n*TAU, am=(a0+a1)/2, rm=(r0+r1)/2, bulge=(a1-a0)*.42;
+          strokes.push(poly([[Math.cos(a0)*r0,Math.sin(a0)*r0,0],
+                             [Math.cos(am-bulge)*rm,Math.sin(am-bulge)*rm,.04],
+                             [Math.cos(am)*r1,Math.sin(am)*r1,0],
+                             [Math.cos(am+bulge)*rm,Math.sin(am+bulge)*rm,.04],
+                             [Math.cos(a1)*r0,Math.sin(a1)*r0,0]],false));
+        }
+      }
+      // the bhupura: the three walls and the four gates, now standing up off the ground
+      const WH=.13;
+      for(const q of [.92,.96,1.0]){
+        strokes.push(poly([[-q,-q,0],[q,-q,0],[q,q,0],[-q,q,0]],true));
+        strokes.push(poly([[-q,-q,WH],[q,-q,WH],[q,q,WH],[-q,q,WH]],true));
+      }
+      for(const c of [[-1,-1],[1,-1],[1,1],[-1,1]]) strokes.push(line([c[0],c[1],0],[c[0],c[1],WH]));
+      const g=.22, q=1.0;
+      for(let k=0;k<4;k++){
+        const ca=Math.cos(k*Math.PI/2), sa=Math.sin(k*Math.PI/2);
+        const T=(x,y,z)=>[x*ca-y*sa, x*sa+y*ca, z];
+        strokes.push(poly([T(-g,-q,0),T(-g,-q-.12,0),T(g,-q-.12,0),T(g,-q,0)],false));
+        strokes.push(poly([T(-g,-q,WH),T(-g,-q-.12,WH),T(g,-q-.12,WH),T(g,-q,WH)],false));
+        strokes.push(line(T(-g,-q-.12,0),T(-g,-q-.12,WH)), line(T(g,-q-.12,0),T(g,-q-.12,WH)));
+        nodes.push(nd(...T(0,-q-.06,WH),1));
+      }
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"golden", name:"Golden Spiral", color:"#f2a33a",
+    fact:"Seeds placed 137.5° apart, the golden angle, pack a sunflower head with no gaps. Count the spiral arms and you get Fibonacci numbers: 21 one way, 34 the other.",
+    ability:"φ claim", abilityText:"Debris from nearby shatters prefers it by a factor of φ, and its own strays repack into empty seats.",
+    stats:{ core:290, rad:380, k:2.2, spin:0.009, gas:0.40, nodeBudget:380, lineBudget:400, lines:70, breakD:72, tilt:0.6 },
+    build(){
+      const n=220, fib=new Set([1,2,3,5,8,13,21,34,55,89,144]), nodes=[], extra=[], strokes=[];
+      // the sunflower head is a dome, not a disc: every seed sits on the paraboloid
+      const seedAt=i=>{ const r=.9*Math.sqrt((i+.5)/n), a=i*GOLDEN_ANGLE, u=r/.9;
+        return [Math.cos(a)*r, Math.sin(a)*r, .44*(1-u*u)]; };
+      for(let i=0;i<n;i++){
+        const p=seedAt(i);
+        if(fib.has(i)) nodes.push(nd(p[0],p[1],p[2],2.2)); else extra.push([p[0],p[1],p[2],0]);
+      }
+      // the parastichies: the 21 and 34 arm families the packing really makes, curving over the dome
+      for(const step of [21,34]) for(let s=0;s<step;s++){
+        const pts=[]; for(let i=s;i<n;i+=step) pts.push(seedAt(i));
+        if(pts.length>1) strokes.push({pts,grp:0});
+      }
+      // the spiral itself, now climbing a cone instead of lying flat: both arms
+      for(const off of [0,Math.PI]){
+        const pts=[];
+        for(let t=0;;t+=.06){ const r=.03*Math.pow(PHI,t/(Math.PI/2)); if(r>.9) break;
+          pts.push([Math.cos(t+off)*r, Math.sin(t+off)*r, -.58*r]); }
+        strokes.push({pts,grp:0});
+      }
+      // the golden rectangles become golden boxes, each one a φ-slice deep
+      let x0=-.62,y0=-.383,w=1.24,h=w/PHI, dir=0;
+      for(let k=0;k<7;k++){
+        const z0=-.52, z1=-.52+Math.min(w,h)/PHI;
+        const A=[[x0,y0],[x0+w,y0],[x0+w,y0+h],[x0,y0+h]];
+        strokes.push(poly(A.map(p=>[p[0],p[1],z0]),true), poly(A.map(p=>[p[0],p[1],z1]),true));
+        for(const p of A) strokes.push(line([p[0],p[1],z0],[p[0],p[1],z1]));
+        const sq=Math.min(w,h);
+        if(w>h){ if(dir%2===0){ x0+=sq; } w-=sq; } else { if(dir%2===0){ y0+=sq; } h-=sq; }
+        dir++;
+        if(w<.02||h<.02) break;
+      }
+      // the shape of the dome, read off as contours
+      for(const f of [.35,.6,.8,.95]) strokes.push(arc3(0,0,.44*(1-f*f),.9*f,0,TAU,64));
+      strokes.push(arc3(0,0,-.52,.95,0,TAU,96));
+      return {nodes, strokes, extra};
+    }
+
+  },
+  {
+    id:"merkaba", name:"Merkaba", color:"#9b6bff",
+    fact:"Two interpenetrating tetrahedra forming a star tetrahedron. Its eight vertices are exactly the corners of a cube.",
+    ability:"Counter-spin", abilityText:"Its two tetrahedra spin against each other. That angular momentum makes its bodies 18% harder to out-mass.",
+    stats:{ core:300, rad:330, k:2.4, spin:0.020, gas:0.20, nodeBudget:440, lineBudget:280, lines:200, breakD:80, tilt:.95 },
+    build(){
+      const s=.82/Math.sqrt(3), T=[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]], nodes=[], strokes=[];
+      for(const g of [0,1]){
+        const sg=g?-1:1, v=T.map(p=>[p[0]*s*sg,p[1]*s*sg,p[2]*s*sg]);
+        for(const p of v) nodes.push(nd(p[0],p[1],p[2],2,g));
+        for(let i=0;i<4;i++) for(let j=i+1;j<4;j++) strokes.push(line(v[i],v[j],g));
+        // each face's inscribed triangle, so the solid reads as a solid
+        for(let i=0;i<4;i++) for(let j=i+1;j<4;j++) for(let k=j+1;k<4;k++){
+          const m=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
+          strokes.push(poly([m(v[i],v[j]),m(v[j],v[k]),m(v[k],v[i])],true,g));
+        }
+      }
+      // the cube the eight vertices sit on
+      const C=[];
+      for(const a of [-1,1]) for(const b of [-1,1]) for(const d of [-1,1]) C.push([a*s,b*s,d*s]);
+      for(let i=0;i<8;i++) for(let j=i+1;j<8;j++){
+        const dd=Math.abs(C[i][0]-C[j][0])+Math.abs(C[i][1]-C[j][1])+Math.abs(C[i][2]-C[j][2]);
+        if(Math.abs(dd-2*s)<1e-6) strokes.push(line(C[i],C[j]));
+      }
+      // its equator
+      for(const ax of [0,1,2]){
+        const pts=[];
+        for(let i=0;i<=56;i++){ const a=i/56*TAU, c=Math.cos(a)*s*Math.sqrt(3), d=Math.sin(a)*s*Math.sqrt(3);
+          pts.push(ax===0?[c,d,0]:ax===1?[c,0,d]:[0,c,d]); }
+        strokes.push({pts,grp:0});
+      }
+      return {nodes, strokes};
+    }
+  },
+  {
+    id:"torus", name:"Torus", color:"#5b8cff",
+    fact:"A circle swept around an axis. Energy flows out through the top, around the rim, and back in through the centre.",
+    ability:"Vortex", abilityText:"Swallows stars from twice the normal distance and spins passing debris into its centre.",
+    stats:{ core:330, rad:360, k:2.4, spin:0.016, gas:0.45, nodeBudget:360, lineBudget:340, lines:240, breakD:75, tilt:1.1 },
+    build(){
+      const R=.6, r=.25, P=(u,v)=>[(R+r*Math.cos(v))*Math.cos(u),(R+r*Math.cos(v))*Math.sin(u),r*Math.sin(v)];
+      const nodes=[], strokes=[];
+      for(let i=0;i<12;i++) for(let j=0;j<4;j++){ const p=P(i/12*TAU,j/4*TAU); nodes.push(nd(p[0],p[1],p[2],1)); }
+      for(let i=0;i<20;i++){ const pts=[]; for(let j=0;j<=28;j++) pts.push(P(i/20*TAU,j/28*TAU)); strokes.push({pts,grp:0}); }
+      for(let j=0;j<8;j++){ const b=j/8*TAU, pts=[]; for(let i=0;i<=80;i++) pts.push(P(i/80*TAU,b)); strokes.push({pts,grp:0}); }
+      // the flow: field lines running up the axis and folding back over the rim
+      for(let k=0;k<6;k++){
+        const a=k/6*TAU, pts=[];
+        for(let t=0;t<=40;t++){
+          const u=t/40, ang=a+u*2.2, rr=R*Math.sin(Math.PI*u)*1.35, zz=(u-.5)*2*r*2.6;
+          pts.push([Math.cos(ang)*rr,Math.sin(ang)*rr,zz]);
+        }
+        strokes.push({pts,grp:0});
+      }
+      strokes.push({pts:[[0,0,-r*3],[0,0,r*3]],grp:0});
+      return {nodes, strokes};
+    }
+  },
+  {
+    id:"tree", name:"Tree of Life", color:"#e8e2d0",
+    fact:"Ten spheres, the sephirot, linked by 22 paths in three pillars. Twenty-two is also the number of letters in the Hebrew alphabet.",
+    ability:"Path reclaiming", abilityText:"When a sephirah falls, the tree seizes the nearest loose enemy body and rebuilds the sphere out of it.",
+    stats:{ core:370, rad:360, k:2.6, spin:0.003, gas:0.30, nodeBudget:520, lineBudget:220, lines:190, breakD:78, tilt:0.45 },
+    build(){
+      const P=[[0,0],[1,.6],[-1,.6],[1,1.8],[-1,1.8],[0,2.4],[1,3],[-1,3],[0,3.6],[0,4.8]];
+      const k=.355, rr=k*1.55;
+      // the three pillars no longer stand in one plane: they are the corners of a column
+      const ANG={ "0":Math.PI/2, "1":-Math.PI/6, "-1":Math.PI*7/6 };
+      const at=key=>{ const a=ANG[key]; return [Math.cos(a)*rr, Math.sin(a)*rr]; };
+      const pos=P.map(([px,py])=>{ const c=at(String(px)); return [c[0],(py-2.4)*k,c[1]]; });
+      const paths=[[1,2],[1,3],[1,6],[2,3],[2,4],[2,6],[3,5],[3,6],[4,5],[4,6],[4,7],[5,6],[5,8],
+                   [6,7],[6,8],[6,9],[7,8],[7,9],[7,10],[8,9],[8,10],[9,10]];
+      const strokes=paths.map(([a,b])=>line(pos[a-1],pos[b-1]));
+      for(const p of pos){ strokes.push(...ball(p[0],p[1],p[2],.13,20)); strokes.push(...ball(p[0],p[1],p[2],.07,12)); }
+      // the pillars running the whole height, and the rungs that tie them together
+      for(const key of ["0","1","-1"]){ const c=at(key);
+        strokes.push(line([c[0],-2.4*k-.12,c[1]],[c[0],2.45*k+.12,c[1]])); }
+      for(let i=0;i<=6;i++){ const y=(-2.4+i*.8)*k;
+        strokes.push(poly(["0","1","-1"].map(key=>{ const c=at(key); return [c[0],y,c[1]]; }),true)); }
+      // the lightning flash: the descent through all ten in order, spiralling down the column
+      strokes.push(poly(pos.slice().reverse(),false));
+      // the four worlds, now spheres around the whole tree
+      for(const R of [.72,1.12]) strokes.push(...shell(0,.1,0,R,3,4,52));
+      return { nodes: pos.map(p=>nd(p[0],p[1],p[2],2.2)), strokes };
+    }
+
+  },
+
+  /* ---------- new forms ---------- */
+  {
+    id:"penta", name:"Pentagram", color:"#ff9ff3",
+    fact:"Draw a five-pointed star in one unbroken line and every segment cuts every other at the golden ratio. Inside it sits a smaller pentagon holding a smaller star, forever.",
+    ability:"Golden cut", abilityText:"Its bonds sit at φ, so bodies knocked loose fall back into the next ring in rather than drifting away.",
+    stats:{ core:300, rad:330, k:2.8, spin:0.013, gas:0.28, nodeBudget:450, lineBudget:290, lines:190, breakD:76, tilt:0.85 },
+    build(){
+      const nodes=[], strokes=[];
+      let R=.95;
+      for(let depth=0;depth<2;depth++){
+        const V=atR(SOLID.icosa(),R);
+        strokes.push(...hull(V));
+        // every vertex caps a pentagonal pyramid, and the star is drawn in its base
+        for(let i=0;i<V.length;i++){
+          const g=around(V,i,5);
+          strokes.push(poly([g[0],g[2],g[4],g[1],g[3]],true));
+          if(!depth){ strokes.push(poly(g,true)); for(const p of g) strokes.push(line(V[i],p)); }
+        }
+        for(const p of V) nodes.push(nd(p[0],p[1],p[2],depth?1.2:2.0));
+        R/=PHI;
+      }
+      // the dodecahedron it is dual to: twelve pentagons, each cut at φ by its own star
+      const D=atR(SOLID.dodeca(),.95);
+      strokes.push(...hull(D));
+      for(const [u,v] of [[EX,EY],[EY,EZ],[EZ,EX]]) strokes.push(circle3([0,0,0],u,v,.97,72));
+      nodes.push(nd(0,0,0,1.6));
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"ennea", name:"Enneagram", color:"#7ee8d5",
+    fact:"Nine points on a circle. Join them in the order 1-4-2-8-5-7 and you have traced the repeating decimal of one seventh; the three left over make a triangle.",
+    ability:"Circulation", abilityText:"Its bodies travel the hexad path, so a gap anywhere pulls the next body round to fill it.",
+    stats:{ core:310, rad:340, k:2.6, spin:0.011, gas:0.33, nodeBudget:440, lineBudget:300, lines:180, breakD:78, tilt:0.75 },
+    build(){
+      const nodes=[], strokes=[], R=.85, H=.3, AP=H+.44;
+      const ring=(z,turn)=>{ const v=[];
+        for(let k=0;k<9;k++){ const a=-Math.PI/2+k*TAU/9+turn; v.push([Math.cos(a)*R,Math.sin(a)*R,z]); }
+        return v; };
+      const A=ring(-H,0), B=ring(H,Math.PI/9);
+      const hex=[0,3,1,7,4,6];                       // 1-4-2-8-5-7, the decimal of one seventh
+      for(const v of [A,B]){
+        strokes.push(poly(v,true));
+        strokes.push(poly(hex.map(i=>v[i]),true));
+        strokes.push(poly([v[2],v[5],v[8]],true));   // the 3-6-9 triangle
+      }
+      // the antiprism between the two rings
+      for(let k=0;k<9;k++) strokes.push(line(A[k],B[k]), line(A[(k+1)%9],B[k]));
+      for(const [v,z] of [[A,-AP],[B,AP]]) for(const p of v) strokes.push(line(p,[0,0,z]));
+      // the hexad as one closed loop through both levels: it only shuts after going round twice
+      { const pts=[]; for(let s=0;s<12;s++) pts.push((s<6?A:B)[hex[s%6]]); pts.push(A[hex[0]]);
+        strokes.push({pts,grp:0}); }
+      for(const v of [A,B]) for(const p of v){ strokes.push(...ball(p[0],p[1],p[2],.07,12)); nodes.push(nd(p[0],p[1],p[2],1.5)); }
+      for(const [u,vv] of [[EX,EY],[EY,EZ],[EZ,EX]]) strokes.push(circle3([0,0,0],u,vv,.95,64));
+      nodes.push(nd(0,0,-AP,1.8), nd(0,0,AP,1.8), nd(0,0,0,2));
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"laby", name:"Labyrinth", color:"#c2b280",
+    fact:"Eleven circuits folded into four quadrants, with one unbroken path from the rim to the six-petal rosette at the centre. There are no dead ends: a labyrinth is not a maze.",
+    ability:"One path", abilityText:"Nothing cuts across it. Bodies on its rings are hard to knock out of line, and it holds together when others break.",
+    stats:{ core:360, rad:370, k:3.4, spin:0.004, gas:0.55, nodeBudget:400, lineBudget:420, lines:300, breakD:100, tilt:0.5 },
+    build(){
+      const nodes=[], strokes=[], rings=11, r0=.3, r1=.97, H=.66;
+      const zAt=i=>H*(1-i/(rings-1));                 // the path climbs as it turns inward
+      for(let i=0;i<rings;i++){
+        const r=r0+(r1-r0)*i/(rings-1), z=zAt(i);
+        const gap=.16, turns=[(i*2.1)%TAU, (i*2.1+Math.PI)%TAU];
+        let segs=[[0,TAU]];
+        for(const t of turns){
+          const next=[];
+          for(const [a,b] of segs){
+            if(t-gap>a && t+gap<b){ next.push([a,t-gap],[t+gap,b]); } else next.push([a,b]);
+          }
+          segs=next;
+        }
+        for(const [a,b] of segs) strokes.push(arc3(0,0,z,r,a,b,Math.max(8,Math.round((b-a)*26))));
+        // the turn is now a ramp: it steps out and down onto the circuit below
+        for(const t of turns){
+          const ro=r0+(r1-r0)*Math.max(0,i-.5)/(rings-1), zo=zAt(Math.max(0,i-.5));
+          strokes.push(poly([[Math.cos(t-gap)*r,Math.sin(t-gap)*r,z],
+                             [Math.cos(t-gap)*ro,Math.sin(t-gap)*ro,z],
+                             [Math.cos(t-gap)*ro,Math.sin(t-gap)*ro,zo]],false));
+        }
+        // the face of each terrace, standing above the one outside it
+        if(i) for(let k=0;k<8;k++){ const a=k*TAU/8;
+          strokes.push(line([Math.cos(a)*r,Math.sin(a)*r,z],[Math.cos(a)*r,Math.sin(a)*r,zAt(i-1)])); }
+      }
+      // the rosette, a dome of seven at the summit
+      const pr=.13, zt=H+.07;
+      strokes.push(...ball(0,0,zt,pr,24));
+      for(let k=0;k<6;k++){
+        const a=k*Math.PI/3, cx=Math.cos(a)*pr, cy=Math.sin(a)*pr;
+        strokes.push(...ball(cx,cy,zt,pr*.8,14));
+        nodes.push(nd(cx,cy,zt,1.7));
+      }
+      strokes.push(arc3(0,0,0,r1,0,TAU,96), arc3(0,0,0,r1+.04,0,TAU,96), arc3(0,0,H,.28,0,TAU,60));
+      nodes.push(nd(0,0,zt,2.4));
+      for(let k=0;k<8;k++){ const a=k*TAU/8; nodes.push(nd(Math.cos(a)*r1,Math.sin(a)*r1,0,1)); }
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"gasket", name:"Apollonian Gasket", color:"#b0ff6b",
+    fact:"Pack a circle with the biggest circles that will fit, then fill the gaps, forever. Descartes' theorem says every four touching circles obey (k₁+k₂+k₃+k₄)² = 2(k₁²+k₂²+k₃²+k₄²).",
+    ability:"Curvature", abilityText:"Every gap in it is a seat. Loose bodies that drift inside are packed into the next hole that fits.",
+    stats:{ core:300, rad:380, k:2.9, spin:0.006, gas:0.50, nodeBudget:380, lineBudget:420, lines:300, breakD:84, tilt:0.65 },
+    build(){
+      const nodes=[], strokes=[], out=[];
+      // curvature-centre form of Descartes: k is 1/r, and z is the centre as a complex number
+      const mul=(a,b)=>[a[0]*b[0]-a[1]*b[1], a[0]*b[1]+a[1]*b[0]];
+      const csqrt=a=>{ const m=Math.hypot(a[0],a[1]); return [Math.sqrt(Math.max(0,(m+a[0])/2)), Math.sign(a[1]||1)*Math.sqrt(Math.max(0,(m-a[0])/2))]; };
+      const C=(k,x,y)=>({k, z:[x,y]});
+      const draw=c=>{ const r=Math.abs(1/c.k); if(r>.012) out.push([c.z[0],c.z[1],r]); };
+      const c1=C(-1,0,0), c2=C(2,-.5,0), c3=C(2,.5,0);
+      [c1,c2,c3].forEach(draw);
+      const descartes=(a,b,c,sign)=>{
+        const k=a.k+b.k+c.k+sign*2*Math.sqrt(Math.abs(a.k*b.k+b.k*c.k+c.k*a.k));
+        const za=[a.z[0]*a.k,a.z[1]*a.k], zb=[b.z[0]*b.k,b.z[1]*b.k], zc=[c.z[0]*c.k,c.z[1]*c.k];
+        const s=csqrt([mul(za,zb)[0]+mul(zb,zc)[0]+mul(zc,za)[0], mul(za,zb)[1]+mul(zb,zc)[1]+mul(zc,za)[1]]);
+        const zk=[za[0]+zb[0]+zc[0]+sign*2*s[0], za[1]+zb[1]+zc[1]+sign*2*s[1]];
+        return C(k, zk[0]/k, zk[1]/k);
+      };
+      const c4=descartes(c1,c2,c3,1); draw(c4);
+      const c4b=descartes(c1,c2,c3,-1); draw(c4b);
+      const rec=(a,b,c,d,depth)=>{
+        if(depth>4||Math.abs(d.k)>70) return;
+        for(const [p,q,r] of [[a,b,d],[b,c,d],[c,a,d]]){
+          const n=descartes(p,q,r,1);
+          if(!isFinite(n.k)||Math.abs(n.k)>90) continue;
+          if(Math.abs(n.k-((p.k+q.k+r.k)-0))<1e-9) continue;
+          draw(n); rec(p,q,r,n,depth+1);
+        }
+      };
+      rec(c1,c2,c3,c4,0); rec(c1,c2,c3,c4b,0);
+      // every disc becomes a sphere, and each one drops until it touches the outer shell from inside
+      out.sort((a,b)=>b[2]-a[2]);
+      out.slice(0,46).forEach(([x,y,r],i)=>{
+        const d=Math.hypot(x,y), z=(i%2?1:-1)*Math.sqrt(Math.max(0,(1-r)*(1-r)-d*d));
+        strokes.push(...ball(x,y,z,r,Math.max(10,Math.min(28,Math.round(r*46)))));
+        if(r>.1) nodes.push(nd(x,y,z,r>.4?1.2:1.9));
+      });
+      strokes.push(...shell(0,0,0,1,3,4,44));
+      nodes.push(nd(0,0,0,1.4));
+      return {nodes, strokes};
+    }
+
+  },
+  {
+    id:"koch", name:"Koch Snowflake", color:"#9fe8ff",
+    fact:"Push a triangle out of the middle third of every edge and repeat. After infinitely many steps the border is infinitely long but the area it encloses stays finite.",
+    ability:"Infinite edge", abilityText:"All that perimeter catches things. Debris brushing its border is caught instead of glancing off.",
+    stats:{ core:280, rad:360, k:2.1, spin:0.007, gas:0.34, nodeBudget:330, lineBudget:310, lines:280, breakD:66, tilt:0.8 },
+    build(){
+      const nodes=[], strokes=[];
+      const koch=(a,b,depth)=>{
+        if(depth===0) return [a];
+        const dx=(b[0]-a[0])/3, dy=(b[1]-a[1])/3;
+        const p1=[a[0]+dx,a[1]+dy], p3=[a[0]+2*dx,a[1]+2*dy];
+        const ca=Math.cos(-Math.PI/3), sa=Math.sin(-Math.PI/3);
+        const p2=[p1[0]+dx*ca-dy*sa, p1[1]+dx*sa+dy*ca];
+        return [...koch(a,p1,depth-1),...koch(p1,p2,depth-1),...koch(p2,p3,depth-1),...koch(p3,b,depth-1)];
+      };
+      const flat=(R,depth,turn)=>{
+        const v=[];
+        for(let k=0;k<3;k++){ const a=-Math.PI/2+k*TAU/3+turn; v.push([Math.cos(a)*R,Math.sin(a)*R]); }
+        let pts=[];
+        for(let i=0;i<3;i++) pts=pts.concat(koch(v[i],v[(i+1)%3],depth));
+        pts.push(pts[0]);
+        return pts;
+      };
+      // the same border stacked and shrinking: the snowflake grown into a crystal
+      const LV=[[1,0,3,0],[.88,.26,3,Math.PI/3],[.62,.48,2,0],[.3,.63,2,Math.PI/3]];
+      for(const [s,z,d,turn] of LV){
+        const p=flat(.95*s,d,turn);
+        for(const sg of (z?[1,-1]:[1])) strokes.push({pts:p.map(q=>[q[0],q[1],sg*z]),grp:0});
+      }
+      // the two points of the crystal
+      const tip=flat(.95*.3,1,Math.PI/3);
+      for(const sg of [1,-1]) for(const q of tip) strokes.push(line([q[0],q[1],sg*.63],[0,0,sg*.86]));
+      // and the same flake standing in each of the other two planes
+      const face=flat(.95,3,0);
+      strokes.push({pts:face.map(q=>[q[0],0,q[1]]),grp:0}, {pts:face.map(q=>[0,q[0],q[1]]),grp:0});
+      for(const [u,v] of [[EX,EY],[EY,EZ],[EZ,EX]]) strokes.push(circle3([0,0,0],u,v,.95,80));
+      for(let k=0;k<3;k++){
+        const a=-Math.PI/2+k*TAU/3;
+        nodes.push(nd(Math.cos(a)*.95,Math.sin(a)*.95,0,2.2));
+        nodes.push(nd(Math.cos(a+Math.PI/3)*.84,Math.sin(a+Math.PI/3)*.84,.26,1.5));
+        nodes.push(nd(Math.cos(a+Math.PI/3)*.84,Math.sin(a+Math.PI/3)*.84,-.26,1.5));
+      }
+      nodes.push(nd(0,0,.86,1.8), nd(0,0,-.86,1.8), nd(0,0,0,1.8));
+      return {nodes, strokes};
+    }
+
+  },
+];
+for(const f of FORMS){
+  f.geo = f.build();
+  f.geo.nPts = f.geo.strokes.reduce((a,s)=>a+s.pts.length,0);
+  // Every form is now built in space, so each one leans and tumbles. The check stays
+  // honest: anything that never leaves the plane would still be kept flat.
+  f.geo.solid = f.geo.nodes.some(n=>n.z) || f.geo.strokes.some(s=>s.pts.some(p=>p[2]));
+}
+const FORM_BY_ID = Object.fromEntries(FORMS.map(f=>[f.id,f]));
+
+/* ---------- constants ---------- */
+const GC = 0.9;          // core-core gravity
+const HALO_C = 0.005;    // extended halo pull between cores
+const RHC2 = 400*400;
+const GL = 2.2;          // core gravity on loose bodies
+const V0 = 6.2, RH2 = 110*110;
+const SOFT2 = 900;
+const FRICTION_R = 700, FRICTION = 0.022;
+const PAIR_LIMIT = 140;
+const SHATTER = 52;
+const DOMINANCE = 0.70;
+const COLLAPSE = 0.06;   // below this share of its geometry still standing, a form comes unbound
+const TIME_SCALE = 7;
+
+/* ---------- state ---------- */
+/* ---------- the acts ----------
+   A match is staged, not just simulated. Each act changes how hard the field
+   pulls, how fast abilities come round, and what the camera is looking for.
+   Every act ends on a condition read off the fight itself, so the cut follows
+   what actually happened rather than a stopwatch. */
+const ACTS = [
+  { id:"approach", name:"The Approach", line:"gravity takes hold",
+    grav:.74, charge:.45, converge:0, min:.055,
+    over:st=>st.contact || st.u>.15 },
+  { id:"clash", name:"The Clash", line:"every form is in reach",
+    grav:1, charge:1, converge:.12, min:.14,
+    over:st=>st.live<=Math.max(2,Math.ceil(st.start*.5)) || st.u>.5 },
+  { id:"duels", name:"Duels", line:"the field has thinned",
+    grav:1.06, charge:1.6, converge:.5, min:.1,
+    over:st=>st.live<=2 || st.lead>=.58 || st.u>.8 },
+  { id:"last", name:"Last Stand", line:"one form is taking the field",
+    grav:1.14, charge:2.4, converge:1.1, min:0,
+    over:()=>false }
+];
+
+const S = {
+  phase:"setup", t:0, act:0, actT:0, contact:0,
+  parts:[], cores:[], flashes:[], pulses:[], events:[], links:[], clash:new Map(),
+  mass:[], neutral:0, winner:null, ignite:null, matchT:120*TIME_SCALE,
+  hooks:{ cut(){}, event(){}, end(){}, special(){}, act(){} }, lastCompact:0
+};
+
+/* ---------- building ---------- */
+function resample(strokes, count){
+  const segs=[]; let L=0;
+  for(const s of strokes) for(let i=1;i<s.pts.length;i++){
+    const a=s.pts[i-1], b=s.pts[i], l=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
+    segs.push({a,b,l,start:L,grp:s.grp}); L+=l;
+  }
+  const out=[]; let j=0;
+  for(let i=0;i<count;i++){
+    const at=(i+.5)*L/count;
+    while(j<segs.length-1 && segs[j].start+segs[j].l<at) j++;
+    const sg=segs[j], u=sg.l?(at-sg.start)/sg.l:0;
+    out.push([sg.a[0]+(sg.b[0]-sg.a[0])*u, sg.a[1]+(sg.b[1]-sg.a[1])*u, sg.a[2]+(sg.b[2]-sg.a[2])*u, sg.grp]);
+  }
+  return out;
+}
+
+function makeParticle(owner, kind, m, x,y,z, vx,vy,vz){
+  return { owner, kind, m, alive:true, x,y,z, vx,vy,vz, bond:null, heat:0,
+    r: kind===KIND.NODE ? 1.2+Math.log(1+m)*.5 : .8+Math.log(1+m)*.3 };
+}
+function sizeUp(p){
+  p.r = p.kind===KIND.NODE ? 1.2+Math.log(1+p.m)*.5 : .8+Math.log(1+p.m)*.3;
+}
+
+function spawnFaction(owner, form, cx, cy, vx, vy, cz, vz){
+  const st=form.stats, G=form.geo, sc=st.rad;
+  const c = { owner, form, x:cx, y:cy, z:cz||0, vx, vy, vz:vz||0, m:st.core, m0:st.core, alive:true,
+    S:sc, ang:srand()*TAU, yaw:srand()*TAU, homes:[], rot:new Float64Array(8),
+    // only a solid tumbles; a flat figure lies in the plane and turns within it
+    tilt: form.geo.solid ? form.stats.tilt + (srand()-.5)*2.2*S.height : 0,
+    yawRate: form.geo.solid ? (srand()-.5)*.004*(S.height>0?1:0) : 0,
+    cd:20+srand()*20, startMass:0, killedBy:null, tipped:0, heat:0,
+    charge:srand()*.35, seq:null, bloom:1, suck:null, dash:null };
+  const sumW=G.nodes.reduce((a,n)=>a+n.w,0);
+  for(const n of G.nodes)
+    c.homes.push({ c, lx:n.x*sc, ly:n.y*sc, lz:n.z*sc, grp:n.grp, kind:KIND.NODE, m0:st.nodeBudget*n.w/sumW, p:null, tx:0,ty:0,tz:0, init:false });
+  const pts = (G.extra||[]).concat(resample(G.strokes, st.lines));
+  for(const q of pts)
+    c.homes.push({ c, lx:q[0]*sc, ly:q[1]*sc, lz:q[2]*sc, grp:q[3], kind:KIND.LINE, m0:st.lineBudget/pts.length, p:null, tx:0,ty:0,tz:0, init:false });
+  rotPrep(c);
+  for(const h of c.homes) fillHome(h);
+  S.cores[owner]=c;
+  return c;
+}
+
+function fillHome(h){
+  const c=h.c; target(c,h);
+  const p=makeParticle(c.owner, h.kind, h.m0, _tx,_ty,_tz, c.vx,c.vy,c.vz);
+  if(S.phase==="run") p.heat=.9;
+  p.bond=h; h.p=p; h.tx=_tx; h.ty=_ty; h.tz=_tz; h.init=true;
+  S.parts.push(p);
+  return p;
+}
+
+function homeFilled(h){ return h.p && h.p.alive && h.p.bond===h; }
+
+const ROMAN=["","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
+/* ---------- skill ----------
+   Skill (1-10, default 5) is not extra mass. It is how well a form fights:
+   tactics (steering toward prey, away from threats), ability recharge and power, and how well its geometry holds. */
+function skillU(c){ return ((c.skill||5)-5)/5; }       // -0.8 at skill 1, 0 at 5, +1 at 10
+function cdScale(c){ return 1-.4*skillU(c); }          // skill 10 recharges 40% faster, skill 1 32% slower
+function power(c){ return 1+.45*skillU(c); }           // ability strength multiplier
+
+function newArena(ids, spread, lenSec, seedVal, height, skills, placed, specs){
+  S.parts=[]; S.cores=[]; S.flashes=[]; S.pulses=[]; S.events=[]; S.links=[]; S.clash=new Map();
+  S.t=0; S.winner=null; S.ignite=null; S.phase="setup"; S.lastCompact=0;
+  S.act=0; S.actT=0; S.contact=0;
+  S.matchT=lenSec*TIME_SCALE; S.height=height==null?.6:height;
+  setSeed(seedVal);
+  // name copies: two Toruses become "Torus I" and "Torus II"
+  const seen={};
+  const order=ids.map((id,slot)=>{
+    seen[id]=(seen[id]||0)+1;
+    const dup=ids.filter(x=>x===id).length>1;
+    return {id, slot, label:FORM_BY_ID[id].name+(dup?" "+(ROMAN[seen[id]]||seen[id]):"")};
+  });
+  for(let i=order.length-1;i>0;i--){ const j=Math.floor(srand()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+  const N=order.length, H=S.height;
+  // fewer forms get a smaller ring so the first clash comes about as soon as with a full platform
+  spread*=Math.max(.55,Math.min(1.15,Math.sqrt(Math.max(2,N)/9)));
+  // seats in a squat cylinder: radius = spread, height = spread*0.9*H.
+  // kept apart in full 3D so nobody starts overlapping.
+  const seats=[];
+  for(const o of order){
+    const f=FORM_BY_ID[o.id];
+    const hand=placed&&placed[o.slot];
+    if(hand){ seats.push({x:hand.x,y:hand.y,z:hand.z,S:f.stats.rad}); continue; }
+    let x=0,y=0,z=0,tries=0;
+    do{
+      const a=srand()*TAU, rr=spread*(N===2?.45:(.35+.65*Math.sqrt(srand())));
+      x=Math.cos(a)*rr; y=Math.sin(a)*rr; z=(srand()-.5)*spread*.9*H; tries++;
+    } while(tries<400 && seats.some(q=>Math.hypot(q.x-x,q.y-y,q.z-z) < (q.S+f.stats.rad)*1.25));
+    seats.push({x,y,z,S:f.stats.rad});
+  }
+  if(N===2){ seats[0].x=-spread*.45; seats[0].y=0; seats[0].z=spread*.15*H; seats[1].x=spread*.45; seats[1].y=(srand()-.5)*200; seats[1].z=-spread*.15*H; }
+  order.forEach((o,i)=>{
+    const {x,y,z}=seats[i], d=Math.hypot(x,y,z)||1;
+    const inward=2.6+srand()*1.2, tang=(srand()-.5)*3.2;
+    const c=spawnFaction(i, FORM_BY_ID[o.id], x, y, -x/d*inward - y/Math.hypot(x,y||1)*tang, -y/d*inward + x/Math.max(1,Math.hypot(x,y))*tang, z, -z/d*inward);
+    c.label=o.label; c.slot=o.slot; c.skill=(skills&&skills[o.slot])||5;
+    c.spec=(specs&&specs[o.slot])||o.id;      // which form's special it fights with
+  });
+  S.order=order;
+  tally();
+  for(const c of S.cores) c.startMass=S.mass[c.owner];
+}
+
+/* ---------- transforms ---------- */
+let _tx=0,_ty=0,_tz=0;
+function rotPrep(c){
+  const r=c.rot, a=c.ang, t=c.tilt;
+  r[0]=Math.cos(a); r[1]=Math.sin(a); r[2]=Math.cos(-a); r[3]=Math.sin(-a);
+  r[4]=Math.cos(t); r[5]=Math.sin(t); r[6]=Math.cos(c.yaw); r[7]=Math.sin(c.yaw);
+}
+function target(c,h){
+  const r=c.rot, b=c.bloom||1;
+  const ca=h.grp?r[2]:r[0], sa=h.grp?r[3]:r[1];
+  const lx=h.lx*b, ly=h.ly*b;
+  const x1=lx*ca-ly*sa, y1=lx*sa+ly*ca, z1=h.lz*b;
+  const y2=y1*r[4]-z1*r[5], z2=y1*r[5]+z1*r[4];
+  _tx=c.x+x1*r[6]-y2*r[7]; _ty=c.y+x1*r[7]+y2*r[6]; _tz=c.z+z2;
+}
+function localPoint(c,lx,ly,lz,grp){
+  const r=c.rot, b=c.bloom||1;
+  lx*=b; ly*=b; lz*=b;
+  const ca=grp?r[2]:r[0], sa=grp?r[3]:r[1];
+  const x1=lx*ca-ly*sa, y1=lx*sa+ly*ca;
+  const y2=y1*r[4]-lz*r[5], z2=y1*r[5]+lz*r[4];
+  _tx=c.x+x1*r[6]-y2*r[7]; _ty=c.y+x1*r[7]+y2*r[6]; _tz=c.z+z2;
+}
+
+/* ---------- idle preview (setup phase) ---------- */
+function idle(dt){
+  for(const c of S.cores){
+    if(!c.alive) continue;
+    c.ang+=c.form.stats.spin*dt*TIME_SCALE;
+    c.yaw+=(c.yawRate+(c.form.stats.tilt?.002:0))*dt*TIME_SCALE;
+    rotPrep(c);
+    for(const h of c.homes){ if(!homeFilled(h)) continue; target(c,h); const p=h.p; p.x=_tx; p.y=_ty; p.z=_tz; h.tx=_tx; h.ty=_ty; h.tz=_tz; }
+  }
+}
+
+/* ---------- simulation ---------- */
+function step(dtFull){
+  const n=Math.max(2, Math.ceil(dtFull/0.15));
+  for(let i=0;i<n;i++){ substep(dtFull/n); if(S.phase!=="run") break; }
+}
+
+function aliveCores(){ return S.cores.filter(c=>c.alive); }
+
+function advanceAct(){
+  if(S.phase!=="run" || S.ignite || S.act>=ACTS.length-1) return;
+  const st={ live:aliveCores().length, start:S.cores.length, u:S.t/S.matchT, contact:S.contact, lead:leader().frac };
+  // no act is over before you have seen it — except that two left standing is a last
+  // stand whenever it happens, and that act is what keeps the match from ending on a lead
+  if(st.live>2 && S.t-S.actT < 6*TIME_SCALE) return;
+  // beyond that an act holds its share of the match, unless the fight has settled itself
+  if(st.live>2 && st.lead<DOMINANCE-.06 && S.t-S.actT < (ACTS[S.act].min||0)*S.matchT) return;
+  if(!ACTS[S.act].over(st)) return;
+  S.act++; S.actT=S.t;
+  const A=ACTS[S.act];
+  S.hooks.act(A, S.act);
+  S.hooks.event("Act "+(S.act+1)+" \u2014 "+A.name+": "+A.line, -1);
+}
+
+function substep(dt){
+  S.t+=dt;
+  const live=aliveCores();
+  const ACT=ACTS[S.act];
+
+  /* cores pull on each other; overlapping halos bleed off relative speed (dynamical friction) */
+  for(let i=0;i<live.length;i++) for(let j=i+1;j<live.length;j++){
+    const a=live[i], b=live[j];
+    const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
+    const d2=dx*dx+dy*dy+dz*dz+SOFT2, d=Math.sqrt(d2), inv=1/d;
+    const halo=HALO_C*d/(d2/RHC2+1)/400;
+    if(!S.contact && d < (a.S+b.S)*.95) S.contact=1;      // the act turns on first contact, not on the clock
+    const G=GC*ACT.grav;
+    const aa=(G*b.m/d2 + halo*Math.sqrt(b.m/300))*dt, ab=(G*a.m/d2 + halo*Math.sqrt(a.m/300))*dt;
+    a.vx+=dx*inv*aa; a.vy+=dy*inv*aa; a.vz+=dz*inv*aa;
+    b.vx-=dx*inv*ab; b.vy-=dy*inv*ab; b.vz-=dz*inv*ab;
+    if(d<FRICTION_R){
+      const k=FRICTION*(1-d/FRICTION_R)*dt, M=a.m+b.m;
+      const cx=(a.vx*a.m+b.vx*b.m)/M, cy=(a.vy*a.m+b.vy*b.m)/M, cz=(a.vz*a.m+b.vz*b.m)/M;
+      a.vx+=(cx-a.vx)*k; a.vy+=(cy-a.vy)*k; a.vz+=(cz-a.vz)*k;
+      b.vx+=(cx-b.vx)*k; b.vy+=(cy-b.vy)*k; b.vz+=(cz-b.vz)*k;
+    }
+  }
+  // later acts close the ring: survivors are drawn toward the middle of the mass
+  // so a thinning field tightens into a duel instead of drifting into a stalemate
+  if(ACT.converge>0 && live.length>1){
+    let cx=0, cy=0, cz=0, M=0;
+    for(const c of live){ cx+=c.x*c.m; cy+=c.y*c.m; cz+=c.z*c.m; M+=c.m; }
+    cx/=M; cy/=M; cz/=M;
+    const k=Math.min(.6, ACT.converge*dt);
+    for(const c of live){
+      const dx=cx-c.x, dy=cy-c.y, dz=cz-c.z, d=Math.hypot(dx,dy,dz);
+      if(d<420) continue;
+      const ux=dx/d, uy=dy/d, uz=dz/d, vr=c.vx*ux+c.vy*uy+c.vz*uz;
+      if(vr>0) continue;                                  // already closing: leave it alone
+      c.vx-=vr*ux*k; c.vy-=vr*uy*k; c.vz-=vr*uz*k;        // bleed off the outward part only
+    }
+  }
+  steer(live, dt);
+  for(const c of live){
+    if(c.grabbed){ c.ang+=c.form.stats.spin*dt; c.yaw+=(c.yawRate+(c.form.stats.tilt?.002:0))*dt; rotPrep(c); continue; }
+    c.x+=c.vx*dt; c.y+=c.vy*dt; c.z+=c.vz*dt;
+    c.ang+=c.form.stats.spin*dt*(c.spinBoost||1);
+    c.yaw+=(c.yawRate+(c.form.stats.tilt?.002:0))*dt;
+    rotPrep(c);
+  }
+  swallowCores(live);
+
+  /* particles: bonded ones spring to their seat on the geometry, loose ones fall */
+  const liveNow=aliveCores();
+  for(const p of S.parts){
+    if(!p.alive) continue;
+    if(p.bolt && S.t<p.bolt) p.heat=1; else if(p.heat>0) p.heat=Math.max(0,p.heat-dt*.085);
+    const h=p.bond;
+    if(h && h.c.alive && h.c.owner===p.owner){
+      const c=h.c, st=c.form.stats;
+      target(c,h);
+      let tvx=c.vx, tvy=c.vy, tvz=c.vz;
+      if(h.init){ tvx=(_tx-h.tx)/dt; tvy=(_ty-h.ty)/dt; tvz=(_tz-h.tz)/dt; }
+      h.tx=_tx; h.ty=_ty; h.tz=_tz; h.init=true;
+      const ex=_tx-p.x, ey=_ty-p.y, ez=_tz-p.z;
+      const bd=st.breakD*(1+.22*skillU(c));
+      if(ex*ex+ey*ey+ez*ez > bd*bd){ p.bond=null; h.p=null; heatUp(p,.85); link(p.x,p.y,p.z,_tx,_ty,_tz,p.owner,2,7); }
+      else {
+        const k=st.k*(1+.15*skillU(c)), damp=2*Math.sqrt(k);
+        p.vx+=(k*ex+damp*(tvx-p.vx))*dt; p.vy+=(k*ey+damp*(tvy-p.vy))*dt; p.vz+=(k*ez+damp*(tvz-p.vz))*dt;
+      }
+    } else {
+      if(h){ p.bond=null; }
+      for(const c of liveNow){
+        const dx=c.x-p.x, dy=c.y-p.y, dz=c.z-p.z;
+        const d2=dx*dx+dy*dy+dz*dz+SOFT2, d=Math.sqrt(d2), inv=1/d;
+        let a=GL*c.m/d2 + V0*V0*d/(d2+RH2)*Math.sqrt(c.m/300);
+        if(c.suck && S.t<c.suck.until && d<c.suck.R) a+=c.suck.k*(1-d/c.suck.R);
+        const id=c.form.id;
+        if(p.owner!==c.owner){
+          if(id==="metatron" && d<c.S*1.25) a*=1+1.5*power(c);
+          if(id==="torus" && d<c.S*1.5){ const sw=a*.35*power(c); p.vx+=-dy*inv*sw*dt; p.vy+=dx*inv*sw*dt; }
+        }
+        p.vx+=dx*inv*a*dt; p.vy+=dy*inv*a*dt; p.vz+=dz*inv*a*dt;
+      }
+      p.vx*=.9995; p.vy*=.9995; p.vz*=.995;
+    }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt;
+  }
+
+  accrete(liveNow);
+  collide();
+  abilities(liveNow, dt);
+  specials(liveNow, dt);
+
+  for(const l of S.links) l.life-=dt;
+  if(S.links.length && S.links[0].life<=0) S.links=S.links.filter(l=>l.life>0);
+  const cdecay=Math.exp(-dt*.05);
+  for(const [key,k] of S.clash){
+    k.n*=cdecay;
+    if(k.n<.4 || !S.cores[k.a].alive || !S.cores[k.b].alive) S.clash.delete(key);
+  }
+  for(const c of S.cores) c.heat*=Math.exp(-dt*.08);
+  for(const f of S.flashes){ f.life-=dt; f.r+=f.grow*dt; }
+  S.flashes=S.flashes.filter(f=>f.life>0);
+  for(const u of S.pulses){ u.life-=dt; u.r+=(u.R-u.r)*Math.min(1,dt*.35); }
+  S.pulses=S.pulses.filter(u=>u.life>0);
+
+  if(S.t-S.lastCompact>40){ S.parts=S.parts.filter(p=>p.alive); S.lastCompact=S.t; }
+
+  tally();
+  if(S.ignite){
+    S.ignite.t+=dt;
+    captureField(dt);
+    if(S.ignite.t>VIC_T && !S.ignite.done){
+      S.ignite.done=true; S.phase="over";
+      // the sim stops here, so cool the field by hand: otherwise it freezes mid-glow
+      for(const p of S.parts) p.heat=0;
+      S.links.length=0; S.flashes.length=0;
+      S.hooks.end();
+    }
+  } else checkEnd();
+}
+
+// Tactics. Each core looks at the others and weighs them: lighter ones are prey, heavier ones are threats.
+// Low skill barely steers (gravity decides); high skill hunts the best-value target and slips away from big cores.
+function steer(live, dt){
+  for(const c of live){
+    if(c.grabbed || c.dash) continue;
+    const u=skillU(c), g=(u+.8)/.8, thrust=.00012*g*g*g;   // ~0 at skill 1, a nudge at 5, ~11x that at 10
+    if(thrust<=0) continue;
+    let ax=0, ay=0, az=0, fleeW=0, huntW=0;
+    for(const o of live){
+      if(o===c) continue;
+      const dx=o.x-c.x, dy=o.y-c.y, dz=o.z-c.z, d=Math.hypot(dx,dy,dz)||1;
+      const ratio=(S.mass[o.owner]||o.m)/((S.mass[c.owner]||c.m)||1);
+      const near=1/(1+d/900);
+      // prey pulls in harder the weaker and closer it is; a threat pushes away only when it's close and much heavier
+      const close=1/(1+d/500);
+      // lighter: hunt it. about even: engage anyway (a skilled form wins the grind on structure and grip).
+      // clearly heavier: back off, harder the closer it is.
+      const w = ratio<1.08 ? (1.08-ratio+.15)*near*1.4 : -(ratio-1.08)*close*close*4;
+      ax+=dx/d*w; ay+=dy/d*w; az+=dz/d*w; if(w<0) fleeW-=w; else huntW+=w;
+    }
+    const m=Math.hypot(ax,ay,az);
+    if(m<1e-6) continue;
+    // cap top speed so skill can't turn a core into a missile
+    const sp=Math.hypot(c.vx,c.vy,c.vz), cap=9+5*u;
+    // running away is harder than chasing, so a skilled hunter can eventually catch a skilled runner
+    const k=thrust*Math.min(1,m)*(sp>cap?.2:1)*(fleeW>huntW?.5:1)*dt;
+    c.vx+=ax/m*k*60; c.vy+=ay/m*k*60; c.vz+=az/m*k*60;
+  }
+}
+
+function swallowCores(live){
+  for(let i=0;i<live.length;i++) for(let j=i+1;j<live.length;j++){
+    const a=live[i], b=live[j];
+    if(!a.alive||!b.alive) continue;
+    const d=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z);
+    if(d > 40+Math.log(a.m*b.m)*2) continue;
+    // grip: technique lets a skilled core take one up to ~15% heavier than itself
+    const ga=a.m*(1+.15*skillU(a)), gb=b.m*(1+.15*skillU(b));
+    const win=ga>=gb?a:b, lose=win===a?b:a, M=a.m+b.m;
+    win.vx=(a.vx*a.m+b.vx*b.m)/M; win.vy=(a.vy*a.m+b.vy*b.m)/M; win.vz=(a.vz*a.m+b.vz*b.m)/M;
+    // tidal burst: the winner keeps its own core plus half the loser's; the rest sprays out loose
+    const spill=lose.m*.5;
+    win.m=M-spill; lose.alive=false; lose.killedBy=win.owner; lose.m=0;
+    const n=Math.min(30,Math.ceil(spill/20));
+    for(let i=0;i<n;i++){
+      const a=srand()*TAU, sp=8+srand()*16, r0=60+srand()*40;
+      S.parts.push(Object.assign(makeParticle(NEUTRAL,KIND.LINE,spill/n,win.x+Math.cos(a)*r0,win.y+Math.sin(a)*r0,win.z,
+        win.vx+Math.cos(a)*sp,win.vy+Math.sin(a)*sp,win.vz+(srand()-.5)*sp),{heat:1}));
+    }
+    // the swallowed form's structure comes unbound and belongs to nobody
+    for(const p of S.parts){ if(p.alive && p.owner===lose.owner){ p.owner=NEUTRAL; p.bond=null; } }
+    bang(win.x,win.y,win.z, 40000, -2, 2.2);
+    S.pulses.push({x:win.x,y:win.y,z:win.z,r:20,R:900,life:3.5,owner:win.owner});
+    S.hooks.event(win.label+" swallows "+lose.label, win.owner);
+    S.hooks.cut(win.x,win.y,win.z,true,win.label+" swallows "+lose.label);
+  }
+}
+
+function accrete(live){
+  for(const c of live){
+    const R=(26+Math.log(c.m)*3)*(c.form.id==="torus"?1+.1*power(c):1)*(1+.12*skillU(c)), R2=R*R;
+    for(const p of S.parts){
+      if(!p.alive) continue;
+      if(p.bond && p.bond.c===c) continue;
+      if(p.stun>S.t && p.owner===c.owner) continue;   // blasted loose: its own core can't grab it back yet
+      const dx=c.x-p.x, dy=c.y-p.y, dz=c.z-p.z;
+      if(dx*dx+dy*dy+dz*dz>R2) continue;
+      p.alive=false; c.m+=p.m;
+      if(p.owner!==c.owner || p.m>2){ link(p.x,p.y,p.z,c.x,c.y,c.z,c.owner,3,6); c.heat=Math.min(1,c.heat+.015); }
+      if(p.m>8) bang(p.x,p.y,p.z,p.m*160,c.owner,.6);
+    }
+  }
+}
+
+/* spatial hash over bodies */
+const CELL=40, grid=new Map();
+function hkey(x,y,z){ return ((x+4096)*8192+(y+4096))*8192+(z+4096); }
+function collide(){
+  grid.clear();
+  const bodies=[];
+  for(const p of S.parts) if(p.alive) bodies.push(p);
+  for(const p of bodies){
+    const k=hkey(Math.floor(p.x/CELL),Math.floor(p.y/CELL),Math.floor(p.z/CELL));
+    let a=grid.get(k); if(!a){ a=[]; grid.set(k,a); } a.push(p);
+  }
+  for(const p of bodies){
+    if(!p.alive) continue;
+    const gx=Math.floor(p.x/CELL), gy=Math.floor(p.y/CELL), gz=Math.floor(p.z/CELL);
+    for(let ox=-1;ox<=1;ox++) for(let oy=-1;oy<=1;oy++) for(let oz=-1;oz<=1;oz++){
+      const a=grid.get(hkey(gx+ox,gy+oy,gz+oz)); if(!a) continue;
+      for(const q of a){
+        if(q===p || !q.alive || !p.alive) continue;
+        if(q.owner===p.owner) continue;
+        // full 3D distance: every form now has its own orientation, so depth is fair for everyone
+        const dx=q.x-p.x, dy=q.y-p.y, dz=q.z-p.z, d=Math.hypot(dx,dy,dz);
+        if(d > (p.r+q.r)*1.9+9) continue;
+        resolve(p,q);
+      }
+    }
+  }
+}
+
+function gasOf(p){ return p.owner<0 ? .15 : S.cores[p.owner].form.stats.gas; }
+function armour(p){ return (p.bond && p.bond.c.form.id==="merkaba") ? 1+.18*power(p.bond.c) : 1; }
+
+function hurt(victim, by){
+  if(by>=0 && S.cores[by] && S.cores[by].alive) S.cores[by].charge=Math.min(1.3,S.cores[by].charge+victim.m*.0016);
+  if(victim.owner<0 || by<0 || !victim.bond) return;
+  const c=S.cores[victim.owner]; c.dmg=c.dmg||{}; c.dmg[by]=(c.dmg[by]||0)+victim.m;
+}
+function resolve(p,q){
+  let vrel=Math.hypot(q.vx-p.vx,q.vy-p.vy,q.vz-p.vz);
+  vrel*=1-(gasOf(p)+gasOf(q))*.5*.55;
+  if(S.cores[p.owner]&&S.cores[p.owner].form.id==="flower"||S.cores[q.owner]&&S.cores[q.owner].form.id==="flower"){
+    const f=S.cores[p.owner]&&S.cores[p.owner].form.id==="flower"?S.cores[p.owner]:S.cores[q.owner];
+    vrel*=1-.12*skillU(f);   // a skilled lattice softens hits further
+  }
+  const heavier = p.m*armour(p) >= q.m*armour(q) ? p : q, lighter = heavier===p?q:p;
+  const tot=p.m+q.m;
+  const cx=(p.x*p.m+q.x*q.m)/tot, cy=(p.y*p.m+q.y*q.m)/tot, cz=(p.z*p.m+q.z*q.m)/tot;
+  const mvx=(p.vx*p.m+q.vx*q.m)/tot, mvy=(p.vy*p.m+q.vy*q.m)/tot, mvz=(p.vz*p.m+q.vz*q.m)/tot;
+  const released=.5*(p.m*q.m/tot)*vrel*vrel;
+
+  if(vrel>SHATTER){
+    hurt(p,q.owner); hurt(q,p.owner);
+    p.alive=false; q.alive=false;
+    link(p.x,p.y,p.z,q.x,q.y,q.z,-2,1,6);
+    clash(p.owner,q.owner,cx,cy,cz,2);
+    coreHeat(p.owner,.04); coreHeat(q.owner,.04);
+    const claim=nearestOwner(cx,cy,cz);
+    spawnDebris(cx,cy,cz,mvx,mvy,mvz,tot,claim);
+    bang(cx,cy,cz,released,-2,1.2);
+    if(released>9000) S.hooks.cut(cx,cy,cz,false,"Shatter");
+    return;
+  }
+  hurt(lighter,heavier.owner);
+  link(lighter.x,lighter.y,lighter.z,cx,cy,cz,heavier.owner,0,8);
+  clash(p.owner,q.owner,cx,cy,cz,1);
+  coreHeat(heavier.owner,.02); coreHeat(lighter.owner,.03);
+  lighter.alive=false;
+  heavier.m=tot; sizeUp(heavier); heatUp(heavier,.55+Math.min(.45,lighter.m/25));
+  heavier.x=cx; heavier.y=cy; heavier.z=cz;
+  heavier.vx=mvx; heavier.vy=mvy; heavier.vz=mvz;
+  if(heavier.m>PAIR_LIMIT){
+    // pair-instability: too massive to hold together, detonates with no remnant
+    heavier.alive=false;
+    const claim=nearestOwner(cx,cy,cz);
+    spawnDebris(cx,cy,cz,mvx,mvy,mvz,heavier.m*.78,claim);
+    bang(cx,cy,cz,released+heavier.m*90,-2,1.6);
+    S.hooks.cut(cx,cy,cz,true,"Pair-instability detonation");
+    return;
+  }
+  if(released>60) bang(cx,cy,cz,released,heavier.owner,.8);
+}
+
+function nearestOwner(x,y,z){
+  let bd=1e18, best=NEUTRAL;
+  for(const c of S.cores){
+    if(!c.alive) continue;
+    let d=Math.hypot(c.x-x,c.y-y,c.z-z)/Math.max(1,Math.log(c.m));
+    if(c.form.id==="golden") d/=1+(PHI-1)*power(c);
+    if(d<bd){ bd=d; best=c.owner; }
+  }
+  return best;
+}
+
+function spawnDebris(x,y,z,vx,vy,vz,mass,owner){
+  const n=S.parts.length>9000?3:6;
+  for(let i=0;i<n;i++){
+    const a=srand()*TAU, e=(srand()-.5)*1.2, s=14+srand()*36;
+    const d=makeParticle(owner, KIND.LINE, mass/n, x,y,z,
+      vx+Math.cos(a)*Math.cos(e)*s, vy+Math.sin(a)*Math.cos(e)*s, vz+Math.sin(e)*s);
+    d.heat=1; S.parts.push(d);
+  }
+}
+
+/* ---------- interaction record (what the page lights up) ---------- */
+function heatUp(p,v){ if(p.heat<v) p.heat=Math.min(1,v); }
+function coreHeat(owner,v){ const c=owner>=0?S.cores[owner]:null; if(c) c.heat=Math.min(1,c.heat+v); }
+// a short-lived streak between two points; kind: 0 merge, 1 shatter, 2 snap, 3 feed, 4 capture
+function link(ax,ay,az,bx,by,bz,owner,kind,life){
+  S.links.push({ax,ay,az,bx,by,bz,owner,kind,life,max:life});
+  if(S.links.length>900) S.links.splice(0,S.links.length-900);
+}
+// where two forms are trading bodies: a running centroid and an intensity that fades when they stop
+function clash(a,b,x,y,z,w){
+  if(a<0||b<0||a===b) return;
+  const lo=Math.min(a,b), hi=Math.max(a,b), key=lo*64+hi;
+  let k=S.clash.get(key);
+  if(!k){ k={a:lo,b:hi,x,y,z,n:0,announced:false}; S.clash.set(key,k); }
+  const f=.12; k.x+=(x-k.x)*f; k.y+=(y-k.y)*f; k.z+=(z-k.z)*f; k.n+=w;
+  if(k.n>14 && !k.announced){
+    k.announced=true;
+    S.hooks.event(S.cores[lo].label+" and "+S.cores[hi].label+" collide", lo);
+  }
+}
+function bang(x,y,z,energy,owner,scale){
+  const r0=Math.min(90, 4+Math.pow(Math.max(0,energy),.34)*scale);
+  S.flashes.push({x,y,z,r:r0*.3,grow:r0*2.4,life:.55+Math.min(1.2,energy/8000),owner,peak:r0});
+  if(S.flashes.length>500) S.flashes.splice(0,S.flashes.length-500);
+}
+
+/* ---------- abilities ---------- */
+function missingHomes(c, nodesFirst){
+  const out=c.homes.filter(h=>!homeFilled(h));
+  if(nodesFirst) out.sort((a,b)=>a.kind-b.kind);
+  return out;
+}
+function payFromCore(c,m){
+  if(c.m - m < c.m0*.4) return false;
+  c.m-=m; return true;
+}
+
+function abilities(live, dt){
+  for(const c of live){
+    c.cd-=dt;
+    if(c.cd>0) continue;
+    const id=c.form.id;
+    if(id==="vesica"){
+      c.cd=36*cdScale(c);
+      const miss=missingHomes(c,true);
+      let made=0;
+      for(const h of miss){ if(made>=Math.round(5*power(c))) break; if(!payFromCore(c,h.m0)) break; fillHome(h); made++; }
+      if(made){ bang(c.x,c.y,c.z,3000,c.owner,1); S.hooks.event(c.label+" gives birth to "+made+" bod"+(made>1?"ies":"y"), c.owner); }
+    }
+    else if(id==="seed"){
+      c.cd=45*cdScale(c);
+      const miss=missingHomes(c,true);
+      let made=0;
+      for(const h of miss){ if(made>=Math.round(12*power(c))) break; if(!payFromCore(c,h.m0)) break; fillHome(h); made++; }
+      if(made) if(made>2) S.hooks.event(c.label+" regrows "+made+" bodies", c.owner);
+    }
+    else if(id==="sri"){
+      c.cd=58*cdScale(c);
+      const R=c.S*1.35*(1+.15*skillU(c)); let hit=0;
+      for(const p of S.parts){
+        if(!p.alive || p.owner===c.owner) continue;
+        const dx=p.x-c.x, dy=p.y-c.y, dz=p.z-c.z, d=Math.hypot(dx,dy,dz);
+        if(d>R || d<1) continue;
+        const kick=(6+30*(1-d/R))*power(c);
+        p.vx+=dx/d*kick; p.vy+=dy/d*kick; p.vz+=dz/d*kick; heatUp(p,.5);
+        if(p.bond && d<R*.45){ p.stun=S.t+30; p.bond.p=null; p.bond=null; }
+        hit++;
+      }
+      S.pulses.push({x:c.x,y:c.y,z:c.z,r:30,R:R,life:2.2,owner:c.owner});
+      if(hit>8) S.hooks.event(c.label+" pulse scatters "+hit+" bodies", c.owner);
+    }
+    else if(id==="tree"){
+      c.cd=60*cdScale(c);
+      let took=0;
+      for(const h of missingHomes(c,true)){
+        if(h.kind!==KIND.NODE) break;
+        target(c,h);
+        let best=null, bd=(c.S*.9*(1+.3*skillU(c)))**2;
+        for(const p of S.parts){
+          if(!p.alive || p.owner===c.owner || p.bond) continue;
+          const d2=(p.x-_tx)**2+(p.y-_ty)**2+(p.z-_tz)**2;
+          if(d2<bd){ bd=d2; best=p; }
+        }
+        if(!best) continue;
+        link(best.x,best.y,best.z,_tx,_ty,_tz,c.owner,4,10); heatUp(best,1);
+        best.owner=c.owner; best.kind=KIND.NODE; best.bond=h; h.p=best; sizeUp(best); took++;
+        bang(best.x,best.y,best.z,1500,c.owner,1);
+      }
+      if(took) S.hooks.event(c.label+" reclaims "+took+" sephirah"+(took>1?"s":"")+" from the field", c.owner);
+    }
+    else if(id==="golden"){
+      c.cd=48*cdScale(c);
+      const miss=missingHomes(c,true); let packed=0;
+      for(const p of S.parts){
+        if(!miss.length) break;
+        if(!p.alive || p.owner!==c.owner || p.bond) continue;
+        if(Math.hypot(p.x-c.x,p.y-c.y,p.z-c.z)>c.S*1.1) continue;
+        const h=miss.shift(); target(c,h); link(p.x,p.y,p.z,_tx,_ty,_tz,c.owner,4,8); heatUp(p,.7);
+        p.bond=h; h.p=p; h.init=false; packed++;
+      }
+      if(packed>3) S.hooks.event(c.label+" repacks "+packed+" strays into empty seats", c.owner);
+    }
+    else c.cd=1e9;   // passive abilities
+  }
+}
+
+/* =====================================================================
+   SPECIAL ATTACKS
+   Every form charges a signature move drawn from its own geometry. A move is a
+   timed sequence of stages; each stage that actually lands reports a hit, which
+   is what the camera pans in on. Time is in sim units (7 per real second).
+   ===================================================================== */
+function nearestEnemyCore(c){
+  let best=null, bd=1e18;
+  for(const o of S.cores){
+    if(!o.alive||o===c) continue;
+    const d=Math.hypot(o.x-c.x,o.y-c.y,o.z-c.z);
+    if(d<bd){ bd=d; best=o; }
+  }
+  return best;
+}
+function fire(kind,c,x,y,z,n,name,stage){ if(S.hooks.special) S.hooks.special(kind,c,x,y,z,n,name,stage); }
+function connect(c,x,y,z,hits,stage){
+  if(hits>0) fire("hit",c,x,y,z,hits,c.seq?c.seq.name:"",stage);
+}
+// shared primitives the moves are assembled from
+function shock(c,x,y,z,R,kick,breakBonds,dir,spread){
+  let hits=0;
+  for(const p of S.parts){
+    if(!p.alive||p.owner===c.owner) continue;
+    const dx=p.x-x, dy=p.y-y, dz=p.z-z, d=Math.hypot(dx,dy,dz);
+    if(d>R||d<1) continue;
+    if(dir){                       // a cone instead of a full ring
+      const dot=(dx*dir[0]+dy*dir[1]+dz*dir[2])/d;
+      if(dot<spread) continue;
+    }
+    const k=kick*(1-d/R);
+    p.vx+=dx/d*k; p.vy+=dy/d*k; p.vz+=dz/d*k;
+    heatUp(p,.8);
+    if(breakBonds&&p.bond){ p.bond.p=null; p.bond=null; p.stun=S.t+30; }
+    hits++;
+  }
+  S.pulses.push({x,y,z,r:R*.15,R,life:2.2,owner:c.owner});
+  return hits;
+}
+function bolt(c,tgt,speed,mass){
+  const homes=c.homes.filter(homeFilled);
+  if(!homes.length||!payFromCore(c,mass)) return 0;
+  const h=homes[Math.floor(srand()*homes.length)];
+  target(c,h);
+  const lead=Math.hypot(tgt.x-_tx,tgt.y-_ty,tgt.z-_tz)/speed;
+  const tx=tgt.x+tgt.vx*lead, ty=tgt.y+tgt.vy*lead, tz=tgt.z+tgt.vz*lead;
+  const dx=tx-_tx, dy=ty-_ty, dz=tz-_tz, d=Math.hypot(dx,dy,dz)||1;
+  const p=makeParticle(c.owner,KIND.NODE,mass,_tx,_ty,_tz,dx/d*speed,dy/d*speed,dz/d*speed);
+  p.heat=1; p.bolt=S.t+80; S.parts.push(p);
+  link(c.x,c.y,c.z,_tx,_ty,_tz,c.owner,4,6);
+  return 1;
+}
+function reclaim(c,R,n){
+  let took=0;
+  const empties=c.homes.filter(h=>!homeFilled(h));
+  for(const p of S.parts){
+    if(took>=n) break;
+    if(!p.alive||p.owner===c.owner||p.bond) continue;
+    if(Math.hypot(p.x-c.x,p.y-c.y,p.z-c.z)>R) continue;
+    p.owner=c.owner; heatUp(p,1);
+    const h=empties.pop();
+    if(h){ target(c,h); link(p.x,p.y,p.z,_tx,_ty,_tz,c.owner,4,8); p.bond=h; h.p=p; h.init=false; }
+    else link(p.x,p.y,p.z,c.x,c.y,c.z,c.owner,4,8);
+    took++;
+  }
+  return took;
+}
+function pullDebris(c,R,k,dur){ c.suck={until:S.t+dur,R,k}; }
+
+const SPECIALS={
+  vesica:{ name:"Mitosis", total:24, stages:[
+    [0,(c,t)=>{ c.bloom=1.35; return 0; }],
+    [7,(c,t)=>{ const a=c.ang, d=[Math.cos(a),Math.sin(a),0];
+      let h=shock(c,c.x,c.y,c.z,c.S*1.5,34*power(c),true,d,.25);
+      h+=shock(c,c.x,c.y,c.z,c.S*1.5,34*power(c),true,[-d[0],-d[1],0],.25); return h; }],
+    [15,(c,t)=>{ c.bloom=1; pullDebris(c,c.S*2.2,.9*power(c),9); return reclaim(c,c.S*1.6,Math.round(5*power(c))); }]
+  ]},
+  seed:{ name:"Six Petals", total:26, stages:[[2,b],[6,b],[10,b],[14,b],[18,b],[22,b]] },
+  flower:{ name:"Lattice Bloom", total:34, stages:[
+    [0,c=>{ c.bloom=1.55; return 0; }],
+    [9,(c,t)=>reclaim(c,c.S*1.7,Math.round(7*power(c)))],
+    [18,(c,t)=>shock(c,c.x,c.y,c.z,c.S*1.7,16*power(c),false)+reclaim(c,c.S*1.7,Math.round(5*power(c)))],
+    [28,c=>{ c.bloom=1; return 0; }]
+  ]},
+  metatron:{ name:"Five Solids", total:32, stages:[
+    [0,(c,t)=>{ pullDebris(c,c.S*2.6,1.5*power(c),34); return 0; }],
+    [5,(c,t)=>reclaim(c,c.S*1.5,3)], [11,(c,t)=>reclaim(c,c.S*1.6,3)], [17,(c,t)=>reclaim(c,c.S*1.7,3)],
+    [23,(c,t)=>reclaim(c,c.S*1.8,3)], [29,(c,t)=>reclaim(c,c.S*2,4)+shock(c,c.x,c.y,c.z,c.S*2,10,false)]
+  ]},
+  sri:{ name:"Nine Triangles", total:30, stages:[0,1,2,3,4,5,6,7,8].map(i=>[i*3.2,(c,t)=>{
+    if(!t) return 0;
+    const dx=t.x-c.x, dy=t.y-c.y, dz=t.z-c.z, d=Math.hypot(dx,dy,dz)||1;
+    return shock(c,c.x,c.y,c.z,c.S*(1.1+i*.12),(20+i*3)*power(c),true,[dx/d,dy/d,dz/d],i%2?.1:-.1);
+  }]) },
+  golden:{ name:"Phi Cascade", total:28, stages:[
+    [0,(c,t)=>{ pullDebris(c,c.S*3,1.1*power(c),30); return 0; }],
+    [6,(c,t)=>reclaim(c,c.S*1.9,Math.round(4*power(c)))],
+    [6+Math.round(6*PHI),(c,t)=>reclaim(c,c.S*2.2,Math.round(6*power(c)))],
+    [6+Math.round(6*PHI*PHI),(c,t)=>reclaim(c,c.S*2.6,Math.round(9*power(c)))+shock(c,c.x,c.y,c.z,c.S*2,12,false)]
+  ]},
+  merkaba:{ name:"Counter-Ram", total:44, stages:[
+    [0,(c,t)=>{ c.spinBoost=3.2; return 0; }],
+    [10,(c,t)=>{ if(!t) return 0;
+      const dx=t.x-c.x, dy=t.y-c.y, dz=t.z-c.z, d=Math.hypot(dx,dy,dz)||1, sp=46+14*skillU(c);
+      c.vx=dx/d*sp; c.vy=dy/d*sp; c.vz=dz/d*sp; c.dash={until:S.t+30,tgt:t}; return 0; }],
+    [42,(c,t)=>{ c.spinBoost=1; if(c.dash){ c.dash=null; } return 0; }]
+  ]},
+  torus:{ name:"Vortex Draw", total:38, stages:[
+    [0,(c,t)=>{ pullDebris(c,c.S*3.4,2.1*power(c),26); return 0; }],
+    [12,(c,t)=>reclaim(c,c.S*1.2,Math.round(6*power(c)))],
+    [27,(c,t)=>shock(c,c.x,c.y,c.z,c.S*2.4,52*power(c),true)]   // everything it drew in gets fired back out
+  ]},
+  tree:{ name:"Twenty-Two Paths", total:34, stages:Array.from({length:11},(_,i)=>[i*3,(c,t)=>reclaim(c,c.S*2.4,2)]) },
+
+  // five bolts in the star's own drawing order, each one leading the target
+  penta:{ name:"Five Points", total:30, stages:[0,2,4,1,3].map((k,i)=>[i*5,(c,t)=>{
+    if(!t) return 0;
+    const hit=bolt(c,t,62,15);
+    return i===4 ? hit+shock(c,c.x,c.y,c.z,c.S*1.6,30*power(c),true) : hit;
+  }]) },
+
+  // round the hexad 1-4-2-8-5-7, then the triangle closes it
+  ennea:{ name:"Seven Returns", total:32, stages:[0,3,1,7,4,6].map((v,i)=>[i*4.4,(c,t)=>{
+    const a=c.ang+v/9*TAU, R=c.S*1.5;
+    const x=c.x+Math.cos(a)*c.S*.7, y=c.y+Math.sin(a)*c.S*.7;
+    let h=shock(c,x,y,c.z,R*.8,(18+i*4)*power(c),true);
+    if(i===5) h+=reclaim(c,R,Math.round(6*power(c)));
+    return h;
+  }]) },
+
+  // no damage at all: it walks the field in to the centre and keeps it
+  laby:{ name:"Walk the Path", total:40, stages:[
+    [0,(c,t)=>{ pullDebris(c,c.S*3.2,2.4*power(c),40); return 0; }],
+    [10,(c,t)=>reclaim(c,c.S*1.8,Math.round(5*power(c)))],
+    [20,(c,t)=>reclaim(c,c.S*1.5,Math.round(7*power(c)))],
+    [30,(c,t)=>reclaim(c,c.S*1.2,Math.round(9*power(c)))+shock(c,c.x,c.y,c.z,c.S*1.3,8,false)]
+  ] },
+
+  // every gap is a seat: it packs the field into its own holes
+  gasket:{ name:"Descartes Packing", total:30, stages:[
+    [0,(c,t)=>{ pullDebris(c,c.S*2.8,1.7*power(c),30); return 0; }],
+    [7,(c,t)=>reclaim(c,c.S*2,Math.round(8*power(c)))],
+    [15,(c,t)=>reclaim(c,c.S*2.2,Math.round(10*power(c)))],
+    [23,(c,t)=>reclaim(c,c.S*2.4,Math.round(13*power(c)))+shock(c,c.x,c.y,c.z,c.S*1.8,14,false)]
+  ] },
+
+  // each pass hits wider and harder, the way each pass of the curve adds detail
+  koch:{ name:"Iteration", total:30, stages:[0,1,2,3].map(i=>[i*7.5,(c,t)=>{
+    const R=c.S*(.9+i*.42);
+    let h=shock(c,c.x,c.y,c.z,R,(11+i*8)*power(c),i>=3);
+    if(i===3) h+=reclaim(c,R,Math.round(5*power(c)));
+    return h;
+  }]) }
+};
+function b(c,t){ return t?bolt(c,t,58,13):0; }   // one seed petal
+
+function startSpecial(c,t){
+  c.charge=0;
+  const sp=SPECIALS[c.spec]||SPECIALS[c.form.id];
+  c.seq={sp, name:sp.name, t:0, i:0, tgt:t};
+  fire("windup",c,c.x,c.y,c.z,0,sp.name,-1);
+  S.hooks.event(c.label+" begins "+sp.name, c.owner);
+}
+function specials(live, dt){
+  for(const c of live){
+    if(c.seq){
+      const q=c.seq; q.t+=dt;
+      while(q.i<q.sp.stages.length && q.t>=q.sp.stages[q.i][0]){
+        const hits=q.sp.stages[q.i][1](c,q.tgt&&q.tgt.alive?q.tgt:nearestEnemyCore(c))||0;
+        connect(c,c.x,c.y,c.z,hits,q.i);
+        q.i++;
+      }
+      if(q.t>=q.sp.total){ c.seq=null; c.bloom=1; c.spinBoost=1; fire("end",c,c.x,c.y,c.z,0,q.name,-1); }
+      continue;
+    }
+    // charging: full in about 30s at skill 5, faster with skill and with damage dealt
+    c.charge=Math.min(1.3,c.charge+dt*ACTS[S.act].charge/(210*cdScale(c)));
+    if(c.charge>=1){
+      const t=nearestEnemyCore(c);
+      if(t && Math.hypot(t.x-c.x,t.y-c.y,t.z-c.z) < c.S*2.4+t.S) startSpecial(c,t);
+    }
+  }
+  // a ramming merkaba detonates on arrival
+  for(const c of live){
+    if(!c.dash) continue;
+    const t=c.dash.tgt;
+    if(!t||!t.alive||S.t>c.dash.until){ c.dash=null; continue; }
+    if(Math.hypot(t.x-c.x,t.y-c.y,t.z-c.z) < 240){
+      const hits=shock(c,c.x,c.y,c.z,340,56*power(c),true);
+      bang(c.x,c.y,c.z,30000,c.owner,1.8);
+      fire("hit",c,c.x,c.y,c.z,Math.max(1,hits),"Counter-Ram",99);
+      S.hooks.event(c.label+" rams "+t.label, c.owner);
+      c.dash=null;
+    }
+  }
+}
+
+/* ---------- scoring ---------- */
+function tally(){
+  const N=S.cores.length;
+  if(S.mass.length!==N) S.mass=new Array(N).fill(0);
+  for(let i=0;i<N;i++) S.mass[i]=S.cores[i].alive?S.cores[i].m:0;
+  S.neutral=0;
+  for(const c of S.cores) c.bonded=0;
+  for(const p of S.parts){
+    if(!p.alive) continue;
+    if(p.owner<0){ S.neutral+=p.m; continue; }
+    S.mass[p.owner]+=p.m;
+    if(p.bond && p.bond.c.owner===p.owner) S.cores[p.owner].bonded++;
+  }
+  for(const c of S.cores) c.integrity=c.alive ? c.bonded/c.homes.length : 0;
+}
+
+function leader(){
+  let best=0, bi=0, tot=0;
+  S.cores.forEach((c,i)=>{ if(!c.alive) return; tot+=S.mass[i]; if(S.mass[i]>best){ best=S.mass[i]; bi=i; } });
+  return {owner:bi, frac: tot? best/tot : 0, tot};
+}
+
+function unbind(c){
+  // geometry gone: the core cannot hold itself and bursts into loose, ownerless mass
+  let killer=null, best=0;
+  for(const k in (c.dmg||{})){ const o=+k; if(S.cores[o].alive && c.dmg[k]>best){ best=c.dmg[k]; killer=o; } }
+  if(killer===null){ const n=nearestOwnerExcept(c); killer=n; }
+  c.alive=false; c.killedBy=killer;
+  for(const p of S.parts){ if(p.alive && p.owner===c.owner){ p.owner=NEUTRAL; p.bond=null; } }
+  const n=Math.min(40,Math.ceil(c.m/22));
+  for(let i=0;i<n;i++){
+    const a=srand()*TAU, s=5+srand()*13;
+    S.parts.push(Object.assign(makeParticle(NEUTRAL,KIND.LINE,c.m/n,c.x,c.y,c.z,c.vx+Math.cos(a)*s,c.vy+Math.sin(a)*s,c.vz+(srand()-.5)*s),{heat:1}));
+  }
+  c.m=0;
+  bang(c.x,c.y,c.z,50000,-2,2.4);
+  S.pulses.push({x:c.x,y:c.y,z:c.z,r:20,R:700,life:3,owner:killer===null?-2:killer});
+  const kn = killer===null ? "" : " by "+S.cores[killer].label;
+  S.hooks.event(c.label+" is unbound"+kn, killer===null?c.owner:killer);
+  S.hooks.cut(c.x,c.y,c.z,true,c.label+" is unbound");
+}
+function nearestOwnerExcept(c){
+  let bd=1e18,b=null;
+  for(const o of S.cores){ if(!o.alive||o===c) continue; const d=Math.hypot(o.x-c.x,o.y-c.y,o.z-c.z); if(d<bd){bd=d;b=o.owner;} }
+  return b;
+}
+function checkEnd(){
+  for(const c of S.cores){ if(c.alive && c.integrity<COLLAPSE && aliveCores().length>1) unbind(c); }
+  advanceAct();
+  const live=aliveCores();
+  if(live.length<=1){ ignite(live.length?live[0].owner:0, "last"); return; }
+  const L=leader();
+  const standing = ACTS[S.act].id==="last" ? S.t-S.actT : 1e9;
+  if(L.frac>=DOMINANCE && standing>24*TIME_SCALE){ ignite(L.owner,"dominance"); return; }
+  if(S.t>=S.matchT) ignite(L.owner,"clock");
+}
+
+const VIC_T = 34;        // sim units the victory capture runs for
+// Everything still loose on the field is drawn into the winner over the capture,
+// so the arena visibly changes hands rather than just flashing white.
+function captureField(dt){
+  const g=S.ignite; if(!g) return;
+  const w=S.cores[g.owner];
+  if(w){ w.vx=w.vy=w.vz=0; g.x=w.x; g.y=w.y; g.z=w.z; }   // keep the frame on the victor
+  const u=Math.min(1,g.t/(VIC_T*.8));
+  const want=Math.floor(u*g.claimList.length);
+  while(g.claimed<want){
+    const p=g.claimList[g.claimed++];
+    if(!p||!p.alive||p.owner===g.owner) continue;
+    p.owner=g.owner; p.bond=null; heatUp(p,1);
+  }
+}
+function ignite(owner, why){
+  if(S.ignite) return;
+  const c=S.cores[owner];
+  S.winner=owner;
+  // claim nearest-first, so the capture sweeps outward from the victor
+  const loose=S.parts.filter(p=>p.alive&&p.owner!==owner)
+    .sort((a,b)=>Math.hypot(a.x-c.x,a.y-c.y,a.z-c.z)-Math.hypot(b.x-c.x,b.y-c.y,b.z-c.z));
+  // frame what the field actually is: the radius holding ~85% of the mass, not one stray
+  const ds=S.parts.filter(p=>p.alive).map(p=>Math.hypot(p.x-c.x,p.y-c.y)).sort((a,b)=>a-b);
+  const R=Math.max(c.S*1.5, Math.min(1800, (ds[Math.floor(ds.length*.85)]||c.S*2)*1.08));
+  c.vx=c.vy=c.vz=0;                      // it has won; it holds its ground while the field comes in
+  S.ignite={owner, why, t:0, done:false, x:c.x, y:c.y, z:c.z, R, claimList:loose, claimed:0};
+  S.hooks.event(c.label+" ignites", owner);
+  S.hooks.cut(c.x,c.y,c.z,true,c.label+" captures the field");
+  if(S.hooks.victory) S.hooks.victory();
+}
+
+</script>
+<script>
+"use strict";
+/* =====================================================================
+   PAGE — platform builder, 3D orbit camera, rendering, controls
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const cv=$("cv"), ctx=cv.getContext("2d",{alpha:false});
+let W=0,H=0,DPR=1;
+// Some hosts hand the page a frame larger than the screen it is shown on — a
+// tablet-sized box on a phone — and then only the top-left corner is visible.
+// The device's own screen is the honest ceiling, so measure against that.
+function effViewport(){
+  let w=innerWidth||360, h=innerHeight||640;
+  const vv=window.visualViewport;
+  if(vv && vv.width && vv.height){ w=Math.min(w,Math.ceil(vv.width)); h=Math.min(h,Math.ceil(vv.height)); }
+  try{
+    if(matchMedia("(pointer:coarse)").matches && screen && screen.width){
+      w=Math.min(w,screen.width); h=Math.min(h,screen.height);
+    }
+  }catch(e){}
+  return { w:Math.max(260,Math.round(w)), h:Math.max(340,Math.round(h)) };
+}
+function resize(){
+  const v=effViewport(); W=v.w; H=v.h;
+  DPR=Math.min(devicePixelRatio||1,2);
+  const r=document.documentElement;
+  r.style.setProperty("--vw",W+"px"); r.style.setProperty("--vh",H+"px");
+  r.classList.toggle("phone",W<760);
+  cv.style.width=W+"px"; cv.style.height=H+"px";
+  cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener("resize",resize);
+addEventListener("orientationchange",()=>setTimeout(resize,250));
+if(window.visualViewport){ visualViewport.addEventListener("resize",resize); }
+
+const MAX_FORMS=14;
+let uidN=1;
+const ui = {
+  entries: FORMS.slice(0,9).map(f=>({uid:uidN++, id:f.id, skill:5, spec:f.id})),   // what's on the platform, in order
+  champion:null, selected:"metatron",
+  spread:1500, height:.6, len:120, speed:1, seed:(Date.now()&0x7fffffff),
+  paused:false, slowUntil:-1, scaleT:1, follow:false, autoCam:true, recorded:false,
+  amb:.3, glow:.6, highlights:true, liftMode:false, attackCam:true, orbit:false, orbitSpeed:1, nameTags:false   // amb: how bright the resting field is; fights are always drawn at full strength
+};
+// orbit camera: looks at (x,y,cz); spin turns around the world z axis; tilt 0 = straight down, ±π/2 = side on
+function defaultTilt(){ return W<760 ? .35 : .6; }   // flatter on a phone fills far more of a tall screen
+const cam={x:0,y:0,cz:0,z:.3,spin:0,tilt:.6, tx:0,ty:0,tcz:0,tz:.3,tspin:0,ttilt:.6,hold:0};
+
+/* ---------- record ---------- */
+const REC_KEY="whitehole-arena-record-v1";
+let REC={games:0,wins:{},picks:0,right:0};
+try{ const r=localStorage.getItem(REC_KEY); if(r) REC=Object.assign(REC,JSON.parse(r)); }catch(e){}
+function saveRec(){ try{ localStorage.setItem(REC_KEY,JSON.stringify(REC)); }catch(e){} }
+
+const SPECIAL_TEXT={
+  vesica:["Mitosis","The lens swells, splits along its axis with a blast from each half, then snaps shut and drags the loose bodies back in."],
+  seed:["Six Petals","Fires six seed bolts in sequence, one from each petal, leading the target so they land where it's going."],
+  flower:["Lattice Bloom","Opens the whole lattice to half again its size, absorbing everything caught inside it, then closes."],
+  metatron:["Five Solids","Pulls the field inward and takes it in five nested waves, one for each Platonic solid hidden in the cube."],
+  sri:["Nine Triangles","Nine cone blasts in sequence, alternating up and down like its triangles, each wider and harder than the last."],
+  golden:["Phi Cascade","Three sweeps, timed by powers of phi, each one wider than the last and hauling in more of the field."],
+  merkaba:["Counter-Ram","Spins its tetrahedra up to speed, charges the nearest core, and detonates on arrival."],
+  torus:["Vortex Draw","Opens its centre and drags in everything nearby, then fires the whole mouthful back out as shrapnel."],
+  tree:["Twenty-Two Paths","Reaches down the paths in quick succession, reclaiming loose bodies two at a time to rebuild its spheres."],
+  penta:["Five Points","Fires a bolt from each point of the star in the order the star is drawn, and closes with a shock on the fifth."],
+  ennea:["Seven Returns","Six blasts travel the 1-4-2-8-5-7 circulation, and the last one hauls in whatever it has shaken loose."],
+  laby:["Walk the Path","Does no damage at all. It draws the whole field inward ring by ring and keeps what reaches the centre."],
+  gasket:["Descartes Packing","Pulls the field in and packs it into its own gaps, three sweeps deep. The largest reclaim in the arena."],
+  koch:["Iteration","Four shockwaves, each wider and harder than the last, the way each pass of the curve has four times the detail."]
+};
+
+/* ---------- move glyphs: a small sigil traced from each form's own geometry ---------- */
+const GLYPH={};
+for(const f of FORMS){
+  // trace a few of the form's strokes, then fit them to the button so a tall
+  // shape like the Tree fills it instead of drawing a hairline down the middle
+  const lines=[];
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9, drawn=0;
+  for(const st of f.geo.strokes){
+    if(drawn>=24) break;
+    const step=Math.max(1,Math.floor(st.pts.length/14)), pts=[];
+    for(let i=0;i<st.pts.length;i+=step) pts.push(st.pts[i]);
+    if(st.pts.length>2) pts.push(st.pts[st.pts.length-1]);
+    for(const p of pts){ x0=Math.min(x0,p[0]); x1=Math.max(x1,p[0]); y0=Math.min(y0,p[1]); y1=Math.max(y1,p[1]); }
+    lines.push(pts); drawn++;
+  }
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, k=1.9/Math.max(.001,Math.max(x1-x0,y1-y0));
+  let d="";
+  for(const pts of lines){
+    pts.forEach((p,i)=>{ d+=(i?"L":"M")+((p[0]-cx)*k).toFixed(2)+" "+((p[1]-cy)*k).toFixed(2)+" "; });
+  }
+  GLYPH[f.id]='<svg viewBox="-1.1 -1.1 2.2 2.2" aria-hidden="true"><path d="'+d+
+    '" fill="none" stroke="currentColor" stroke-width=".1" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+
+// what the field looks like once each form owns it
+const CAPTURE={
+  vesica:"The lens opens and opens until the whole field is mandorla — every body on it born again between two circles.",
+  seed:"Seven circles bloom out from the centre and twelve more behind them, and the arena is one seed pattern.",
+  flower:"The hexagonal lattice tiles outward ring by ring until there is no part of the floor it does not hold.",
+  metatron:"All seventy-eight lines strike out at once, and the five solids stand up inside the field it now owns.",
+  sri:"Nine triangles stack outward from the bindu, the petal rings sweep the edge, and the field is one yantra.",
+  golden:"The spiral unwinds to the rim and packs the whole field with seeds at the golden angle, no gaps left.",
+  merkaba:"Two tetrahedra grow until they swallow the arena, then lock counter-turning around what they caught.",
+  torus:"The field becomes one torus: everything pours out through the top, around the rim, and back in at the centre.",
+  tree:"Ten sephirot light in order and the twenty-two paths draw themselves between them across the whole field.",
+  penta:"Pentagram inside pentagram inside pentagram, each one φ smaller, until the field is nothing but golden cuts.",
+  ennea:"The nine points light and the hexad path circulates between them, round and round, holding the whole arena.",
+  laby:"Eleven circuits draw themselves outward from the rosette, and the one unbroken path closes behind everything.",
+  gasket:"Circles fill every gap, then fill the gaps between those, until the field is packed down to the last curvature.",
+  koch:"The border pushes a triangle out of every edge, again and again, until it is infinitely long and holds the field."
+};
+
+/* ---------- sprites ---------- */
+function hexRgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
+function sprite(size,inner,outer){
+  const c=document.createElement("canvas"); c.width=c.height=size;
+  const g=c.getContext("2d"), rg=g.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+  rg.addColorStop(0,inner); rg.addColorStop(.35,outer); rg.addColorStop(1,"rgba(0,0,0,0)");
+  g.fillStyle=rg; g.fillRect(0,0,size,size); return c;
+}
+/* Bloom. Rather than laying a wide soft stroke under every line — which costs
+   more the more geometry there is — the lit scene is copied once into a small
+   buffer, blurred, and added back over itself. One pass, any amount of detail. */
+const bloomCv=document.createElement("canvas"), bloomCtx=bloomCv.getContext("2d");
+let CAN_BLUR=false, BLOOM_Q=4;      // the buffer is 1/4 size: a blur there is cheap and still soft
+// Quality follows the frame rate. A slow device loses the bloom and some line
+// detail rather than the frame rate; a fast one gets it all back.
+let frameEMA=1/60, QUAL=.55;           // start cautious; a quick device earns the rest
+function trackQuality(dt){
+  if(dt>0&&dt<.5) frameEMA+=(dt-frameEMA)*.08;
+  if(frameEMA>1/32 && QUAL>0)      QUAL=Math.max(0,QUAL-.025);     // drop fast, it is only looks
+  else if(frameEMA<1/52 && QUAL<1) QUAL=Math.min(1,QUAL+.004);     // climb back slowly
+}
+try{ bloomCtx.filter="blur(2px)"; CAN_BLUR=bloomCtx.filter==="blur(2px)"; }catch(e){ CAN_BLUR=false; }
+function bloomOn(){ return CAN_BLUR && QUAL>=.5 && ui.glow>0; }
+function drawBloom(){
+  if(!bloomOn()) return;
+  const G=ui.glow*QUAL;
+  const q=BLOOM_Q, bw=Math.max(1,Math.round(W/q)), bh=Math.max(1,Math.round(H/q));
+  if(bloomCv.width!==bw||bloomCv.height!==bh){ bloomCv.width=bw; bloomCv.height=bh; }
+  bloomCtx.setTransform(1,0,0,1,0,0);
+  bloomCtx.globalCompositeOperation="copy"; bloomCtx.filter="none"; bloomCtx.globalAlpha=1;
+  bloomCtx.drawImage(cv,0,0,bw,bh);
+  bloomCtx.globalCompositeOperation="source-over";
+  bloomCtx.filter=`blur(${(1.5+G*3.2).toFixed(1)}px)`;
+  bloomCtx.drawImage(bloomCv,0,0);
+  bloomCtx.filter="none";
+  ctx.globalCompositeOperation="lighter";
+  ctx.globalAlpha=Math.min(1,.5+G*.75);
+  ctx.drawImage(bloomCv,0,0,W,H);
+  ctx.globalAlpha=1;
+}
+
+const SPR={form:{},hot:{}};
+for(const f of FORMS){
+  const [r,g,b]=hexRgb(f.color);
+  SPR.hot[f.id]=`rgb(${255-(255-r)*.3|0},${255-(255-g)*.3|0},${255-(255-b)*.3|0})`;
+  SPR.form[f.id]={
+    star:sprite(64,`rgba(${255-(255-r)*.15|0},${255-(255-g)*.15|0},${255-(255-b)*.15|0},1)`,`rgba(${r},${g},${b},.55)`),
+    dust:sprite(40,`rgba(${r},${g},${b},.75)`,`rgba(${r},${g},${b},.22)`)
+  };
+}
+SPR.neutral=sprite(40,"rgba(215,210,230,.6)","rgba(140,130,170,.18)");
+SPR.white=sprite(128,"rgba(255,255,255,1)","rgba(255,190,225,.5)");
+SPR.magenta=sprite(96,"rgba(255,200,235,.9)","rgba(255,122,194,.4)");
+SPR.violet=sprite(128,"rgba(215,185,255,.55)","rgba(120,70,220,.18)");
+
+function colorOf(owner){ return owner>=0 && S.cores[owner] ? S.cores[owner].form.color : "#b8b2c8"; }
+function entryOf(c){ return ui.entries[c.slot]; }
+function isChampion(c){ const e=entryOf(c); return !!e && e.uid===ui.champion; }
+function championCore(){ return S.cores.find(c=>isChampion(c)); }
+
+/* ---------- 3D projection ---------- */
+function railOpen(){ return !$("rail").classList.contains("hide") && W>=760; }
+// The usable picture is what the panel and the HUD don't cover, so the subject
+// is centred in that, not in the raw canvas.
+function viewL(){ return railOpen() ? 310 : 0; }
+let HUD_B=0;                                        // measured, since the HUD grows when its text wraps
+function viewT(){ return W<760 ? HUD_B+8 : 0; }     // on a phone the HUD sits across the top
+function viewCX(){ return (viewL()+W)/2; }
+function viewCY(){ return (viewT()+H)/2; }
+function viewW(){ return W-viewL(); }
+function viewH(){ return H-viewT(); }
+const EYE=2600;          // camera distance in world units; zoom scales the picture, not the eye
+let _sx=0,_sy=0,_sc=0,_dep=0,_front=true;
+let VCX=0, VCY=0, CS=1, SN=0, CT=1, ST=0;
+function camPrep(){ VCX=viewCX(); VCY=viewCY(); CS=Math.cos(cam.spin); SN=Math.sin(cam.spin); CT=Math.cos(cam.tilt); ST=Math.sin(cam.tilt); }
+function project(x,y,z){
+  const dx=x-cam.x, dy=y-cam.y, dz=z-cam.cz;
+  const rx=dx*CS-dy*SN, ry=dx*SN+dy*CS;
+  const sy=ry*CT-dz*ST;              // screen down
+  const toward=ry*ST+dz*CT;          // distance toward the viewer
+  const den=EYE-toward*Math.min(1,cam.z*1.2);
+  _front=den>=120;
+  if(!_front) return false;
+  const persp=EYE/den;
+  _sc=cam.z*persp; _dep=toward; _sx=VCX+rx*_sc; _sy=VCY+sy*_sc;
+  return _sx>-80&&_sx<W+80&&_sy>-80&&_sy<H+80;
+}
+// screen point back to a world point on the horizontal plane through height z
+function unproject(sx,sy,z){
+  const dz=z-cam.cz, k=Math.min(1,cam.z*1.2), A=sy-VCY;
+  const den=cam.z*EYE*CT + A*k*ST;
+  if(Math.abs(den)<1e-6) return null;                       // dead-on side view: the plane is edge-on
+  const ry=(A*EYE - A*k*dz*CT + cam.z*EYE*ST*dz)/den;
+  const toward=ry*ST+dz*CT, d2=EYE-toward*k;
+  if(d2<120) return null;
+  const sc=cam.z*EYE/d2;
+  const rx=(sx-VCX)/sc;
+  return {x:cam.x + rx*CS + ry*SN, y:cam.y - rx*SN + ry*CS};
+}
+// how far the pointer must move vertically to raise a form by one world unit
+function zScale(z){
+  const dz=z-cam.cz, k=Math.min(1,cam.z*1.2), toward=dz*CT, d2=EYE-toward*k;
+  return -ST*(cam.z*EYE/Math.max(120,d2));
+}
+function pickCore(sx,sy){
+  let best=null, bd=1e9;
+  for(const c of S.cores){
+    if(!c.alive || !project(c.x,c.y,c.z)) continue;
+    const d=Math.hypot(_sx-sx,_sy-sy), reach=Math.max(26,Math.min(140,c.S*_sc*.75));
+    if(d<reach && d<bd){ bd=d; best=c; }
+  }
+  return best;
+}
+function frameAll(keepAngle){
+  const live=S.cores.filter(c=>c.alive); if(!live.length){ cam.tx=0; cam.ty=0; cam.tcz=0; cam.tz=.3; return; }
+  let x0=1e9,y0=1e9,z0=1e9,x1=-1e9,y1=-1e9,z1=-1e9;
+  for(const c of live){ x0=Math.min(x0,c.x-c.S); x1=Math.max(x1,c.x+c.S); y0=Math.min(y0,c.y-c.S); y1=Math.max(y1,c.y+c.S); z0=Math.min(z0,c.z-c.S); z1=Math.max(z1,c.z+c.S); }
+  cam.tx=(x0+x1)/2; cam.ty=(y0+y1)/2; cam.tcz=(z0+z1)/2;
+  cam.tz=fitFor(live,.95);
+  if(!keepAngle) cam.ttilt=wrapNear(defaultTilt(),cam.tilt);   // don't unwind whole turns to get there
+  cam.hold=0;
+}
+// once the field is down to a few, the camera stops surveying and holds the two
+// that matter in one frame, the way a fight is actually shot
+function frameTwo(){
+  const live=aliveCores();
+  if(live.length<2){ frameAll(true); return; }
+  const top=live.slice().sort((a,b)=>(S.mass[b.owner]||b.m)-(S.mass[a.owner]||a.m)).slice(0,2);
+  const e=.055;
+  cam.tx+=((top[0].x+top[1].x)/2-cam.tx)*e;
+  cam.ty+=((top[0].y+top[1].y)/2-cam.ty)*e;
+  cam.tcz+=((top[0].z+top[1].z)/2-cam.tcz)*e;
+  const want=fitFor(top,.78);
+  cam.tz+=(want-cam.tz)*e;
+}
+let spTimer=null, lastCine=0;
+function cineCut(c,x,y,z,hits,name,kind){
+  if(!c||!c.form) return;
+  const el=$("special");
+  if(kind!=="end"){
+    $("spName").textContent=name; $("spName").style.color=c.form.color;
+    $("spHit").textContent = kind==="windup" ? c.label : hits+(hits===1?" body hit":" bodies hit");
+    el.classList.add("on");
+    clearTimeout(spTimer); spTimer=setTimeout(()=>el.classList.remove("on"),kind==="windup"?1600:1300);
+  }
+  if(!ui.attackCam || ui.orbit || S.ignite || S.phase==="setup") return;
+  const now=performance.now();
+  if(kind==="windup"){
+    cam.tx=c.x; cam.ty=c.y; cam.tcz=c.z; cam.tz=.62; cam.hold=1.6; lastCine=now;
+    leanTo(.55);
+    ui.slowUntil=Math.max(ui.slowUntil,S.t+5);
+  } else if(kind==="hit"){
+    if(now-lastCine<260) return;                      // don't whip the camera between rapid stages
+    lastCine=now;
+    cam.tx=x; cam.ty=y; cam.tcz=z;
+    cam.tz=Math.min(1.5,.75+Math.min(.6,Math.log10(1+hits)*.35));   // the harder it connects, the closer we get
+    cam.hold=Math.max(cam.hold,1.1);
+    ui.slowUntil=Math.max(ui.slowUntil,S.t+(hits>40?9:5));
+  } else cam.hold=Math.min(cam.hold,.35);
+}
+let cutTimer=null;
+function cutTo(x,y,z,big,label){
+  if(S.phase==="setup") return;
+  const el=$("cut"); el.textContent=label; el.classList.add("on");
+  clearTimeout(cutTimer); cutTimer=setTimeout(()=>el.classList.remove("on"),1800);
+  if(S.ignite) return;                 // the victory capture holds the camera
+  if(!ui.autoCam || ui.orbit) return;
+  if(cam.hold>0 && !big) return;
+  cam.tx=x; cam.ty=y; cam.tcz=z; cam.tz=big?.9:.75;
+  leanTo(big?.75:.55);                                 // lean in for depth, but keep the angle you chose if it's already 3D
+  cam.hold=big?2.6:1.3;
+  ui.slowUntil=Math.max(ui.slowUntil, S.t+(big?14:6));
+}
+/* The camera is kept on a leash: it cannot pan past the field, zoom out into
+   empty space, or tip past the horizon, so free roam can't lose the arena. */
+let BOUNDS={cx:0,cy:0,cz:0,R:1500,zH:600,fit:.3};
+// Tilt is no longer clamped: it rolls all the way round. That means an angle has
+// infinitely many equivalents, so anything aiming the camera aims at the nearest
+// one rather than unwinding whole turns to get there.
+function wrapNear(want,cur){ return want + TAU*Math.round((cur-want)/TAU); }
+function edgeOn(){ return Math.abs(Math.sin(cam.ttilt)); }   // 0 looking straight down or up, 1 edge on
+function upright(){ return Math.cos(cam.ttilt)>=0; }
+function leanTo(a){                                          // tip into a 3/4 view, keeping which way up we are
+  if(edgeOn()>=.34) return;
+  cam.ttilt=wrapNear(upright()?a:Math.PI-a, cam.ttilt);
+}
+function measureArena(){
+  const live=S.cores.filter(c=>c.alive);
+  if(!live.length) return;
+  // Pivot on where the mass actually is, so a rotation turns around the fight
+  // rather than around the middle of a box that stray forms keep stretching.
+  let mx=0,my=0,mz=0,tm=0;
+  for(const c of live){ const m=Math.max(1,S.mass[c.owner]||c.m); mx+=c.x*m; my+=c.y*m; mz+=c.z*m; tm+=m; }
+  mx/=tm; my/=tm; mz/=tm;
+  let Rxy=0, Rz=0;
+  for(const c of live){ Rxy=Math.max(Rxy,Math.hypot(c.x-mx,c.y-my)+c.S); Rz=Math.max(Rz,Math.abs(c.z-mz)+c.S); }
+  // Frame the bulk of the mass, not the furthest straggler: one form drifting off
+  // shouldn't shrink the fight to a dot, least of all on a phone.
+  const ranked=live.map(c=>({c,d:Math.hypot(c.x-mx,c.y-my,c.z-mz)})).sort((a,b)=>a.d-b.d);
+  let acc=0, keep=[];
+  for(const r of ranked){ keep.push(r.c); acc+=Math.max(1,S.mass[r.c.owner]||r.c.m); if(acc>=tm*.8) break; }
+  const f=fitFor(keep,.95);
+  const prev=BOUNDS.fit||f;
+  BOUNDS={ cx:mx, cy:my, cz:mz, R:Math.max(500,Rxy), zH:Math.max(400,Rz),
+    fit:prev+(f-prev)*.2 };                      // eased, so rotating doesn't make it breathe
+}
+// How much zoom holds this set of cores on screen, measured in the camera's own
+// frame — so a tall screen gets used when the fight is tall, not just the width.
+function fitFor(list,margin){
+  if(!list.length) return .3;
+  let mx=0,my=0,mz=0;
+  for(const c of list){ mx+=c.x; my+=c.y; mz+=c.z; }
+  mx/=list.length; my/=list.length; mz/=list.length;
+  const cs=Math.cos(cam.tilt?cam.spin:cam.spin), sn=Math.sin(cam.spin), ct=Math.cos(cam.tilt), st=Math.sin(cam.tilt);
+  let hw=0, hh=0;
+  for(const c of list){
+    const dx=c.x-mx, dy=c.y-my, dz=c.z-mz;
+    const rx=dx*cs-dy*sn, ry=dx*sn+dy*cs, sy=ry*ct-dz*st;
+    hw=Math.max(hw,Math.abs(rx)+c.S); hh=Math.max(hh,Math.abs(sy)+c.S);
+  }
+  const uw=Math.max(80,viewW()-40), uh=Math.max(80,viewH()-50);
+  const crop=W<760?1.18:1;                       // a phone may crop a little to keep the forms readable
+  return Math.max(.05,Math.min(1.4,Math.min(uw/(2*Math.max(80,hw)),uh/(2*Math.max(80,hh)))*margin*crop));
+}
+function clampCam(){
+  const b=BOUNDS, m=b.R*.9+500, mz=b.zH+700;
+  cam.tx=Math.max(b.cx-m,Math.min(b.cx+m,cam.tx));
+  cam.ty=Math.max(b.cy-m,Math.min(b.cy+m,cam.ty));
+  cam.tcz=Math.max(b.cz-mz,Math.min(b.cz+mz,cam.tcz));
+  cam.tz=Math.max(b.fit*.35,Math.min(4,cam.tz));          // never far out into empty space
+  // tilt is deliberately unclamped: the camera rolls a full 360 either way
+}
+function camStep(dt){
+  const k=Math.min(1,dt*2.6);
+  measureArena();
+  if(S.ignite){
+    // hold the victor centred and pull back far enough to hold its whole capture
+    const g=S.ignite, uw=Math.max(80,viewW()-40), uh=Math.max(80,viewH()-50);
+    if(!cam.capFree){ cam.tx=g.x; cam.ty=g.y; cam.tcz=g.z; }
+    const want=Math.max(.05,Math.min(1.2,Math.min(uw,uh)/(2.6*g.R)));
+    if(!g.camInit){ g.camInit=true; cam.capFree=false; cam.tz=cam.z=Math.min(cam.z,want*1.9); }
+    if(!cam.capFree){                      // the capture frames itself until you take the camera
+      cam.tz+=(want-cam.tz)*Math.min(1,dt*3.2);
+      leanTo(.45);
+    } else { cam.tx=cam.x; cam.ty=cam.y; cam.tcz=cam.cz; clampCam(); }
+    cam.hold=1;
+    cam.x+=(cam.tx-cam.x)*k; cam.y+=(cam.ty-cam.y)*k; cam.cz+=(cam.tcz-cam.cz)*k;
+    cam.z+=(cam.tz-cam.z)*k; cam.tilt+=(cam.ttilt-cam.tilt)*k;
+    cam.spin+=(cam.tspin-cam.spin)*Math.min(1,dt*8);
+    if(ui.orbit) cam.tspin+=dt*.16*ui.orbitSpeed;
+    return;
+  }
+  if(cam.hold<=0 && ui.follow && S.phase!=="setup"){
+    const c=championCore(); if(c && c.alive){ cam.tx=c.x; cam.ty=c.y; cam.tcz=c.z; }
+  }
+  // panorama: a slow turn around the middle of the action, framed to hold everything
+  if(ui.orbit && !grab && cam.hold<=0){
+    cam.tspin+=dt*.16*ui.orbitSpeed;
+    const b=BOUNDS, e=Math.min(1,dt*.7);
+    cam.tx+=(b.cx-cam.tx)*e; cam.ty+=(b.cy-cam.ty)*e; cam.tcz+=(b.cz-cam.tcz)*e;
+    if(!cam.orbitZoomed) cam.tz+=(b.fit-cam.tz)*e;        // your own zoom sticks once you set one
+    leanTo(.5);
+  }
+  // the act decides what the camera is looking for
+  if(!ui.orbit && !ui.follow && !grab && cam.hold<=0 && S.phase==="run" && !S.ignite){
+    if(S.act===0) cam.tspin+=dt*.085;        // an establishing turn while they are still closing
+    else if(S.act>=2) frameTwo();            // a two-shot once the field has thinned
+  }
+  clampCam();
+  cam.x+=(cam.tx-cam.x)*k; cam.y+=(cam.ty-cam.y)*k; cam.cz+=(cam.tcz-cam.cz)*k;
+  cam.z+=(cam.tz-cam.z)*k; cam.tilt+=(cam.ttilt-cam.tilt)*k; cam.spin+=(cam.tspin-cam.spin)*Math.min(1,dt*8);
+  if(cam.hold>0){
+    cam.hold-=dt;
+    if(cam.hold<=0 && S.phase==="run" && !S.ignite){ if(ui.follow){ cam.tz=.55; } else frameAll(true); }
+  }
+}
+
+/* ---------- engine hooks ---------- */
+const recentKinds=new Map();
+S.hooks.cut=(x,y,z,big,label)=>cutTo(x,y,z,big,label);
+S.hooks.event=(text,owner)=>{
+  const kind=text.replace(/[0-9]+/g,"#");
+  if(!/swallows|unbound|ignites|released/.test(text)){
+    const lastT=recentKinds.get(kind); if(lastT!==undefined && S.t-lastT<25*TIME_SCALE) return; recentKinds.set(kind,S.t);
+  }
+  const li=document.createElement("li");
+  li.innerHTML=`<em>${Math.floor(S.t/TIME_SCALE)}s</em><i style="background:${colorOf(owner)}"></i><span></span>`;
+  li.querySelector("span").textContent=text;
+  const log=$("log"); log.prepend(li); while(log.children.length>8) log.lastChild.remove();
+};
+S.hooks.special=(kind,c,x,y,z,hits,name)=>cineCut(c,x,y,z,hits,name,kind);
+S.hooks.victory=()=>{ ui.slowUntil=-1; ui.scaleT=1; };   // full speed for the capture
+let actTimer=null;
+const ACT_NUM=["I","II","III","IV","V"];
+S.hooks.act=(A,i)=>{
+  const el=$("actcard");
+  el.querySelector("b").textContent=A.name;
+  el.querySelector("span").textContent="Act "+ACT_NUM[i]+" \u00b7 "+A.line;
+  el.classList.add("on");
+  clearTimeout(actTimer); actTimer=setTimeout(()=>el.classList.remove("on"),2800);
+  if(ui.orbit) return;
+  cam.hold=0;                                       // let the new act reframe for itself
+  if(i===1 && !ui.follow) frameAll(true);
+  ui.slowUntil=Math.max(ui.slowUntil, S.t+(i>=2?9:5));
+};
+S.hooks.end=()=>endMatch();
+
+/* ---------- drawing ---------- */
+const bg=[]; for(let i=0;i<360;i++) bg.push({x:Math.random(),y:Math.random(),s:Math.random()});
+
+function drawPlatform(){
+  // the floor at z = 0: rings, spokes and a vertical z axis, so depth has something to read against
+  const nf=Math.max(2,S.cores.length), R=ui.spread*Math.max(.55,Math.min(1.15,Math.sqrt(nf/9)))*1.15, zH=Math.max(500,ui.spread*.9*Math.max(.15,ui.height)*.5+350);
+  const PA=.35+ui.amb*.9;
+  ctx.lineWidth=1;
+  // the platform itself changes hands as the victor's capture sweeps over it
+  ctx.strokeStyle = S.ignite ? S.cores[S.ignite.owner].form.color : "rgba(150,130,215,1)";
+  for(let ring=1;ring<=4;ring++){
+    const r=R*ring/4;
+    const claim=S.ignite ? Math.min(1,Math.max(0,ease(Math.min(1,S.ignite.t/(VIC_T*.75)))*R-r)/400+ (S.ignite.t>VIC_T*.75?1:0)) : 0;
+    ctx.globalAlpha=((ring===4?.2:.08)+claim*.5)*PA;
+    ctx.beginPath();
+    for(let i=0;i<=72;i++){ const a=i/72*TAU; project(Math.cos(a)*r,Math.sin(a)*r,0); i?ctx.lineTo(_sx,_sy):ctx.moveTo(_sx,_sy); }
+    ctx.stroke();
+  }
+  ctx.globalAlpha=.07*PA; ctx.beginPath();
+  for(let i=0;i<12;i++){ const a=i/12*TAU; project(0,0,0); ctx.moveTo(_sx,_sy); project(Math.cos(a)*R,Math.sin(a)*R,0); ctx.lineTo(_sx,_sy); }
+  ctx.stroke();
+  // z axis with ticks every 250 units
+  ctx.globalAlpha=.4*PA; ctx.strokeStyle="#5b8cff"; ctx.beginPath();
+  project(0,0,-zH); ctx.moveTo(_sx,_sy); project(0,0,zH); const ax=_sx, ay=_sy; ctx.lineTo(_sx,_sy); ctx.stroke();
+  ctx.globalAlpha=.3*PA; ctx.beginPath();
+  for(let z=-Math.floor(zH/250)*250; z<=zH; z+=250){ if(!z) continue; project(-40,0,z); ctx.moveTo(_sx,_sy); project(40,0,z); ctx.lineTo(_sx,_sy); }
+  ctx.stroke();
+  ctx.globalAlpha=.7*PA; ctx.fillStyle="#8fb0ff"; ctx.font="12px 'Avenir Next','Segoe UI',system-ui,sans-serif"; ctx.textAlign="left";
+  ctx.fillText("+z",ax+6,ay);
+}
+
+function draw(){
+  camPrep();
+  ctx.globalCompositeOperation="source-over"; ctx.globalAlpha=1;
+  ctx.fillStyle="#03020a"; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="rgba(210,205,240,.55)";
+  const par=cam.spin*120;
+  for(const b of bg){
+    const x=((b.x*W - par)%W+W)%W, y=((b.y*H + cam.tilt*90)%H+H)%H;
+    ctx.globalAlpha=(.05+b.s*.22)*(.45+ui.amb); ctx.fillRect(x,y,1+b.s,1+b.s);
+  }
+  drawPlatform();
+
+  // drop lines from each form's core to the floor
+  ctx.globalAlpha=.12+.25*ui.amb; ctx.lineWidth=1; ctx.setLineDash([3,5]);
+  for(const c of S.cores){
+    if(!c.alive) continue;
+    ctx.strokeStyle=c.form.color; ctx.beginPath();
+    project(c.x,c.y,c.z); ctx.moveTo(_sx,_sy); project(c.x,c.y,0); ctx.lineTo(_sx,_sy); ctx.stroke();
+    ctx.beginPath(); ctx.arc(_sx,_sy,3,0,TAU); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  ctx.globalCompositeOperation="lighter";
+  // Each form's lines are drawn once into a path, then lit three times over:
+  // a wide dim halo, the line itself, and a thin near-white core. Added together
+  // on a dark field that reads as a lit tube — depth from light, not perspective.
+  const G=ui.glow, BLOOM=bloomOn(), zs=Math.max(.55,Math.min(2.4,cam.z/.32));
+  ctx.lineJoin="round"; ctx.lineCap="round";
+  for(const c of S.cores){
+    if(!c.alive) continue;
+    // how big this form is on screen decides how much of it is worth drawing
+    project(c.x,c.y,c.z);
+    const px=c.S*_sc, cx=_sx, cy=_sy;
+    if(cx<-px-80||cx>W+px+80||cy<-px-80||cy>H+px+80) continue;      // wholly out of frame
+    const geo=c.form.geo;
+    const stride=Math.max(1,Math.min(9,Math.round(geo.nPts/Math.max(45,px*(1.4+1.5*QUAL)))));
+    const near=px>72;                                               // close enough to be worth the halo
+    const integ=S.phase==="setup"?1:c.integrity;
+    const heat=ui.highlights?c.heat:0;
+    const base=(.1+.62*integ)*(.3+ui.amb*1.1)+heat*.35;
+    const path=new Path2D();
+    for(const s of geo.strokes){
+      const n=s.pts.length, st=n>7?stride:1;                        // never thin out a line or a triangle
+      let pen=false;
+      for(let i=0;i<n;i+=st){
+        const p=s.pts[i]; localPoint(c,p[0]*c.S,p[1]*c.S,p[2]*c.S,s.grp);
+        project(_tx,_ty,_tz);
+        if(_front){ if(pen) path.lineTo(_sx,_sy); else { path.moveTo(_sx,_sy); pen=true; } } else pen=false;
+      }
+      if(st>1 && pen){                                              // close the shape the stride skipped past
+        const p=s.pts[n-1]; localPoint(c,p[0]*c.S,p[1]*c.S,p[2]*c.S,s.grp);
+        project(_tx,_ty,_tz); if(_front) path.lineTo(_sx,_sy);
+      }
+    }
+    ctx.strokeStyle=c.form.color;
+    if(G>0 && !BLOOM && QUAL>.2){ // middle tier: one soft pass stands in for the bloom
+      ctx.globalAlpha=Math.min(.5,base*.2*G); ctx.lineWidth=(near?6:3.5)*zs*G; ctx.stroke(path);
+    }
+    ctx.globalAlpha=Math.min(.95,base*.62);   ctx.lineWidth=1.8*zs; ctx.stroke(path);
+    ctx.strokeStyle=SPR.hot[c.form.id];
+    ctx.globalAlpha=Math.min(1,base*.6);      ctx.lineWidth=Math.max(.5,.8*zs); ctx.stroke(path);
+  }
+  ctx.lineJoin="miter"; ctx.lineCap="butt";
+
+  // bodies: quiet at rest, white-hot right after they take part in a hit
+  const A=ui.amb, HL=ui.highlights;
+  for(const pass of [KIND.LINE,KIND.NODE]){
+    for(const p of S.parts){
+      if(!p.alive || p.kind!==pass) continue;
+      if(!project(p.x,p.y,p.z)) continue;
+      const set=p.owner>=0?SPR.form[S.cores[p.owner].form.id]:null;
+      const h=HL?p.heat:0;
+      if(pass===KIND.NODE){
+        const s=Math.max(2.6,p.r*_sc*(7+h*12));
+        ctx.globalAlpha=Math.min(1,.18+.6*A+h*.8);
+        ctx.drawImage(set?set.star:SPR.neutral,_sx-s/2,_sy-s/2,s,s);
+      } else {
+        const rest = p.bond ? .07+.5*A : (p.owner<0 ? .22+.35*A : .3+.4*A);   // loose bodies are the ones in play
+        const s=Math.max(1.4,p.r*_sc*(5+h*11));
+        ctx.globalAlpha=Math.min(1,rest+h*.85);
+        ctx.drawImage(set?set.dust:SPR.neutral,_sx-s/2,_sy-s/2,s,s);
+      }
+      if(p.bolt && S.t<p.bolt && HL){
+        const sx=_sx, sy=_sy;
+        if(project(p.x-p.vx*.6,p.y-p.vy*.6,p.z-p.vz*.6)){
+          ctx.globalAlpha=.85; ctx.strokeStyle=colorOf(p.owner); ctx.lineWidth=Math.max(1.2,_sc*2.5);
+          ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(_sx,_sy); ctx.stroke();
+        }
+        project(p.x,p.y,p.z);
+      }
+      if(h>.2){
+        const s=Math.max(7,p.r*_sc*(6+h*14));
+        ctx.globalAlpha=Math.min(1,h*h*1.1);
+        ctx.drawImage(SPR.white,_sx-s/2,_sy-s/2,s,s);
+      }
+    }
+  }
+
+  if(HL) drawInteractions();
+
+  for(const c of S.cores){
+    if(!c.alive || !project(c.x,c.y,c.z)) continue;
+    const base=Math.min(70,Math.max(12,Math.log(c.m)*_sc*10));
+    const ch=HL?c.heat:0;
+    ctx.globalAlpha=Math.min(1,.12+.45*A+ch*.4); ctx.drawImage(SPR.violet,_sx-base,_sy-base,base*2,base*2);
+    const s=base*.5*(1+ch*.35); ctx.globalAlpha=Math.min(1,.45+.4*A+ch*.4); ctx.drawImage(SPR.form[c.form.id].star,_sx-s,_sy-s,s*2,s*2);
+    if(S.phase==="run" && !S.ignite){
+      const chg=Math.min(1,c.charge), rr=base*1.35+6;
+      ctx.globalAlpha=chg>=1?.9:.3; ctx.strokeStyle=c.form.color; ctx.lineWidth=chg>=1?2.4:1.5;
+      ctx.beginPath(); ctx.arc(_sx,_sy,rr,-Math.PI/2,-Math.PI/2+TAU*chg); ctx.stroke();
+      if(c.seq){
+        ctx.globalAlpha=.85; ctx.lineWidth=2; ctx.strokeStyle="#fff";
+        ctx.beginPath(); ctx.arc(_sx,_sy,rr+5,-Math.PI/2,-Math.PI/2+TAU*Math.min(1,c.seq.t/c.seq.sp.total)); ctx.stroke();
+      }
+    }
+  }
+
+  for(const u of S.pulses){
+    if(!project(u.x,u.y,u.z)) continue;
+    ctx.globalAlpha=Math.min(.6,u.life*.35); ctx.strokeStyle=u.owner>=0?colorOf(u.owner):"#fff"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(_sx,_sy,u.r*_sc,0,TAU); ctx.stroke();
+  }
+  for(const f of S.flashes){
+    if(!project(f.x,f.y,f.z)) continue;
+    const a=Math.max(0,f.life), s=f.r*_sc*5;
+    ctx.globalAlpha=Math.min(1,a*1.5);
+    ctx.drawImage(f.owner===-2?SPR.white:(f.owner>=0?SPR.form[S.cores[f.owner].form.id].star:SPR.neutral),_sx-s/2,_sy-s/2,s,s);
+    ctx.globalAlpha=Math.min(.45,a); ctx.strokeStyle="rgba(255,225,245,.5)"; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(_sx,_sy,f.r*_sc*2.6,0,TAU); ctx.stroke();
+  }
+
+  drawBloom();
+
+  ctx.globalCompositeOperation="source-over"; ctx.globalAlpha=1;
+  ctx.font="12px 'Avenir Next','Segoe UI',system-ui,sans-serif"; ctx.textAlign="center";
+  if(ui.nameTags && !S.ignite){          // off by default: the shapes speak for themselves
+    for(const c of S.cores){
+      if(!c.alive || !project(c.x,c.y,c.z)) continue;
+      const y=_sy+c.S*_sc*1.02+16, label=(isChampion(c)?"★ ":"")+c.label+"  "+c.skill;
+      ctx.fillStyle="rgba(3,2,10,.65)"; const w=ctx.measureText(label).width+12; ctx.fillRect(_sx-w/2,y-12,w,17);
+      ctx.globalAlpha=Math.min(1,.55+.35*A+(HL?c.heat:0)*.6); ctx.fillStyle=c.form.color; ctx.fillText(label,_sx,y); ctx.globalAlpha=1;
+    }
+  } else if(ui.champion!==null && !S.ignite){   // the one you backed still gets a star, no text
+    for(const c of S.cores){
+      if(!c.alive || !isChampion(c) || !project(c.x,c.y,c.z)) continue;
+      ctx.globalAlpha=Math.min(1,.5+.4*A); ctx.fillStyle=c.form.color;
+      ctx.font="13px 'Avenir Next','Segoe UI',system-ui,sans-serif";
+      ctx.fillText("★",_sx,_sy+c.S*_sc*1.02+16); ctx.globalAlpha=1;
+    }
+  }
+  if(HL && S.phase!=="setup" && !S.ignite) drawClashLabels();
+  if(S.ignite) drawVictory();
+  drawGizmo();
+}
+
+/* ---------- interactions ---------- */
+const LINK_W=[1.4,2.2,1.1,1,1.6];          // merge, shatter, snap, feed, capture
+let clashTop=[];
+function drawInteractions(){
+  // streaks: absorbed body to absorber, shatter sparks, snapping bonds, bodies being fed to a core, captures
+  for(const l of S.links){
+    const f=Math.max(0,l.life/l.max);
+    if(!project(l.ax,l.ay,l.az) && !_front) continue;
+    const x1=_sx,y1=_sy; project(l.bx,l.by,l.bz); if(!_front) continue;
+    ctx.globalAlpha=Math.min(1,(.25+f)*(l.kind===3?.6:1));
+    ctx.strokeStyle = l.kind===1 ? "#fff" : colorOf(l.owner);
+    ctx.lineWidth=LINK_W[l.kind]*(l.kind===1?1+f*1.5:1)*Math.max(1,Math.sqrt(_sc*1.6));
+    if(l.kind===2) ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(x1,y1);
+    if(l.kind===0||l.kind===3){ const u=1-f; ctx.lineTo(x1+(_sx-x1)*(.35+u*.65),y1+(_sy-y1)*(.35+u*.65)); }  // travels toward its target as it fades
+    else ctx.lineTo(_sx,_sy);
+    ctx.stroke();
+    if(l.kind===2) ctx.setLineDash([]);
+  }
+  // clash zones: a two-colour ring where a pair of forms is trading bodies right now
+  clashTop=[...S.clash.values()].filter(k=>k.n>3).sort((a,b)=>b.n-a.n);
+  const spin=performance.now()/1400;
+  for(const k of clashTop){
+    if(!project(k.x,k.y,k.z)) continue;
+    const r=Math.max(16,Math.min(230,40+Math.sqrt(k.n)*16)*_sc), a=Math.min(.85,.2+k.n/40);
+    ctx.lineWidth=2.2; ctx.globalAlpha=a;
+    ctx.strokeStyle=S.cores[k.a].form.color; ctx.beginPath(); ctx.arc(_sx,_sy,r,spin,spin+Math.PI*.92); ctx.stroke();
+    ctx.strokeStyle=S.cores[k.b].form.color; ctx.beginPath(); ctx.arc(_sx,_sy,r,spin+Math.PI,spin+Math.PI*1.92); ctx.stroke();
+    ctx.globalAlpha=a*.35; ctx.lineWidth=1; ctx.strokeStyle="#fff";
+    ctx.beginPath(); ctx.arc(_sx,_sy,r*1.18,-spin*1.3,-spin*1.3+Math.PI*1.5); ctx.stroke();
+  }
+}
+function drawClashLabels(){
+  ctx.font="600 11.5px 'Avenir Next','Segoe UI',system-ui,sans-serif"; ctx.textAlign="center";
+  let shown=0;
+  for(const k of clashTop){
+    if(shown>=3 || k.n<8) break;
+    if(!project(k.x,k.y,k.z)) continue;
+    const r=Math.max(16,Math.min(230,40+Math.sqrt(k.n)*16)*_sc), y=_sy-r-10;
+    const A=S.cores[k.a].label, B=S.cores[k.b].label, mid="  ×  ";
+    const wa=ctx.measureText(A).width, wm=ctx.measureText(mid).width, wb=ctx.measureText(B).width, w=wa+wm+wb;
+    ctx.globalAlpha=.85; ctx.fillStyle="rgba(3,2,10,.8)"; ctx.fillRect(_sx-w/2-7,y-13,w+14,19);
+    ctx.globalAlpha=1; ctx.textAlign="left";
+    ctx.fillStyle=S.cores[k.a].form.color; ctx.fillText(A,_sx-w/2,y);
+    ctx.fillStyle="#fff"; ctx.fillText(mid,_sx-w/2+wa,y);
+    ctx.fillStyle=S.cores[k.b].form.color; ctx.fillText(B,_sx-w/2+wa+wm,y);
+    ctx.textAlign="center"; shown++;
+  }
+}
+
+const gz=$("gizmo").getContext("2d");
+function drawGizmo(){
+  // orientation of the world axes as the camera sees them
+  gz.clearRect(0,0,120,120);
+  gz.fillStyle="rgba(8,5,18,.75)"; gz.beginPath(); gz.arc(60,60,54,0,TAU); gz.fill();
+  gz.strokeStyle="rgba(150,130,215,.3)"; gz.stroke();
+  const axes=[[1,0,0,"x","#ff5a4e"],[0,1,0,"y","#8fe07a"],[0,0,1,"z","#5b8cff"]];
+  const pts=axes.map(([x,y,z,n,col])=>{
+    const rx=x*CS-y*SN, ry=x*SN+y*CS, sy=ry*CT-z*ST, tw=ry*ST+z*CT;
+    return {sx:60+rx*38, sy:60+sy*38, tw, n, col};
+  }).sort((a,b)=>a.tw-b.tw);
+  gz.font="600 12px system-ui,sans-serif"; gz.textAlign="center"; gz.textBaseline="middle";
+  for(const p of pts){
+    gz.globalAlpha=p.tw<-.05?.45:1;
+    gz.strokeStyle=p.col; gz.lineWidth=2.5; gz.beginPath(); gz.moveTo(60,60); gz.lineTo(p.sx,p.sy); gz.stroke();
+    gz.fillStyle=p.col; gz.beginPath(); gz.arc(p.sx,p.sy,8,0,TAU); gz.fill();
+    gz.fillStyle="#03020a"; gz.fillText(p.n,p.sx,p.sy+.5);
+  }
+  gz.globalAlpha=1;
+}
+
+/* =====================================================================
+   VICTORY — the winner captures the field in its own geometry.
+   Every sequence is built from that form's real construction, drawn in world
+   space so it unfolds across the arena at whatever angle the camera sits.
+   ===================================================================== */
+function vMove(x,y,z,pen){ project(x,y,z); if(!_front) return false; if(pen) ctx.lineTo(_sx,_sy); else ctx.moveTo(_sx,_sy); return true; }
+function vPath(pts){ ctx.beginPath(); let pen=false; for(const p of pts) pen=vMove(p[0],p[1],p[2],pen)?true:false; ctx.stroke(); }
+function vCircle(cx,cy,z,r,segs){
+  const n=segs||54; ctx.beginPath(); let pen=false;
+  for(let i=0;i<=n;i++){ const a=i/n*TAU; pen=vMove(cx+Math.cos(a)*r,cy+Math.sin(a)*r,z,pen)?true:false; }
+  ctx.stroke();
+}
+function vDot(x,y,z,r,spr){ if(!project(x,y,z)) return; const s=Math.max(3,r*_sc); ctx.drawImage(spr,_sx-s/2,_sy-s/2,s,s); }
+const ease=u=>u<0?0:u>1?1:u*u*(3-2*u);            // smooth 0..1
+const seg=(u,a,b)=>ease((u-a)/Math.max(1e-6,b-a)); // a sub-stage of the sequence
+
+const VICTORY={
+  // Two circles open along the lens axis, again and again, until the field is mandorla.
+  vesica(c,u,R,z,col){
+    const rings=4;
+    for(let i=0;i<rings;i++){
+      const p=seg(u,i*.14,i*.14+.6); if(p<=0) continue;
+      const r=R*.58*p*(1-i*.1), off=r*.5, a=c.ang+i*.4;
+      const ox=Math.cos(a)*off, oy=Math.sin(a)*off;
+      ctx.globalAlpha=(.55-i*.1)*Math.min(1,p*2.2);
+      vCircle(c.x-ox,c.y-oy,z,r,64); vCircle(c.x+ox,c.y+oy,z,r,64);
+    }
+    const p=seg(u,.3,1), h=R*.5*p;
+    ctx.globalAlpha=.8*p; ctx.lineWidth=2.4; ctx.strokeStyle="#fff";
+    vPath([[c.x-Math.sin(c.ang)*h,c.y+Math.cos(c.ang)*h,z],[c.x+Math.sin(c.ang)*h,c.y-Math.cos(c.ang)*h,z]]);
+    ctx.strokeStyle=col;
+  },
+  // Seven circles bloom in order, then the outer twelve: the seed becomes the field.
+  seed(c,u,R,z){
+    const r=R*.42;
+    for(let k=0;k<7;k++){
+      const p=seg(u,.05+k*.055,.05+k*.055+.3); if(p<=0) continue;
+      const a=-Math.PI/2+(k-1)*Math.PI/3;
+      const cx=k?c.x+Math.cos(a)*r*p:c.x, cy=k?c.y+Math.sin(a)*r*p:c.y;
+      ctx.globalAlpha=.75*p; vCircle(cx,cy,z,r*p,56);
+    }
+    for(let k=0;k<12;k++){
+      const p=seg(u,.45+k*.028,.45+k*.028+.3); if(p<=0) continue;
+      const a=k/12*TAU, d=r*1.75*p;
+      ctx.globalAlpha=.42*p; vCircle(c.x+Math.cos(a)*d,c.y+Math.sin(a)*d,z,r*.85*p,44);
+    }
+  },
+  // The hexagonal lattice tiles outward ring by ring until the whole plane is flower.
+  flower(c,u,R,z){
+    const r=R*.21;
+    for(let q=-4;q<=4;q++) for(let w=-4;w<=4;w++){
+      if(Math.abs(q+w)>4) continue;
+      const ring=Math.max(Math.abs(q),Math.abs(w),Math.abs(q+w));
+      const p=seg(u,.04+ring*.14,.04+ring*.14+.34); if(p<=0) continue;
+      const a=c.ang, cx=r*(q+w/2), cy=r*w*Math.sqrt(3)/2;
+      const rx=cx*Math.cos(a)-cy*Math.sin(a), ry=cx*Math.sin(a)+cy*Math.cos(a);
+      ctx.globalAlpha=(.62-ring*.07)*p; vCircle(c.x+rx,c.y+ry,z,r*p,40);
+    }
+  },
+  // All 78 lines strike out from the thirteen circles, then the solids stand up in it.
+  metatron(c,u,R,z){
+    const r=R*.22, cs=[[0,0]];
+    for(const Rr of [2*r,4*r]) for(let k=0;k<6;k++){ const a=-Math.PI/2+k*Math.PI/3+c.ang; cs.push([Math.cos(a)*Rr,Math.sin(a)*Rr]); }
+    const pairs=[];
+    for(let i=0;i<cs.length;i++) for(let j=i+1;j<cs.length;j++) pairs.push([i,j]);
+    const shown=Math.floor(ease(seg(u,.05,.7))*pairs.length);
+    ctx.globalAlpha=.5; ctx.beginPath();
+    for(let i=0;i<shown;i++){
+      const [a,b]=pairs[i];
+      project(c.x+cs[a][0],c.y+cs[a][1],z); const x1=_sx,y1=_sy,f1=_front;
+      project(c.x+cs[b][0],c.y+cs[b][1],z);
+      if(f1&&_front){ ctx.moveTo(x1,y1); ctx.lineTo(_sx,_sy); }
+    }
+    ctx.stroke();
+    for(let i=0;i<cs.length;i++){
+      const p=seg(u,.1+i*.035,.1+i*.035+.3); if(p<=0) continue;
+      ctx.globalAlpha=.7*p; vCircle(c.x+cs[i][0],c.y+cs[i][1],z,r*.5*p,34);
+    }
+    // the five solids rise out of it, one after another
+    const lift=seg(u,.55,1);
+    if(lift>0){
+      const H=R*.5*lift;
+      ctx.globalAlpha=.55*lift; ctx.lineWidth=1.6;
+      for(let k=0;k<6;k++){
+        const a=-Math.PI/2+k*Math.PI/3+c.ang;
+        vPath([[c.x+Math.cos(a)*2*r,c.y+Math.sin(a)*2*r,z],[c.x,c.y,z+H],[c.x+Math.cos(a+Math.PI/3)*2*r,c.y+Math.sin(a+Math.PI/3)*2*r,z]]);
+        vPath([[c.x+Math.cos(a)*4*r,c.y+Math.sin(a)*4*r,z],[c.x,c.y,z-H],[c.x+Math.cos(a+Math.PI/3)*4*r,c.y+Math.sin(a+Math.PI/3)*4*r,z]]);
+      }
+    }
+  },
+  // Nine triangles stack outward from the bindu, then the petal rings sweep the field.
+  sri(c,u,R,z){
+    for(let i=0;i<9;i++){
+      const p=seg(u,.04+i*.06,.04+i*.06+.32); if(p<=0) continue;
+      const up=i%2===0, rr=R*(.16+i*.085)*p, a0=c.ang+(up?0:Math.PI);
+      const v=[];
+      for(let k=0;k<3;k++){ const a=a0+k*TAU/3; v.push([c.x+Math.cos(a)*rr,c.y+Math.sin(a)*rr,z]); }
+      v.push(v[0]);
+      ctx.globalAlpha=(.3+.05*i)*p; vPath(v);
+    }
+    for(const [n,rad,st] of [[8,.72,.5],[16,.9,.62]]){
+      const p=seg(u,st,st+.35); if(p<=0) continue;
+      ctx.globalAlpha=.5*p;
+      for(let k=0;k<n;k++){
+        const a0=k/n*TAU+c.ang, a1=(k+1)/n*TAU+c.ang, am=(a0+a1)/2;
+        const r0=R*rad*p, r1=R*(rad+.1)*p;
+        vPath([[c.x+Math.cos(a0)*r0,c.y+Math.sin(a0)*r0,z],
+               [c.x+Math.cos(am)*r1,c.y+Math.sin(am)*r1,z],
+               [c.x+Math.cos(a1)*r0,c.y+Math.sin(a1)*r0,z]]);
+      }
+    }
+  },
+  // The spiral unwinds and the field packs itself with seeds at the golden angle.
+  golden(c,u,R,z,col){
+    const grow=ease(seg(u,.02,.85));
+    for(const off of [0,Math.PI]){
+      const pts=[];
+      for(let t=0;t<14;t+=.12){
+        const r=R*.028*Math.pow(PHI,t/(Math.PI/2)); if(r>R*.92) break;
+        if(r>R*.92*grow+1) break;
+        pts.push([c.x+Math.cos(t+off+c.ang)*r,c.y+Math.sin(t+off+c.ang)*r,z]);
+      }
+      ctx.globalAlpha=.8; ctx.lineWidth=2.2; vPath(pts);
+    }
+    ctx.lineWidth=1.4;
+    const n=260, shown=Math.floor(ease(seg(u,.15,1))*n);
+    for(let i=0;i<shown;i++){
+      const r=R*.95*Math.sqrt((i+.5)/n), a=i*GOLDEN_ANGLE+c.ang;
+      ctx.globalAlpha=.5+.5*(1-i/n);
+      vDot(c.x+Math.cos(a)*r,c.y+Math.sin(a)*r,z,14,SPR.form[c.form.id].star);
+    }
+    ctx.globalAlpha=.4; vCircle(c.x,c.y,z,R*.97*grow,72);
+  },
+  // Two tetrahedra grow to swallow the arena and lock counter-turning.
+  merkaba(c,u,R,z){
+    const g=ease(seg(u,.02,.8)), sp=u*6;
+    const T=[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]];
+    for(const grp of [0,1]){
+      const sg=grp?-1:1, a=c.ang+sp*sg, ca=Math.cos(a), sa=Math.sin(a), k=R*.46*g;
+      const v=T.map(p=>{
+        const x=p[0]*sg*k, y=p[1]*sg*k, zz=p[2]*sg*k;
+        return [c.x+x*ca-y*sa, c.y+x*sa+y*ca, z+zz];
+      });
+      ctx.globalAlpha=.75; ctx.lineWidth=2.2;
+      for(let i=0;i<4;i++) for(let j=i+1;j<4;j++) vPath([v[i],v[j]]);
+      for(const p of v) vDot(p[0],p[1],p[2],26,SPR.white);
+    }
+    const lock=seg(u,.75,1);
+    if(lock>0){ ctx.globalAlpha=.6*lock; ctx.lineWidth=3; vCircle(c.x,c.y,z,R*.75*lock,64); }
+  },
+  // The field becomes one torus: out through the top, around the rim, back through the centre.
+  torus(c,u,R,z){
+    const g=ease(seg(u,.02,.75)), Rr=R*.6*g, rr=R*.26*g, flow=u*5;
+    const P=(a,b)=>[c.x+(Rr+rr*Math.cos(b))*Math.cos(a+c.ang), c.y+(Rr+rr*Math.cos(b))*Math.sin(a+c.ang), z+rr*Math.sin(b)];
+    ctx.globalAlpha=.5; ctx.lineWidth=1.5;
+    for(let i=0;i<14;i++){ const a=i/14*TAU, pts=[]; for(let j=0;j<=20;j++) pts.push(P(a,j/20*TAU)); vPath(pts); }
+    for(let j=0;j<4;j++){ const b=j/4*TAU, pts=[]; for(let i=0;i<=72;i++) pts.push(P(i/72*TAU,b)); vPath(pts); }
+    // the flow itself, pouring up the axis and folding back over the rim
+    ctx.globalAlpha=.9;
+    for(let i=0;i<70;i++){
+      const t=(flow+i/70)%1, b=t*TAU-Math.PI/2, a=i/70*TAU+flow*.6;
+      const p=P(a,b); vDot(p[0],p[1],p[2],16,SPR.white);
+    }
+    const col=seg(u,.2,1);
+    if(col>0){ ctx.globalAlpha=.45*col; ctx.lineWidth=2.5;
+      vPath([[c.x,c.y,z-R*.8*col],[c.x,c.y,z+R*.8*col]]); }
+  },
+  // Star within star within star, each one phi smaller than the last.
+  penta(c,u,R,z){
+    let rr=R*.95;
+    for(let d=0;d<7;d++){
+      const p=seg(u,d*.1,d*.1+.45); if(p<=0) break;
+      const turn=d%2?Math.PI/5:0, v=[];
+      for(let k=0;k<5;k++){ const a=-Math.PI/2+k*TAU/5+turn+c.ang; v.push([c.x+Math.cos(a)*rr*p,c.y+Math.sin(a)*rr*p,z]); }
+      ctx.globalAlpha=(.7-d*.07)*p; ctx.lineWidth=Math.max(.8,2.2-d*.2);
+      vPath([...v,v[0]]);
+      vPath([v[0],v[2],v[4],v[1],v[3],v[0]]);
+      rr/=PHI;
+    }
+  },
+  // Nine points, and the hexad circulating between them without end.
+  ennea(c,u,R,z){
+    const v=[];
+    for(let k=0;k<9;k++){ const a=-Math.PI/2+k*TAU/9+c.ang; v.push([c.x+Math.cos(a)*R*.85,c.y+Math.sin(a)*R*.85,z]); }
+    const hex=[0,3,1,7,4,6], shown=Math.floor(ease(seg(u,.05,.7))*18);
+    ctx.globalAlpha=.7; ctx.lineWidth=2.4;
+    for(let i=0;i<shown;i++) vPath([v[hex[i%6]],v[hex[(i+1)%6]]]);
+    const tri=seg(u,.5,1);
+    if(tri>0){ ctx.globalAlpha=.75*tri; vPath([v[2],v[5],v[8],v[2]]); }
+    for(let k=0;k<9;k++){
+      const p=seg(u,.03+k*.05,.03+k*.05+.3); if(p<=0) continue;
+      ctx.globalAlpha=.8*p; vCircle(v[k][0],v[k][1],z,R*.07*p,24);
+      vDot(v[k][0],v[k][1],z,34*p,SPR.white);
+    }
+    ctx.globalAlpha=.4; vCircle(c.x,c.y,z,R*.85,80); vCircle(c.x,c.y,z,R*.95,80);
+  },
+  // Eleven circuits draw outward and the one path closes behind them.
+  laby(c,u,R,z){
+    const rings=11;
+    for(let i=0;i<rings;i++){
+      const p=seg(u,.03+i*.07,.03+i*.07+.35); if(p<=0) continue;
+      const r=R*(.3+.67*i/(rings-1))*p, gap=.16, turns=[(i*2.1+c.ang)%TAU,(i*2.1+Math.PI+c.ang)%TAU];
+      let segs=[[0,TAU]];
+      for(const t of turns){ const nx=[];
+        for(const [a,b] of segs){ if(t-gap>a&&t+gap<b){ nx.push([a,t-gap],[t+gap,b]); } else nx.push([a,b]); }
+        segs=nx; }
+      ctx.globalAlpha=.6*p; ctx.lineWidth=2;
+      for(const [a,b] of segs){
+        const n=Math.max(6,Math.round((b-a)*22)), pts=[];
+        for(let k=0;k<=n;k++){ const t=a+(b-a)*k/n; pts.push([c.x+Math.cos(t)*r,c.y+Math.sin(t)*r,z]); }
+        vPath(pts);
+      }
+    }
+    const ros=seg(u,.55,1);
+    if(ros>0){
+      const pr=R*.13*ros; ctx.globalAlpha=.8*ros;
+      vCircle(c.x,c.y,z,pr,30);
+      for(let k=0;k<6;k++){ const a=k*Math.PI/3+c.ang; vCircle(c.x+Math.cos(a)*pr,c.y+Math.sin(a)*pr,z,pr,30); }
+      vDot(c.x,c.y,z,60*ros,SPR.white);
+    }
+  },
+  // Circles fill every gap, then the gaps between those.
+  gasket(c,u,R,z){
+    const strokes=FORM_BY_ID.gasket.geo.strokes;
+    const shown=Math.floor(ease(seg(u,.03,.9))*strokes.length);
+    const ca=Math.cos(c.ang), sa=Math.sin(c.ang);
+    ctx.lineWidth=1.8;
+    for(let i=0;i<shown;i++){
+      const st=strokes[i], pts=[];
+      for(const q of st.pts){ const x=q[0]*R, y=q[1]*R; pts.push([c.x+x*ca-y*sa, c.y+x*sa+y*ca, z]); }
+      ctx.globalAlpha=.25+.45*(1-i/strokes.length);
+      vPath(pts);
+    }
+    ctx.globalAlpha=.5; ctx.lineWidth=3; vCircle(c.x,c.y,z,R,96);
+  },
+  // The border pushes a triangle out of every edge, pass after pass.
+  koch(c,u,R,z){
+    const kch=(a,b,d,out)=>{
+      if(d===0){ out.push(a); return; }
+      const dx=(b[0]-a[0])/3, dy=(b[1]-a[1])/3;
+      const p1=[a[0]+dx,a[1]+dy], p3=[a[0]+2*dx,a[1]+2*dy];
+      const ca=Math.cos(-Math.PI/3), sa=Math.sin(-Math.PI/3);
+      const p2=[p1[0]+dx*ca-dy*sa, p1[1]+dx*sa+dy*ca];
+      kch(a,p1,d-1,out); kch(p1,p2,d-1,out); kch(p2,p3,d-1,out); kch(p3,b,d-1,out);
+    };
+    for(let lvl=0;lvl<4;lvl++){
+      const p=seg(u,lvl*.2,lvl*.2+.5); if(p<=0) break;
+      const rr=R*(.3+.22*lvl)*(.6+.4*p), turn=lvl*Math.PI/3+c.ang, v=[];
+      for(let k=0;k<3;k++){ const a=-Math.PI/2+k*TAU/3+turn; v.push([c.x+Math.cos(a)*rr,c.y+Math.sin(a)*rr]); }
+      const out=[];
+      for(let i=0;i<3;i++) kch(v[i],v[(i+1)%3],Math.min(4,lvl+2),out);
+      out.push(out[0]);
+      ctx.globalAlpha=(.3+.15*lvl)*p; ctx.lineWidth=2.2;
+      vPath(out.map(q=>[q[0],q[1],z]));
+    }
+    ctx.globalAlpha=.45; ctx.lineWidth=2.5; vCircle(c.x,c.y,z,R*.97,96);
+  },
+  // Ten sephirot light in order and the twenty-two paths draw between them.
+  tree(c,u,R,z){
+    const P=[[0,0],[1,.6],[-1,.6],[1,1.8],[-1,1.8],[0,2.4],[1,3],[-1,3],[0,3.6],[0,4.8]];
+    const k=R/2.9, ca=Math.cos(c.ang), sa=Math.sin(c.ang);
+    const pos=P.map(p=>{ const x=p[0]*k*.78, y=(p[1]-2.4)*k*.78;
+      return [c.x+x*ca-y*sa, c.y+x*sa+y*ca, z]; });
+    const paths=[[1,2],[1,3],[1,6],[2,3],[2,4],[2,6],[3,5],[3,6],[4,5],[4,6],[4,7],[5,6],[5,8],
+                 [6,7],[6,8],[6,9],[7,8],[7,9],[7,10],[8,9],[8,10],[9,10]];
+    const shown=Math.floor(ease(seg(u,.08,.8))*paths.length);
+    ctx.globalAlpha=.6; ctx.lineWidth=2;
+    for(let i=0;i<shown;i++){ const [a,b]=paths[i]; vPath([pos[a-1],pos[b-1]]); }
+    for(let i=0;i<10;i++){
+      const p=seg(u,.05+i*.06,.05+i*.06+.3); if(p<=0) continue;
+      ctx.globalAlpha=.75*p; vCircle(pos[i][0],pos[i][1],z,R*.1*p,30);
+      vDot(pos[i][0],pos[i][1],z,40*p,SPR.white);
+    }
+  }
+};
+
+function drawVictory(){
+  const g=S.ignite; if(!g) return;
+  const c=S.cores[g.owner]; if(!c) return;
+  const u=Math.min(1,g.t/VIC_T), col=c.form.color, R=g.R, z=c.z;
+
+  ctx.save();
+  ctx.globalCompositeOperation="lighter";
+  ctx.strokeStyle=col; ctx.lineWidth=1.8;
+
+  // the claim front: a ring sweeping out to the edge of the field
+  const front=ease(Math.min(1,u/.75))*R;
+  ctx.globalAlpha=.5*(1-u*.5); ctx.lineWidth=3;
+  vCircle(c.x,c.y,z,front,72);
+  ctx.globalAlpha=.18*(1-u*.4); ctx.lineWidth=1.4;
+  vCircle(c.x,c.y,z,front*.72,64);
+
+  ctx.lineWidth=1.8;
+  (VICTORY[c.spec&&VICTORY[c.spec]?c.spec:c.form.id]||VICTORY.vesica)(c,u,R,z,col);
+
+  // the core itself, burning white at the centre of its own geometry
+  if(project(c.x,c.y,c.z)){
+    const B=Math.max(30,(60+ease(u)*150)*_sc);
+    ctx.globalAlpha=1;
+    ctx.drawImage(SPR.white,_sx-B*.5,_sy-B*.5,B,B);
+    ctx.drawImage(SPR.form[c.form.id].star,_sx-B,_sy-B,B*2,B*2);
+  }
+
+  // one last flare as the capture completes
+  const fin=seg(u,.88,1);
+  if(fin>0 && project(c.x,c.y,c.z)){
+    ctx.globalAlpha=.55*(1-fin); ctx.strokeStyle="#fff"; ctx.lineWidth=4;
+    vCircle(c.x,c.y,z,R*(.3+fin*1.1),64);
+  }
+  ctx.restore();
+}
+
+/* ---------- HUD ---------- */
+function pct(v){ return (v*100).toFixed(v<.1?1:0)+"%"; }
+let hudTick=0;
+function paintHud(){
+  HUD_B=$("hud").getBoundingClientRect().bottom;
+  const live=S.cores.filter(c=>c.alive);
+  let tot=S.neutral; for(const c of S.cores) tot+=S.mass[c.owner]||0; tot=tot||1;
+  const bar=$("bar");
+  if(bar.children.length!==S.cores.length+1){ bar.innerHTML=""; for(let i=0;i<=S.cores.length;i++) bar.appendChild(document.createElement("i")); }
+  S.cores.forEach((c,i)=>{ const el=bar.children[i]; el.style.background=c.form.color; el.style.width=((S.mass[i]||0)/tot*100)+"%"; });
+  const nEl=bar.children[S.cores.length]; nEl.style.background="rgba(184,178,200,.35)"; nEl.style.width=(S.neutral/tot*100)+"%";
+
+  const lb=document.createElement("b");
+  if(S.phase!=="setup" && live.length){ const L=leader(), lc=S.cores[L.owner]; lb.textContent=lc.label+"  "+pct(L.frac); lb.style.color=lc.form.color; }
+  else lb.textContent="—";
+  $("lead").replaceChildren("Leading", document.createElement("br"), lb);
+  $("left").innerHTML=`Standing<br><b>${live.length} of ${S.cores.length}</b>`;
+  $("status").textContent =
+    S.phase==="setup" ? (S.cores.length<2?"Add at least two forms":"Build your platform, then release gravity") :
+    S.ignite ? S.cores[S.ignite.owner].label+(S.phase==="over"?" holds the field":" is taking the field") :
+    ui.paused ? "Paused" : ui.scaleT<.7 ? "Slow motion" :
+    ACTS[S.act].name+"  \u00b7  "+Math.max(0,Math.ceil((S.matchT-S.t)/TIME_SCALE))+" s left";
+
+  ui.entries.forEach((e,i)=>{
+    const row=$("row-"+e.uid); if(!row) return;
+    const c=S.cores.find(k=>k.slot===i);
+    const ms=row.querySelector(".ms"), mini=row.querySelector(".mini i"), small=row.querySelector("small");
+    const f=FORM_BY_ID[e.id];
+    if(!c){ ms.textContent=""; small.textContent=rowSub(e); return; }
+    const share=(S.mass[c.owner]||0)/tot;
+    ms.textContent=S.phase==="setup"?"":pct(share);
+    mini.style.width=Math.min(100,share*100*3)+"%";
+    const chg=row.querySelector(".chg"); chg.firstElementChild.style.width=Math.min(100,c.charge*100)+"%";
+    chg.classList.toggle("full",c.charge>=1);
+    row.classList.toggle("out",!c.alive);
+    row.classList.toggle("hot",c.alive && S.phase==="run" && c.heat>.35);
+    small.textContent = !c.alive ? (c.killedBy!=null?"Taken out by "+S.cores[c.killedBy].label:"Out")
+      : S.phase==="setup" ? rowSub(e) : c.seq ? c.seq.name+" firing" : "Skill "+c.skill+", "+Math.round(c.integrity*100)+"% intact";
+  });
+}
+
+/* ---------- platform builder ---------- */
+function buildChips(){
+  const box=$("chips"); box.innerHTML="";
+  for(const f of FORMS){
+    const b=document.createElement("button");
+    b.className="chip"; b.style.setProperty("--c",f.color); b.title="Add "+f.name;
+    b.innerHTML="<i></i><span></span>"; b.querySelector("span").textContent=f.name;
+    b.onclick=()=>addForm(f.id);
+    box.appendChild(b);
+  }
+}
+function addForm(id){
+  if(S.phase!=="setup") return;
+  if(ui.entries.length>=MAX_FORMS){ toast("The platform holds "+MAX_FORMS+" forms at most."); return; }
+  ui.entries.push({uid:uidN++, id, skill:5, spec:id}); ui.selected=id; rebuild();
+}
+function removeEntry(uid){
+  if(S.phase!=="setup") return;
+  ui.entries=ui.entries.filter(e=>e.uid!==uid);
+  if(ui.champion===uid) ui.champion=null;
+  rebuild();
+}
+function rebuild(){ buildRoster(); setupArena(); }
+
+function buildRoster(){
+  const box=$("roster"); box.innerHTML="";
+  $("count").textContent=ui.entries.length+" of "+MAX_FORMS;
+  if(!ui.entries.length){ box.innerHTML='<p id="empty">The platform is empty. Add forms below.</p>'; }
+  const labels=previewLabels();
+  ui.entries.forEach((e,i)=>{
+    const f=FORM_BY_ID[e.id], row=document.createElement("div");
+    row.className="row"; row.id="row-"+e.uid; row.style.setProperty("--c",f.color);
+    row.innerHTML=`<i class="dot"></i>
+      <button class="nm"><span></span><small></small></button>
+      <div class="rt"><span class="ms"></span><button class="pick">★</button><button class="x">×</button></div>
+      <div class="sk"><label>Skill</label><input type="range" min="1" max="10" step="1"><b></b></div>
+      <div class="spx"><label>Move</label><div class="glyphs"></div></div>
+      <div class="chg"><i></i></div>
+      <div class="mini"><i></i></div>`;
+    row.querySelector(".nm span").textContent=labels[i];
+    row.querySelector("small").textContent=rowSub(e);
+    row.querySelector(".nm").onclick=()=>{ ui.selected=e.id; paintRosterState(); };
+    const pick=row.querySelector(".pick"); pick.setAttribute("aria-label","Back "+labels[i]+" as champion");
+    pick.onclick=()=>{ ui.champion=ui.champion===e.uid?null:e.uid; paintRosterState(); };
+    const x=row.querySelector(".x"); x.setAttribute("aria-label","Remove "+labels[i]); x.onclick=()=>removeEntry(e.uid);
+    const sk=row.querySelector(".sk input"), skv=row.querySelector(".sk b");
+    sk.value=e.skill; skv.textContent=e.skill; sk.setAttribute("aria-label","Skill for "+labels[i]);
+    sk.oninput=()=>{
+      e.skill=+sk.value; skv.textContent=e.skill;
+      const c=S.cores.find(k=>k.slot===ui.entries.indexOf(e)); if(c) c.skill=e.skill;   // no reshuffle needed
+    };
+    const gbox=row.querySelector(".glyphs");
+    for(const g of FORMS){
+      const btn=document.createElement("button");
+      btn.className="gl"; btn.style.setProperty("--c2",g.color); btn.innerHTML=GLYPH[g.id];
+      btn.title=SPECIAL_TEXT[g.id][0]+" — "+g.name+(g.id===e.id?" (its own)":"");
+      btn.setAttribute("aria-label","Give "+labels[i]+" the move "+SPECIAL_TEXT[g.id][0]);
+      btn.onclick=()=>{
+        e.spec=g.id;
+        const c=S.cores.find(k=>k.slot===ui.entries.indexOf(e)); if(c) c.spec=g.id;   // no reshuffle needed
+        for(const o of gbox.children) o.setAttribute("aria-pressed",o===btn);
+        row.querySelector("small").textContent=rowSub(e);
+        paintRosterState();
+      };
+      btn.setAttribute("aria-pressed",(e.spec||e.id)===g.id);
+      gbox.appendChild(btn);
+    }
+    box.appendChild(row);
+  });
+  paintRosterState();
+}
+// "Birth · Mitosis" for its own move, "Birth · Vortex Draw, from Torus" for a borrowed one
+function rowSub(e){
+  const f=FORM_BY_ID[e.id], sid=e.spec||e.id;
+  return f.ability+" · "+SPECIAL_TEXT[sid][0]+(sid===e.id?"":", from "+FORM_BY_ID[sid].name);
+}
+function previewLabels(){
+  const seen={};
+  return ui.entries.map(e=>{
+    seen[e.id]=(seen[e.id]||0)+1;
+    const dup=ui.entries.filter(x=>x.id===e.id).length>1;
+    return FORM_BY_ID[e.id].name+(dup?" "+ROMAN[seen[e.id]]:"");
+  });
+}
+function paintRosterState(){
+  const setup=S.phase==="setup";
+  for(const e of ui.entries){
+    const row=$("row-"+e.uid); if(!row) continue;
+    row.querySelector(".pick").setAttribute("aria-pressed",ui.champion===e.uid);
+    row.querySelector(".pick").disabled=!setup;
+    row.querySelector(".x").style.display=setup?"":"none";
+    row.classList.toggle("sel",ui.selected===e.id);
+  }
+  $("gAdd").style.display=setup?"":"none";
+  $("skillBtns").style.display=setup&&ui.entries.length?"":"none";
+  $("ownSpec").hidden=!setup||!ui.entries.some(e=>(e.spec||e.id)!==e.id);
+  document.querySelectorAll(".chip").forEach(b=>b.disabled=ui.entries.length>=MAX_FORMS);
+  $("goBtn").disabled=ui.entries.length<2;
+  const f=FORM_BY_ID[ui.selected], st=f.stats, d=$("detail");
+  d.style.borderColor=f.color+"66";
+  d.innerHTML=`<h3></h3><p class="fact"></p><p><b></b> <span class="ab"></span></p><p class="st"></p>`;
+  d.querySelector("h3").textContent=f.name; d.querySelector("h3").style.color=f.color;
+  d.querySelector(".fact").textContent=f.fact;
+  d.querySelector("b").textContent=f.ability+"."; d.querySelector(".ab").textContent=f.abilityText;
+  const sp=SPECIAL_TEXT[f.id], line=document.createElement("p");
+  line.innerHTML="<b></b> <span></span>";
+  line.querySelector("b").textContent="Special: "+sp[0]+".";
+  line.querySelector("span").textContent=sp[1];
+  d.insertBefore(line,d.querySelector(".st"));
+  d.querySelector(".st").textContent=`Core ${st.core}, reach ${st.rad}, stiffness ${st.k}, gas ${st.gas.toFixed(2)}, ${f.geo.nodes.length} nodes`;
+  $("followBtn").disabled=ui.champion===null;
+  $("followBtn").setAttribute("aria-pressed",ui.follow);
+  $("autoBtn").setAttribute("aria-pressed",ui.autoCam);
+  $("hiBtn").setAttribute("aria-pressed",ui.highlights);
+  $("attackCam").setAttribute("aria-pressed",ui.attackCam);
+  $("nameBtn").setAttribute("aria-pressed",ui.nameTags);
+  $("liftFloor").setAttribute("aria-pressed",!ui.liftMode);
+  $("liftHeight").setAttribute("aria-pressed",ui.liftMode);
+  $("clearPos").disabled=!setup||!ui.entries.some(e=>e.pos);
+  $("tabArena").textContent=setup?"Arena":"Match";
+}
+
+function paintRec(){
+  const box=$("rec");
+  if(!REC.games){ box.innerHTML='<p class="hint" style="margin:0">No matches finished yet.</p>'; return; }
+  const rows=FORMS.map(f=>[f,REC.wins[f.id]||0]).sort((a,b)=>b[1]-a[1]);
+  box.innerHTML="";
+  const head=document.createElement("p"); head.className="hint"; head.style.margin="0 0 6px";
+  head.textContent=`${REC.games} match${REC.games>1?"es":""} played.`+(REC.picks?` Your champion won ${REC.right} of ${REC.picks}.`:"");
+  box.appendChild(head);
+  for(const [f,w] of rows){
+    const d=document.createElement("div"); d.innerHTML=`<span></span><span>${w} win${w===1?"":"s"}</span>`;
+    d.firstChild.textContent=f.name; d.firstChild.style.color=f.color; box.appendChild(d);
+  }
+}
+
+/* ---------- match flow ---------- */
+function setupArena(){
+  newArena(ui.entries.map(e=>e.id), ui.spread, ui.len, ui.seed, ui.height, ui.entries.map(e=>e.skill), ui.entries.map(e=>e.pos||null), ui.entries.map(e=>e.spec||e.id));
+  ui.paused=false; ui.slowUntil=-1; ui.scaleT=1; ui.recorded=false;
+  document.body.classList.remove("running");
+  $("gSetup").style.display=""; $("gRun").style.display="none";
+  $("footSetup").style.display=""; $("footRun").style.display="none";
+  $("modal").classList.remove("on"); $("log").innerHTML=""; recentKinds.clear();
+  $("sub").textContent="Sacred geometry arena";
+  frameAll(true);
+  paintRosterState(); paintHud();
+}
+function release(){
+  if(S.cores.length<2){ toast("Add at least two forms."); return; }
+  S.phase="run"; document.body.classList.add("running");
+  S.hooks.act(ACTS[0],0);                      // the opening act gets its card too
+  $("gSetup").style.display="none"; $("gRun").style.display="";
+  $("footSetup").style.display="none"; $("footRun").style.display="";
+  $("pauseBtn").textContent="Pause"; $("sub").textContent="Gravity has it now";
+  setTab("arena");
+  paintRosterState();
+  S.hooks.event("Gravity released with "+S.cores.length+" forms", -1);
+}
+function newMatch(){ ui.seed=(Date.now()&0x7fffffff); ui.follow=false; buildRoster(); setupArena(); }
+
+function endMatch(){
+  const w=S.cores[S.winner];
+  const champ=ui.entries.find(e=>e.uid===ui.champion);
+  const champLabel=champ?previewLabels()[ui.entries.indexOf(champ)]:null;
+  if(!ui.recorded){
+    ui.recorded=true;
+    REC.games++; REC.wins[w.form.id]=(REC.wins[w.form.id]||0)+1;
+    if(champ){ REC.picks++; if(isChampion(w)) REC.right++; }
+    saveRec(); paintRec();
+  }
+  $("mTitle").textContent=w.label+" ignites";
+  const skillNote=" It fought at skill "+w.skill+"."; $("mTitle").style.color=w.form.color;
+  const L=leader();
+  $("mBody").textContent =
+    S.ignite.why==="last" ? `Every other form was swallowed or came unbound. ${w.label} is the last geometry standing, and everything left falls into it.` :
+    S.ignite.why==="dominance" ? `${w.label} gathered 70% of all the mass still held by a form. The scale tips and its core turns white.` :
+    `Time ran out with ${w.label} holding the most mass, ${pct(L.frac)} of what the surviving forms held.`;
+  $("mBody").textContent+=skillNote;
+  const cap=CAPTURE[w.spec&&CAPTURE[w.spec]?w.spec:w.form.id];
+  if(cap) $("mBody").textContent+=" "+cap;
+  $("mPick").textContent = !champ ? "Back a champion with the star next time to keep score." :
+    isChampion(w) ? "Your champion won." : "Your champion, "+champLabel+", did not.";
+  $("sub").textContent="Match over";
+  $("modal").classList.add("on"); $("againBtn").focus();
+}
+
+/* ---------- loop ---------- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  trackQuality(dt);
+  if(S.phase==="setup") idle(dt);
+  else if(S.phase==="run" && !ui.paused){
+    const target=S.t<ui.slowUntil?.3:1;
+    ui.scaleT+=(target-ui.scaleT)*Math.min(1,dt*4);
+    step(dt*ui.scaleT*TIME_SCALE*ui.speed);
+  }
+  camStep(dt); draw();
+  if((hudTick+=dt)>.15){ hudTick=0; paintHud(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- input: pan, orbit, zoom ---------- */
+const pointers=new Map();
+let gesture=null;   // {mode:"pan"|"orbit", x, y, pinch}
+// Taking the camera by hand during the victory capture stops the capture
+// re-framing itself, so you can go right in on the winner. Fit hands it back.
+function takeCam(){ if(S.ignite) cam.capFree=true; }
+function orbitBy(dx,dy){
+  takeCam();
+  if(ui.orbit) setOrbit(false); else angleButtons("");
+  // past vertical the scene is upside down, so sideways drag flips to keep turning the same way on screen
+  cam.tspin+=dx*.0042*(upright()?1:-1);
+  cam.ttilt+=dy*.0034;                                     // rolls right over the top and round again
+  cam.hold=Math.max(cam.hold,1.5);
+}
+function panBy(dx,dy){
+  takeCam();
+  if(ui.orbit) setOrbit(false);
+  const z=Math.max(.04,cam.z), cs=Math.cos(-cam.spin), sn=Math.sin(-cam.spin);
+  const wy=dy/Math.max(.35,Math.abs(Math.cos(cam.tilt)));
+  cam.x-=(dx*cs-wy*sn)/z; cam.y-=(dx*sn+wy*cs)/z; cam.tx=cam.x; cam.ty=cam.y; cam.hold=Math.max(cam.hold,1.5);
+  if(ui.follow){ ui.follow=false; paintRosterState(); }
+}
+cv.addEventListener("mousedown",e=>{ if(e.button===1) e.preventDefault(); });   // stop the browser's autoscroll on wheel-press
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+cv.addEventListener("pointerdown",e=>{
+  dismissCard();
+  cv.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(e.pointerType==="touch"){
+    if(pointers.size===2){ const [a,b]=[...pointers.values()]; gesture={mode:"orbit",x:(a.x+b.x)/2,y:(a.y+b.y)/2,pinch:Math.hypot(a.x-b.x,a.y-b.y)}; }
+    else {
+      const c=pickCore(e.clientX,e.clientY);
+      if(c){ startGrab(c,e); return; }
+      gesture={mode:"pan",x:e.clientX,y:e.clientY};
+    }
+  } else {
+    const orbit=e.button===1||e.button===2||e.shiftKey;
+    if(!orbit){
+      const c=pickCore(e.clientX,e.clientY);
+      if(c){ startGrab(c,e); return; }
+    }
+    gesture={mode:orbit?"orbit":"pan",x:e.clientX,y:e.clientY};
+    if(orbit) cv.style.cursor="grabbing";
+  }
+});
+
+/* ---------- moving a form by hand ---------- */
+let grab=null;
+function startGrab(c,e){
+  const hit=unproject(e.clientX,e.clientY,c.z);
+  grab={c, x:e.clientX, y:e.clientY, offx:hit?c.x-hit.x:0, offy:hit?c.y-hit.y:0, vx:0, vy:0, vz:0, moved:false};
+  gesture={mode:"move",x:e.clientX,y:e.clientY};
+  c.grabbed=true; cv.style.cursor="grabbing";
+  if(ui.follow){ ui.follow=false; paintRosterState(); }
+}
+function moveGrab(e){
+  const c=grab.c, lift=e.ctrlKey||e.altKey||e.metaKey||ui.liftMode;
+  if(lift){
+    const s=zScale(c.z);
+    if(Math.abs(s)<1e-4){ toast("Tilt the view first to move a form up or down."); return; }
+    const nz=c.z+(e.clientY-grab.y)/s;
+    grab.vz=(nz-c.z)*6; c.z=Math.max(-3200,Math.min(3200,nz));
+  } else {
+    const hit=unproject(e.clientX,e.clientY,c.z);
+    if(!hit){ toast("Tilt the view up a little to drag on the floor."); return; }
+    const nx=hit.x+grab.offx, ny=hit.y+grab.offy;
+    grab.vx=(nx-c.x)*6; grab.vy=(ny-c.y)*6; c.x=nx; c.y=ny;
+  }
+  grab.moved=true; grab.x=e.clientX; grab.y=e.clientY;
+  c.vx=0; c.vy=0; c.vz=0;
+  if(S.phase==="setup"){ snapForm(c); rememberPlacement(c); }
+}
+function endGrab(){
+  if(!grab) return;
+  const c=grab.c;
+  c.grabbed=false;
+  if(S.phase==="run"){   // let go mid-match and it keeps the speed you threw it at
+    c.vx=Math.max(-60,Math.min(60,grab.vx)); c.vy=Math.max(-60,Math.min(60,grab.vy)); c.vz=Math.max(-60,Math.min(60,grab.vz));
+  } else { c.vx=c.vy=c.vz=0; snapForm(c); rememberPlacement(c); }
+  grab=null; cv.style.cursor="";
+}
+function snapForm(c){    // bring its bodies with it straight away
+  rotPrep(c);
+  for(const h of c.homes){
+    if(!(h.p&&h.p.alive&&h.p.bond===h)) continue;
+    target(c,h); h.p.x=_tx; h.p.y=_ty; h.p.z=_tz; h.p.vx=h.p.vy=h.p.vz=0; h.tx=_tx; h.ty=_ty; h.tz=_tz;
+  }
+}
+function rememberPlacement(c){
+  const e=ui.entries[c.slot]; if(e) e.pos={x:c.x,y:c.y,z:c.z};
+  $("clearPos").disabled=!ui.entries.some(x=>x.pos);
+}
+cv.addEventListener("pointermove",e=>{
+  if(!pointers.has(e.pointerId)||!gesture) return;
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(e.pointerType==="touch" && pointers.size===2){
+    const [a,b]=[...pointers.values()], mx=(a.x+b.x)/2, my=(a.y+b.y)/2, pd=Math.hypot(a.x-b.x,a.y-b.y);
+    if(gesture.mode==="orbit"){
+      orbitBy(mx-gesture.x,my-gesture.y);
+      if(gesture.pinch){
+        const before=unproject(mx,my,cam.cz);
+        cam.tz=Math.max(.04,Math.min(6,cam.tz*pd/gesture.pinch)); cam.orbitZoomed=true; takeCam();
+        clampCam(); cam.z=cam.tz;
+        const after=unproject(mx,my,cam.cz);
+        if(before&&after){ cam.tx+=before.x-after.x; cam.ty+=before.y-after.y; clampCam(); cam.x=cam.tx; cam.y=cam.ty; }
+      }
+    }
+    gesture={mode:"orbit",x:mx,y:my,pinch:pd}; return;
+  }
+  if(gesture.mode==="move"){ moveGrab(e); return; }
+  const dx=e.clientX-gesture.x, dy=e.clientY-gesture.y;
+  if(gesture.mode==="orbit") orbitBy(dx,dy); else panBy(dx,dy);
+  gesture.x=e.clientX; gesture.y=e.clientY;
+});
+function endPointer(e){ pointers.delete(e.pointerId); if(!pointers.size){ endGrab(); gesture=null; cv.style.cursor=""; } }
+cv.addEventListener("pointermove",e=>{ if(!gesture && e.pointerType!=="touch") cv.style.cursor=pickCore(e.clientX,e.clientY)?"grab":""; });
+cv.addEventListener("pointerup",endPointer); cv.addEventListener("pointercancel",endPointer);
+cv.addEventListener("wheel",e=>{
+  e.preventDefault();
+  dismissCard();                      // reaching for the field puts the result card away
+  const before=unproject(e.clientX,e.clientY,cam.cz);
+  cam.tz=Math.max(.04,Math.min(6,cam.tz*(e.deltaY<0?1.09:.917))); cam.orbitZoomed=true; takeCam();
+  clampCam(); cam.z=cam.tz;                                 // applied at once, so the zoom has a steady anchor
+  const after=unproject(e.clientX,e.clientY,cam.cz);
+  if(before&&after&&!ui.orbit){                             // keep whatever is under the pointer under the pointer
+    cam.tx+=before.x-after.x; cam.ty+=before.y-after.y;
+    clampCam();
+    cam.x=cam.tx; cam.y=cam.ty;
+  }
+  cam.hold=Math.max(cam.hold,1.5);
+},{passive:false});
+
+addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="BUTTON"&&e.key===" ") return;
+  const k=e.key.toLowerCase();
+  if(k==="escape" && $("modal").classList.contains("on")){ $("modal").classList.remove("on"); return; }
+  if(k==="h"){ toggleRail(); return; }
+  if(k===" " && S.phase==="run"){ e.preventDefault(); togglePause(); return; }
+  if(k==="f" && ui.champion){ toggleFollow(); return; }
+  if(k>="1" && k<="4"){ setTab(TABS[+k-1]); return; }
+  if(k==="o"){ if(ui.orbit){ setOrbit(false); angleButtons(""); } else setOrbit(true); return; }
+  if(k==="r"){ cam.capFree=false; cam.orbitZoomed=false; if(!S.ignite) frameAll(true); return; }
+  if(k==="q"){ cam.tspin-=.12; takeCam(); }
+  if(k==="e"){ cam.tspin+=.12; takeCam(); }
+  if(k==="arrowup"){ e.preventDefault(); cam.ttilt+=.1; cam.hold=3; takeCam(); }
+  if(k==="arrowdown"){ e.preventDefault(); cam.ttilt-=.1; cam.hold=3; takeCam(); }
+});
+
+/* ---------- tabs ---------- */
+const TABS=["forms","arena","view","guide"];
+let curTab="forms";
+function setTab(name){
+  if(!TABS.includes(name)) return;
+  curTab=name;
+  for(const t of TABS){
+    $("pane-"+t).hidden = t!==name;
+    $("tab"+t[0].toUpperCase()+t.slice(1)).setAttribute("aria-selected", t===name);
+  }
+  $("body").scrollTop=0;
+}
+for(const t of TABS) $("tab"+t[0].toUpperCase()+t.slice(1)).onclick=()=>setTab(t);
+
+/* ---------- controls ---------- */
+$("sSpread").oninput=e=>{ ui.spread=+e.target.value; $("vSpread").textContent=ui.spread; setupArena(); };
+$("sHeight").oninput=e=>{ ui.height=+e.target.value; $("vHeight").textContent=Math.round(ui.height*100)+"%"; setupArena(); };
+$("sLen").oninput=e=>{ ui.len=+e.target.value; $("vLen").textContent=ui.len+" s"; S.matchT=ui.len*TIME_SCALE; };
+$("sGlow").oninput=e=>{ ui.glow=+e.target.value; $("vGlow").textContent=Math.round(ui.glow*100)+"%"; };
+$("sAmb").oninput=e=>{ ui.amb=+e.target.value; $("vAmb").textContent=Math.round(ui.amb*100)+"%"; };
+$("hiBtn").onclick=()=>{ ui.highlights=!ui.highlights; paintRosterState(); };
+$("sSpeed").oninput=e=>{ ui.speed=+e.target.value; $("vSpeed").textContent=ui.speed+"×"; };
+$("shuffleBtn").onclick=()=>{ ui.seed=(Math.random()*2147483647)|0; ui.entries.forEach(e=>delete e.pos); setupArena(); };
+$("goBtn").onclick=release;
+$("allBtn").onclick=()=>{ ui.entries=FORMS.map(f=>({uid:uidN++,id:f.id,skill:5,spec:f.id})); ui.champion=null; rebuild(); };
+$("clearBtn").onclick=()=>{ ui.entries=[]; ui.champion=null; rebuild(); };
+$("clearPos").onclick=()=>{ if(S.phase!=="setup") return; ui.entries.forEach(e=>delete e.pos); setupArena(); };
+$("liftFloor").onclick=()=>{ ui.liftMode=false; paintRosterState(); };
+$("liftHeight").onclick=()=>{ ui.liftMode=true; paintRosterState(); };
+$("ownSpec").onclick=()=>{
+  if(S.phase!=="setup") return;
+  ui.entries.forEach(e=>e.spec=e.id); buildRoster(); setupArena();
+};
+$("randSkill").onclick=()=>{ if(S.phase!=="setup") return; ui.entries.forEach(e=>e.skill=1+Math.floor(Math.random()*10)); rebuild(); };
+$("evenSkill").onclick=()=>{ if(S.phase!=="setup") return; ui.entries.forEach(e=>e.skill=5); rebuild(); };
+$("resetBtn").onclick=newMatch;
+$("againBtn").onclick=newMatch;
+function dismissCard(){ const m=$("modal"); if(m.classList.contains("on")){ m.classList.remove("on"); return true; } return false; }
+$("closeBtn").onclick=()=>dismissCard();
+// the card sits over the middle of the field, which is exactly where the winner is:
+// a scroll on it puts it away and goes through to the camera in one motion
+$("card").addEventListener("wheel",e=>{
+  if(!S.ignite) return;
+  e.preventDefault();
+  dismissCard();
+  cv.dispatchEvent(new WheelEvent("wheel",{deltaY:e.deltaY,clientX:e.clientX,clientY:e.clientY,cancelable:true}));
+},{passive:false});
+$("replayBtn").onclick=()=>{
+  if(!S.ignite) return;
+  S.ignite.t=0; S.ignite.done=false; S.ignite.claimed=0;   // the claim itself already happened; this replays the display
+  S.phase="run"; ui.paused=false; ui.slowUntil=-1; ui.scaleT=1;   // full speed, as it played the first time
+  $("modal").classList.remove("on");
+};
+$("pauseBtn").onclick=togglePause;
+$("followBtn").onclick=toggleFollow;
+$("zIn").onclick=()=>{ cam.tz=Math.min(6,cam.tz*1.3); cam.hold=2; cam.orbitZoomed=true; takeCam(); };
+$("zOut").onclick=()=>{ cam.tz=Math.max(.04,cam.tz/1.3); cam.hold=2; cam.orbitZoomed=true; takeCam(); };
+$("fitBtn").onclick=()=>{ ui.follow=false; cam.orbitZoomed=false; cam.capFree=false;   // hand the capture back its frame
+  paintRosterState(); if(!S.ignite) frameAll(true); };
+function angleButtons(id){ for(const b of ["topBtn","threeBtn","sideBtn","orbitBtn"]) $(b).setAttribute("aria-pressed",b===id); }
+function setAngle(tilt,id){ setOrbit(false); cam.ttilt=wrapNear(tilt,cam.tilt); cam.hold=3; angleButtons(id); }
+function setOrbit(on){
+  ui.orbit=on;
+  $("orbitRow").hidden=!on; $("orbitNote").hidden=!on;
+  if(on){ angleButtons("orbitBtn"); cam.hold=0; cam.orbitZoomed=false; ui.follow=false; leanTo(.5); paintRosterState(); }
+}
+$("topBtn").onclick=()=>setAngle(0,"topBtn");
+$("threeBtn").onclick=()=>setAngle(defaultTilt(),"threeBtn");
+$("sideBtn").onclick=()=>setAngle(1.3,"sideBtn");
+$("orbitBtn").onclick=()=>{ if(ui.orbit){ setOrbit(false); angleButtons(""); } else setOrbit(true); };
+$("sOrbit").oninput=e=>{ ui.orbitSpeed=+e.target.value; $("vOrbit").textContent=ui.orbitSpeed+"×"; };
+$("autoBtn").onclick=()=>{ ui.autoCam=!ui.autoCam; paintRosterState(); };
+$("attackCam").onclick=()=>{ ui.attackCam=!ui.attackCam; paintRosterState(); };
+$("nameBtn").onclick=()=>{ ui.nameTags=!ui.nameTags; paintRosterState(); };
+$("hideBtn").onclick=toggleRail; $("peek").onclick=toggleRail;
+$("clearRec").onclick=()=>{ REC={games:0,wins:{},picks:0,right:0}; saveRec(); paintRec(); toast("Record cleared."); };
+
+function togglePause(){ ui.paused=!ui.paused; $("pauseBtn").textContent=ui.paused?"Resume":"Pause"; }
+function toggleFollow(){ ui.follow=!ui.follow; if(ui.follow&&ui.orbit){ setOrbit(false); angleButtons(""); } cam.hold=0; if(ui.follow) cam.tz=.55; else frameAll(true); paintRosterState(); }
+function toggleRail(){
+  const r=$("rail"); r.classList.toggle("hide");
+  document.body.classList.toggle("railHidden",r.classList.contains("hide"));
+  if(!ui.orbit) frameAll(true);     // the usable picture just changed size
+}
+let tt=null;
+function toast(m){ const el=$("toast"); el.textContent=m; el.classList.add("on"); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove("on"),2600); }
+
+/* ---------- boot ---------- */
+resize();
+if(W<760){ $("rail").classList.add("hide"); document.body.classList.add("railHidden"); cam.tilt=cam.ttilt=defaultTilt(); }
+buildChips(); buildRoster(); paintRec();
+setupArena();
+cam.x=cam.tx; cam.y=cam.ty; cam.cz=cam.tcz; cam.z=cam.tz;
+requestAnimationFrame(frame);
+
+</script>
+</body>
+</html>
+
+</body></html>

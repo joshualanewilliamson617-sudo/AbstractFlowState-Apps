@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cymatics Plate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#dfe2e5; --panel:#eef0f2; --ink:#1e2226; --muted:#5c646c; --line:#c3c8cd;
+  --straw:#a67c2e; --bronze:#9a5a2c; --tblue:#3a6694; --bed:#2a2d31;
+  --display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#26292d; --panel:#2f3338; --ink:#ebe6da; --muted:#9aa0a6; --line:#41464c;
+    --straw:#d8b26a; --bronze:#c07a45; --tblue:#5b8bbd;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#26292d; --panel:#2f3338; --ink:#ebe6da; --muted:#9aa0a6; --line:#41464c;
+  --straw:#d8b26a; --bronze:#c07a45; --tblue:#5b8bbd;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+main{max-width:1120px;margin:0 auto;padding:16px;display:grid;gap:20px}
+@media (min-width:860px){
+  main{grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);align-items:start;padding:28px}
+  .stage{position:sticky;top:calc(20px + env(safe-area-inset-top,0px))}
+}
+h1{font:800 clamp(34px,6vw,54px)/.9 var(--display);letter-spacing:.01em;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 14px;max-width:46ch}
+.bed{background:var(--bed);border-radius:18px;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px -18px rgba(0,0,0,.6)}
+canvas#plate{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:10px;touch-action:manipulation;cursor:crosshair;touch-action:none}
+.readout{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:14px}
+.freq{font:800 clamp(56px,11vw,88px)/.82 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.freq small{font:600 .34em var(--display);color:var(--muted);margin-left:4px;letter-spacing:.02em}
+.mode{text-align:right;color:var(--muted);font-size:14px;line-height:1.35}
+.mode b{display:block;color:var(--ink);font-weight:600;font-size:15px}
+.meter{height:6px;border-radius:3px;background:var(--line);margin-top:12px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(90deg,var(--straw),var(--bronze) 60%,var(--tblue))}
+.meter-l{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 16px}
+section{padding:14px 0;border-bottom:1px solid var(--line)}
+section:last-child{border-bottom:0}
+h2{font:600 15px/1.2 var(--body);margin:0 0 10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;color:var(--muted);font:500 14px var(--body);padding:9px 4px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row+.row,.row+label,label+.row{margin-top:10px}
+button.b{flex:1 1 auto;min-height:40px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 14px var(--body);border-radius:9px;padding:8px 12px;cursor:pointer}
+button.b:hover{border-color:var(--muted)}
+button.b[aria-pressed="true"]{border-color:var(--straw);box-shadow:inset 0 0 0 1px var(--straw)}
+button.rec[aria-pressed="true"]{border-color:#c0392b;box-shadow:inset 0 0 0 1px #c0392b;color:#c0392b}
+label.sl{display:block;font-size:13px;color:var(--muted)}
+label.sl span{float:right;color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;margin:8px 0 2px;accent-color:var(--straw)}
+select{min-height:40px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 14px var(--body);border-radius:9px;padding:0 10px}
+:focus-visible{outline:2px solid var(--tblue);outline-offset:2px}
+.status{font-size:13px;color:var(--muted);min-height:1.4em;margin:8px 0 0}
+.seg4{grid-template-columns:repeat(4,1fr)}
+.tools{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:12px}
+.tools button{min-height:42px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 13px var(--body);border-radius:9px;cursor:pointer;padding:6px 2px}
+.tools button[aria-pressed="true"]{border-color:var(--straw);box-shadow:inset 0 0 0 1px var(--straw);background:var(--bg)}
+.hint{font-size:13px;color:var(--muted);margin:8px 2px 0;min-height:2.8em}
+.note{font-size:12px;color:var(--muted);margin:10px 2px 0}
+</style>
+</head>
+<body>
+<main>
+  <div class="stage">
+    <h1>Cymatics Plate</h1>
+    <p class="sub">Sweep the frequency until the plate resonates and the sand runs to the still lines. Use the tools under the plate to get your hands on it.</p>
+    <div class="bed"><canvas id="plate" width="1024" height="1024" aria-label="Vibrating plate with sand"></canvas></div>
+    <div class="tools" role="group" aria-label="Plate tools">
+      <button data-tool="pour" aria-pressed="true">Pour</button>
+      <button data-tool="sweep" aria-pressed="false">Sweep</button>
+      <button data-tool="blow" aria-pressed="false">Blow</button>
+      <button data-tool="damper" aria-pressed="false">Damper</button>
+      <button data-tool="post" aria-pressed="false">Post</button>
+      <button data-tool="bow" aria-pressed="false">Bow</button>
+    </div>
+    <p class="hint" id="hint"></p>
+    <div class="readout">
+      <div class="freq" id="freq">0<small>Hz</small></div>
+      <div class="mode"><b id="modeName">–</b><span id="modeHint">nearest resonance</span></div>
+    </div>
+    <div class="meter"><i id="meter"></i></div>
+    <div class="meter-l"><span>Off resonance</span><span>Ringing</span></div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <section>
+        <h2>Plate</h2>
+        <div class="seg" role="group" aria-label="Plate shape">
+          <button data-shape="square" aria-pressed="true">Square</button>
+          <button data-shape="circle" aria-pressed="false">Circle</button>
+          <button data-shape="mandala" aria-pressed="false">Mandala</button>
+        </div>
+      </section>
+      <section>
+        <h2>Frequency</h2>
+        <label class="sl" for="fs">Drag to sweep <span id="fsv"></span></label>
+        <input id="fs" type="range" min="0" max="10000" step="1" value="3000">
+        <div class="row">
+          <button class="b" id="prev">‹ Previous resonance</button>
+          <button class="b" id="next">Next resonance ›</button>
+        </div>
+        <div class="row">
+          <button class="b" id="tour" aria-pressed="false">Tour every resonance</button>
+        </div>
+      </section>
+      <section>
+        <h2>Sand</h2>
+        <label class="sl">Grain type</label>
+        <div class="seg seg4" role="group" aria-label="Grain type" style="margin-top:8px">
+          <button data-grain="0" aria-pressed="false">Powder</button>
+          <button data-grain="1" aria-pressed="false">Fine</button>
+          <button data-grain="2" aria-pressed="true">Coarse</button>
+          <button data-grain="3" aria-pressed="false">Metal shot</button>
+        </div>
+        <p class="hint" id="grainHint" style="min-height:0;margin-bottom:10px"></p>
+        <label class="sl" for="drive">Drive strength <span id="drivev">70%</span></label>
+        <input id="drive" type="range" min="0" max="100" value="70">
+        <label class="sl" for="sand">Grains <span id="sandv"></span></label>
+        <input id="sand" type="range" min="2000" max="60000" step="1000" value="24000">
+        <div class="row"><button class="b" id="scatter">Scatter evenly</button><button class="b" id="scatterMix">Scatter a mix</button><button class="b" id="clearSand">Clear the plate</button></div>
+      </section>
+      <section>
+        <h2>Post and dampers</h2>
+        <div class="row"><button class="b" id="centerPost">Center the post</button><button class="b" id="clearDampers">Lift all dampers</button></div>
+      </section>
+      <section>
+        <h2>Sound and capture</h2>
+        <div class="row">
+          <button class="b" id="tone" aria-pressed="false">Play tone</button>
+        </div>
+        <div class="row" id="recRow">
+          <select id="aspect" aria-label="Video format">
+            <option value="v">Vertical 9:16</option>
+            <option value="s">Square 1:1</option>
+          </select>
+          <button class="b rec" id="rec" aria-pressed="false">Record video</button>
+        </div>
+        <p class="status" id="status" role="status"></p>
+      </section>
+    </div>
+    <p class="note">An idealized plate model: patterns follow textbook standing-wave solutions rather than one specific steel plate.</p>
+  </div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('plate');
+const ctx = cv.getContext('2d', { willReadFrequently: true });
+const W = cv.width, CX = W / 2, R = W * 0.45;
+const G = 256, H = 2 / (G - 1);
+const F = new Float32Array(G * G), GXa = new Float32Array(G * G), GYa = new Float32Array(G * G);
+const FMIN = 40, FMAX = 4400, MAX = 60000;
+const px = new Float32Array(MAX), py = new Float32Array(MAX), pc = new Uint8Array(MAX), pw = new Uint8Array(MAX);
+let grain = 2;
+let count = 24000;
+
+// ---------- Bessel ----------
+function J(n, x, steps = 160) {
+  let s = 0; const h = Math.PI / steps;
+  for (let i = 0; i <= steps; i++) {
+    const t = i * h, w = (i === 0 || i === steps) ? 1 : (i % 2 ? 4 : 2);
+    s += w * Math.cos(n * t - x * Math.sin(t));
+  }
+  return s * h / 3 / Math.PI;
+}
+function besselZeros(n, zmax) {
+  const out = []; let prev = J(n, 0.5);
+  for (let x = 0.52; x < zmax; x += 0.02) {
+    const v = J(n, x);
+    if ((v > 0) !== (prev > 0)) {
+      let a = x - 0.02, b = x, fa = prev;
+      for (let k = 0; k < 30; k++) { const m = (a + b) / 2, fm = J(n, m); if ((fm > 0) === (fa > 0)) { a = m; fa = fm; } else b = m; }
+      out.push((a + b) / 2);
+    }
+    prev = v;
+  }
+  return out;
+}
+
+// ---------- Modes ----------
+function evalRaw(shape, md, x, y) {
+  if (shape === 'square') {
+    const u = (x + 1) / 2, w = (y + 1) / 2, P = Math.PI;
+    return Math.cos(md.n * P * u) * Math.cos(md.m * P * w) + md.s * Math.cos(md.m * P * u) * Math.cos(md.n * P * w);
+  }
+  const r = Math.hypot(x, y);
+  if (shape === 'circle') return md.radial[Math.min(512, Math.round(r * 512))] * Math.cos(md.n * Math.atan2(y, x));
+  let v = 0; for (const d of md.dirs) v += Math.cos(md.k * (x * d[0] + y * d[1])); return v / md.N;
+}
+const MODES = { square: [], circle: [], mandala: [] };
+for (let n = 1; n <= 9; n++) for (let m = 0; m < n; m++) for (const s of [-1, 1]) {
+  const f = 30 * (m * m + n * n) * (1 + (s > 0 ? 0.012 : 0) + 0.003 * m);
+  MODES.square.push({ f, m, n, s, name: `Mode (${m}, ${n}) ${s < 0 ? 'a' : 'b'}` });
+}
+for (let n = 0; n <= 8; n++) besselZeros(n, 24).forEach((z, i) => {
+  const radial = new Float32Array(513); for (let k = 0; k <= 512; k++) radial[k] = J(n, z * k / 512, 120);
+  MODES.circle.push({ f: 7.5 * z * z * (1 + 0.002 * n), n, z, radial,
+    name: `${n} diameter${n === 1 ? '' : 's'}, ${i} ring${i === 1 ? '' : 's'}` });
+});
+for (const N of [3, 5, 6, 7, 8, 9, 12]) for (let k = 4; k <= 28; k += 2) {
+  const dirs = []; for (let i = 0; i < N; i++) { const a = 2 * Math.PI * i / N; dirs.push([Math.cos(a), Math.sin(a)]); }
+  MODES.mandala.push({ f: 4.8 * k * k * (1 + 0.01 * N), N, k, dirs, name: `${N}-fold, wave ${k}` });
+}
+for (const key in MODES) {
+  MODES[key] = MODES[key].filter(m => m.f >= FMIN && m.f <= FMAX).sort((a, b) => a.f - b.f);
+  for (const md of MODES[key]) {
+    let mx = 0;
+    for (let j = 0; j < 64; j++) for (let i = 0; i < 64; i++) {
+      const x = i / 63 * 2 - 1, y = j / 63 * 2 - 1;
+      if (key !== 'square' && x * x + y * y > 1) continue;
+      mx = Math.max(mx, Math.abs(evalRaw(key, md, x, y)));
+    }
+    md.norm = mx || 1;
+  }
+}
+const phi = (md, x, y) => evalRaw(shape, md, x, y) / md.norm;
+
+// ---------- Field cache & combination ----------
+const cache = new Map();
+function fieldFor(md) {
+  const key = shape + md.name;
+  if (cache.has(key)) return cache.get(key);
+  const A = new Float32Array(G * G);
+  for (let j = 0; j < G; j++) { const y = j * H - 1; for (let i = 0; i < G; i++) {
+    const x = i * H - 1;
+    A[j * G + i] = (shape !== 'square' && x * x + y * y > 1.04) ? 0 : phi(md, x, y);
+  } }
+  if (cache.size > 40) cache.delete(cache.keys().next().value);
+  cache.set(key, A); return A;
+}
+let lastKey = '';
+function combine(terms) {
+  const key = terms.map(t => t[0].name + ':' + t[1].toFixed(3)).join('|');
+  if (key === lastKey) return; lastKey = key;
+  F.fill(0);
+  for (const [md, c] of terms) { if (Math.abs(c) < 1e-4) continue; const A = fieldFor(md); for (let i = 0; i < A.length; i++) F[i] += c * A[i]; }
+  let mx = 0; for (let i = 0; i < F.length; i++) { const a = Math.abs(F[i]); if (a > mx) mx = a; }
+  if (mx < 1e-6) return;
+  const inv = 1 / mx; for (let i = 0; i < F.length; i++) F[i] *= inv;
+  for (let j = 1; j < G - 1; j++) for (let i = 1; i < G - 1; i++) {
+    const k = j * G + i;
+    GXa[k] = (F[k + 1] - F[k - 1]) / (2 * H);
+    GYa[k] = (F[k + G] - F[k - G]) / (2 * H);
+  }
+}
+
+// ---------- Background ----------
+let bg32 = null;
+const img = ctx.createImageData(W, W);
+const buf32 = new Uint32Array(img.data.buffer);
+function drawBackground(shape) {
+  ctx.fillStyle = '#2a2d31'; ctx.fillRect(0, 0, W, W);
+  ctx.save(); ctx.beginPath();
+  if (shape === 'square') ctx.rect(CX - R, CX - R, 2 * R, 2 * R); else ctx.arc(CX, CX, R, 0, Math.PI * 2);
+  const g = ctx.createLinearGradient(CX - R, CX - R, CX + R, CX + R);
+  g.addColorStop(0, '#62676d'); g.addColorStop(.45, '#454a50'); g.addColorStop(1, '#565b61');
+  ctx.fillStyle = g; ctx.fill(); ctx.restore();
+  const id = ctx.getImageData(0, 0, W, W), d = id.data;
+  const streak = new Float32Array(W * 2);
+  let acc = 0; for (let i = 0; i < streak.length; i++) { acc = acc * .82 + (Math.random() - .5) * 7; streak[i] = acc; }
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+    const dx = x - CX, dy = y - CX;
+    const ins = shape === 'square' ? (Math.abs(dx) <= R && Math.abs(dy) <= R) : (dx * dx + dy * dy <= R * R);
+    if (!ins) continue;
+    const s = shape === 'square' ? streak[y] : streak[Math.round(Math.hypot(dx, dy))];
+    const n = s + (Math.random() - .5) * 6, k = (y * W + x) * 4;
+    d[k] += n; d[k + 1] += n; d[k + 2] += n + 1.5;
+  }
+  ctx.putImageData(id, 0, 0);
+  ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.beginPath();
+  if (shape === 'square') ctx.rect(CX - R + 1, CX - R + 1, 2 * R - 2, 2 * R - 2); else ctx.arc(CX, CX, R - 1, 0, Math.PI * 2);
+  ctx.stroke(); ctx.restore();
+  bg32 = new Uint32Array(ctx.getImageData(0, 0, W, W).data.buffer.slice(0));
+}
+const rgba = (r, g, b) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+const SAND = [
+  [rgba(236, 214, 120), rgba(224, 196, 96), rgba(245, 228, 150)],
+  [rgba(250, 247, 238), rgba(238, 234, 222), rgba(255, 253, 247)],
+  [rgba(239, 230, 207), rgba(224, 211, 180), rgba(210, 194, 158)],
+  [rgba(196, 130, 82), rgba(170, 108, 64), rgba(222, 160, 110)]
+];
+// per grain type: size in px, jitter multiplier, pull toward still lines (negative = toward the loudest spots), drive needed to move
+const GRAIN = [
+  { size: 1, kick: 1, pull: -0.3, thresh: 0 },
+  { size: 2, kick: 1.3, pull: 1.15, thresh: 0 },
+  { size: 2, kick: 1.0, pull: 1.0, thresh: 0.05 },
+  { size: 3, kick: 0.75, pull: 0.8, thresh: 0.3 }
+];
+const GRAIN_HINTS = [
+  'Light powder gets carried by air currents and heaps up where the plate moves most, the opposite of sand.',
+  'Fine sand is quick and twitchy, and it draws thin, sharp lines.',
+  'Coarse sand is the classic Chladni look.',
+  'Heavy metal shot needs a strong drive to budge, then rolls into bold, beaded lines.'
+];
+
+// ---------- State ----------
+let shape = 'square', freq = 180, drive = 0.7, S = 0, Sshown = 0;
+let tool = 'pour';
+let post = [0, 0];
+let dampers = [];
+let glide = null, tour = false, holdUntil = 0;
+let bowE = 0, bowMode = null, bowPoint = null, bowing = false;
+let dom = null, domClose = 0, domExcite = 1, domMute = 1, ringFreq = 180;
+
+function inside(x, y) { return shape === 'square' ? (Math.abs(x) < .985 && Math.abs(y) < .985) : (x * x + y * y < .97); }
+function onPlate(x, y) { return shape === 'square' ? (Math.abs(x) <= 1 && Math.abs(y) <= 1) : (x * x + y * y <= 1); }
+function randomPoint() { let x, y; do { x = Math.random() * 2 - 1; y = Math.random() * 2 - 1; } while (!inside(x, y)); return [x, y]; }
+function scatter(from, to, type = grain) { for (let i = from; i < to; i++) { const p = randomPoint(); px[i] = p[0]; py[i] = p[1]; pc[i] = (Math.random() * 3) | 0; pw[i] = type < 0 ? (Math.random() * 4) | 0 : type; } }
+function setCount(n) { n = Math.max(0, Math.min(MAX, n | 0)); count = n; $('sand').value = Math.max(2000, n); $('sandv').textContent = n.toLocaleString(); }
+
+const muteOf = md => { let m = 1; for (const d of dampers) { const v = phi(md, d[0], d[1]); m *= Math.exp(-((v / 0.18) ** 2)); } return m; };
+const exciteOf = md => Math.abs(phi(md, post[0], post[1]));
+const playable = md => exciteOf(md) * muteOf(md) > 0.22;
+
+function nearestIndices(f, k) {
+  const list = MODES[shape];
+  return list.map((m, i) => [i, Math.abs(Math.log(f / m.f))]).sort((a, b) => a[1] - b[1]).slice(0, k).map(a => a[0]);
+}
+
+// ---------- Response ----------
+function motorResponse() {
+  const list = MODES[shape]; const terms = []; let total = 0, best = null, bestC = -1;
+  for (const i of nearestIndices(freq, 5)) {
+    const md = list[i];
+    const close = Math.exp(-(((1200 * Math.log2(freq / md.f)) / 35) ** 2));
+    const ex = phi(md, post[0], post[1]), mu = muteOf(md);
+    const c = close * ex * mu;
+    terms.push([md, c]); total += Math.abs(c);
+    const score = close;
+    if (score > bestC) { bestC = score; best = md; domClose = close; domExcite = Math.abs(ex); domMute = mu; }
+  }
+  dom = best; ringFreq = freq;
+  combine(terms);
+  return Math.min(1, total);
+}
+function bowResponse(dt) {
+  bowE *= Math.exp(-dt / 1.6);
+  if (bowing && bowPoint) {
+    const list = MODES[shape]; let best = null, bs = 0;
+    for (const md of list) {
+      const lw = Math.log(md.f / freq); if (Math.abs(lw) > 0.5) continue;
+      const sc = Math.exp(-((lw / 0.22) ** 2)) * phi(md, bowPoint[0], bowPoint[1]) ** 2 * muteOf(md);
+      if (sc > bs) { bs = sc; best = md; }
+    }
+    if (best && (!bowMode || best === bowMode || bs > 1.6 * scoreBow(bowMode))) bowMode = best;
+  }
+  if (bowMode) { combine([[bowMode, 1]]); dom = bowMode; ringFreq = bowMode.f; domClose = 1; domExcite = 1; domMute = muteOf(bowMode); }
+  return Math.min(1, bowE) * (bowMode ? muteOf(bowMode) : 0);
+}
+function scoreBow(md) {
+  if (!md || !bowPoint) return 0;
+  const lw = Math.log(md.f / freq);
+  return Math.exp(-((lw / 0.22) ** 2)) * phi(md, bowPoint[0], bowPoint[1]) ** 2 * muteOf(md);
+}
+
+// ---------- Slider & navigation ----------
+const fs = $('fs');
+const toSlider = f => Math.round(Math.log(f / FMIN) / Math.log(FMAX / FMIN) * 10000);
+const fromSlider = v => FMIN * Math.pow(FMAX / FMIN, v / 10000);
+function glideTo(f, dur) { glide = { a: Math.log(freq), b: Math.log(f), t: 0, dur }; }
+function step(dir) {
+  const list = MODES[shape]; const n = list.length;
+  let start = list.findIndex(m => m.f > freq * (dir > 0 ? 1.003 : 0.997));
+  if (start < 0) start = n;
+  let idx = dir > 0 ? start : start - 1;
+  for (let k = 0; k < n; k++) {
+    const i = ((idx % n) + n) % n;
+    if (playable(list[i])) { glideTo(list[i].f, tour ? 2.2 : 0.7); return; }
+    idx += dir;
+  }
+  setStatus('Nothing can ring with the post and dampers where they are. Move the post or lift a damper.');
+}
+function snapToPlayable() {
+  if (tool === 'bow' || !dom) return;
+  if (playable(dom)) return;
+  const list = MODES[shape]; let best = null, bd = Infinity;
+  for (const md of list) { if (!playable(md)) continue; const d = Math.abs(Math.log(md.f / freq)); if (d < bd) { bd = d; best = md; } }
+  if (best) { glideTo(best.f, 0.9); setStatus(`Shifted to ${best.name}, which rings around your setup.`); }
+}
+function setTour(on) {
+  tour = on; $('tour').setAttribute('aria-pressed', String(on));
+  $('tour').textContent = on ? 'Stop tour' : 'Tour every resonance';
+  if (on) { if (tool === 'bow') setTool('pour'); step(1); } else glide = null;
+}
+function setShape(s) {
+  shape = s; lastKey = ''; bowMode = null; bowE = 0; dampers = []; post = [0, 0];
+  document.querySelectorAll('[data-shape]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.shape === s)));
+  drawBackground(s);
+  for (let i = 0; i < count; i++) if (!inside(px[i], py[i])) { const p = randomPoint(); px[i] = p[0]; py[i] = p[1]; }
+}
+
+// ---------- Tools ----------
+const HINTS = {
+  pour: 'Drag across the plate to pour sand from the shaker.',
+  sweep: 'Drag to brush sand around. Brush it past the edge to knock it off.',
+  blow: 'Hold to blow sand outward. Anything pushed past the edge falls off.',
+  damper: 'Tap to rest a finger on the plate and force a still point there. Tap a finger again to lift it, or drag to move it.',
+  post: 'Drag the post. The plate is driven from here, and patterns with a still line under the post go silent.',
+  bow: 'Drag along the edge like a violin bow. Faster strokes ring louder, and where you bow picks the pattern.'
+};
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('.tools button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
+  $('hint').textContent = HINTS[t];
+  if (t === 'bow' && tour) setTour(false);
+  if (t !== 'bow') { bowMode = null; bowE = 0; }
+  lastKey = '';
+}
+
+let ptr = null;
+function toPlate(e) {
+  const r = cv.getBoundingClientRect();
+  return [((e.clientX - r.left) / r.width * W - CX) / R, ((e.clientY - r.top) / r.height * W - CX) / R];
+}
+function edgePoint(x, y) {
+  if (shape === 'square') {
+    const ax = Math.abs(x), ay = Math.abs(y);
+    const dist = Math.min(Math.abs(1 - ax), Math.abs(1 - ay));
+    const p = ax > ay ? [Math.sign(x) || 1, Math.max(-1, Math.min(1, y))] : [Math.max(-1, Math.min(1, x)), Math.sign(y) || 1];
+    return { p, dist, tan: ax > ay ? [0, 1] : [1, 0] };
+  }
+  const r = Math.hypot(x, y) || 1;
+  return { p: [x / r, y / r], dist: Math.abs(1 - r), tan: [-y / r, x / r] };
+}
+function removeGrain(i) { px[i] = px[count - 1]; py[i] = py[count - 1]; pc[i] = pc[count - 1]; pw[i] = pw[count - 1]; count--; }
+
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  const [x, y] = toPlate(e);
+  ptr = { x, y, px: x, py: y, t: performance.now(), grab: null, moved: false };
+  if (tool === 'damper') {
+    const hit = dampers.findIndex(d => Math.hypot(d[0] - x, d[1] - y) < 0.08);
+    if (hit >= 0) ptr.grab = hit;
+    else if (onPlate(x, y)) {
+      if (dampers.length >= 4) setStatus('Four fingers is the limit. Tap one to lift it.');
+      else { dampers.push([x, y]); ptr.grab = dampers.length - 1; ptr.added = true; lastKey = ''; snapToPlayable(); }
+    }
+  } else if (tool === 'post') {
+    if (inside(x, y)) { post = [x, y]; lastKey = ''; }
+  } else if (tool === 'bow') {
+    const ep = edgePoint(x, y);
+    if (ep.dist < 0.25) { bowing = true; bowPoint = ep.p; } else setStatus('Start your stroke on the edge of the plate.');
+  }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptr) return;
+  const [x, y] = toPlate(e); const now = performance.now();
+  const dt = Math.max(0.001, (now - ptr.t) / 1000);
+  const dx = x - ptr.x, dy = y - ptr.y;
+  if (Math.hypot(dx, dy) > 0.01) ptr.moved = true;
+  if (tool === 'damper' && ptr.grab !== null && ptr.moved) {
+    if (onPlate(x, y)) { dampers[ptr.grab] = [x, y]; lastKey = ''; }
+  } else if (tool === 'post') {
+    if (inside(x, y)) { post = [x, y]; lastKey = ''; }
+  } else if (tool === 'sweep') {
+    const rad = 0.1;
+    for (let i = count - 1; i >= 0; i--) {
+      const ex = px[i] - x, ey = py[i] - y, d = Math.hypot(ex, ey);
+      if (d < rad) {
+        const w = 1 - d / rad;
+        px[i] += dx * w * 1.1 + ex * 0.08 * w; py[i] += dy * w * 1.1 + ey * 0.08 * w;
+        if (!onPlate(px[i], py[i])) removeGrain(i);
+      }
+    }
+    setCount(count);
+  } else if (tool === 'bow' && bowing) {
+    const ep = edgePoint(x, y);
+    if (ep.dist < 0.35) {
+      bowPoint = ep.p;
+      const along = Math.abs(dx * ep.tan[0] + dy * ep.tan[1]) / dt;
+      bowE = Math.min(1.3, bowE + along * dt * 0.9);
+    }
+  }
+  ptr.x = x; ptr.y = y; ptr.t = now;
+});
+function endPtr() {
+  if (ptr && tool === 'damper' && ptr.grab !== null && !ptr.moved && !ptr.added) { dampers.splice(ptr.grab, 1); lastKey = ''; }
+  else if (ptr && tool === 'damper') snapToPlayable();
+  if (ptr && tool === 'post') snapToPlayable();
+  bowing = false; ptr = null;
+}
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+
+function applyHeldTools() {
+  if (!ptr) return;
+  const { x, y } = ptr;
+  if (tool === 'pour' && onPlate(x, y)) {
+    const add = Math.min(140, MAX - count);
+    for (let i = 0; i < add; i++) {
+      const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * 0.045;
+      let nx = x + Math.cos(a) * d, ny = y + Math.sin(a) * d; if (!inside(nx, ny)) { nx = x * .98; ny = y * .98; }
+      px[count + i] = nx; py[count + i] = ny; pc[count + i] = (Math.random() * 3) | 0; pw[count + i] = grain;
+    }
+    if (add) setCount(count + add);
+  } else if (tool === 'blow') {
+    const rad = 0.3;
+    for (let i = count - 1; i >= 0; i--) {
+      const ex = px[i] - x, ey = py[i] - y, d = Math.hypot(ex, ey);
+      if (d < rad && d > 1e-4) {
+        const w = (1 - d / rad) * 0.022 * (0.6 + Math.random() * 0.8);
+        px[i] += ex / d * w; py[i] += ey / d * w;
+        if (!onPlate(px[i], py[i])) removeGrain(i);
+      }
+    }
+    setCount(count);
+  }
+}
+
+// ---------- Simulation ----------
+const tmp = new Float32Array(3);
+function sample(x, y, out) {
+  const fx = (x + 1) * 0.5 * (G - 1), fy = (y + 1) * 0.5 * (G - 1);
+  let ix = fx | 0, iy = fy | 0; if (ix > G - 3) ix = G - 3; if (iy > G - 3) iy = G - 3; if (ix < 1) ix = 1; if (iy < 1) iy = 1;
+  const tx = fx - ix, ty = fy - iy, k = iy * G + ix;
+  const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
+  out[0] = F[k] * w00 + F[k + 1] * w10 + F[k + G] * w01 + F[k + G + 1] * w11;
+  out[1] = GXa[k] * w00 + GXa[k + 1] * w10 + GXa[k + G] * w01 + GXa[k + G + 1] * w11;
+  out[2] = GYa[k] * w00 + GYa[k + 1] * w10 + GYa[k + G] * w01 + GYa[k + G + 1] * w11;
+}
+function simulate() {
+  if (S < 0.004) return;
+  const sq = shape === 'square';
+  for (let i = 0; i < count; i++) {
+    let x = px[i], y = py[i];
+    sample(x, y, tmp);
+    const f = tmp[0], gx = tmp[1], gy = tmp[2], a = Math.abs(f);
+    const gt = GRAIN[pw[i]];
+    const Se = gt.thresh ? Math.max(0, (S - gt.thresh) / (1 - gt.thresh)) : S;
+    if (Se <= 0) continue;
+    const kick = Se * (gt.pull < 0 ? 0.02 : 0.0032 + 0.018 * a) * gt.kick;
+    const g2 = gx * gx + gy * gy + 4;
+    let mx = -f * gx / g2 * 0.22 * Se * gt.pull, my = -f * gy / g2 * 0.22 * Se * gt.pull;
+    const ml = Math.hypot(mx, my); if (ml > 0.006) { mx *= 0.006 / ml; my *= 0.006 / ml; }
+    x += mx + (Math.random() - .5) * 2 * kick;
+    y += my + (Math.random() - .5) * 2 * kick;
+    if (sq) { if (x > .985) x = .985; else if (x < -.985) x = -.985; if (y > .985) y = .985; else if (y < -.985) y = -.985; }
+    else { const r2 = x * x + y * y; if (r2 > .97) { const s = Math.sqrt(.97 / r2); x *= s; y *= s; } }
+    px[i] = x; py[i] = y;
+  }
+}
+const P2C = (x, y) => [CX + x * R, CX + y * R];
+function render() {
+  buf32.set(bg32);
+  for (let i = 0; i < count; i++) {
+    const X = (CX + px[i] * R) | 0, Y = (CX + py[i] * R) | 0;
+    const t = pw[i], k = Y * W + X, c = SAND[t][pc[i]];
+    buf32[k] = c;
+    if (t) { buf32[k + 1] = c; buf32[k + W] = c; buf32[k + W + 1] = c;
+      if (t === 3) { buf32[k + 2] = c; buf32[k + W + 2] = c; buf32[k + 2 * W] = c; buf32[k + 2 * W + 1] = c; buf32[k + 2 * W + 2] = c; } }
+  }
+  ctx.putImageData(img, 0, 0);
+  // post
+  if (tool !== 'bow') {
+    const [bx, by] = P2C(post[0], post[1]);
+    const g = ctx.createRadialGradient(bx - 6, by - 6, 2, bx, by, 22);
+    g.addColorStop(0, '#a4aab0'); g.addColorStop(1, '#3a3e43');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; ctx.lineTo(bx + 11 * Math.cos(a), by + 11 * Math.sin(a)); }
+    ctx.closePath(); ctx.stroke();
+    if (tool === 'post') { ctx.strokeStyle = 'rgba(216,178,106,.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(bx, by, 30, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  // dampers
+  for (const d of dampers) {
+    const [dx, dy] = P2C(d[0], d[1]);
+    const g = ctx.createRadialGradient(dx - 5, dy - 5, 2, dx, dy, 18);
+    g.addColorStop(0, '#c98f6e'); g.addColorStop(1, '#6e3f2b');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(dx, dy, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  // bow
+  if (tool === 'bow' && bowPoint && (bowing || bowE > 0.05)) {
+    const ep = edgePoint(bowPoint[0], bowPoint[1]);
+    const [ex, ey] = P2C(ep.p[0], ep.p[1]);
+    const L = 110;
+    ctx.globalAlpha = bowing ? 0.95 : Math.min(0.6, bowE);
+    ctx.strokeStyle = '#6b4a2e'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(ex - ep.tan[0] * L, ey - ep.tan[1] * L); ctx.lineTo(ex + ep.tan[0] * L, ey + ep.tan[1] * L); ctx.stroke();
+    ctx.strokeStyle = '#efe6cf'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ex - ep.tan[0] * L, ey - ep.tan[1] * L); ctx.lineTo(ex + ep.tan[0] * L, ey + ep.tan[1] * L); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  // brush ring
+  if (ptr && (tool === 'sweep' || tool === 'blow' || tool === 'pour')) {
+    const [cx2, cy2] = P2C(ptr.x, ptr.y);
+    const rr = (tool === 'blow' ? 0.3 : tool === 'sweep' ? 0.1 : 0.045) * R;
+    ctx.strokeStyle = 'rgba(235,230,218,.35)'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.arc(cx2, cy2, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+
+// ---------- Audio ----------
+let actx = null, osc = null, osc2 = null, master = null, dest = null, toneOn = false;
+function ensureAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  actx = new AC();
+  master = actx.createGain(); master.gain.value = 0;
+  osc = actx.createOscillator(); osc.type = 'sine';
+  osc2 = actx.createOscillator(); osc2.type = 'sine';
+  const g2 = actx.createGain(); g2.gain.value = 0.12;
+  osc.connect(master); osc2.connect(g2); g2.connect(master);
+  master.connect(actx.destination);
+  try { dest = actx.createMediaStreamDestination(); master.connect(dest); } catch (e) { dest = null; }
+  osc.start(); osc2.start();
+}
+function updateAudio() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  osc.frequency.setTargetAtTime(ringFreq, t, 0.02);
+  osc2.frequency.setTargetAtTime(ringFreq * 2.76, t, 0.02);
+  const base = tool === 'bow' ? 0 : 0.04;
+  master.gain.setTargetAtTime(toneOn ? base + 0.16 * S : 0, t, 0.05);
+}
+
+// ---------- Recording ----------
+const recCv = document.createElement('canvas');
+const rctx = recCv.getContext('2d');
+let recorder = null, chunks = [], recStart = 0, recMime = '', downloads = null;
+const statusEl = $('status');
+let statusTimer = 0;
+function setStatus(t) { statusEl.textContent = t; clearTimeout(statusTimer); statusTimer = setTimeout(() => { if (!recorder) statusEl.textContent = ''; }, 5000); }
+if (window.claude && typeof window.claude.use === 'function') window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+if (!window.MediaRecorder || !cv.captureStream) $('recRow').hidden = true;
+
+function drawRecFrame() {
+  const w = recCv.width, h = recCv.height;
+  rctx.fillStyle = '#2a2d31'; rctx.fillRect(0, 0, w, h);
+  if (h === w) {
+    rctx.drawImage(cv, 0, 0, w, w);
+    rctx.fillStyle = 'rgba(235,230,218,.85)'; rctx.font = '800 54px "Big Shoulders Display", Impact, sans-serif';
+    rctx.fillText(Math.round(ringFreq) + ' Hz', 40, h - 40);
+  } else {
+    const top = 300;
+    rctx.drawImage(cv, 0, top, w, w);
+    rctx.textAlign = 'center';
+    rctx.fillStyle = '#ebe6da'; rctx.font = '800 150px "Big Shoulders Display", Impact, sans-serif';
+    rctx.fillText(Math.round(ringFreq) + ' Hz', w / 2, top + w + 190);
+    rctx.fillStyle = '#9aa0a6'; rctx.font = '500 44px "IBM Plex Sans", system-ui, sans-serif';
+    rctx.fillText(dom ? dom.name : '', w / 2, top + w + 270);
+    rctx.textAlign = 'left';
+  }
+}
+function pickMime() {
+  for (const o of ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'])
+    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(o)) return o;
+  return '';
+}
+function startRec() {
+  ensureAudio();
+  const vert = $('aspect').value === 'v';
+  recCv.width = 1080; recCv.height = vert ? 1920 : 1080;
+  drawRecFrame();
+  const stream = recCv.captureStream(30);
+  if (dest) dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+  recMime = pickMime();
+  try { recorder = recMime ? new MediaRecorder(stream, { mimeType: recMime, videoBitsPerSecond: 8e6 }) : new MediaRecorder(stream); }
+  catch (e) { setStatus('This browser cannot record video.'); return; }
+  chunks = [];
+  recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  recorder.onstop = saveRec;
+  recorder.start(500); recStart = performance.now();
+  $('rec').setAttribute('aria-pressed', 'true'); $('rec').textContent = 'Stop and save';
+}
+function stopRec() {
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+  $('rec').setAttribute('aria-pressed', 'false'); $('rec').textContent = 'Record video';
+}
+async function saveRec() {
+  const type = (recorder.mimeType || recMime || 'video/webm').split(';')[0];
+  const ext = type.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(chunks, { type });
+  recorder = null;
+  const name = `cymatics-${shape}-${Math.round(ringFreq)}hz.${ext}`;
+  if (downloads) {
+    statusEl.textContent = 'Confirm the save to keep your video.';
+    try { await downloads.save({ filename: name, data: blob }); setStatus('Video saved.'); }
+    catch (e) {
+      const c = e && e.code;
+      setStatus(c === 'declined' ? 'Save declined. Record again to try once more.'
+        : c === 'rate_limited' ? 'A save prompt is already open. Finish it, then record again.'
+        : 'Saving is unavailable in this view.');
+    }
+  } else {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setStatus('Video saved.');
+  }
+}
+
+// ---------- Wiring ----------
+document.querySelectorAll('[data-shape]').forEach(b => b.addEventListener('click', () => setShape(b.dataset.shape)));
+document.querySelectorAll('.tools button').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+fs.addEventListener('input', () => { if (tour) setTour(false); glide = null; freq = fromSlider(+fs.value); });
+$('prev').addEventListener('click', () => { if (tour) setTour(false); if (tool === 'bow') setTool('pour'); step(-1); });
+$('next').addEventListener('click', () => { if (tour) setTour(false); if (tool === 'bow') setTool('pour'); step(1); });
+$('tour').addEventListener('click', () => setTour(!tour));
+$('drive').addEventListener('input', e => { drive = e.target.value / 100; $('drivev').textContent = e.target.value + '%'; });
+$('sand').addEventListener('input', e => { const n = +e.target.value; if (n > count) scatter(count, n); setCount(n); });
+$('scatter').addEventListener('click', () => { if (count < 2000) setCount(24000); scatter(0, count); });
+$('scatterMix').addEventListener('click', () => { if (count < 2000) setCount(24000); scatter(0, count, -1); });
+function setGrain(g) {
+  grain = g;
+  document.querySelectorAll('[data-grain]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.grain === g)));
+  $('grainHint').textContent = GRAIN_HINTS[g] + ' Pour, scatter and new grains use this type.';
+}
+document.querySelectorAll('[data-grain]').forEach(b => b.addEventListener('click', () => setGrain(+b.dataset.grain)));
+setGrain(2);
+$('clearSand').addEventListener('click', () => setCount(0));
+$('centerPost').addEventListener('click', () => { post = [0, 0]; lastKey = ''; snapToPlayable(); });
+$('clearDampers').addEventListener('click', () => { dampers = []; lastKey = ''; });
+$('tone').addEventListener('click', () => {
+  ensureAudio(); toneOn = !toneOn;
+  $('tone').setAttribute('aria-pressed', String(toneOn)); $('tone').textContent = toneOn ? 'Mute tone' : 'Play tone';
+});
+$('rec').addEventListener('click', () => { recorder ? stopRec() : startRec(); });
+
+// ---------- Loop ----------
+let last = performance.now(), snapCheck = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (glide) {
+    glide.t += dt; const u = Math.min(1, glide.t / glide.dur), e = u < .5 ? 2 * u * u : 1 - ((-2 * u + 2) ** 2) / 2;
+    freq = Math.exp(glide.a + (glide.b - glide.a) * e);
+    if (u >= 1) { glide = null; if (tour) holdUntil = now + 5000; }
+    fs.value = toSlider(freq);
+  } else if (tour && holdUntil && now > holdUntil) { holdUntil = 0; step(1); }
+  applyHeldTools();
+  const amp = tool === 'bow' ? bowResponse(dt) : motorResponse();
+  S = amp * drive;
+  simulate(); simulate();
+  render();
+  if (recorder) {
+    drawRecFrame();
+    const s = Math.floor((now - recStart) / 1000);
+    statusEl.textContent = `Recording ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+  updateAudio();
+  Sshown += (S - Sshown) * 0.15;
+  $('freq').firstChild.nodeValue = Math.round(ringFreq);
+  $('fsv').textContent = Math.round(freq) + ' Hz';
+  $('modeName').textContent = dom ? dom.name : 'Silent';
+  let hint;
+  if (tool === 'bow') hint = bowMode ? (bowE > 0.05 ? 'ringing from your bow' : 'bow the edge to ring it') : 'bow the edge to ring it';
+  else if (domClose > 0.6 && domMute < 0.35) hint = 'held still by a damper';
+  else if (domClose > 0.6 && domExcite < 0.2) hint = 'the post sits on a still line';
+  else if (domClose > 0.6) hint = 'resonating now';
+  else hint = `nearest resonance at ${Math.round(dom.f)} Hz`;
+  $('modeHint').textContent = hint;
+  $('meter').style.width = (Sshown * 100).toFixed(1) + '%';
+  requestAnimationFrame(frame);
+}
+
+// ---------- Init ----------
+scatter(0, count); setCount(count);
+setShape('square'); setTool('pour');
+freq = MODES.square.find(m => playable(m) && m.f > 250).f * 1.0; fs.value = toSlider(freq);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

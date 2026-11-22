@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Number Field — volume</title>
+<style>
+  :root { --ink:#05060a; --line:#1a1a24; --dim:#6e6a60; --warm:#e8a87c; --cool:#9fd8ff;
+          --panel:#080910; --mono:ui-monospace,Menlo,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--ink); color:#cfc9bd; overflow:hidden; }
+  body { font-family:"Iowan Old Style",Palatino,Georgia,serif; display:flex; flex-direction:row; }
+  #stage { position:relative; flex:1 1 auto; min-width:0; height:100%; }
+  canvas { display:block; width:100%; height:100%; cursor:grab; touch-action:none; }
+  canvas:active { cursor:grabbing; }
+  #hud { position:absolute; left:16px; top:14px; pointer-events:none;
+         font-family:var(--mono); font-size:11.5px; line-height:1.75; color:#7d7768; }
+  #hud b { color:var(--warm); font-weight:400; }
+
+  /* the panel: a column on the right at desk width, a sheet at the bottom on a phone */
+  #panel { flex:0 0 272px; height:100%; overflow-y:auto; overscroll-behavior:contain;
+           background:var(--panel); border-left:1px solid var(--line);
+           font-family:var(--mono); font-size:11px; }
+  #panel.hidden { display:none; }
+  .sheet-head { position:sticky; top:0; z-index:2; background:var(--panel);
+                border-bottom:1px solid var(--line); padding:9px 12px;
+                display:flex; align-items:center; justify-content:space-between; color:#8d8678; }
+  .sheet-head .grab { display:none; }
+
+  .sect { border-bottom:1px solid #12131c; }
+  .sect > summary { list-style:none; cursor:pointer; padding:9px 12px; color:#6d6759;
+                    display:flex; align-items:center; gap:7px; }
+  .sect > summary::-webkit-details-marker { display:none; }
+  .sect > summary::before { content:"›"; color:#3e3a33; transition:transform .15s; }
+  .sect[open] > summary::before { transform:rotate(90deg); }
+  .sect > summary:hover { color:#b3aa99; }
+  .body { padding:2px 12px 12px; display:flex; flex-direction:column; gap:7px; }
+
+  .row { display:flex; align-items:center; gap:6px; color:#9a9385; }
+  .row.rule { gap:4px; }
+  .spread { justify-content:space-between; }
+  select, input[type=number] { background:#10111a; color:#cfc9bd; border:1px solid #262735;
+    font-family:inherit; font-size:11px; padding:3px 4px; border-radius:2px; min-width:0; }
+  .row.rule select { flex:1 1 auto; }
+  input[type=number] { width:46px; flex:0 0 auto; }
+  input[type=range] { flex:1 1 auto; width:auto; min-width:70px; accent-color:var(--warm); }
+  input[type=checkbox] { accent-color:var(--warm); flex:0 0 auto; }
+  label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+  button { background:transparent; color:#d8cfc0; border:1px solid #34302a; font-family:inherit;
+           font-size:11px; padding:6px 12px; border-radius:2px; cursor:pointer; }
+  button:hover { border-color:var(--warm); color:#fff; }
+  button:focus-visible, summary:focus-visible, select:focus-visible,
+  input:focus-visible { outline:1px solid var(--warm); outline-offset:2px; }
+  .tag { color:#4e4a43; font-size:10px; flex:0 0 auto; }
+  .val { color:var(--warm); flex:0 0 34px; text-align:right; }
+  .note { color:#4e4a43; font-size:10px; line-height:1.5; }
+  .x { border:0; color:#4e4a43; padding:2px 5px; font-size:13px; line-height:1; }
+  .x:hover { color:var(--warm); }
+
+  #worlds { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  #worlds button { padding:6px 4px; font-size:10.5px; color:#9a9385; border-color:#22232e; }
+  #worlds button.on { color:#0a0b10; background:var(--warm); border-color:var(--warm); }
+
+  #open { position:absolute; right:14px; top:12px; z-index:3; background:rgba(8,9,16,.82);
+          font-family:var(--mono); backdrop-filter:blur(3px); }
+
+  @media (max-width:780px) {
+    body { flex-direction:column; }
+    #stage { flex:1 1 auto; }
+    #panel { position:fixed; left:0; right:0; bottom:0; height:auto; max-height:62vh; flex:none;
+             border-left:0; border-top:1px solid var(--line); box-shadow:0 -18px 40px rgba(0,0,0,.55);
+             animation:rise .18s ease-out; }
+    .sheet-head { padding:11px 14px; }
+    .sheet-head .grab { display:block; position:absolute; left:50%; top:5px; width:34px; height:3px;
+                        margin-left:-17px; border-radius:2px; background:#2a2b38; }
+    #open { right:auto; left:50%; top:auto; bottom:16px; transform:translateX(-50%); padding:9px 20px; }
+    .body { gap:11px; }
+    button { padding:8px 12px; }
+  }
+  @keyframes rise { from { transform:translateY(14px); opacity:0 } to { transform:none; opacity:1 } }
+  @media (prefers-reduced-motion:reduce) { #panel { animation:none } .sect > summary::before { transition:none } }
+
+  #nodelist { display:flex; flex-direction:column; gap:2px; max-height:168px; overflow-y:auto;
+              border-top:1px solid #12131c; padding-top:6px; }
+  .noderow { border-left:2px solid #22232e; gap:0; }
+  .noderow.on { border-left-color:var(--warm); }
+  .nodename { flex:1 1 auto; text-align:left; border:0; border-radius:0; padding:4px 8px;
+              color:#7d7768; font-size:10.5px; }
+  .nodename:hover { color:#d8cfc0; }
+  .noderow.on .nodename { color:#e0d7c6; }
+  #addnode { display:flex; gap:3px; flex-wrap:wrap; }
+  #addnode .x { border:1px solid #22232e; border-radius:2px; font-size:10px;
+                padding:3px 7px; color:#8d8678; }
+  #addnode .x:hover { border-color:var(--warm); }
+  #nodesel:not(:empty) { display:flex; flex-direction:column; gap:6px;
+                         border-left:2px solid var(--warm); padding:2px 0 2px 9px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    density &nbsp;<b id="h-den">—</b><br>
+    mean score &nbsp;<b id="h-score">—</b><br>
+    volume &nbsp;&nbsp;<b id="h-scale">—</b><br>
+    centre n &nbsp;<b id="h-n">—</b><br>
+    <b id="h-bodies">—</b>
+  </div>
+  <button id="open">controls</button>
+</div>
+
+<aside id="panel">
+  <div class="sheet-head"><span class="grab"></span>controls<button class="x" id="close" title="hide">×</button></div>
+
+  <details class="sect" open>
+    <summary>worlds</summary>
+    <div class="body">
+      <div id="worlds"></div>
+      <div class="note">A world sets every dial below. Turn any of them afterward.</div>
+    </div>
+  </details>
+
+  <details class="sect" open>
+    <summary>rules</summary>
+    <div class="body">
+      <div id="rules"></div>
+      <div class="row spread">
+        <button id="addrule">add rule</button>
+        <span class="tag" id="rulecount"></span>
+      </div>
+    </div>
+  </details>
+
+  <details class="sect" open>
+    <summary>field</summary>
+    <div class="body">
+      <div class="row">combine
+        <select id="combine"><option value="any">any</option><option value="all">all</option><option value="one">one</option></select>
+      </div>
+      <div class="row">numbering
+        <select id="addr">
+          <option value="columns">stacked spirals</option>
+          <option value="shells">shells</option>
+          <option value="diagonals">diagonals</option>
+          <option value="rows">rows</option>
+          <option value="radial">radial</option>
+        </select>
+      </div>
+      <div class="row">shape
+        <select id="shape">
+          <option value="cube">cube</option>
+          <option value="sphere">sphere</option>
+          <option value="shell">hollow shell</option>
+          <option value="disc">disc</option>
+          <option value="cylinder">cylinder</option>
+          <option value="torus">torus</option>
+        </select>
+      </div>
+      <div class="row">size <input type="range" id="vsize" min="12" max="56" value="40"><span class="val" id="v-vsize">40</span></div>
+      <div class="row">scale <input type="range" id="scale" min="1" max="16" value="1"><span class="val" id="v-scale">1</span></div>
+      <div class="row"><label><input type="checkbox" id="invert"> invert</label></div>
+      <div class="note">The shape is cut out of the lattice — a sphere or a torus leaves most of the cube unnumbered, which also makes it quicker. Size is the edge of that lattice, so 40 is 64,000 places at most. Scale spreads the numbering out, trading detail for reach.</div>
+    </div>
+  </details>
+
+  <details class="sect" open>
+    <summary>nodes</summary>
+    <div class="body">
+      <div class="row">stars <input type="range" id="count_star" min="0" max="40" value="6"><span class="val" id="v-count_star">6</span></div>
+      <div class="row">holes <input type="range" id="count_hole" min="0" max="20" value="2"><span class="val" id="v-count_hole">2</span></div>
+      <div class="row">planets <input type="range" id="count_planet" min="0" max="60" value="8"><span class="val" id="v-count_planet">8</span></div>
+      <div class="row">clouds <input type="range" id="count_cloud" min="0" max="30" value="5"><span class="val" id="v-count_cloud">5</span></div>
+      <div class="row">gens <input type="range" id="count_gen" min="0" max="20" value="4"><span class="val" id="v-count_gen">4</span></div>
+      <div class="row">spacing <input type="range" id="gap" min="2" max="16" value="5"><span class="val" id="v-gap">5</span></div>
+      <div class="row">star mass <input type="range" id="starMass" min="10" max="400" value="100"><span class="val" id="v-starMass">1.0</span></div>
+      <div class="row">hole pull <input type="range" id="sing" min="0" max="600" value="160"><span class="val" id="v-sing">1.6</span></div>
+      <div class="row">cloud size <input type="range" id="cloudSize" min="10" max="200" value="60"><span class="val" id="v-cloudSize">6.0</span></div>
+      <div class="row spread">
+        <span class="tag">add</span>
+        <span id="addnode"></span>
+      </div>
+      <div id="nodesel"></div>
+      <div id="nodelist"></div>
+      <div class="note">Tap a node in the field to select it. Tap it again and drag to move it.</div>
+    </div>
+  </details>
+
+  <details class="sect" open>
+    <summary>gravity</summary>
+    <div class="body">
+      <div class="row">strength <input type="range" id="G" min="0" max="300" value="100"><span class="val" id="v-G">1.0</span></div>
+      <div class="row">falloff <input type="range" id="fall" min="30" max="350" value="200"><span class="val" id="v-fall">2.0</span></div>
+      <div class="row">reach <input type="range" id="reach" min="2" max="40" value="14"><span class="val" id="v-reach">14</span></div>
+      <div class="row">
+        <select id="sign"><option value="1">attract</option><option value="-1">repel</option></select>
+      </div>
+    </div>
+  </details>
+
+  <details class="sect" open>
+    <summary>matter</summary>
+    <div class="body">
+      <div class="row">particles <input type="range" id="pcount" min="0" max="2000" value="700"><span class="val" id="v-pcount">700</span></div>
+      <div class="row">drag <input type="range" id="damp" min="900" max="1000" value="999"><span class="val" id="v-damp">.999</span></div>
+      <div class="row">trail <input type="range" id="trail" min="1" max="12" value="1"><span class="val" id="v-trail">1</span></div>
+      <div class="note">Every node but a black hole issues particles. They live about two and a half minutes, and are reissued when they stall, escape, or get eaten.</div>
+    </div>
+  </details>
+
+  <details class="sect" open>
+    <summary>picture</summary>
+    <div class="body">
+      <div class="row">points <input type="range" id="points" min="500" max="16000" value="7000"><span class="val" id="v-points">7000</span></div>
+      <div class="row">roll <input type="range" id="roll" min="-180" max="180" value="0"><span class="val" id="v-roll">0°</span></div>
+      <div class="row">curve <input type="range" id="curve" min="-100" max="100" value="0"><span class="val" id="v-curve">0.0</span></div>
+      <div class="row"><label><input type="checkbox" id="labels" checked> name the nodes</label></div>
+      <div class="row"><label><input type="checkbox" id="floor"> terrain floor</label></div>
+      <div class="row">warp <input type="range" id="warp" min="0" max="800" value="380"><span class="val" id="v-warp">3.8</span></div>
+      <div class="row">relief <input type="range" id="relief" min="0" max="400" value="180"><span class="val" id="v-relief">1.8</span></div>
+      <div class="row"><button id="shuffle">shuffle rules</button></div>
+      <div class="row"><button id="snap">save png</button></div>
+      <div class="note">Drag to turn, scroll or pinch to move in. H hides this panel.</div>
+    </div>
+  </details>
+</aside>
+
+<script>/* worldfield.js — number rules as terrain.
+   Rule objects use the same shape as Number Field, so they copy across unchanged:
+   { on:true, type:"div", k:7, r:0, txt:"" }
+   Works as an ES module, a <script> tag (global WorldField), or in Node. */
+
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.WorldField = api;
+})(typeof self !== "undefined" ? self : this, function () {
+"use strict";
+
+/* ---------------- number predicates ---------------- */
+
+const SIEVE_MAX = 1 << 21;
+let SIEVE = null;
+function buildSieve() {
+  SIEVE = new Uint8Array(SIEVE_MAX);
+  SIEVE[0] = SIEVE[1] = 1;
+  for (let i = 2; i * i < SIEVE_MAX; i++) if (!SIEVE[i]) for (let j = i * i; j < SIEVE_MAX; j += i) SIEVE[j] = 1;
+}
+function isPrime(n) {
+  n = Math.abs(n);
+  if (n < 2) return false;
+  if (n < SIEVE_MAX) { if (!SIEVE) buildSieve(); return SIEVE[n] === 0; }
+  if (n % 2 === 0) return false;
+  for (let i = 3; i * i <= n; i += 2) if (n % i === 0) return false;
+  return true;
+}
+function digitalRoot(n) { n = Math.abs(n); if (n === 0) return 0; const r = n % 9; return r === 0 ? 9 : r; }
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a; }
+function lcm(a, b) { return (!a || !b) ? 0 : Math.abs(a * b) / gcd(a, b); }
+function factorize(n) {
+  n = Math.abs(n); const f = [];
+  for (let d = 2; d * d <= n; d++) while (n % d === 0) { f.push(d); n /= d; }
+  if (n > 1) f.push(n);
+  return f;
+}
+function divisors(n) {
+  n = Math.abs(n); if (n === 0) return [];
+  const d = [];
+  for (let i = 1; i * i <= n; i++) if (n % i === 0) { d.push(i); if (i !== n / i) d.push(n / i); }
+  return d.sort((a, b) => a - b);
+}
+const FIB = (function () { const s = new Set([0, 1]); let a = 0, b = 1; while (b < 1e7) { const t = a + b; a = b; b = t; s.add(b); } return s; })();
+function isTriangular(n) { n = Math.abs(n); if (n === 0) return true; const k = (Math.sqrt(8 * n + 1) - 1) / 2; return Math.abs(k - Math.round(k)) < 1e-9; }
+function isPowerOf(n, k) {
+  n = Math.abs(n); k = Math.abs(k);
+  if (k < 2 || n < 1) return false;
+  while (n % k === 0) n /= k;
+  return n === 1;
+}
+function collatzSteps(n) {
+  n = Math.abs(n); if (n < 1) return 0;
+  let s = 0;
+  while (n !== 1 && s < 1000) { n = n % 2 ? 3 * n + 1 : n / 2; s++; }
+  return s;
+}
+function digitSum(n) { n = Math.abs(n); let s = 0; while (n > 0) { s += n % 10; n = Math.floor(n / 10); } return s; }
+function isPalindrome(n) { const s = String(Math.abs(n)); for (let i = 0, j = s.length - 1; i < j; i++, j--) if (s[i] !== s[j]) return false; return true; }
+function hasDigit(n, d) { return String(Math.abs(n)).indexOf(String(Math.abs(d) % 10)) !== -1; }
+function isSemiprime(n) { return factorize(n).length === 2; }
+function isHappy(n) {
+  n = Math.abs(n); const seen = new Set();
+  while (n !== 1 && !seen.has(n)) {
+    seen.add(n);
+    let s = 0;
+    while (n > 0) { const d = n % 10; s += d * d; n = Math.floor(n / 10); }
+    n = s;
+  }
+  return n === 1;
+}
+function sigma(n) { return divisors(n).reduce((a, b) => a + b, 0); }
+
+/* ---------------- rules ---------------- */
+
+function listSet(rule) {
+  if (rule._src !== rule.txt) {
+    rule._src = rule.txt;
+    rule._set = new Set();
+    const parts = String(rule.txt || "").split(/[^0-9-]+/);
+    for (const p of parts) { const v = parseInt(p, 10); if (!isNaN(v)) rule._set.add(v); }
+  }
+  return rule._set;
+}
+
+function ruleHit(rule, n) {
+  if (!rule || !rule.on || n === null || n === undefined) return false;
+  const k = rule.k;
+  switch (rule.type) {
+    case "div":      return k !== 0 && n % k === 0;
+    case "mod":      return k !== 0 && ((n % k) + Math.abs(k)) % Math.abs(k) === ((rule.r % k) + Math.abs(k)) % Math.abs(k);
+    case "root":     return digitalRoot(n) === rule.r;
+    case "prime":    return isPrime(n);
+    case "square":   { const a = Math.abs(n), s = Math.round(Math.sqrt(a)); return a > 0 && s * s === a; }
+    case "fib":      return FIB.has(Math.abs(n));
+    case "tri":      return isTriangular(n);
+    case "power":    return isPowerOf(n, k);
+    case "collatz":  return Math.abs(n) > 0 && collatzSteps(n) >= rule.r;
+    case "divct":    return divisors(n).length >= rule.r;
+    case "palin":    return Math.abs(n) > 9 && isPalindrome(n);
+    case "dsum":     return digitSum(n) === rule.r;
+    case "hasdig":   return hasDigit(n, k);
+    case "semi":     return isSemiprime(n);
+    case "happy":    return isHappy(n);
+    case "coprime":  return k !== 0 && Math.abs(n) > 0 && gcd(n, k) === 1;
+    case "abundant": { const a = Math.abs(n); return a > 0 && sigma(a) - a > a; }
+    case "perfect":  { const a = Math.abs(n); return a > 0 && sigma(a) - a === a; }
+    case "list":     return listSet(rule).has(n);
+    default: return false;
+  }
+}
+
+const RULE_TYPES = ["div", "mod", "root", "prime", "square", "fib", "tri", "power", "collatz",
+  "divct", "palin", "dsum", "hasdig", "semi", "happy", "coprime", "abundant", "perfect", "list"];
+
+/* A field answers one question about a number: does it pass, and by how much. */
+function field(opts) {
+  opts = opts || {};
+  const f = {
+    rules: opts.rules ? opts.rules.map(r => Object.assign({ on: true, k: 1, r: 0, txt: "" }, r)) : [],
+    combine: opts.combine || "all",
+    _cache: new Map()
+  };
+
+  f.evaluate = function (n) {
+    if (f._cache.has(n)) return f._cache.get(n);
+    const hits = [];
+    let active = 0, count = 0;
+    for (const rule of f.rules) {
+      if (rule.on) active++;
+      const hit = ruleHit(rule, n);
+      hits.push(hit);
+      if (hit) count++;
+    }
+    let pass;
+    if (active === 0) pass = false;
+    else if (f.combine === "all") pass = count === active;
+    else if (f.combine === "any") pass = count > 0;
+    else pass = count === 1;
+    const out = { n, hits, count, pass, active };
+    if (f._cache.size < 250000) f._cache.set(n, out);
+    return out;
+  };
+
+  f.test = n => f.evaluate(n).pass;
+  f.score = n => f.evaluate(n).count;
+  f.flush = () => { f._cache.clear(); return f; };
+
+  /* tune(i, patch) edits one rule; tune({combine:"any"}) edits the field */
+  f.tune = function (i, patch) {
+    if (typeof i === "object") Object.assign(f, i);
+    else Object.assign(f.rules[i], patch);
+    return f.flush();
+  };
+  f.add = function (rule) { f.rules.push(Object.assign({ on: true, k: 1, r: 0, txt: "" }, rule)); return f.flush(); };
+  f.remove = function (i) { f.rules.splice(i, 1); return f.flush(); };
+
+  return f;
+}
+
+/* ---------------- addressing: how a place gets its number ---------------- */
+
+const address = {
+  /* straight rows, like the Grid view */
+  rows(cols) { cols = cols || 20; return (x, y) => y * cols + x; },
+
+  /* Ulam spiral: 1 at the origin, winding counterclockwise */
+  ulam() {
+    return function (x, y) {
+      const r = Math.max(Math.abs(x), Math.abs(y));
+      if (r === 0) return 1;
+      const m = (2 * r + 1) * (2 * r + 1);
+      if (y === -r) return m - (r - x);
+      if (x === -r) return m - 2 * r - (y + r);
+      if (y === r)  return m - 4 * r - (x + r);
+      return m - 6 * r - (r - y);
+    };
+  },
+
+  /* Cantor pairing, folded so negatives work — every cell gets a distinct number */
+  cantor() {
+    const fold = v => v >= 0 ? 2 * v : -2 * v - 1;
+    return (x, y) => { const a = fold(x), b = fold(y); return ((a + b) * (a + b + 1)) / 2 + b; };
+  },
+
+  /* rings: distance from the origin decides the number, so worlds come out radial */
+  radial(step) {
+    step = step || 1;
+    return (x, y) => Math.round(Math.sqrt(x * x + y * y) * step) + Math.abs(x + y);
+  },
+
+  /* lattice indices — feed the 5 or 6 integers of a quasicrystal cell */
+  lattice(weights) {
+    const w = weights || [1, 3, 7, 13, 23, 41];
+    return function (K) { let n = 0; for (let i = 0; i < K.length; i++) n += K[i] * (w[i] || 1); return n; };
+  },
+
+  /* anything else */
+  custom(fn) { return fn; }
+};
+
+/* ---------------- world ---------------- */
+
+function world(opts) {
+  opts = opts || {};
+  const w = {
+    field: opts.field || field({ rules: [{ on: true, type: "div", k: 7 }] }),
+    address: opts.address || address.ulam(),
+    levels: opts.levels || 0,      // 0 = flat; otherwise score maps to this many height bands
+    invert: !!opts.invert,         // swap ground and void
+    edits: new Map(),
+    _listeners: []
+  };
+
+  const key = (x, y) => x + "," + y;
+
+  w.at = function (x, y) {
+    const k = key(x, y);
+    if (w.edits.has(k)) return w.edits.get(k);
+    const n = w.address(x, y);
+    const ev = w.field.evaluate(n);
+    const solid = w.invert ? !ev.pass : ev.pass;
+    const height = w.levels ? Math.min(w.levels, ev.count) : (solid ? 1 : 0);
+    return { x, y, n, solid, height, score: ev.count, hits: ev.hits };
+  };
+
+  w.solid = (x, y) => w.at(x, y).solid;
+  w.height = (x, y) => w.at(x, y).height;
+
+  /* a rectangle of cells, ready to draw or walk */
+  w.patch = function (x0, y0, cw, ch) {
+    const cells = new Array(cw * ch);
+    for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) cells[j * cw + i] = w.at(x0 + i, y0 + j);
+    return { x: x0, y: y0, w: cw, h: ch, cells, get: (i, j) => cells[j * cw + i] };
+  };
+
+  /* the four neighbours you can actually step onto */
+  w.neighbors = function (x, y, diagonal) {
+    const dirs = diagonal
+      ? [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+      : [[1,0],[-1,0],[0,1],[0,-1]];
+    const out = [];
+    for (const [dx, dy] of dirs) { const c = w.at(x + dx, y + dy); if (c.solid) out.push(c); }
+    return out;
+  };
+
+  /* nearest solid cell to a point — for dropping a player in, or landing a jump */
+  w.nearestSolid = function (x, y, maxR) {
+    maxR = maxR || 24;
+    if (w.solid(x, y)) return w.at(x, y);
+    for (let r = 1; r <= maxR; r++) {
+      for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (w.solid(x + dx, y + dy)) return w.at(x + dx, y + dy);
+      }
+    }
+    return null;
+  };
+
+  /* breadth-first walk, so you can ask what's reachable on foot */
+  w.reachable = function (x, y, limit) {
+    limit = limit || 500;
+    const seen = new Map(), queue = [[x, y, 0]];
+    seen.set(key(x, y), 0);
+    while (queue.length && seen.size < limit) {
+      const [cx, cy, d] = queue.shift();
+      for (const c of w.neighbors(cx, cy)) {
+        const k = key(c.x, c.y);
+        if (seen.has(k)) continue;
+        seen.set(k, d + 1);
+        queue.push([c.x, c.y, d + 1]);
+      }
+    }
+    return seen;
+  };
+
+  /* carve or fill by hand — edits survive rule changes */
+  w.set = function (x, y, solid) {
+    const base = w.at(x, y);
+    w.edits.set(key(x, y), Object.assign({}, base, { solid, height: solid ? Math.max(1, base.height) : 0 }));
+    return w.emit();
+  };
+  w.unset = function (x, y) { w.edits.delete(key(x, y)); return w.emit(); };
+  w.clearEdits = function () { w.edits.clear(); return w.emit(); };
+
+  /* turning a dial reshapes the whole world at once */
+  w.tune = function (i, patch) { w.field.tune(i, patch); return w.emit(); };
+  w.set_ = w.set;
+  w.onchange = function (fn) { w._listeners.push(fn); return w; };
+  w.emit = function () { for (const fn of w._listeners) fn(w); return w; };
+
+  w.toJSON = () => ({
+    rules: w.field.rules.map(r => ({ on: r.on, type: r.type, k: r.k, r: r.r, txt: r.txt })),
+    combine: w.field.combine, levels: w.levels, invert: w.invert
+  });
+
+  return w;
+}
+
+function fromJSON(j, addressFn) {
+  return world({
+    field: field({ rules: j.rules, combine: j.combine }),
+    address: addressFn || address.ulam(),
+    levels: j.levels, invert: j.invert
+  });
+}
+
+return {
+  field, world, address, fromJSON,
+  ruleHit, RULE_TYPES,
+  num: { isPrime, digitalRoot, gcd, lcm, factorize, divisors, isTriangular, isPowerOf,
+         collatzSteps, digitSum, isPalindrome, hasDigit, isSemiprime, isHappy, sigma, FIB }
+};
+});
+</script>
+<script>/* worldfield-physics.js — gravity for a number field.
+   Mass comes from the rules: a cell weighs as much as the number of rules it
+   passes, and void weighs nothing. Tightening the rules makes a sparse world
+   with a few heavy attractors; loosening makes a dense world with no strong
+   pull anywhere. Density and gravity end up being the same dial.
+
+   Requires worldfield.js. */
+
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.WorldFieldPhysics = api;
+})(typeof self !== "undefined" ? self : this, function () {
+"use strict";
+
+/* deterministic spread of sample points inside an aggregated block */
+const HALTON = [[0,0],[0.5,0.333],[0.25,0.667],[0.75,0.111],[0.125,0.444],[0.625,0.778],[0.375,0.222],[0.875,0.556]];
+
+function attach(world, opts) {
+  opts = opts || {};
+
+  const sim = {
+    world,
+    G: 1,            // strength
+    falloff: 2,      // 1/r^falloff — 2 is inverse square, 1 spreads much further
+    attract: 1,      // +1 pulls toward mass, -1 pushes away
+    reach: 9,        // how far mass reaches, in coarse cells
+    scale: 1,        // numbers aggregated per cell edge — 1 is micro, 16 is macro
+    samples: 6,      // samples per block when aggregating
+    coarse: 2,       // field solved at 1/coarse resolution, then interpolated
+    mass: opts.mass || (c => c.solid ? Math.max(1, c.score) : 0),
+    baked: null,
+    nodes: [],
+    holes: [],
+    stats: { density: 0, meanScore: 0, maxScore: 0, stars: 0, holes: 0, marks: 0 }
+  };
+
+  /* ---- sampling the world into a grid ---- */
+
+  function sampleCell(wx, wy, s) {
+    if (s <= 1) {
+      const c = world.at(wx, wy);
+      return { m: sim.mass(c), pass: c.solid ? 1 : 0, score: c.score };
+    }
+    const n = Math.min(sim.samples, s * s);
+    let m = 0, pass = 0, score = 0;
+    for (let k = 0; k < n; k++) {
+      const h = HALTON[k % HALTON.length];
+      const c = world.at(wx + Math.floor(h[0] * s), wy + Math.floor(h[1] * s));
+      m += sim.mass(c); pass += c.solid ? 1 : 0; score += c.score;
+    }
+    return { m: m / n, pass: pass / n, score: score / n };
+  }
+
+  /* ---- the kernel: how far one unit of mass reaches ---- */
+
+  function kernel(R, p) {
+    const size = 2 * R + 1, k = new Float32Array(size * size);
+    for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) {
+      const d = Math.sqrt(i * i + j * j);
+      k[(j + R) * size + (i + R)] = d > R ? 0 : 1 / (Math.pow(d, p) + 0.85);
+    }
+    return { k, R, size };
+  }
+
+  /* ---- bake: resolve the whole visible field once, then read it cheaply ---- */
+
+  sim.bake = function (x0, y0, w, h) {
+    const s = Math.max(1, Math.round(sim.scale));
+    const score = new Float32Array(w * h);
+    const massG = new Float32Array(w * h);
+    let passSum = 0, scoreSum = 0, maxScore = 0;
+
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const c = sampleCell((x0 + i) * s, (y0 + j) * s, s);
+      const idx = j * w + i;
+      score[idx] = c.score; massG[idx] = c.m;
+      passSum += c.pass; scoreSum += c.score;
+      if (c.score > maxScore) maxScore = c.score;
+    }
+
+    /* coarse mass */
+    const cf = Math.max(1, sim.coarse | 0);
+    const cw = Math.ceil(w / cf), ch = Math.ceil(h / cf);
+    const cm = new Float32Array(cw * ch);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      cm[Math.floor(j / cf) * cw + Math.floor(i / cf)] += massG[j * w + i];
+    }
+
+    /* scatter each source's reach into the potential grid */
+    const { k, R, size } = kernel(Math.max(1, sim.reach | 0), sim.falloff);
+    const pot = new Float32Array(cw * ch);
+    for (let cj = 0; cj < ch; cj++) for (let ci = 0; ci < cw; ci++) {
+      const m = cm[cj * cw + ci];
+      if (m <= 0.0001) continue;
+      const i0 = Math.max(0, ci - R), i1 = Math.min(cw - 1, ci + R);
+      const j0 = Math.max(0, cj - R), j1 = Math.min(ch - 1, cj + R);
+      for (let tj = j0; tj <= j1; tj++) {
+        const krow = (tj - cj + R) * size + (R - ci);
+        const prow = tj * cw;
+        for (let ti = i0; ti <= i1; ti++) pot[prow + ti] += m * k[krow + ti];
+      }
+    }
+
+    /* normalise so the dials mean the same thing at any scale */
+    let pmax = 0;
+    for (let i = 0; i < pot.length; i++) if (pot[i] > pmax) pmax = pot[i];
+    if (pmax > 0) for (let i = 0; i < pot.length; i++) pot[i] /= pmax;
+
+    /* gradient — uphill points toward mass */
+    const gx = new Float32Array(cw * ch), gy = new Float32Array(cw * ch);
+    for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
+      const l = pot[j * cw + Math.max(0, i - 1)], r = pot[j * cw + Math.min(cw - 1, i + 1)];
+      const u = pot[Math.max(0, j - 1) * cw + i], d = pot[Math.min(ch - 1, j + 1) * cw + i];
+      gx[j * cw + i] = (r - l) * 0.5; gy[j * cw + i] = (d - u) * 0.5;
+    }
+
+    sim.stats.density = passSum / (w * h);
+    sim.stats.meanScore = scoreSum / (w * h);
+    sim.stats.maxScore = maxScore;
+    sim.baked = { x0, y0, w, h, cf, cw, ch, score, mass: massG, pot, gx, gy };
+    sim.nodes = findNodes();
+    sim.holes = sim.nodes.filter(n => n.kind === "hole");
+    sim.stats.stars = sim.nodes.filter(n => n.kind === "star").length;
+    sim.stats.holes = sim.holes.length;
+    sim.stats.marks = sim.nodes.filter(n => n.kind === "mark").length;
+    return sim.baked;
+  };
+
+  /* ---- reading the baked field at any point, in cell coordinates ---- */
+
+  function lerpCoarse(arr, fx, fy) {
+    const b = sim.baked;
+    const x = Math.min(b.cw - 1.001, Math.max(0, fx / b.cf));
+    const y = Math.min(b.ch - 1.001, Math.max(0, fy / b.cf));
+    const i = x | 0, j = y | 0, tx = x - i, ty = y - j;
+    const a = arr[j * b.cw + i], c = arr[j * b.cw + i + 1];
+    const d = arr[(j + 1) * b.cw + i], e = arr[(j + 1) * b.cw + i + 1];
+    return (a * (1 - tx) + c * tx) * (1 - ty) + (d * (1 - tx) + e * tx) * ty;
+  }
+
+  sim.potentialAt = (fx, fy) => sim.baked ? lerpCoarse(sim.baked.pot, fx, fy) : 0;
+  sim.forceAt = function (fx, fy) {
+    if (!sim.baked) return [0, 0];
+    const g = sim.G * sim.attract;
+    return [lerpCoarse(sim.baked.gx, fx, fy) * g, lerpCoarse(sim.baked.gy, fx, fy) * g];
+  };
+
+  /* terrain: rule score raises the sheet, mass proximity warps it */
+  sim.heightAt = function (fx, fy, base, warp) {
+    if (!sim.baked) return 0;
+    const b = sim.baked;
+    const i = Math.min(b.w - 1, Math.max(0, Math.round(fx)));
+    const j = Math.min(b.h - 1, Math.max(0, Math.round(fy)));
+    return b.score[j * b.w + i] * (base === undefined ? 1 : base)
+         + sim.potentialAt(fx, fy) * (warp === undefined ? 1 : warp) * sim.G * sim.attract;
+  };
+
+  /* ---- bodies: the places worth naming ----
+     Two kinds. Derived bodies come from the field — a star is a peak in rule
+     score, a black hole is a peak in accumulated mass. They move when you turn
+     the dials. Marks come from the number itself — a perfect number is perfect
+     no matter what rules are loaded — so they hold still and give you fixed
+     reference points to navigate by. */
+
+  const NUM = () => (typeof WorldField !== "undefined" ? WorldField.num : null);
+
+  function namedMark(n) {
+    const num = NUM();
+    if (!num || n < 4) return null;
+    const a = Math.abs(n);
+    if (a <= 100000) {
+      const dv = num.divisors(a);
+      const sum = dv.reduce((x, y) => x + y, 0) - a;
+      if (sum === a) return { label: "perfect", rank: 5 };
+      if (dv.length >= 24) return { label: "highly composite", rank: 3 };
+    }
+    if (num.isPrime(a)) {
+      let p = a, mer = false;
+      while (p % 2 === 1 && p > 1) { if (((p + 1) & p) === 0) { mer = true; break; } break; }
+      if (mer && a > 6) return { label: "mersenne prime", rank: 4 };
+      if (num.isPrime(a + 2) || num.isPrime(a - 2)) return { label: "twin prime", rank: 1 };
+      if (num.isPalindrome(a) && a > 100) return { label: "palindromic prime", rank: 2 };
+    }
+    if (a > 10 && /^(\d)\1+$/.test(String(a))) return { label: "repunit", rank: 2 };
+    return null;
+  }
+
+  sim.nodeConfig = { starRadius: 3, holeCutoff: 0.72, maxStars: 36, maxHoles: 10, maxMarks: 22, marks: true };
+
+  function findNodes() {
+    const b = sim.baked, cfg = sim.nodeConfig, out = [];
+    const R = cfg.starRadius;
+
+    /* stars — local peaks in how many rules a place satisfies */
+    const stars = [];
+    for (let j = R; j < b.h - R; j++) for (let i = R; i < b.w - R; i++) {
+      const v = b.score[j * b.w + i];
+      if (v < Math.max(0.3, sim.stats.maxScore * 0.55)) continue;
+      let peak = true;
+      for (let dj = -R; dj <= R && peak; dj++) for (let di = -R; di <= R; di++) {
+        if (!di && !dj) continue;
+        if (b.score[(j + dj) * b.w + i + di] > v) { peak = false; break; }
+      }
+      if (peak) stars.push({ i, j, kind: "star", strength: v });
+    }
+    stars.sort((a, c) => c.strength - a.strength);
+
+    /* black holes — peaks in accumulated mass, deep enough to dominate */
+    const holes = [];
+    for (let j = 2; j < b.ch - 2; j++) for (let i = 2; i < b.cw - 2; i++) {
+      const v = b.pot[j * b.cw + i];
+      if (v < cfg.holeCutoff) continue;
+      let peak = true;
+      for (let dj = -2; dj <= 2 && peak; dj++) for (let di = -2; di <= 2; di++) {
+        if (!di && !dj) continue;
+        if (b.pot[(j + dj) * b.cw + i + di] > v) { peak = false; break; }
+      }
+      if (peak) holes.push({ i: i * b.cf, j: j * b.cf, kind: "hole", strength: v });
+    }
+    holes.sort((a, c) => c.strength - a.strength);
+
+    /* marks — landmarks that belong to the number, not to the rules */
+    const marks = [];
+    if (cfg.marks && sim.scale <= 2) {
+      const s = Math.max(1, Math.round(sim.scale));
+      for (let j = 0; j < b.h; j += 1) for (let i = 0; i < b.w; i += 1) {
+        const c = world.at((b.x0 + i) * s, (b.y0 + j) * s);
+        const m = namedMark(c.n);
+        if (m) marks.push({ i, j, kind: "mark", label: m.label, strength: m.rank, n: c.n });
+      }
+      marks.sort((a, c) => c.strength - a.strength);
+    }
+
+    const take = (arr, n) => arr.slice(0, n);
+    for (const nd of take(stars, cfg.maxStars).concat(take(holes, cfg.maxHoles), take(marks, cfg.maxMarks))) {
+      const s = Math.max(1, Math.round(sim.scale));
+      if (nd.n === undefined) nd.n = world.at((b.x0 + Math.round(nd.i)) * s, (b.y0 + Math.round(nd.j)) * s).n;
+      out.push(nd);
+    }
+    return out;
+  }
+
+  /* extra pull from black holes, with a sideways component so matter swirls
+     in instead of falling straight down the throat */
+  sim.singularity = 1.2;
+  sim.captureRadius = 1.1;
+  sim.holeForce = function (x, y) {
+    let fx = 0, fy = 0;
+    for (const h of sim.holes) {
+      const dx = h.i - x, dy = h.j - y;
+      const d2 = dx * dx + dy * dy + 1.2;
+      const g = sim.singularity * h.strength / d2;
+      fx += dx * g; fy += dy * g;
+      fx += -dy * g * 0.55; fy += dx * g * 0.55;
+    }
+    return [fx, fy];
+  };
+
+  /* ---- particles ---- */
+
+  sim.particles = [];
+  sim.spawn = function (count, seedFn) {
+    const b = sim.baked;
+    sim.particles.length = 0;
+    for (let i = 0; i < count; i++) {
+      const p = seedFn ? seedFn(i) : { x: Math.random() * (b ? b.w : 64), y: Math.random() * (b ? b.h : 64) };
+      sim.particles.push({ x: p.x, y: p.y, px: p.x, py: p.y, vx: 0, vy: 0, age: Math.random() * 200 });
+    }
+    return sim.particles;
+  };
+
+  sim.step = function (dt, damping) {
+    if (!sim.baked) return;
+    const b = sim.baked, d = damping === undefined ? 0.94 : damping;
+    for (const p of sim.particles) {
+      const [fx, fy] = sim.forceAt(p.x, p.y);
+      const [hx, hy] = sim.holes.length ? sim.holeForce(p.x, p.y) : [0, 0];
+      p.vx = (p.vx + (fx + hx) * dt) * d;
+      p.vy = (p.vy + (fy + hy) * dt) * d;
+      p.px = p.x; p.py = p.y;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.age += dt;
+      let eaten = false;
+      for (const h of sim.holes) {
+        const dx = h.i - p.x, dy = h.j - p.y;
+        if (dx * dx + dy * dy < sim.captureRadius * sim.captureRadius) {
+          h.fed = (h.fed || 0) + 1; eaten = true; break;
+        }
+      }
+      const stalled = Math.abs(p.vx) + Math.abs(p.vy) < 0.0008;
+      if (eaten || p.x < 0 || p.y < 0 || p.x > b.w || p.y > b.h || (stalled && p.age > 260)) {
+        p.x = p.px = Math.random() * b.w; p.y = p.py = Math.random() * b.h;
+        p.vx = p.vy = 0; p.age = 0;
+      }
+    }
+  };
+
+  return sim;
+}
+
+return { attach };
+});
+</script>
+<script>/* worldfield-volume.js — the same number rules, resolved through a solid.
+
+   worldfield.js gives a place its number and asks whether the rules hold there.
+   This walks a cube of places instead of a sheet, keeps what passes, and reports
+   where the passing places crowd together — those crowds are where a world puts
+   its stars, and the empty stretches are where it puts its clouds.
+
+   build({ size, address, rules, combine, invert, hit, budget }) -> volume
+     size     N, edge of the lattice; the cube is N^3 centred on the origin
+     address  (x,y,z) -> n
+     hit      (rule, n) -> boolean, normally WorldField.ruleHit
+     budget   how many passing voxels to keep for drawing
+
+   The volume is plain data. Nothing in here knows about a screen.
+*/
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.WorldFieldVolume = api;
+})(typeof self !== "undefined" ? self : this, function () {
+"use strict";
+
+function build(opts) {
+  const N = Math.max(4, opts.size | 0), h = (N - 1) / 2;
+  const addr = opts.address, rules = opts.rules || [], hit = opts.hit;
+  const combine = opts.combine || "any", invert = !!opts.invert;
+  const inside = opts.inside || null;      // the solid the field is cut to
+  const V = N * N * N;
+
+  const pass = new Uint8Array(V);
+  const score = new Uint8Array(V);
+  const solid = new Uint8Array(V);
+  const on = rules.filter(r => r.on);
+
+  let hits = 0, sum = 0, maxScore = 0, space = 0, i = 0;
+  for (let zi = 0; zi < N; zi++) {
+    for (let yi = 0; yi < N; yi++) {
+      for (let xi = 0; xi < N; xi++, i++) {
+        const px = xi - h, py = yi - h, pz = zi - h;
+        if (inside && !inside(px, py, pz)) continue;   // outside is never numbered
+        solid[i] = 1; space++;
+        const n = addr(px, py, pz);
+        let c = 0;
+        for (let r = 0; r < on.length; r++) if (hit(on[r], n)) c++;
+        let p;
+        if (!on.length) p = false;
+        else if (combine === "all") p = c === on.length;
+        else if (combine === "one") p = c === 1;
+        else p = c > 0;
+        if (invert) p = !p;
+        pass[i] = p ? 1 : 0;
+        score[i] = c;
+        if (p) hits++;
+        sum += c;
+        if (c > maxScore) maxScore = c;
+      }
+    }
+  }
+
+  /* how crowded each place is — passing neighbours in the 3x3x3 around it */
+  const dens = new Uint8Array(V);
+  const idx = (x, y, z) => (z * N + y) * N + x;
+  for (let z = 0; z < N; z++) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let d = 0;
+    const x0 = Math.max(0, x - 1), x1 = Math.min(N - 1, x + 1);
+    const y0 = Math.max(0, y - 1), y1 = Math.min(N - 1, y + 1);
+    const z0 = Math.max(0, z - 1), z1 = Math.min(N - 1, z + 1);
+    for (let c = z0; c <= z1; c++) for (let b = y0; b <= y1; b++) for (let a = x0; a <= x1; a++)
+      d += pass[idx(a, b, c)];
+    dens[idx(x, y, z)] = d;
+  }
+
+  /* the passing places, thinned to something a screen can carry */
+  const budget = opts.budget || 6000;
+  const stride = hits > budget ? Math.ceil(hits / budget) : 1;
+  const keep = stride === 1 ? hits : Math.ceil(hits / stride);
+  const pts = new Float32Array(keep * 5);   // x, y, z, score, crowding
+  let k = 0, seen = 0;
+  for (let z = 0; z < N && k < keep; z++) for (let y = 0; y < N && k < keep; y++) for (let x = 0; x < N && k < keep; x++) {
+    const j = idx(x, y, z);
+    if (!pass[j]) continue;
+    if (seen++ % stride) continue;
+    const o = k * 5;
+    pts[o] = x - h; pts[o + 1] = y - h; pts[o + 2] = z - h;
+    pts[o + 3] = score[j]; pts[o + 4] = dens[j];
+    k++;
+  }
+
+  /* peaks: the places where solid matter concentrates — a local maximum of the
+     crowding, whether or not that exact voxel passes. A field made of thin planes
+     has its densest point in the gap between two of them, and that is still the
+     right place to hang a star. */
+  let peaks = [];
+  for (let z = 1; z < N - 1; z++) for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+    const j = idx(x, y, z);
+    if (!dens[j] || !solid[j]) continue;
+    let top = true;
+    for (let c = -1; c <= 1 && top; c++) for (let b = -1; b <= 1 && top; b++) for (let a = -1; a <= 1; a++) {
+      if (!a && !b && !c) continue;
+      if (dens[idx(x + a, y + b, z + c)] > dens[j]) { top = false; break; }
+    }
+    if (top) peaks.push({ x: x - h, y: y - h, z: z - h, d: dens[j], s: score[j],
+                          n: addr(x - h, y - h, z - h) });
+  }
+  peaks.sort((a, b) => (b.d - a.d) || (b.s - a.s));
+  if (peaks.length > 4000) peaks = peaks.slice(0, 4000);
+
+  /* voids: the emptiest places on a coarse stride. No threshold — even a crowded
+     world has somewhere thinner than the rest, and that is where a cloud goes. */
+  const voids = [];
+  const step = Math.max(2, Math.round(N / 9));
+  for (let z = 1; z < N - 1; z += step) for (let y = 1; y < N - 1; y += step) for (let x = 1; x < N - 1; x += step) {
+    const j = idx(x, y, z);
+    if (!solid[j]) continue;
+    voids.push({ x: x - h, y: y - h, z: z - h, d: dens[j], s: score[j],
+                 n: addr(x - h, y - h, z - h) });
+  }
+  voids.sort((a, b) => a.d - b.d);
+
+  return {
+    N, h, pass, score, dens, solid, pts, ptCount: k, peaks, voids,
+    at(x, y, z) {
+      const a = Math.round(x + h), b = Math.round(y + h), c = Math.round(z + h);
+      if (a < 0 || b < 0 || c < 0 || a >= N || b >= N || c >= N) return null;
+      const j = idx(a, b, c);
+      return { pass: !!pass[j], score: score[j], dens: dens[j] };
+    },
+    stats: { voxels: V, space, hits, density: hits / (space || 1),
+             meanScore: sum / (space || 1), maxScore, kept: k, stride }
+  };
+}
+
+/* keep chosen points apart, so nodes don't pile into one crevice */
+function spaced(list, count, gap, taken) {
+  const out = [];
+  const g2 = gap * gap;
+  for (const c of list) {
+    if (out.length >= count) break;
+    let ok = true;
+    for (const p of out.concat(taken || [])) {
+      const dx = p.x - c.x, dy = p.y - c.y, dz = p.z - c.z;
+      if (dx * dx + dy * dy + dz * dz < g2) { ok = false; break; }
+    }
+    if (ok) out.push(c);
+  }
+  return out;
+}
+
+return { build, spaced };
+});
+</script>
+<script>
+const WF = WorldField, PHY = WorldFieldPhysics, VOL = WorldFieldVolume;
+const GW = 88, GH = 56;                    // the optional floor is still a sheet
+const SMALL = window.innerWidth <= 780;
+
+const PARAMS = {
+  div:["k"], mod:["k","r"], root:["r"], power:["k"], collatz:["r"], divct:["r"],
+  dsum:["r"], hasdig:["k"], coprime:["k"], prime:[], square:[], fib:[], tri:[],
+  semi:[], happy:[], palin:[], abundant:[], perfect:[]
+};
+const TYPE_LABEL = {
+  div:"divisible by", mod:"n mod k =", root:"digital root", prime:"prime", square:"square",
+  fib:"fibonacci", tri:"triangular", power:"power of", collatz:"collatz ≥", divct:"divisors ≥",
+  palin:"palindrome", dsum:"digit sum =", hasdig:"contains digit", semi:"semiprime",
+  happy:"happy", coprime:"coprime to", abundant:"abundant", perfect:"perfect"
+};
+
+const KINDS = ["star","hole","planet","cloud","gen"];
+const KIND_LABEL = { star:"star", hole:"black hole", planet:"planet", cloud:"gas cloud", gen:"generator" };
+
+const state = {
+  rules: [
+    { on:true,  type:"div",  k:2, r:0 },
+    { on:true,  type:"prime", k:1, r:0 }
+  ],
+  combine:"any", addr:"columns", invert:false, shape:"cube",
+  vsize: SMALL ? 26 : 40, roll:0,
+  scale:1, curve:0,
+  G:1, falloff:2, reach:14, sign:1, singularity:1.6,
+  count_star:6, count_hole:2, count_planet:8, count_cloud:5, count_gen:4,
+  gap:5, starMass:1, holeMass:3, cloudSize:6, emit:1,
+  pcount: SMALL ? 300 : 700, damp:0.999, trail:1,
+  floor:false, warp:3.8, relief:1.8, labels:true,
+  points: SMALL ? 2200 : 7000
+};
+
+let vol = null, nodes = [], userNodes = [], selected = null, nextId = 1;
+let bakePending = true, bakeTimer = null;
+
+/* ---------------- giving a place in the solid its number ---------------- */
+
+const ULAM = WF.address.ulam(), CANTOR = WF.address.cantor();
+
+/* Numbers stay under the sieve ceiling. Past it primality falls back to trial
+   division, and a lattice of 175,000 places cannot afford that; at the far corner
+   of a big scaled volume the count folds instead. */
+const NCAP = 1999983;
+const cap = n => n < NCAP ? n : (n % NCAP) + 1;
+
+/* ---------------- the shape of the space ----------------
+   A shape is just a test: does this place belong to the solid? Everything outside
+   is never numbered, so a sphere costs about half of what its cube would. */
+
+const SHAPES = {
+  cube:     () => null,
+  sphere:   h => (x, y, z) => x*x + y*y + z*z <= h*h,
+  shell:    h => { const o = h*h, i = (h*0.68)*(h*0.68);
+                   return (x, y, z) => { const r = x*x + y*y + z*z; return r <= o && r >= i; }; },
+  disc:     h => { const r2 = h*h, t = Math.max(1.5, h*0.22);
+                   return (x, y, z) => x*x + z*z <= r2 && Math.abs(y) <= t; },
+  cylinder: h => { const r2 = (h*0.78)*(h*0.78);
+                   return (x, y, z) => x*x + z*z <= r2 && Math.abs(y) <= h; },
+  torus:    h => { const R = h*0.62, t = Math.max(2, h*0.30);
+                   return (x, y, z) => { const q = Math.sqrt(x*x + z*z) - R;
+                                         return q*q + y*y <= t*t; }; }
+};
+const SHAPE_NAMES = Object.keys(SHAPES);
+
+function address3(name, N) {
+  const h = (N - 1) / 2, L = N * N, s = Math.max(1, state.scale);
+  if (name === "rows")
+    return (x, y, z) => cap(1 + (Math.round(x*s+h) + Math.round(y*s+h) * N + Math.round(z*s+h) * L));
+  if (name === "diagonals")
+    return (x, y, z) => { const a=x*s, b=y*s, c=z*s;
+      return cap(1 + Math.round((a+b+c+3*h) * L + (b+h) * N + (a+h))); };
+  if (name === "radial")
+    return (x, y, z) => 1 + Math.round(Math.sqrt(x*x+y*y+z*z) * s * 3) + Math.abs(Math.round((x+y+z)*s));
+  if (name === "shells")
+    return (x, y, z) => {
+      const a=Math.round(x*s), b=Math.round(y*s), c=Math.round(z*s);
+      const r = Math.max(Math.abs(a), Math.abs(b), Math.abs(c));
+      if (!r) return 1;
+      const e = 2*r+1, base = (e-2)*(e-2)*(e-2), band = e*e*e - base;
+      return cap(base + 1 + ((((a+r)*e + (b+r))*e + (c+r)) % band));
+    };
+  /* columns: the Ulam spiral laid flat, then stacked — keeps the prime diagonals
+     in every layer and lets height carry the count */
+  return (x, y, z) => cap(ULAM(Math.round(x*s), Math.round(z*s)) + Math.round(y*s+h) * L);
+}
+
+const FLOOR_ADDR = { columns:"ulam", shells:"ulam", diagonals:"cantor", rows:"rows", radial:"radial" };
+function floorAddress() {
+  const n = FLOOR_ADDR[state.addr] || "ulam";
+  if (n === "rows") return WF.address.rows(64);
+  if (n === "cantor") return CANTOR;
+  if (n === "radial") return WF.address.radial(3);
+  return ULAM;
+}
+
+/* ---------------- the bake ---------------- */
+
+let field, world, sim;                     // floor only
+const heights = new Float32Array(GW * GH);
+let hRange = [0, 1];
+
+function rebuild() { queueBake(); }
+function queueBake() { bakePending = true; clearTimeout(bakeTimer); bakeTimer = setTimeout(bake, 80); }
+
+function bake() {
+  const N = state.vsize | 0;
+  vol = VOL.build({
+    size: N, address: address3(state.addr, N), rules: state.rules,
+    combine: state.combine, invert: state.invert, hit: WF.ruleHit,
+    inside: (SHAPES[state.shape] || SHAPES.cube)((N - 1) / 2),
+    budget: state.points
+  });
+
+  seedNodes();
+  spawnParticles();
+  if (state.floor) bakeFloor(); 
+  bakePending = false;
+  hud();
+}
+
+function bakeFloor() {
+  field = WF.field({ rules: state.rules, combine: state.combine });
+  world = WF.world({ field, address: floorAddress(), invert: state.invert });
+  sim = PHY.attach(world);
+  sim.G = state.G; sim.falloff = state.falloff; sim.reach = 9;
+  sim.attract = state.sign; sim.scale = state.scale; sim.singularity = 1;
+  sim.nodeConfig.marks = false;
+  sim.bake(-GW / 2, -GH / 2, GW, GH);
+  sim.spawn(0);
+  const b = sim.baked;
+  let lo = 1e9, hi = -1e9;
+  for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) {
+    const h = b.score[j * GW + i] * state.relief + sim.potentialAt(i, j) * state.warp * state.G;
+    heights[j * GW + i] = h;
+    if (h < lo) lo = h; if (h > hi) hi = h;
+  }
+  hRange = [lo, Math.max(hi, lo + 0.001)];
+}
+
+/* ---------------- nodes ----------------
+   Seeded nodes come from the field: the most crowded places get the heaviest
+   things, the emptiest get the clouds. Anything you add by hand outlives a
+   rebake, because you put it there on purpose. */
+
+function mkNode(kind, p) {
+  const d = p.d ? p.d / 27 : 0.4;
+  const base = {
+    star:   { mass: 1.0 + d * 1.6, radius: 1.1 + d },
+    hole:   { mass: 2.6 + d * 3.0, radius: 0.9 + d * 0.8 },
+    planet: { mass: 0.30 + d * 0.4, radius: 0.55 + d * 0.4 },
+    cloud:  { mass: 0.06,           radius: 4.5 },
+    gen:    { mass: 0.10,           radius: 0.7 }
+  }[kind];
+  return { id: nextId++, kind, x: p.x, y: p.y, z: p.z, n: p.n || 0,
+           mass: base.mass, radius: base.radius, seed: true, fed: 0, phase: Math.random() * 6.283 };
+}
+
+/* A seeded node is re-derived on every bake, so removing one has to be remembered.
+   Places are remembered, not nodes — and only while the field that produced them
+   still stands. Change the rules or the shape and the old places mean nothing. */
+const removed = new Set();
+let fieldSig = "";
+const placeKey = p => Math.round(p.x) + "," + Math.round(p.y) + "," + Math.round(p.z);
+
+function seedNodes() {
+  const sig = JSON.stringify([state.rules, state.combine, state.invert,
+                              state.addr, state.shape, state.vsize, state.scale]);
+  if (sig !== fieldSig) { fieldSig = sig; removed.clear(); }
+
+  if (!vol.stats.hits) {              // nothing passes, so there is nowhere to put anything
+    nodes = userNodes.slice();
+    buildNodeUI();
+    return;
+  }
+  const gap = state.gap;
+  const taken = [];
+  const out = [];
+  const free = list => list.filter(p => !removed.has(placeKey(p)));
+  const take = (list, kind, count) => {
+    const picks = VOL.spaced(free(list), count, gap, taken);
+    for (const p of picks) { taken.push(p); out.push(mkNode(kind, p)); }
+    return picks;
+  };
+
+  const peaks = vol.peaks;
+  take(peaks, "hole", state.count_hole);
+  const stars = take(peaks, "star", state.count_star);
+
+  /* planets prefer to sit near a star, so systems form instead of scatter */
+  const near = [];
+  for (const p of peaks) {
+    let best = 1e9;
+    for (const s of stars) {
+      const dx = s.x - p.x, dy = s.y - p.y, dz = s.z - p.z;
+      best = Math.min(best, dx*dx + dy*dy + dz*dz);
+    }
+    near.push([best, p]);
+  }
+  near.sort((a, b) => a[0] - b[0]);
+  take(near.map(v => v[1]), "planet", state.count_planet);
+  take(peaks, "gen", state.count_gen);
+  take(vol.voids, "cloud", state.count_cloud);
+
+  nodes = out.concat(userNodes);
+  if (selected && !nodes.some(n => n.id === selected)) selected = null;
+  buildNodeUI();
+}
+
+function addNode(kind) {
+  const h = vol ? vol.h : 12;
+  const a = Math.random() * 6.283, r = h * 0.45;
+  const nd = mkNode(kind, { x: Math.cos(a) * r, y: (Math.random() - 0.5) * h, z: Math.sin(a) * r, d: 10 });
+  nd.seed = false;
+  userNodes.push(nd);
+  nodes = nodes.concat([nd]);
+  selected = nd.id;
+  buildNodeUI();
+}
+
+function removeNode(id) {
+  const nd = nodeById(id);
+  if (!nd) return;
+  if (nd.seed) {
+    /* hold the place against the next bake, and drop the count by one so the
+       seeding doesn't just hand the slot to the runner-up */
+    removed.add(placeKey(nd));
+    const key = "count_" + nd.kind;
+    state[key] = Math.max(0, state[key] - 1);
+    syncControls();
+  } else {
+    const i = userNodes.findIndex(n => n.id === id);
+    if (i >= 0) userNodes.splice(i, 1);
+  }
+  nodes = nodes.filter(n => n.id !== id);
+  if (selected === id) selected = null;
+  buildNodeUI();
+  hud();
+}
+
+const nodeById = id => nodes.find(n => n.id === id);
+
+/* ---------------- particles ---------------- */
+
+let parts = [];
+const UP = [0, 1, 0];
+const MAXAGE = 9000;    /* about two and a half minutes before a particle is reissued */
+
+function spawnParticles() {
+  const want = state.pcount | 0;
+  while (parts.length > want) parts.pop();
+  while (parts.length < want) {
+    const p = newParticle();
+    /* born at staggered ages, so they expire in a trickle rather than all at once
+       and the generators always have something to reissue */
+    p.age = Math.random() * MAXAGE;
+    parts.push(p);
+  }
+}
+
+function newParticle(p) {
+  p = p || { x:0, y:0, z:0, px:0, py:0, pz:0, vx:0, vy:0, vz:0, age:0 };
+  /* everything issues matter except black holes — one of those would swallow its
+     own output on the frame it left */
+  const from = nodes.filter(n => n.kind !== "hole");
+  const h = vol ? vol.h : 12;
+  const a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1);
+  const sb = Math.sin(b);
+  if (from.length) {
+    const g = from[(Math.random() * from.length) | 0];
+    /* clouds give birth anywhere inside themselves; anything solid launches clear
+       of its own surface, or it would be captured before it moved */
+    const r = g.kind === "cloud"
+      ? g.radius * state.cloudSize / 4.5 * Math.cbrt(Math.random())
+      : g.radius * (1.7 + Math.random() * 0.6);
+    p.x = g.x + r * sb * Math.cos(a);
+    p.y = g.y + r * Math.cos(b);
+    p.z = g.z + r * sb * Math.sin(a);
+  } else {
+    const r = h * (0.4 + 0.6 * Math.random());
+    p.x = r * sb * Math.cos(a); p.y = r * Math.cos(b); p.z = r * sb * Math.sin(a);
+  }
+  /* leave with a sideways push toward the nearest heavy thing, so orbits happen */
+  let best = null, bd = 1e9;
+  for (const nd of nodes) {
+    if (nd.kind === "cloud" || nd.kind === "gen") continue;
+    const dx = nd.x-p.x, dy = nd.y-p.y, dz = nd.z-p.z, d2 = dx*dx+dy*dy+dz*dz;
+    if (d2 < bd) { bd = d2; best = nd; }
+  }
+  if (best && bd > 0.5) {
+    const d = Math.sqrt(bd);
+    const rx = (best.x-p.x)/d, ry = (best.y-p.y)/d, rz = (best.z-p.z)/d;
+    let tx = ry*UP[2]-rz*UP[1], ty = rz*UP[0]-rx*UP[2], tz = rx*UP[1]-ry*UP[0];
+    const tl = Math.hypot(tx,ty,tz) || 1;
+    const v = Math.sqrt(state.G * best.mass / d) * 0.55;
+    p.vx = tx/tl*v; p.vy = ty/tl*v; p.vz = tz/tl*v;
+  } else { p.vx = p.vy = p.vz = 0; }
+  p.px = p.x; p.py = p.y; p.pz = p.z; p.age = 0;
+  return p;
+}
+
+function stepParticles() {
+  const G = state.G * state.sign, fall = state.falloff, reach = state.reach, r2max = reach * reach;
+  const damp = state.damp, h = vol ? vol.h : 12, bound = h * 2.2;
+
+  for (const p of parts) {
+    let ax = 0, ay = 0, az = 0, drag = 1, dead = false;
+    for (const nd of nodes) {
+      const dx = nd.x - p.x, dy = nd.y - p.y, dz = nd.z - p.z;
+      const d2 = dx*dx + dy*dy + dz*dz;
+
+      if (nd.kind === "cloud") {
+        const R = nd.radius * state.cloudSize / 4.5;
+        if (d2 < R*R) {                       // clouds slow what drifts through them
+          const t = 1 - Math.sqrt(d2) / R;
+          drag *= 1 - 0.045 * t;
+          ax += -p.vz * 0.010 * t; az += p.vx * 0.010 * t;
+        }
+        continue;
+      }
+      if (nd.kind === "gen") continue;
+      if (d2 > r2max) continue;
+
+      let m = nd.mass;
+      if (nd.kind === "hole") {
+        m *= state.singularity;
+        if (d2 < nd.radius * nd.radius) { nd.fed++; dead = true; break; }
+      } else if (nd.kind === "star" || nd.kind === "planet") {
+        if (d2 < nd.radius * nd.radius * 0.35) { nd.fed++; dead = true; break; }
+        m *= nd.kind === "star" ? state.starMass : 1;
+      }
+      const d = Math.sqrt(d2) || 0.001;
+      const f = G * m / Math.pow(Math.max(d2, 0.9), fall / 2);
+      ax += f * dx / d; ay += f * dy / d; az += f * dz / d;
+    }
+
+    const stalled = p.age > 1500 && Math.abs(p.vx) + Math.abs(p.vy) + Math.abs(p.vz) < 0.0004;
+    if (dead || stalled || p.age > MAXAGE ||
+        Math.abs(p.x) > bound || Math.abs(p.y) > bound || Math.abs(p.z) > bound) {
+      newParticle(p); continue;
+    }
+    p.px = p.x; p.py = p.y; p.pz = p.z;
+    p.vx = (p.vx + ax) * damp * drag;
+    p.vy = (p.vy + ay) * damp * drag;
+    p.vz = (p.vz + az) * damp * drag;
+
+    /* a close pass shouldn't throw anything across the volume in one frame */
+    const sp = Math.hypot(p.vx, p.vy, p.vz);
+    if (sp > 1.4) { const c = 1.4 / sp; p.vx *= c; p.vy *= c; p.vz *= c; }
+
+    p.x += p.vx; p.y += p.vy; p.z += p.vz;
+    p.age++;
+  }
+}
+
+/* ---------------- camera and projection ---------------- */
+
+const cvs = document.getElementById("c"), ctx = cvs.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cvs.parentElement.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cvs.width = W * DPR; cvs.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+
+let yaw = 0.3, pitch = 0.32, dist = 78;
+const setDist = v => dist = Math.max(14, Math.min(240, v));
+
+/* curvature: below zero space bowls inward, above it domes away */
+function bend(wx, wy, wz, out) {
+  const K = state.curve;
+  if (!K) { out[0]=wx; out[1]=wy; out[2]=wz; return out; }
+  const r = Math.sqrt(wx*wx + wz*wz);
+  const s = (1 / (1 + Math.max(0, -K) * r * 0.028)) * (1 + Math.max(0, K) * r * 0.012);
+  out[0] = wx * s; out[1] = wy - K * r * r * 0.0073; out[2] = wz * s;
+  return out;
+}
+
+const _b = [0,0,0];
+let PX = 0, PY = 0, PD = 0;
+function pj(wx, wy, wz) {
+  bend(wx, wy, wz, _b);
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const x1 = _b[0]*cy - _b[2]*sy, z1 = _b[0]*sy + _b[2]*cy;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const y2 = _b[1]*cp - z1*sp, z2 = _b[1]*sp + z1*cp;
+  const d = z2 + dist;
+  if (d < 2) return false;
+  const f = (Math.min(W, H * 1.7) * 0.95) / d;
+  PX = W/2 + x1*f; PY = H*0.54 - y2*f; PD = d;
+  if (state.roll) {                       // the third axis, turned by hand
+    const cr = Math.cos(state.roll), sr = Math.sin(state.roll);
+    const ox = PX - W/2, oy = PY - H*0.54;
+    PX = W/2 + ox*cr - oy*sr; PY = H*0.54 + ox*sr + oy*cr;
+  }
+  return true;
+}
+const focal = d => (Math.min(W, H * 1.7) * 0.95) / d;
+
+/* screen drag -> world move, in the plane facing the camera */
+function screenToWorld(dxs, dys, d) {
+  if (state.roll) {                       // the drag arrives rolled; take it back out
+    const cr = Math.cos(-state.roll), sr = Math.sin(-state.roll);
+    const ax = dxs*cr - dys*sr, ay = dxs*sr + dys*cr;
+    dxs = ax; dys = ay;
+  }
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const f = focal(d);
+  const rx = cy, rz = -sy;
+  const ux = -sy*sp, uy = cp, uz = -cy*sp;
+  const a = dxs / f, b = -dys / f;
+  return [rx*a + ux*b, uy*b, rz*a + uz*b];
+}
+
+/* ---------------- input ---------------- */
+
+const touches = new Map();
+let pinch = 0, pinchDist = 0, lx = 0, ly = 0, moved = 0, dragNode = null;
+
+function pickNode(sx, sy) {
+  let best = null, bd = 22 * 22;
+  for (const nd of nodes) {
+    if (!pj(nd.x, nd.y, nd.z)) continue;
+    const dx = PX - sx, dy = PY - sy, d2 = dx*dx + dy*dy;
+    if (d2 < bd) { bd = d2; best = nd; }
+  }
+  return best;
+}
+
+cvs.addEventListener("pointerdown", e => {
+  cvs.setPointerCapture(e.pointerId);
+  const r = cvs.getBoundingClientRect();
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  lx = e.clientX; ly = e.clientY; moved = 0;
+  if (touches.size === 2) { pinch = spread(); pinchDist = dist; dragNode = null; return; }
+  const hitNode = pickNode(e.clientX - r.left, e.clientY - r.top);
+  if (hitNode && hitNode.id === selected) dragNode = hitNode;   // second touch moves it
+});
+
+const spread = () => {
+  const v = [...touches.values()];
+  return v.length < 2 ? 0 : Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y);
+};
+const drop = e => {
+  const r = cvs.getBoundingClientRect();
+  if (moved < 5 && touches.size === 1 && !dragNode) {
+    const nd = pickNode(e.clientX - r.left, e.clientY - r.top);
+    selected = nd ? nd.id : null;
+    buildNodeUI();
+  }
+  touches.delete(e.pointerId); pinch = 0; dragNode = null;
+};
+cvs.addEventListener("pointerup", drop);
+cvs.addEventListener("pointercancel", drop);
+
+cvs.addEventListener("pointermove", e => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const dx = e.clientX - lx, dy = e.clientY - ly;
+  moved += Math.abs(dx) + Math.abs(dy);
+
+  if (touches.size >= 2) {
+    const s = spread();
+    if (pinch > 8 && s > 8) setDist(pinchDist * (pinch / s));
+    lx = e.clientX; ly = e.clientY;
+    return;
+  }
+  if (dragNode) {
+    if (pj(dragNode.x, dragNode.y, dragNode.z)) {
+      const d = screenToWorld(dx, dy, PD);
+      dragNode.x += d[0]; dragNode.y += d[1]; dragNode.z += d[2];
+    }
+  } else {
+    yaw += dx * 0.005;
+    pitch = Math.max(-0.9, Math.min(1.35, pitch + dy * 0.004));
+  }
+  lx = e.clientX; ly = e.clientY;
+});
+cvs.addEventListener("wheel", e => { e.preventDefault(); setDist(dist + e.deltaY * 0.08); }, { passive:false });
+
+/* ---------------- drawing ---------------- */
+
+const STOPS = [[16,20,52],[30,96,150],[46,196,196],[130,214,146],[238,180,92],[240,152,176],[248,242,255]];
+function ramp(t) {
+  t = Math.max(0, Math.min(0.999, t)) * (STOPS.length - 1);
+  const i = t | 0, f = t - i, a = STOPS[i], b = STOPS[i + 1];
+  return "rgb(" + ((a[0]+(b[0]-a[0])*f)|0) + "," + ((a[1]+(b[1]-a[1])*f)|0) + "," + ((a[2]+(b[2]-a[2])*f)|0) + ")";
+}
+
+let sxA = null, syA = null, sdA = null, orderSrc = null, order = null;
+function ensureBuffers(n) {
+  if (sxA && sxA.length >= n) return;
+  sxA = new Float32Array(n); syA = new Float32Array(n); sdA = new Float32Array(n);
+  orderSrc = new Int32Array(n); order = new Array(n);
+}
+
+function drawFloor() {
+  if (!sim || !sim.baked) return;
+  const span = hRange[1] - hRange[0], drop = -(vol ? vol.h : 12) - 3;
+  const rows = [];
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch);
+  for (let j = 0; j < GH; j++) rows.push([j, ((j - GH/2) * cy) * cp]);
+  rows.sort((a, b) => b[1] - a[1]);
+  ctx.lineWidth = 0.8;
+  for (const [j] of rows) {
+    let prev = null;
+    for (let i = 0; i < GW; i += 3) {
+      const ok = pj((i - GW/2) * 0.55, heights[j*GW+i] * 0.5 + drop, (j - GH/2) * 0.55);
+      const cur = ok ? [PX, PY] : null;
+      if (prev && cur) {
+        const t = (heights[j*GW+i] - hRange[0]) / span;
+        ctx.strokeStyle = ramp(t * 0.75);
+        ctx.globalAlpha = 0.10 + 0.30 * t;
+        ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.lineTo(cur[0], cur[1]); ctx.stroke();
+      }
+      prev = cur;
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPoints() {
+  const n = vol.ptCount, p = vol.pts;
+  if (!n) return;
+  ensureBuffers(n);
+  let k = 0;
+  const maxS = Math.max(1, vol.stats.maxScore);
+  for (let i = 0; i < n; i++) {
+    const o = i * 5;
+    if (!pj(p[o], p[o+1], p[o+2])) continue;
+    if (PX < -20 || PY < -20 || PX > W + 20 || PY > H + 20) continue;
+    sxA[k] = PX; syA[k] = PY; sdA[k] = PD; orderSrc[k] = i; order[k] = k;
+    k++;
+  }
+  order.length = k;
+  order.sort((a, b) => sdA[b] - sdA[a]);      // far ones first
+  for (let q = 0; q < k; q++) {
+    const j = order[q], o = orderSrc[j] * 5, d = sdA[j];
+    const s = Math.max(1, Math.min(3.6, 210 / d));
+    ctx.fillStyle = ramp(0.15 + 0.85 * (p[o+3] / maxS));
+    ctx.globalAlpha = Math.max(0.05, Math.min(0.85, (p[o+4] / 12) * (90 / d)));
+    ctx.fillRect(sxA[j] - s/2, syA[j] - s/2, s, s);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawNodes() {
+  const list = [];
+  for (const nd of nodes) {
+    if (!pj(nd.x, nd.y, nd.z)) continue;
+    list.push([PD, PX, PY, nd]);
+  }
+  list.sort((a, b) => b[0] - a[0]);
+
+  ctx.globalCompositeOperation = "lighter";
+  for (const [d, x, y, nd] of list) {
+    const near = Math.max(0.2, Math.min(2.2, 90 / d));
+    const sel = nd.id === selected;
+
+    if (nd.kind === "cloud") {
+      const R = nd.radius * state.cloudSize / 4.5 * focal(d) * 0.5;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(6, R));
+      g.addColorStop(0, "rgba(126,104,196,0.20)");
+      g.addColorStop(0.45, "rgba(84,72,150,0.10)");
+      g.addColorStop(1, "rgba(40,36,90,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, Math.max(6, R), 0, 6.284); ctx.fill();
+    } else if (nd.kind === "star") {
+      const rad = (3.2 + nd.mass * 2.4) * near;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 3);
+      g.addColorStop(0, "rgba(255,246,225,0.95)");
+      g.addColorStop(0.22, "rgba(255,205,140,0.42)");
+      g.addColorStop(1, "rgba(255,170,90,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, rad * 3, 0, 6.284); ctx.fill();
+      ctx.strokeStyle = "rgba(255,250,240,0.8)"; ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x - rad*2.2, y); ctx.lineTo(x + rad*2.2, y);
+      ctx.moveTo(x, y - rad*2.2); ctx.lineTo(x, y + rad*2.2);
+      ctx.stroke();
+    } else if (nd.kind === "hole") {
+      const rad = (2.6 + nd.mass * 1.5) * near;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#000";
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, 6.284); ctx.fill();
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(x, y, rad * 0.9, x, y, rad * 2.4);
+      g.addColorStop(0, "rgba(180,220,255,0.85)");
+      g.addColorStop(0.35, "rgba(120,90,220,0.32)");
+      g.addColorStop(1, "rgba(90,60,180,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, rad * 2.4, 0, 6.284); ctx.fill();
+    } else if (nd.kind === "planet") {
+      const rad = Math.max(1.4, (1.6 + nd.mass * 2) * near);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#0a0c14";
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, 6.284); ctx.fill();
+      ctx.strokeStyle = "rgba(150,205,235,0.85)"; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.arc(x, y, rad, -0.6, 2.1); ctx.stroke();
+      ctx.globalCompositeOperation = "lighter";
+    } else if (nd.kind === "gen") {
+      const rad = Math.max(2.5, 4 * near);
+      ctx.strokeStyle = "rgba(120,235,220,0.8)"; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, 6.284); ctx.stroke();
+      const t = (performance.now() * 0.0016 + nd.phase);
+      for (let a = 0; a < 3; a++) {
+        const ang = t + a * 2.094;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(ang) * rad * 1.35, y + Math.sin(ang) * rad * 1.35);
+        ctx.lineTo(x + Math.cos(ang) * rad * 2.1, y + Math.sin(ang) * rad * 2.1);
+        ctx.stroke();
+      }
+    }
+
+    if (sel) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(232,168,124,0.95)"; ctx.lineWidth = 1;
+      const r = 13 * Math.max(0.5, Math.min(1.6, near));
+      ctx.strokeRect(x - r, y - r, r * 2, r * 2);
+      ctx.globalCompositeOperation = "lighter";
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  if (state.labels) {
+    ctx.font = "10px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "left";
+    for (const [d, x, y, nd] of list) {
+      if (d > 150 || nd.kind === "cloud") continue;
+      ctx.fillStyle = "rgba(196,178,222,0.7)";
+      ctx.fillText(KIND_LABEL[nd.kind] + (nd.n ? " " + nd.n : ""), x + 8, y - 6);
+    }
+  }
+}
+
+function drawParticles() {
+  if (!parts.length) return;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineWidth = 1;
+  const tr = state.trail;
+  for (const p of parts) {
+    if (!pj(p.x, p.y, p.z)) continue;
+    const ax = PX, ay = PY, ad = PD;
+    if (!pj(p.x - (p.x-p.px)*tr, p.y - (p.y-p.py)*tr, p.z - (p.z-p.pz)*tr)) continue;
+    const sp = Math.min(1, Math.hypot(p.vx, p.vy, p.vz) * 9);
+    ctx.strokeStyle = "rgba(" + (150 + 100*sp | 0) + "," + (220 - 20*sp | 0) + ",255," +
+                      (0.18 + 0.62 * sp) * Math.max(0.25, Math.min(1, 80/ad)) + ")";
+    ctx.beginPath(); ctx.moveTo(PX, PY); ctx.lineTo(ax, ay); ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+function draw() {
+  ctx.fillStyle = "#05060a";
+  ctx.fillRect(0, 0, W, H);
+  if (!vol) return;
+  if (state.floor) drawFloor();
+  drawPoints();
+  drawNodes();
+  drawParticles();
+}
+
+function frame() {
+  if (vol && !bakePending) stepParticles();
+  draw();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- readout ---------------- */
+
+function hud() {
+  const c = {};
+  for (const k of KINDS) c[k] = nodes.filter(n => n.kind === k).length;
+  document.getElementById("h-den").textContent = vol.stats.density.toFixed(3);
+  document.getElementById("h-score").textContent = vol.stats.meanScore.toFixed(2);
+  document.getElementById("h-scale").textContent =
+    state.shape + " " + vol.N + "³ · " + (vol.stats.hits / 1000).toFixed(1) + "k solid";
+  document.getElementById("h-n").textContent = address3(state.addr, vol.N)(0, 0, 0);
+  document.getElementById("h-bodies").textContent =
+    c.star + " stars · " + c.hole + " holes · " + c.planet + " planets · " +
+    c.cloud + " clouds · " + c.gen + " gens";
+}
+
+/* ---------------- controls ---------------- */
+
+const MAX_RULES = 8;   /* every rule is another pass over every voxel on each bake */
+const SHUFFLE_POOL = ["div","mod","root","prime","square","fib","tri","collatz","divct",
+                      "dsum","semi","happy","palin","abundant"];
+
+const reseed = () => { if (vol) { seedNodes(); spawnParticles(); hud(); } };
+const refloor = () => { if (state.floor) { bakeFloor(); } };
+
+function buildRuleUI() {
+  const host = document.getElementById("rules");
+  host.textContent = "";
+  state.rules.forEach((rule, idx) => {
+    const row = document.createElement("div");
+    row.className = "row rule";
+
+    const on = document.createElement("input");
+    on.type = "checkbox"; on.checked = rule.on; on.title = "use this rule";
+    on.onchange = () => { rule.on = on.checked; clearWorld(); rebuild(); };
+
+    const sel = document.createElement("select");
+    for (const t of Object.keys(PARAMS)) {
+      const o = document.createElement("option");
+      o.value = t; o.textContent = TYPE_LABEL[t] || t;
+      if (t === rule.type) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.onchange = () => { rule.type = sel.value; clearWorld(); buildRuleUI(); rebuild(); };
+
+    row.append(on, sel);
+    for (const key of PARAMS[rule.type] || []) {
+      const num = document.createElement("input");
+      num.type = "number"; num.value = rule[key]; num.title = key;
+      num.onchange = () => { rule[key] = parseInt(num.value, 10) || 0; clearWorld(); rebuild(); };
+      row.appendChild(num);
+    }
+
+    const del = document.createElement("button");
+    del.className = "x"; del.textContent = "×"; del.title = "remove";
+    del.onclick = () => { state.rules.splice(idx, 1); clearWorld(); buildRuleUI(); rebuild(); };
+    row.appendChild(del);
+
+    host.appendChild(row);
+  });
+  document.getElementById("rulecount").textContent = state.rules.length + " of " + MAX_RULES;
+  document.getElementById("addrule").disabled = state.rules.length >= MAX_RULES;
+}
+
+document.getElementById("addrule").onclick = () => {
+  if (state.rules.length >= MAX_RULES) return;
+  state.rules.push({ on: true, type: "div", k: 3, r: 0 });
+  clearWorld(); buildRuleUI(); rebuild();
+};
+
+/* sliders read both ways, so loading a world can move them */
+const RANGES = [];
+function bindRange(id, key, div, fmt, after) {
+  const el = document.getElementById(id), out = document.getElementById("v-" + id);
+  const rec = {
+    label() { out.textContent = fmt ? fmt(state[key]) : state[key]; },
+    pull() { state[key] = div ? el.value / div : parseInt(el.value, 10); rec.label(); },
+    push() { el.value = div ? Math.round(state[key] * div) : state[key]; rec.label(); }
+  };
+  el.oninput = () => {
+    rec.pull(); clearWorld();
+    if (after === "bake") queueBake();
+    else if (after === "seed") reseed();
+    else if (after === "spawn") spawnParticles();
+    else if (after === "floor") refloor();
+  };
+  rec.pull();
+  RANGES.push(rec);
+}
+
+const one = v => v.toFixed(1);
+bindRange("vsize", "vsize", 0, null, "bake");
+bindRange("scale", "scale", 0, null, "bake");
+bindRange("points", "points", 0, null, "bake");
+bindRange("count_star", "count_star", 0, null, "seed");
+bindRange("count_hole", "count_hole", 0, null, "seed");
+bindRange("count_planet", "count_planet", 0, null, "seed");
+bindRange("count_cloud", "count_cloud", 0, null, "seed");
+bindRange("count_gen", "count_gen", 0, null, "seed");
+bindRange("gap", "gap", 0, null, "seed");
+bindRange("starMass", "starMass", 100, one);
+bindRange("sing", "singularity", 100, one);
+bindRange("cloudSize", "cloudSize", 10, one);
+bindRange("G", "G", 100, one);
+bindRange("fall", "falloff", 100, one);
+bindRange("reach", "reach", 0);
+bindRange("pcount", "pcount", 0, null, "spawn");
+bindRange("damp", "damp", 1000, v => v.toFixed(3).slice(1));
+bindRange("trail", "trail", 0);
+bindRange("roll", "roll", 57.29578, v => (v * 57.29578).toFixed(0) + "\u00b0");
+bindRange("curve", "curve", 100, one);
+bindRange("warp", "warp", 100, one, "floor");
+bindRange("relief", "relief", 100, one, "floor");
+
+function syncControls() {
+  RANGES.forEach(r => r.push());
+  document.getElementById("combine").value = state.combine;
+  document.getElementById("addr").value = state.addr;
+  document.getElementById("shape").value = state.shape;
+  document.getElementById("sign").value = String(state.sign);
+  document.getElementById("invert").checked = state.invert;
+  document.getElementById("labels").checked = state.labels;
+  document.getElementById("floor").checked = state.floor;
+}
+
+document.getElementById("combine").onchange = e => { state.combine = e.target.value; clearWorld(); rebuild(); };
+document.getElementById("addr").onchange = e => { state.addr = e.target.value; clearWorld(); rebuild(); };
+document.getElementById("shape").onchange = e => { state.shape = e.target.value; clearWorld(); rebuild(); };
+document.getElementById("invert").onchange = e => { state.invert = e.target.checked; clearWorld(); rebuild(); };
+document.getElementById("sign").onchange = e => { state.sign = parseInt(e.target.value, 10); clearWorld(); };
+document.getElementById("labels").onchange = e => { state.labels = e.target.checked; };
+document.getElementById("floor").onchange = e => {
+  state.floor = e.target.checked; clearWorld();
+  if (state.floor) bakeFloor();
+};
+
+document.getElementById("shuffle").onclick = () => {
+  if (!state.rules.length) state.rules.push({ on: true, type: "div", k: 2, r: 0 });
+  state.rules.forEach((r, i) => {
+    r.type = SHUFFLE_POOL[(Math.random() * SHUFFLE_POOL.length) | 0];
+    r.k = 2 + ((Math.random() * 11) | 0);
+    r.r = 1 + ((Math.random() * 9) | 0);
+    r.on = i === 0 ? true : Math.random() > 0.35;
+  });
+  clearWorld(); buildRuleUI(); rebuild();
+};
+
+document.getElementById("snap").onclick = () => {
+  const a = document.createElement("a");
+  a.download = "number-field.png";
+  a.href = cvs.toDataURL("image/png");
+  a.click();
+};
+
+/* ---------------- the node list ---------------- */
+
+function buildNodeUI() {
+  const addHost = document.getElementById("addnode");
+  addHost.textContent = "";
+  for (const k of KINDS) {
+    const b = document.createElement("button");
+    b.className = "x"; b.textContent = k === "gen" ? "gen" : k;
+    b.title = "add a " + KIND_LABEL[k];
+    b.onclick = () => addNode(k);
+    addHost.appendChild(b);
+  }
+
+  const selHost = document.getElementById("nodesel");
+  selHost.textContent = "";
+  const nd = selected ? nodeById(selected) : null;
+  if (nd) {
+    const head = document.createElement("div");
+    head.className = "row spread";
+    head.innerHTML = '<span class="tag">selected · ' + (nd.n || "placed") + "</span>";
+    const del = document.createElement("button");
+    del.className = "x"; del.textContent = "×"; del.title = "remove";
+    del.onclick = () => removeNode(nd.id);
+    head.appendChild(del);
+    selHost.appendChild(head);
+
+    const kindRow = document.createElement("div");
+    kindRow.className = "row";
+    const ks = document.createElement("select");
+    for (const k of KINDS) {
+      const o = document.createElement("option");
+      o.value = k; o.textContent = KIND_LABEL[k];
+      if (k === nd.kind) o.selected = true;
+      ks.appendChild(o);
+    }
+    ks.onchange = () => { nd.kind = ks.value; buildNodeUI(); };
+    kindRow.appendChild(ks);
+    selHost.appendChild(kindRow);
+
+    selHost.appendChild(nodeSlider("mass", nd, "mass", 0, 8, 0.05));
+    selHost.appendChild(nodeSlider("size", nd, "radius", 0.2, 12, 0.1));
+  }
+
+  const list = document.getElementById("nodelist");
+  list.textContent = "";
+  const shown = nodes.slice(0, 60);
+  for (const n of shown) {
+    const row = document.createElement("div");
+    row.className = "row noderow" + (n.id === selected ? " on" : "");
+    const pick = document.createElement("button");
+    pick.className = "nodename";
+    pick.textContent = KIND_LABEL[n.kind] + (n.n ? "  " + n.n : "  placed");
+    pick.onclick = () => { selected = n.id; buildNodeUI(); };
+    const del = document.createElement("button");
+    del.className = "x"; del.textContent = "×"; del.title = "remove";
+    del.onclick = () => removeNode(n.id);
+    row.append(pick, del);
+    list.appendChild(row);
+  }
+  if (nodes.length > shown.length) {
+    const more = document.createElement("div");
+    more.className = "note";
+    more.textContent = (nodes.length - shown.length) + " more not listed";
+    list.appendChild(more);
+  }
+}
+
+function nodeSlider(label, nd, key, lo, hi, step) {
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(document.createTextNode(label));
+  const r = document.createElement("input");
+  r.type = "range"; r.min = String(lo / step); r.max = String(hi / step);
+  r.value = String(Math.round(nd[key] / step));
+  const v = document.createElement("span");
+  v.className = "val"; v.textContent = nd[key].toFixed(1);
+  r.oninput = () => { nd[key] = r.value * step; v.textContent = nd[key].toFixed(1); };
+  row.append(r, v);
+  return row;
+}
+
+/* ---------------- worlds ---------------- */
+
+const BASE = {
+  combine:"any", addr:"columns", invert:false, shape:"cube", scale:1, curve:0, roll:0,
+  G:1, falloff:2, reach:14, sign:1, singularity:1.6,
+  count_star:6, count_hole:2, count_planet:8, count_cloud:5, count_gen:4,
+  gap:5, starMass:1, cloudSize:6,
+  pcount: SMALL ? 300 : 700, damp:0.999, trail:1, floor:false, warp:3.8, relief:1.8
+};
+const mk = (name, s) => ({ name, s: Object.assign({}, BASE, s) });
+
+const WORLDS = [
+  mk("even weave", { rules:[{on:true,type:"div",k:2,r:0},{on:true,type:"prime",k:1,r:0}] }),
+
+  mk("ulam primes", { rules:[{on:true,type:"prime",k:1,r:0}],
+      count_star:14, count_planet:16, count_hole:1, count_cloud:3, gap:4, reach:11 }),
+
+  mk("primes on the six", { rules:[{on:true,type:"prime",k:1,r:0},{on:true,type:"mod",k:6,r:1}],
+      combine:"all", addr:"shells", count_star:9, count_planet:4, gap:6, trail:3 }),
+
+  mk("sevens", { rules:[{on:true,type:"div",k:7,r:0}],
+      addr:"radial", shape:"disc", count_star:4, count_hole:3, count_planet:14, count_cloud:8,
+      G:1.4, reach:18, cloudSize:9 }),
+
+  mk("root nine", { rules:[{on:true,type:"root",k:1,r:9}],
+      addr:"diagonals", shape:"torus", count_star:7, count_gen:8, count_cloud:6, pcount: SMALL?400:1100 }),
+
+  mk("composite mass", { rules:[{on:true,type:"divct",k:1,r:6}],
+      addr:"rows", count_hole:8, count_star:3, count_planet:20, G:2, reach:20, gap:4 }),
+
+  mk("collapse", { rules:[{on:true,type:"div",k:3,r:0},{on:true,type:"div",k:5,r:0}],
+      combine:"all", addr:"shells", shape:"shell", count_hole:7, count_star:2, count_planet:3, count_gen:7,
+      G:2.6, falloff:1.6, reach:30, singularity:4, curve:-0.6, damp:0.999,
+      pcount: SMALL?400:1400, trail:4 }),
+
+  mk("deep field", { rules:[{on:true,type:"prime",k:1,r:0},{on:true,type:"fib",k:1,r:0}],
+      addr:"columns", shape:"sphere", scale:8, count_star:10, count_cloud:12, count_planet:12, count_gen:6,
+      cloudSize:11, reach:16, gap:7 })
+];
+
+let activeWorld = -1;
+
+function buildWorldUI() {
+  const host = document.getElementById("worlds");
+  host.textContent = "";
+  WORLDS.forEach((w, i) => {
+    const b = document.createElement("button");
+    b.textContent = w.name;
+    if (i === activeWorld) b.className = "on";
+    b.onclick = () => loadWorld(i);
+    host.appendChild(b);
+  });
+}
+
+function loadWorld(i) {
+  const s = WORLDS[i].s;
+  Object.assign(state, s, { rules: s.rules.map(r => Object.assign({}, r)) });
+  userNodes = []; selected = null;
+  activeWorld = i;
+  syncControls(); buildRuleUI(); buildWorldUI(); rebuild();
+}
+
+/* any hand edit means you've left the preset behind */
+function clearWorld() {
+  if (activeWorld < 0) return;
+  activeWorld = -1;
+  buildWorldUI();
+}
+
+/* ---------------- the panel itself ---------------- */
+
+const panelEl = document.getElementById("panel"), openEl = document.getElementById("open");
+function setPanel(open) {
+  panelEl.classList.toggle("hidden", !open);
+  openEl.style.display = open ? "none" : "block";
+  setTimeout(resize, 30);
+}
+openEl.onclick = () => setPanel(true);
+document.getElementById("close").onclick = () => setPanel(false);
+
+window.addEventListener("keydown", e => {
+  if (e.target.matches("input, select, textarea")) return;
+  if (e.key === "h" || e.key === "H") setPanel(panelEl.classList.contains("hidden"));
+});
+
+setPanel(!SMALL);
+resize();
+loadWorld(0);
+requestAnimationFrame(frame);
+
+</script>
+
+</body>
+</html>

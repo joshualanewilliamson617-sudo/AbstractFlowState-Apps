@@ -1,0 +1,976 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Apex Prism</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>*,::before,::after{box-sizing:border-box}
+:root{--bg:#0f172a;--text:#f8fafc;--muted:#94a3b8;--accent:#facc15;--line:rgba(255,255,255,.09)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Avenir Next","Trebuchet MS",system-ui,sans-serif;background-image:radial-gradient(900px 500px at 70% -10%,rgba(250,204,21,.07),transparent 60%)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;margin:0}
+button:disabled{cursor:default}
+h1,h2,p{margin:0}
+.glass{background:rgba(30,41,59,.82);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(10px)}
+.chip{border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;letter-spacing:.04em}
+@keyframes pop{0%{transform:translateX(-50%) scale(.7);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+[hidden]{display:none!important}
+/* Layout: one-screen game — header and control bar, then the pyramid stage beside its side panel (stacked on phones). Prism reuses the cube's slate + yellow tokens; stones are pure black and bone white. */
+:root{
+  color-scheme:dark;
+  --pz-stone-b:#16161a;
+  --pz-stone-w:#ece8dc;
+  --pz-body:#3a4256;
+  --pz-red:#f43f5e;
+  --pz-display:"Avenir Next","Trebuchet MS",system-ui,sans-serif;
+  --pz-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+body{background:var(--bg);color:var(--text)}
+
+.pz-pane{min-width:0;max-width:1420px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px;padding-bottom:24px}
+.pz-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:16px}
+.pz-title{font:900 26px/1 var(--pz-display);letter-spacing:-.025em;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pz-title span{color:var(--accent)}
+.pz-badge{font-style:normal;font-size:11px;font-weight:800;letter-spacing:.1em;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.1)}
+@media (min-width:640px){.pz-title{font-size:34px}}
+.pz-sub{margin:6px 0 0;font-size:12px;color:var(--muted)}
+.pz-chips{display:flex;flex-wrap:wrap;gap:8px}
+.pz-chip{background:rgba(255,255,255,.1);font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:6px}
+#pzState i{width:8px;height:8px;border-radius:50%;background:currentColor}
+
+.pz-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px}
+.pz-seg{display:flex;flex-wrap:wrap;background:rgba(0,0,0,.3);border-radius:999px;padding:4px;gap:2px}
+.pz-seg button{border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;color:#cbd5e1}
+.pz-seg button:hover{background:rgba(255,255,255,.1)}
+.pz-seg button[aria-pressed="true"]{background:var(--accent);color:#000}
+.pz-bar-end{margin-left:auto;display:flex;flex-wrap:wrap;gap:8px}
+.pz-btn{background:rgba(255,255,255,.1);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;color:var(--text);transition:background .15s,color .15s}
+.pz-btn:hover:not(:disabled){background:var(--accent);color:#000}
+.pz-btn:disabled{opacity:.4;cursor:default}
+.pz-btn[aria-pressed="true"]{background:#10b981;color:#fff}
+.pz-pane button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.pz-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:1000px){.pz-grid{grid-template-columns:minmax(0,1fr) 360px}.pz-side{grid-template-columns:minmax(0,1fr)}#pzCanvas{height:600px}}
+.pz-stage{position:relative;overflow:hidden;padding-bottom:8px}
+.pz-stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 220px at 50% 80%,rgba(250,204,21,.10),transparent 65%),radial-gradient(380px 260px at 50% 30%,rgba(236,232,220,.06),transparent 60%)}
+#pzCanvas{display:block;width:100%;height:470px;touch-action:none;cursor:grab;position:relative}
+#pzCanvas:active{cursor:grabbing}
+@media (max-width:520px){#pzCanvas{height:420px}}
+.pz-tag{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.5);border:1px solid var(--line)}
+.pz-banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-weight:900;font-size:16px;padding:10px 16px;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.4);text-align:center;animation:pop .35s ease;max-width:calc(100% - 32px)}
+.pz-hint{margin:0;padding:0 16px;text-align:center;font-size:11px;color:var(--muted);position:relative}
+
+.pz-side{padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;align-items:start}
+.pz-card{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pz-h{margin:0;font-size:12px;font-weight:900;letter-spacing:.1em}
+.pz-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pz-small{margin:0;font-size:12px;line-height:1.55;color:#cbd5e1}
+.pz-ctl{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center}
+.pz-ctl span{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding-right:4px}
+.pz-ctl .pz-btn{border-radius:10px;padding:9px 6px}
+.pz-meter{height:6px;border-radius:99px;background:rgba(0,0,0,.35);overflow:hidden}
+.pz-meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+#pzPct{font-variant-numeric:tabular-nums;font-weight:800}
+#pzKeyMap{width:100%;height:auto;display:block;background:rgba(0,0,0,.25);border-radius:12px}
+.pz-check{display:flex;gap:8px;align-items:center;font-size:12px;color:#cbd5e1;cursor:pointer}
+.pz-check input{accent-color:var(--accent);width:16px;height:16px}
+.pz-call{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.pz-call .pz-btn{border-radius:10px;font-size:14px;padding:10px}
+.pz-msg{margin:0;grid-column:1/-1;font-size:12px;line-height:1.5;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);color:#bae6fd;border-radius:12px;padding:8px 12px}
+@media (prefers-reduced-motion:reduce){.pz-banner{animation:none}.pz-meter i{transition:none}}
+
+.pz-new{background:var(--accent);color:#000}
+.pz-strong{font-weight:900;color:var(--accent);font-variant-numeric:tabular-nums}
+.pz-muted{color:var(--muted)}
+.pz-ctl2{grid-template-columns:1fr 1fr}
+.pz-call2{grid-template-columns:1fr 1fr}
+.pz-call2 .pz-btn{font-size:13px}
+.pz-score{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:8px 10px;font-size:12px;font-weight:800}
+.pz-score b{font-variant-numeric:tabular-nums;min-width:4ch;text-align:right}
+.pz-dot{width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.25)}
+.pz-dot-b{background:var(--pz-stone-b)}
+.pz-dot-w{background:var(--pz-stone-w)}
+.pz-bar-t{height:8px;border-radius:99px;background:rgba(0,0,0,.35);overflow:hidden}
+.pz-bar-t i{display:block;height:100%;width:0;transition:width .25s}
+#pzBBar{background:#52525b}
+#pzWBar{background:var(--pz-stone-w)}
+</style>
+<section class="pz-pane" aria-label="Apex Prism">
+  <header class="pz-head">
+    <div>
+      <h1 class="pz-title">APEX <span>PRISM</span> <em class="pz-badge" id="pzBadge">RINGS 5 • 4 • 3 • 2</em></h1>
+      <p class="pz-sub" id="pzSub">Crack the hidden pattern from the top ring down • Black and white race for the apex</p>
+    </div>
+    <div class="pz-chips">
+      <span class="chip pz-chip" id="pzState"><i></i><b>READY</b></span>
+      <span class="chip pz-chip" id="pzTime">2:00 left</span>
+      <span class="chip pz-chip" id="pzMoves">0 moves</span>
+    </div>
+  </header>
+
+  <div class="glass pz-bar">
+    <div class="pz-seg" role="group" aria-label="Game">
+      <button type="button" id="pzModeClock" data-mode="clock">Beat the clock</button>
+      <button type="button" id="pzModeTurns" data-mode="turns">Turn mode</button>
+      <button type="button" id="pzModeMemory" data-mode="memory">Memory Flash</button>
+      <button type="button" id="pzModeFlip" data-mode="flip">Flip</button>
+      <button type="button" id="pzModeCalm" data-mode="calm">Calm</button>
+    </div>
+    <div class="pz-seg" role="group" aria-label="Pattern" id="pzKeySeg">
+      <button type="button" id="pzKeyCipher" data-key="cipher">Hidden cipher</button>
+      <button type="button" id="pzKeyAlt" data-key="alt">Alternating</button>
+    </div>
+    <div class="pz-seg" role="group" aria-label="Difficulty" id="pzDiffSeg">
+      <button type="button" id="pzDiffEasy" data-diff="easy">Easy</button>
+      <button type="button" id="pzDiffMed" data-diff="medium">Medium</button>
+      <button type="button" id="pzDiffHard" data-diff="hard">Hard</button>
+    </div>
+    <div class="pz-bar-end">
+      <button type="button" class="pz-btn pz-new" id="pzNew">New game</button>
+      <button type="button" class="pz-btn" id="pzView">Reset view</button>
+      <button type="button" class="pz-btn" id="pzAuto">Auto-spin off</button>
+    </div>
+  </div>
+
+  <div class="pz-grid">
+    <div class="glass pz-stage">
+      <canvas id="pzCanvas" aria-label="Sloped three-sided pyramid of black and white stones"></canvas>
+      <span class="chip pz-tag" id="pzTag">OPEN: RING 2</span>
+      <div class="pz-banner" id="pzBanner" hidden></div>
+      <p class="pz-hint" id="pzHint"></p>
+    </div>
+
+    <div class="glass pz-side">
+      <div class="pz-card" id="cardRing">
+        <div class="pz-row"><h2 class="pz-h">OPEN RING</h2><span class="pz-small pz-strong" id="pzRight"></span></div>
+        <p class="pz-small" id="pzActive"></p>
+        <div class="pz-ctl pz-ctl2">
+          <button type="button" class="pz-btn" id="pzRowL" aria-label="Slide open ring left">◀ Slide</button>
+          <button type="button" class="pz-btn" id="pzRowR" aria-label="Slide open ring right">Slide ▶</button>
+        </div>
+      </div>
+
+      <div class="pz-card" id="cardMemory">
+        <div class="pz-row"><h2 class="pz-h">ROUND <span id="pzRound">1</span></h2><span class="pz-small pz-strong" id="pzBest">Best: 0</span></div>
+        <p class="pz-small" id="pzMemTxt"></p>
+        <div class="pz-meter"><i id="pzMemBar"></i></div>
+      </div>
+
+      <div class="pz-card" id="cardFlip">
+        <div class="pz-row"><h2 class="pz-h">FLIP</h2><span class="pz-small pz-strong" id="pzPar">Par 5</span></div>
+        <p class="pz-small" id="pzFlipTxt"></p>
+        <div class="pz-score">
+          <span class="pz-dot pz-dot-b"></span><span>Black</span><span class="pz-bar-t"><i id="pzFBBar"></i></span><b id="pzFB">0</b>
+          <span class="pz-dot pz-dot-w"></span><span>White</span><span class="pz-bar-t"><i id="pzFWBar"></i></span><b id="pzFW">0</b>
+        </div>
+        <button type="button" class="pz-btn" id="pzRetry">Restart this puzzle</button>
+      </div>
+
+      <div class="pz-card" id="cardCalm">
+        <div class="pz-row"><h2 class="pz-h">CALM</h2><span class="pz-small pz-strong" id="pzTaps">0 taps</span></div>
+        <p class="pz-small">A small three-row prism. Every tap flips every square and the point. Tap twice and it is back the way it was.</p>
+        <button type="button" class="pz-btn" id="pzSound" aria-pressed="true">Sound on</button>
+      </div>
+
+      <div class="pz-card" id="cardScore">
+        <div class="pz-row"><h2 class="pz-h">BLACK vs WHITE</h2><span class="pz-small">points per move</span></div>
+        <div class="pz-score">
+          <span class="pz-dot pz-dot-b"></span><span>Black</span><span class="pz-bar-t"><i id="pzBBar"></i></span><b id="pzBR">0.0</b>
+          <span class="pz-dot pz-dot-w"></span><span>White</span><span class="pz-bar-t"><i id="pzWBar"></i></span><b id="pzWR">0.0</b>
+        </div>
+        <p class="pz-small pz-muted">Each slide scores every stone it moves × steps × ring rating. Bottom ring ×5, then ×4, ×3, top ring ×2. The leader takes the apex.</p>
+      </div>
+
+      <div class="pz-card" id="cardPattern">
+        <div class="pz-row"><h2 class="pz-h">THE PATTERN</h2><span class="pz-small" id="pzRevealed">0 of 4 rings cracked</span></div>
+        <canvas id="pzKeyMap" aria-label="Pattern map, apex and top ring first"></canvas>
+      </div>
+
+      <div class="pz-card" id="cardApex">
+        <h2 class="pz-h">THE APEX</h2>
+        <p class="pz-small" id="pzApexTxt"></p>
+        <div class="pz-call pz-call2" role="group" aria-label="Call the apex color">
+          <button type="button" class="pz-btn" id="pzCallB" data-call="1">Call black</button>
+          <button type="button" class="pz-btn" id="pzCallW" data-call="0">Call white</button>
+        </div>
+      </div>
+
+      <p class="pz-msg" id="pzMsg" hidden></p>
+    </div>
+  </div>
+</section>
+
+<script>(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  // ---------- geometry: sloped three-sided pyramid; base side = height = PEAK ----------
+  let RINGS = [], TOPR = 0, PEAK = 5, MIDY = 2.3;
+  const CAM = 40, INS = 0.06, S3 = Math.sqrt(3);
+  const FACES = ["A", "B", "C"];
+  const LIM = { clock: { easy: 180, medium: 120, hard: 75 }, turns: { easy: 40, medium: 28, hard: 18 } };
+  const FLIP_TAPS = { easy: 3, medium: 5, hard: 8 };
+  const MEM = { easy: { show: 9, extra: 8 }, medium: { show: 7, extra: 5 }, hard: { show: 5, extra: 3 } };
+  const mod = (a, n) => ((a % n) + n) % n;
+  function setGeom(base) {
+    PEAK = base; MIDY = base * 0.46;
+    RINGS = []; for (let w = base; w >= 2; w--) RINGS.push({ k: base - w, w, n: 3 * w, rate: w });
+    TOPR = RINGS.length - 1;
+    sizeF();
+  }
+  const rad = (y) => (PEAK - y) / S3;
+  const vert = (R, f) => { const a = Math.PI / 2 + f * 2 * Math.PI / 3; return [R * Math.cos(a), R * Math.sin(a)]; };
+  function at(r, s, y) {
+    s = mod(s, r.n);
+    let f = Math.floor(s / r.w); if (f > 2) f = 2;
+    const u = (s - f * r.w) / r.w, R = rad(y), a = vert(R, f), b = vert(R, (f + 1) % 3);
+    return [a[0] + (b[0] - a[0]) * u, y, a[1] + (b[1] - a[1]) * u];
+  }
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (v) => { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); };
+
+  // ---------- state ----------
+  const S = {
+    mode: "clock", keyMode: "cipher", diff: "medium",
+    grid: [], key: [], disp: [], due: [], active: 0, locked: [], moves: 0, limit: 0,
+    clock: 0, base: 0, t0: 0, running: false, over: false, won: false, lost: "",
+    pts: { b: 0, w: 0 }, apex: null, call: null, revealAt: 0,
+    yaw: 2.0, pitch: 0.3, auto: false, anim: null, multi: null, busy: false, activeSign: 1, flash: null,
+    round: 1, phase: "play", showUntil: 0, showLen: 1, best: 0,
+    par: 0, start: null, hoverStone: null, calmApex: 1, apexDisp: 1, apexDue: 0, taps: 0, sound: true
+  };
+  try { S.best = +localStorage.getItem("apexMemBest") || 0; } catch (e) {}
+  const rotate = (a, s) => { const n = a.length, o = new Array(n); for (let p = 0; p < n; p++) o[mod(p + s, n)] = a[p]; return o; };
+  const same = (a, b) => a.every((v, i) => v === b[i]);
+  const matches = (k) => S.grid[k].reduce((c, v, i) => c + (v === S.key[k][i] ? 1 : 0), 0);
+  const blacks = (k) => S.grid[k].reduce((a, v) => a + v, 0);
+  const ratio = (c) => (S.moves ? S.pts[c] / S.moves : 0);
+  const isRace = () => S.mode === "clock" || S.mode === "turns";
+  const checker = (r, p) => (((p % r.w) + r.k) % 2 === 0 ? 1 : 0);
+
+  function ringKey(r, mode) {
+    if (mode === "alt") return Array.from({ length: r.n }, (_, p) => checker(r, p));
+    for (;;) {
+      const a = Array.from({ length: r.n }, () => (Math.random() < 0.5 ? 1 : 0));
+      const b = a.reduce((x, y) => x + y, 0);
+      if (Math.abs(b - r.n / 2) > 1) continue;
+      let sym = false;
+      for (let s = 1; s < r.n && !sym; s++) if (same(a, rotate(a, s))) sym = true;
+      if (!sym) return a;
+    }
+  }
+  function syncDisp() { S.disp = S.grid.map((r) => r.slice()); S.due = S.grid.map((r) => r.map(() => 0)); }
+  function scrambled(k) { const r = RINGS[k]; let g; do g = rotate(S.key[k], 1 + Math.floor(Math.random() * (r.n - 1))); while (same(g, S.key[k])); return g; }
+
+  function resetCommon() {
+    S.moves = 0; S.pts = { b: 0, w: 0 }; S.apex = null; S.call = null; S.taps = 0;
+    S.over = false; S.won = false; S.lost = ""; S.running = false; S.anim = null; S.multi = null; S.busy = false; S.flash = null;
+    S.clock = 0; S.hoverStone = null;
+    $("pzBanner").hidden = true;
+  }
+
+  function newGame() {
+    resetCommon();
+    setGeom(S.mode === "calm" ? 3 : 5);
+    if (isRace()) {
+      S.key = RINGS.map((r) => ringKey(r, S.keyMode));
+      S.grid = RINGS.map((r, k) => scrambled(k));
+      S.active = TOPR; S.locked = RINGS.map(() => false);
+      S.limit = LIM[S.mode][S.diff];
+      S.clock = S.mode === "clock" ? S.limit : 0;
+      const goal = S.mode === "clock" ? `${fmt(S.limit)} on the clock` : `${S.limit} turns`;
+      say(`New game: ${goal}. ${S.keyMode === "cipher" ? "The pattern is hidden. Slide the top ring and watch how many stones turn out right." : "Line every ring up so the squares alternate."}`);
+    } else if (S.mode === "memory") {
+      S.round = 1; startRound();
+    } else if (S.mode === "flip") {
+      newFlip();
+    } else {
+      S.grid = RINGS.map((r) => Array.from({ length: r.n }, (_, p) => checker(r, p)));
+      S.calmApex = 1; S.apexDisp = 1; S.locked = RINGS.map(() => false);
+      say("Tap anywhere on the prism. Every square and the point flip together.");
+    }
+    syncDisp();
+    ui();
+  }
+
+  // ---------- slide modes (clock / turns / memory) ----------
+  function commit(k, n) {
+    if (S.over || n === 0) return;
+    const r = RINGS[k];
+    S.grid[k] = rotate(S.grid[k], n); S.disp[k] = rotate(S.disp[k], n); S.due[k] = rotate(S.due[k], n);
+    S.moves++;
+    if (!S.running) { S.running = true; S.t0 = performance.now(); S.base = S.clock; }
+    if (S.mode === "memory") return commitMemory(k);
+    const b = blacks(k), steps = Math.abs(n);
+    S.pts.b += b * steps * r.rate;
+    S.pts.w += (r.n - b) * steps * r.rate;
+    if (matches(k) === r.n) {
+      S.locked[k] = true;
+      S.flash = { k, at: performance.now() };
+      if (k === 0) return win();
+      S.active = k - 1;
+      say(`Ring ${r.w} cracked and locked. Ring ${RINGS[k - 1].w} is open.`);
+    } else say(`Ring ${r.w}: ${matches(k)} of ${r.n} stones right.`);
+    if (S.mode === "turns" && S.moves >= S.limit) return lose("Out of turns");
+    ui();
+  }
+
+  function win() {
+    S.won = true; S.over = true; S.running = false; S.revealAt = performance.now();
+    const rb = ratio("b"), rw = ratio("w");
+    S.apex = rb > rw ? 1 : rw > rb ? 0 : "tie";
+    const who = S.apex === "tie" ? "a tie, so the apex splits" : `${S.apex ? "Black" : "White"} wins the apex`;
+    let call = "";
+    if (S.call !== null && S.apex !== "tie") call = S.call === S.apex ? " Your call was right." : " Your call missed.";
+    banner(`CRACKED • ${S.apex === "tie" ? "TIE" : S.apex ? "BLACK APEX" : "WHITE APEX"}`);
+    say(`Pattern cracked in ${S.moves} moves${S.mode === "clock" ? ` with ${fmt(S.clock)} left` : ""}. Black ${rb.toFixed(1)} vs White ${rw.toFixed(1)} per move: ${who}.${call}`);
+    ui();
+  }
+  function lose(why) {
+    S.over = true; S.running = false; S.lost = why;
+    banner(why.toUpperCase());
+    say(`${why}. ${S.locked.filter(Boolean).length} of ${RINGS.length} rings cracked. The full pattern is shown in the map. Start a new game to try again.`);
+    ui();
+  }
+  function banner(t, ms = 4500) {
+    const b = $("pzBanner"); b.textContent = t; b.hidden = false;
+    clearTimeout(banner.t); banner.t = setTimeout(() => { b.hidden = true; }, ms);
+  }
+
+  // ---------- Memory Flash ----------
+  function startRound() {
+    const M = MEM[S.diff];
+    S.key = RINGS.map((r) => ringKey(r, "cipher"));
+    S.grid = S.key.map((r) => r.slice());
+    S.locked = RINGS.map(() => false);
+    S.phase = "show";
+    S.showLen = Math.max(2, M.show - (S.round - 1));
+    S.showUntil = performance.now() + S.showLen * 1000;
+    S.moves = 0; S.limit = RINGS.length * 2 + M.extra;
+    S.running = false; S.clock = 0;
+    fadeTo(null, 25);
+    say(`Round ${S.round}: memorize the pattern. It hides in ${S.showLen} seconds.`);
+    ui();
+  }
+  function hidePattern() {
+    S.phase = "hiding";
+    const targets = RINGS.map((r) => (1 + Math.floor(Math.random() * (r.n - 1))) * (Math.random() < 0.5 ? 1 : -1));
+    S.multi = { t0: performance.now(), dur: 900, targets, cur: targets.map(() => 0) };
+    S.busy = true;
+  }
+  function finishHide() {
+    const t = S.multi.targets; S.multi = null; S.busy = false;
+    RINGS.forEach((r, k) => {
+      S.grid[k] = rotate(S.grid[k], t[k]); S.disp[k] = rotate(S.disp[k], t[k]); S.due[k] = rotate(S.due[k], t[k]);
+      if (same(S.grid[k], S.key[k])) { S.grid[k] = rotate(S.grid[k], 1); S.disp[k] = rotate(S.disp[k], 1); S.due[k] = rotate(S.due[k], 1); }
+    });
+    S.phase = "play"; S.running = true; S.t0 = performance.now(); S.base = 0;
+    say(`Now rebuild it. Grab any ring and slide it back. You have ${S.limit} moves.`);
+    ui();
+  }
+  function commitMemory(k) {
+    const r = RINGS[k];
+    if (matches(k) === r.n) { S.locked[k] = true; S.flash = { k, at: performance.now() }; }
+    if (S.locked.every(Boolean)) {
+      S.running = false; S.phase = "clear";
+      if (S.round > S.best) { S.best = S.round; try { localStorage.setItem("apexMemBest", String(S.best)); } catch (e) {} }
+      banner(`ROUND ${S.round} CLEAR`, 1600);
+      say(`Round ${S.round} cleared in ${S.moves} moves. Next round flashes for less time.`);
+      ui();
+      setTimeout(() => { if (S.mode === "memory" && S.phase === "clear") { S.round++; startRound(); } }, 1700);
+      return;
+    }
+    if (S.moves >= S.limit) {
+      S.over = true; S.running = false; S.lost = "Out of moves";
+      banner(`GAME OVER • ROUND ${S.round}`);
+      say(`Out of moves on round ${S.round}. You cleared ${S.round - 1} round${S.round === 2 ? "" : "s"}. Best: ${S.best}. The map shows the pattern.`);
+      return ui();
+    }
+    say(S.locked[k] ? `Ring ${r.w} is back in place.` : `Ring ${r.w}: not yet. ${S.limit - S.moves} moves left.`);
+    ui();
+  }
+
+  // ---------- Flip ----------
+  function neighbors(k, p) {
+    const r = RINGS[k], w = r.w, f = Math.floor(p / w), c = p % w;
+    const out = [[k, p], [k, mod(p - 1, r.n)], [k, mod(p + 1, r.n)]];
+    if (k < TOPR) { const u = RINGS[k + 1]; for (const cc of [c - 1, c]) if (cc >= 0 && cc < u.w) out.push([k + 1, f * u.w + cc]); }
+    if (k > 0) { const d = RINGS[k - 1]; for (const cc of [c, c + 1]) if (cc < d.w) out.push([k - 1, f * d.w + cc]); }
+    return out;
+  }
+  const allOne = () => { const v = S.grid[0][0]; return S.grid.every((r) => r.every((x) => x === v)); };
+  const countB = () => S.grid.reduce((a, r) => a + r.reduce((x, y) => x + y, 0), 0);
+  const total = () => RINGS.reduce((a, r) => a + r.n, 0);
+  function newFlip() {
+    const base = Math.random() < 0.5 ? 1 : 0, N = FLIP_TAPS[S.diff];
+    do {
+      S.grid = RINGS.map((r) => new Array(r.n).fill(base));
+      const used = new Set();
+      while (used.size < N) {
+        const k = Math.floor(Math.random() * RINGS.length), p = Math.floor(Math.random() * RINGS[k].n);
+        if (used.has(k + ":" + p)) continue;
+        used.add(k + ":" + p);
+        for (const [a, b] of neighbors(k, p)) S.grid[a][b] ^= 1;
+      }
+    } while (allOne());
+    S.start = S.grid.map((r) => r.slice());
+    S.par = N; S.locked = RINGS.map(() => false);
+    say(`Tap a stone to flip it and the stones touching it. Turn the whole pyramid one color. Par is ${N} taps.`);
+  }
+  function flipTap(k, p, x, y) {
+    if (S.over || S.busy) return;
+    const now = performance.now();
+    if (!S.running) { S.running = true; S.t0 = now; S.base = 0; }
+    S.moves++;
+    neighbors(k, p).forEach(([a, b], i) => { S.grid[a][b] ^= 1; S.due[a][b] = now + (i === 0 ? 0 : 70); });
+    click(S.grid[k][p]);
+    if (allOne()) {
+      S.won = true; S.over = true; S.running = false; S.revealAt = now + 300;
+      S.apex = S.grid[0][0];
+      const rank = S.moves <= S.par ? "At or under par: three stars" : S.moves <= S.par + 4 ? "Two stars" : "One star";
+      banner(`SOLVED • ${S.moves} TAPS`);
+      say(`All ${S.apex ? "black" : "white"} in ${S.moves} taps (par ${S.par}). ${rank}.`);
+    } else say(`${S.moves} taps. ${countB()} black, ${total() - countB()} white.`);
+    ui();
+  }
+
+  // ---------- Calm ----------
+  let actx = null;
+  function click(v) {
+    if (!S.sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.setValueAtTime(v ? 330 : 494, t); o.frequency.exponentialRampToValueAtTime(v ? 262 : 392, t + 0.18);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.4);
+    } catch (e) {}
+  }
+  function calmTap(x, y) {
+    const now = performance.now();
+    S.taps++;
+    RINGS.forEach((r, k) => {
+      for (let p = 0; p < r.n; p++) {
+        S.grid[k][p] ^= 1;
+        const q = scr(at(r, p + 0.5, k + 0.5));
+        S.due[k][p] = now + Math.hypot(q[0] - x, q[1] - y) * 1.1;
+      }
+    });
+    S.calmApex ^= 1;
+    const ap = scr([0, PEAK - 0.4, 0]);
+    S.apexDue = now + Math.hypot(ap[0] - x, ap[1] - y) * 1.1;
+    click(S.calmApex);
+    ui();
+  }
+  function fadeTo(x, perStone) {
+    const now = performance.now();
+    RINGS.forEach((r, k) => { for (let p = 0; p < r.n; p++) if (S.due[k]) S.due[k][p] = now + (perStone ? (TOPR - k) * 90 + p * perStone * 0.3 : 0); });
+  }
+
+  function apexValue(f) {
+    if (S.mode === "calm") return S.apexDisp;
+    if (S.mode === "memory") return S.phase === "show" ? (S.round % 2) : null;
+    if (!S.won) return null;
+    if ((performance.now() - S.revealAt) / 1000 < 0.3 + f * 0.28) return null;
+    if (S.apex === "tie") return f === 1 ? 0 : 1;
+    return S.apex;
+  }
+
+  // ---------- animation ----------
+  function tween(k, to, after) {
+    S.busy = true;
+    const from = S.anim.off, t0 = performance.now();
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dur = reduce ? 1 : 140 + Math.min(280, Math.abs(to - from) * 55);
+    const step = (now) => {
+      const q = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - q, 3);
+      S.anim.off = from + (to - from) * e;
+      if (q < 1) requestAnimationFrame(step);
+      else { S.anim = null; S.busy = false; after && after(); ui(); }
+    };
+    requestAnimationFrame(step);
+  }
+  function slide(dir) {
+    if (S.busy || S.over || !isRace()) return;
+    const n = dir * S.activeSign, k = S.active;
+    S.anim = { k, off: 0 };
+    tween(k, n, () => commit(k, n));
+  }
+  const canGrab = (k) => !S.over && !S.busy && (isRace() ? k === S.active : S.mode === "memory" && S.phase === "play" && !S.locked[k]);
+
+  // ---------- projection ----------
+  const cv = $("pzCanvas"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, DPR = 1, F = 1;
+  function sizeF() { F = Math.min((H * 0.78 * CAM) / (PEAK * 1.32), (W * 0.8 * CAM) / (PEAK * 1.28)); }
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    sizeF();
+  }
+  new ResizeObserver(resize).observe(cv);
+  function rot(v) {
+    const cy = Math.cos(S.yaw), sy = Math.sin(S.yaw), cp = Math.cos(S.pitch), sp = Math.sin(S.pitch);
+    const x1 = v[0] * cy - v[2] * sy, z1 = v[0] * sy + v[2] * cy;
+    return [x1, v[1] * cp - z1 * sp, v[1] * sp + z1 * cp];
+  }
+  const view = (p) => rot([p[0], p[1] - MIDY, p[2]]);
+  function scr(p) { const v = view(p), d = CAM - v[2]; return [W / 2 + (F * v[0]) / d, H / 2 + 6 - (F * v[1]) / d]; }
+  const LD = norm([-0.4, 0.55, 0.75]);
+  const lightOf = (nv) => 0.42 + 0.58 * Math.max(0, nv[0] * LD[0] + nv[1] * LD[1] + nv[2] * LD[2]);
+  const C_BODY = [58, 66, 90], C_B = [24, 24, 29], C_W = [238, 234, 222], C_SEAL = [96, 104, 124];
+  const rgb = (c, L) => `rgb(${Math.round(Math.min(255, c[0] * L))},${Math.round(Math.min(255, c[1] * L))},${Math.round(Math.min(255, c[2] * L))})`;
+  // d: 1 = black, 0 = white, in between while flipping (with a brief bright flash at the midpoint)
+  function stoneFill(d, L) {
+    const lb = 0.75 + 0.65 * L, lw = 0.6 + 0.4 * L, glow = 1 + 0.5 * Math.max(0, 1 - Math.abs(d - 0.5) * 4);
+    const c = [0, 1, 2].map((i) => (C_B[i] * lb * d + C_W[i] * lw * (1 - d)) * (d > 0.02 && d < 0.98 ? glow : 1));
+    return `rgb(${c.map((x) => Math.round(Math.min(255, x))).join(",")})`;
+  }
+  function visible(nWorld, cWorld) {
+    const nv = rot(nWorld), c = view(cWorld);
+    return nv[0] * -c[0] + nv[1] * -c[1] + nv[2] * (CAM - c[2]) > 0 ? nv : null;
+  }
+  function path(pts) { ctx.beginPath(); pts.forEach((q, i) => { const s = scr(q); i ? ctx.lineTo(s[0], s[1]) : ctx.moveTo(s[0], s[1]); }); ctx.closePath(); }
+
+  let hits = [], bands = [], hover = false, hoverK = -1, visF = [null, null, null];
+  function ringOff(k) {
+    if (S.anim && S.anim.k === k) return S.anim.off;
+    if (S.multi) return S.multi.cur[k];
+    return 0;
+  }
+  function draw() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    hits = []; bands = [];
+    drawGround();
+    const now = performance.now();
+    const vis = RINGS.map(() => [null, null, null]);
+    RINGS.forEach((r, k) => {
+      for (let f = 0; f < 3; f++) {
+        const a = at(r, f * r.w, k), b = at(r, (f + 1) * r.w, k), c = at(r, (f + 1) * r.w, k + 1), d = at(r, f * r.w, k + 1);
+        const ctr = [(a[0] + b[0] + c[0] + d[0]) / 4, k + 0.5, (a[2] + b[2] + c[2] + d[2]) / 4];
+        let n = norm(cross(sub(b, a), sub(d, a)));
+        if (n[0] * ctr[0] + n[2] * ctr[2] < 0) n = n.map((x) => -x);
+        const nv = visible(n, ctr);
+        if (!nv) continue;
+        const L = lightOf(nv);
+        vis[k][f] = { L, n };
+        path([a, b, c, d]); ctx.fillStyle = rgb(C_BODY, L); ctx.fill();
+        if (canGrab(k)) bands.push({ k, q: [a, b, c, d].map(scr) });
+      }
+    });
+    const hs = S.hoverStone && S.mode === "flip" && !S.over ? new Set(neighbors(S.hoverStone[0], S.hoverStone[1]).map(([a, b]) => a + ":" + b)) : null;
+    let signSet = false;
+    RINGS.forEach((r, k) => {
+      const off = ringOff(k);
+      const yb = k + INS, yt = k + 1 - INS;
+      const isActive = isRace() && k === S.active && !S.over, isLocked = S.locked[k];
+      const future = isRace() && k < S.active && !S.over;
+      const grabbable = S.mode === "memory" && S.phase === "play" && !isLocked && !S.over;
+      for (let p = 0; p < r.n; p++) {
+        const d = S.disp[k][p], s = p + off, pa = s + INS, pb = s + 1 - INS;
+        const F0 = Math.floor(pa / r.w), F1 = Math.floor((pb - 1e-9) / r.w);
+        for (let FF = F0; FF <= F1; FF++) {
+          const f = mod(FF, 3), V = vis[k][f];
+          if (!V) continue;
+          const sa = Math.max(pa, FF * r.w), sb = Math.min(pb, (FF + 1) * r.w);
+          const poly = [at(r, sa, yb), at(r, sb, yb), at(r, sb, yt), at(r, sa, yt)];
+          path(poly);
+          ctx.fillStyle = stoneFill(d, V.L * (future ? 0.82 : 1)); ctx.fill();
+          if (isLocked) {
+            const fl = S.flash && S.flash.k === k ? Math.max(0, 1 - (now - S.flash.at) / 900) : 0;
+            ctx.strokeStyle = `rgba(250,204,21,${0.35 + fl * 0.65})`; ctx.lineWidth = 1 + fl * 2; ctx.stroke();
+          } else if (isActive || (grabbable && (hoverK === k || (drag && drag.mode === "ring" && drag.k === k)))) {
+            const hot = (hover && hoverK === k) || (drag && drag.mode === "ring" && drag.k === k);
+            ctx.strokeStyle = hot ? "rgba(250,204,21,1)" : "rgba(250,204,21,.75)"; ctx.lineWidth = hot ? 2.2 : 1.4; ctx.stroke();
+          } else if (hs && hs.has(k + ":" + p)) {
+            const main = S.hoverStone[0] === k && S.hoverStone[1] === p;
+            ctx.strokeStyle = main ? "rgba(250,204,21,1)" : "rgba(250,204,21,.55)"; ctx.lineWidth = main ? 2.4 : 1.4; ctx.stroke();
+          }
+          if (!S.anim && !S.multi && F0 === F1) {
+            const c3 = at(r, s + 0.5, k + 0.5), c4 = at(r, s + 0.62, k + 0.5), c2 = at(r, s + 0.38, k + 0.5);
+            const s4 = scr(c4), s2 = scr(c2), hU = [(s4[0] - s2[0]) / 0.24, (s4[1] - s2[1]) / 0.24];
+            hits.push({ poly: poly.map(scr), k, p, hU });
+            if (isActive && !signSet) {
+              const sc = scr(c3);
+              if (Math.abs(sc[0] - W / 2) < W * 0.25) { S.activeSign = hU[0] < 0 ? -1 : 1; signSet = true; }
+            }
+          }
+        }
+      }
+    });
+    // apex
+    const top = RINGS[TOPR], pk = [0, PEAK, 0];
+    for (let f = 0; f < 3; f++) {
+      const a = at(top, f * top.w, TOPR + 1), b = at(top, (f + 1) * top.w, TOPR + 1);
+      const ctr = [(a[0] + b[0]) / 3, (a[1] + b[1] + PEAK) / 3, (a[2] + b[2]) / 3];
+      let n = norm(cross(sub(b, a), sub(pk, a)));
+      if (n[0] * ctr[0] + n[2] * ctr[2] < 0) n = n.map((x) => -x);
+      const nv = visible(n, ctr);
+      if (!nv) continue;
+      const L = lightOf(nv), v = apexValue(f);
+      path([a, b, pk]);
+      ctx.fillStyle = v === null ? rgb(C_SEAL, L) : stoneFill(v, L); ctx.fill();
+      const lit = S.won || S.mode === "calm";
+      ctx.strokeStyle = lit ? "rgba(250,204,21,.95)" : "rgba(148,163,184,.4)"; ctx.lineWidth = lit ? 2 : 1; ctx.stroke();
+      if (v === null) {
+        const c = scr(ctr);
+        ctx.fillStyle = "rgba(236,232,220,.55)"; ctx.font = "900 11px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("?", c[0], c[1] + 3);
+      }
+    }
+  }
+
+  function drawGround() {
+    const c = scr([0, 0, 0]), d = CAM - view([0, 0, 0])[2];
+    const rx = (F * PEAK * 0.84) / d, ry = Math.max(6, rx * Math.abs(Math.sin(S.pitch)));
+    const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], rx);
+    g.addColorStop(0, "rgba(0,0,0,.55)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(1, ry / rx); ctx.translate(-c[0], -c[1]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], rx, 0, 7); ctx.fill(); ctx.restore();
+    if (S.mode === "calm") return;
+    const r = RINGS[0];
+    ctx.font = "800 13px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let f = 0; f < 3; f++) {
+      const m = at(r, f * r.w + r.w / 2, 0), k = 1 + 0.9 / Math.hypot(m[0], m[2]);
+      const s = scr([m[0] * k, -0.2, m[2] * k]);
+      ctx.fillStyle = "rgba(250,204,21,.85)"; ctx.fillText(FACES[f], s[0], s[1]);
+    }
+  }
+
+  // ---------- pointer helpers ----------
+  // nearest visible point on ring k to the pointer; gap = how far (px, sideways) the pointer is past the ring
+  function pickS(k, x, y) {
+    const r = RINGS[k];
+    let best = null, bd = Infinity, gap = 0;
+    for (let s = 0; s < r.n; s += 0.04) {
+      const f = Math.min(2, Math.floor(s / r.w));
+      if (!visF[f]) continue;
+      const q = scr(at(r, s, k + 0.5)), d = (q[0] - x) * (q[0] - x) + (q[1] - y) * (q[1] - y) * 0.15;
+      if (d < bd) { bd = d; best = s; gap = Math.abs(q[0] - x); }
+    }
+    return best === null ? null : { s: best, gap };
+  }
+  // signed screen pixels per stone where the ring faces the viewer most directly
+  function frontRate(k) {
+    const r = RINGS[k];
+    let best = 0;
+    for (let s = 0; s < r.n; s += 0.25) {
+      const f = Math.min(2, Math.floor(s / r.w));
+      if (!visF[f]) continue;
+      const a = scr(at(r, s - 0.2, k + 0.5)), b = scr(at(r, s + 0.2, k + 0.5)), v = (b[0] - a[0]) / 0.4;
+      if (Math.abs(v) > Math.abs(best)) best = v;
+    }
+    return best || 40;
+  }
+  function bandAt(x, y) {
+    let found = -1;
+    for (const b of bands) {
+      const q = b.q, cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+      const grow = isRace() ? 1.35 : 1.0;
+      if (inPoly(x, y, q.map((p) => [cx + (p[0] - cx) * 1.06, cy + (p[1] - cy) * grow]))) found = b.k;
+    }
+    return found;
+  }
+  function captureVis(k) {
+    const r = RINGS[k];
+    for (let f = 0; f < 3; f++) {
+      const a = at(r, f * r.w, k), b = at(r, (f + 1) * r.w, k), d = at(r, f * r.w, k + 1);
+      const ctr = at(r, f * r.w + r.w / 2, k + 0.5);
+      let n = norm(cross(sub(b, a), sub(d, a)));
+      if (n[0] * ctr[0] + n[2] * ctr[2] < 0) n = n.map((x) => -x);
+      visF[f] = !!visible(n, ctr);
+    }
+  }
+  const wrapD = (d, n) => { d = mod(d, n); return d > n / 2 ? d - n : d; };
+  function inPoly(x, y, poly) {
+    let ins = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins;
+    }
+    return ins;
+  }
+  const hitAt = (x, y) => { for (let i = hits.length - 1; i >= 0; i--) if (inPoly(x, y, hits[i].poly)) return hits[i]; return null; };
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+  // ---------- input ----------
+  let drag = null;
+  cv.addEventListener("pointerdown", (e) => {
+    const [x, y] = pt(e);
+    cv.setPointerCapture(e.pointerId);
+    if (e.button === 0 && !S.busy && !S.over) {
+      let k = bandAt(x, y);
+      if (k < 0 && isRace()) { const h = hitAt(x, y); if (h && h.k === S.active) k = h.k; }
+      if (k >= 0 && canGrab(k)) {
+        captureVis(k);
+        const p0 = pickS(k, x, y);
+        if (p0 !== null) { drag = { mode: "ring", k, x, y, px: x, last: p0.s, rate: frontRate(k), off: 0, moved: false }; S.anim = { k, off: 0 }; cv.style.cursor = "grabbing"; return; }
+      }
+    }
+    drag = { mode: "orbit", x, y, yaw: S.yaw, pitch: S.pitch, moved: false, btn: e.button };
+  });
+  cv.addEventListener("pointermove", (e) => {
+    const [x, y] = pt(e);
+    if (!drag) {
+      hoverK = bandAt(x, y);
+      hover = hoverK >= 0;
+      if (S.mode === "flip") { const h = hitAt(x, y); S.hoverStone = h ? [h.k, h.p] : null; cv.style.cursor = h && !S.over ? "pointer" : ""; }
+      else if (S.mode === "calm") cv.style.cursor = "pointer";
+      else cv.style.cursor = hover ? "grab" : "";
+      return;
+    }
+    const dx = x - drag.x, dy = y - drag.y;
+    if (drag.mode === "orbit") {
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+      drag.moved = true;
+      S.yaw = drag.yaw + dx * 0.009;
+      S.pitch = Math.max(-0.2, Math.min(1.2, drag.pitch + dy * 0.006));
+      return;
+    }
+    const r = RINGS[drag.k], q = pickS(drag.k, x, y), stepX = x - drag.px;
+    drag.px = x;
+    if (q === null) return;
+    if (q.gap > 10) {
+      // pointer has run past the edge of the ring: keep the row rolling with the hand
+      drag.off += stepX / drag.rate;
+    } else {
+      drag.off += wrapD(q.s - drag.last, r.n);
+    }
+    drag.last = q.s;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    S.anim.off = drag.off;
+  });
+  function end(e) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    cv.style.cursor = "";
+    if (d.mode === "orbit") {
+      if (!d.moved && d.btn === 0 && e && e.type === "pointerup") tap(d.x, d.y);
+      return;
+    }
+    if (!d.moved) { S.anim = null; return; }
+    const n = Math.round(S.anim.off);
+    if (n === 0) { tween(d.k, 0); return; }
+    tween(d.k, n, () => commit(d.k, n));
+  }
+  function tap(x, y) {
+    if (S.mode === "calm") return calmTap(x, y);
+    const h = hitAt(x, y);
+    if (S.mode === "flip") { if (h) flipTap(h.k, h.p, x, y); return; }
+    if (!h || S.over) return;
+    if (S.mode === "memory") {
+      if (S.phase === "show") say("Keep memorizing. The rings unlock when the pattern hides.");
+      else if (S.locked[h.k]) say(`Ring ${RINGS[h.k].w} is already back in place.`);
+      return;
+    }
+    if (h.k !== S.active) say(S.locked[h.k] ? `Ring ${RINGS[h.k].w} is already cracked and locked.` : `Ring ${RINGS[h.k].w} opens after the rings above it are cracked. You solve top to bottom.`);
+  }
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+  cv.addEventListener("pointerleave", () => { if (!drag) { hover = false; hoverK = -1; S.hoverStone = null; cv.style.cursor = ""; } });
+
+  // ---------- UI ----------
+  function say(t) { const m = $("pzMsg"); m.textContent = t; m.hidden = !t; }
+  function fmt(s) { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+
+  function drawKeyMap() {
+    const c = $("pzKeyMap");
+    if ($("cardPattern").hidden) return;
+    const w = c.clientWidth || 280;
+    const cs = Math.min(18, w / 17.5), gap = cs * 0.4;
+    const h = Math.ceil(cs * 1.6 + RINGS.length * cs * 1.25 + cs * 1.4 + 8);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + "px";
+    const g = c.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    let y = 6;
+    const ax = (w - (3 * cs + 2 * cs * 0.4)) / 2;
+    for (let f = 0; f < 3; f++) {
+      const x = ax + f * cs * 1.4, v = apexValue(f);
+      g.beginPath(); g.moveTo(x + cs / 2, y); g.lineTo(x + cs, y + cs * 1.05); g.lineTo(x, y + cs * 1.05); g.closePath();
+      g.fillStyle = v === null ? "#606a80" : v ? "#18181d" : "#ece8dc"; g.fill();
+      g.strokeStyle = S.won ? "#facc15" : "rgba(148,163,184,.5)"; g.lineWidth = 1; g.stroke();
+    }
+    y += cs * 1.6;
+    for (let k = TOPR; k >= 0; k--) {
+      const r = RINGS[k], tw = r.n * cs + 2 * gap, x0 = (w - tw) / 2;
+      const show = S.locked[k] || S.over || (isRace() && S.keyMode === "alt") || (S.mode === "memory" && S.phase === "show");
+      for (let p = 0; p < r.n; p++) {
+        const f = Math.floor(p / r.w), x = x0 + p * cs + f * gap, kv = S.key[k][p];
+        if (show) { g.fillStyle = kv ? "#18181d" : "#ece8dc"; g.fillRect(x + 1, y + 1, cs - 2, cs - 2); }
+        else {
+          g.fillStyle = "rgba(148,163,184,.18)"; g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+          g.fillStyle = "rgba(203,213,225,.55)"; g.font = `800 ${Math.round(cs * 0.55)}px system-ui`; g.textAlign = "center"; g.textBaseline = "middle";
+          g.fillText("?", x + cs / 2, y + cs / 2 + 1);
+        }
+      }
+      if (isRace() && k === S.active && !S.over) { g.strokeStyle = "#facc15"; g.lineWidth = 1.5; g.strokeRect(x0 - 3, y - 2, tw + 6, cs + 4); }
+      if (S.locked[k]) { g.fillStyle = "#facc15"; g.font = `900 ${Math.round(cs * 0.6)}px system-ui`; g.textAlign = "left"; g.textBaseline = "middle"; g.fillText("✓", x0 + tw + 6, y + cs / 2); }
+      if (isRace()) { g.fillStyle = "rgba(148,163,184,.9)"; g.font = `700 ${Math.round(cs * 0.5)}px system-ui`; g.textAlign = "right"; g.textBaseline = "middle"; g.fillText(`×${r.rate}`, x0 - 6, y + cs / 2); }
+      y += cs * 1.25;
+    }
+    const r = RINGS[0], x0 = (w - (r.n * cs + 2 * gap)) / 2;
+    g.fillStyle = "rgba(250,204,21,.85)"; g.font = `800 ${Math.round(cs * 0.6)}px system-ui`; g.textAlign = "center"; g.textBaseline = "top";
+    for (let f = 0; f < 3; f++) g.fillText(FACES[f], x0 + f * (r.w * cs + gap) + (r.w * cs) / 2, y);
+  }
+
+  const SUB = {
+    clock: "Crack the hidden pattern from the top ring down before time runs out • Black and white race for the apex",
+    turns: "Crack the hidden pattern from the top ring down within your turns • Black and white race for the apex",
+    memory: "See the pattern, watch it scramble, slide it back from memory • Each round flashes faster",
+    flip: "Tap a stone to flip it and its neighbors • Turn the whole pyramid one color",
+    calm: "Three rows, point included • Every tap flips everything • Tap again and it comes back"
+  };
+  const HINT = {
+    clock: "Grab the open ring and pull. It stays with your hand past the edge and keeps rolling as far as you pull. Drag the background to orbit.",
+    turns: "Grab the open ring and pull. It stays with your hand past the edge and keeps rolling as far as you pull. Drag the background to orbit.",
+    memory: "When the pattern hides, grab any unlocked ring and pull. It keeps rolling with your hand past the edge. Drag the background to orbit.",
+    flip: "Tap a stone: it and every stone touching it flip. Hover to preview. Drag to orbit.",
+    calm: "Tap anywhere. Drag to orbit."
+  };
+
+  function ui() {
+    const m = S.mode;
+    $("cardRing").hidden = !isRace();
+    $("cardScore").hidden = !isRace();
+    $("cardApex").hidden = !isRace();
+    $("cardPattern").hidden = !(isRace() || m === "memory");
+    $("cardMemory").hidden = m !== "memory";
+    $("cardFlip").hidden = m !== "flip";
+    $("cardCalm").hidden = m !== "calm";
+    $("pzKeySeg").hidden = !isRace();
+    $("pzDiffSeg").hidden = m === "calm";
+    $("pzSub").textContent = SUB[m];
+    $("pzHint").textContent = HINT[m];
+    $("pzBadge").textContent = m === "calm" ? "3 ROWS" : "RINGS 5 • 4 • 3 • 2";
+    document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+    document.querySelectorAll("[data-key]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.key === S.keyMode)));
+    document.querySelectorAll("[data-diff]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.diff === S.diff)));
+    $("pzAuto").textContent = S.auto ? "Auto-spin on" : "Auto-spin off";
+    $("pzAuto").setAttribute("aria-pressed", String(S.auto));
+
+    const st = $("pzState");
+    let state = S.won ? (m === "flip" ? "SOLVED" : "CRACKED") : S.over ? "GAME OVER" : S.running ? "PLAYING" : "READY";
+    if (m === "memory" && !S.over) state = S.phase === "show" ? "MEMORIZE" : S.phase === "clear" ? "CLEAR" : S.phase === "hiding" ? "SCRAMBLING" : "REBUILD";
+    if (m === "calm") state = "CALM";
+    st.querySelector("b").textContent = state;
+    st.style.color = S.won || m === "calm" ? "#22c55e" : S.over ? "#f43f5e" : "#facc15";
+    $("pzTime").hidden = m === "calm";
+    $("pzMoves").textContent =
+      m === "turns" || m === "memory" ? `${S.moves} / ${S.limit} ${m === "turns" ? "turns" : "moves"}`
+      : m === "flip" ? `${S.moves} taps` : m === "calm" ? `${S.taps} taps` : `${S.moves} moves`;
+    if (!S.running && m !== "memory") $("pzTime").textContent = m === "clock" ? `${fmt(S.clock)} left` : fmt(S.clock);
+
+    if (isRace()) {
+      const r = RINGS[S.active];
+      $("pzRowL").disabled = $("pzRowR").disabled = S.over;
+      if (S.over) {
+        $("pzTag").textContent = S.won ? "ALL RINGS CRACKED" : S.lost.toUpperCase();
+        $("pzActive").textContent = S.won ? "Every ring is locked. Start a new game to play again." : "This round is over. Start a new game to try again.";
+        $("pzRight").textContent = "";
+      } else {
+        $("pzTag").textContent = `OPEN: RING ${r.w} • ×${r.rate}`;
+        const pos = S.active === TOPR ? "top ring" : S.active === 0 ? "bottom ring" : "middle ring";
+        $("pzActive").textContent = `Ring ${r.w} (${pos}, ${r.n} stones, rated ×${r.rate}). ${S.keyMode === "cipher" ? "Slide it until every stone matches the hidden pattern." : "Slide it until the squares alternate like the map."}`;
+        $("pzRight").textContent = `${matches(S.active)} / ${r.n} right`;
+      }
+      const rb = ratio("b"), rw = ratio("w"), mx = Math.max(rb, rw, 1);
+      $("pzBR").textContent = rb.toFixed(1); $("pzWR").textContent = rw.toFixed(1);
+      $("pzBBar").style.width = (rb / mx) * 100 + "%"; $("pzWBar").style.width = (rw / mx) * 100 + "%";
+      $("pzRevealed").textContent = `${S.locked.filter(Boolean).length} of ${RINGS.length} rings cracked`;
+      const lead = rb > rw ? "Black" : rw > rb ? "White" : "Nobody";
+      $("pzApexTxt").textContent = S.won
+        ? (S.apex === "tie" ? "Tied ratios: the apex splits black and white." : `The apex turned ${S.apex ? "black" : "white"}. ${S.call === null ? "" : S.call === S.apex ? "You called it." : "Your call missed."}`)
+        : S.over ? "Sealed. Crack all four rings to open it."
+        : `Sealed. It turns the color with the better points per move when the bottom ring locks. ${lead} leads now.${S.call === null ? "" : ` You called ${S.call ? "black" : "white"}.`}`;
+      document.querySelectorAll("[data-call]").forEach((b) => { b.disabled = S.over; b.setAttribute("aria-pressed", String(S.call === +b.dataset.call)); });
+    } else if (m === "memory") {
+      $("pzRound").textContent = S.round;
+      $("pzBest").textContent = `Best: ${S.best}`;
+      $("pzTag").textContent = S.over ? "GAME OVER" : S.phase === "show" ? `MEMORIZE • ${S.showLen}s` : S.phase === "play" ? `REBUILD • ${S.locked.filter(Boolean).length} / ${RINGS.length} RINGS` : `ROUND ${S.round}`;
+      $("pzRevealed").textContent = S.phase === "show" ? "showing now" : `${S.locked.filter(Boolean).length} of ${RINGS.length} rings back`;
+      $("pzMemTxt").textContent = S.over
+        ? `You reached round ${S.round}. Start a new game to go again.`
+        : S.phase === "show" ? `The pattern shows for ${S.showLen} seconds, then every ring spins away.`
+        : `Slide the rings back. ${S.limit - S.moves} of ${S.limit} moves left. Locked rings glow gold.`;
+    } else if (m === "flip") {
+      const b = countB(), t = total();
+      $("pzTag").textContent = S.won ? `ALL ${S.apex ? "BLACK" : "WHITE"}` : `PAR ${S.par} • ${S.moves} TAPS`;
+      $("pzPar").textContent = `Par ${S.par}`;
+      $("pzFB").textContent = b; $("pzFW").textContent = t - b;
+      $("pzFBBar").style.width = (b / t) * 100 + "%"; $("pzFWBar").style.width = ((t - b) / t) * 100 + "%";
+      $("pzFlipTxt").textContent = S.won ? "Solved. The apex took the winning color. Start a new game for another puzzle." : "Each tap flips the stone and every stone touching it: left, right, above and below. Make all 42 stones one color.";
+    } else {
+      $("pzTag").textContent = `POINT: ${S.calmApex ? "BLACK" : "WHITE"}`;
+      $("pzTaps").textContent = `${S.taps} taps`;
+      $("pzSound").textContent = S.sound ? "Sound on" : "Sound off";
+      $("pzSound").setAttribute("aria-pressed", String(S.sound));
+    }
+    drawKeyMap();
+  }
+
+  document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { if (S.busy) return; S.mode = b.dataset.mode; newGame(); }));
+  document.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => { if (S.busy) return; S.keyMode = b.dataset.key; newGame(); }));
+  document.querySelectorAll("[data-diff]").forEach((b) => b.addEventListener("click", () => { if (S.busy) return; S.diff = b.dataset.diff; newGame(); }));
+  document.querySelectorAll("[data-call]").forEach((b) => b.addEventListener("click", () => { if (S.over) return; const v = +b.dataset.call; S.call = S.call === v ? null : v; ui(); }));
+  $("pzNew").addEventListener("click", () => { if (!S.busy) newGame(); });
+  $("pzView").addEventListener("click", () => { S.yaw = 2.0; S.pitch = 0.3; });
+  $("pzAuto").addEventListener("click", () => { S.auto = !S.auto; ui(); });
+  $("pzRowL").addEventListener("click", () => slide(-1));
+  $("pzRowR").addEventListener("click", () => slide(1));
+  $("pzSound").addEventListener("click", () => { S.sound = !S.sound; ui(); });
+  $("pzRetry").addEventListener("click", () => {
+    if (S.mode !== "flip" || !S.start) return;
+    const keep = S.start.map((r) => r.slice());
+    resetCommon(); S.grid = keep; S.start = keep.map((r) => r.slice()); S.locked = RINGS.map(() => false);
+    fadeTo(null, 12);
+    say(`Same puzzle, fresh start. Par is ${S.par} taps.`);
+    ui();
+  });
+
+  let lastSec = -1, revealing = false, lastT = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+    if (S.auto && !drag) S.yaw += 0.005;
+    // ease displayed stone colors toward their real colors
+    const k = Math.min(1, dt * 11);
+    for (let a = 0; a < S.grid.length; a++) for (let p = 0; p < S.grid[a].length; p++) {
+      const t = S.grid[a][p], d = S.disp[a][p];
+      if (d !== t && now >= S.due[a][p]) S.disp[a][p] = Math.abs(t - d) < 0.01 ? t : d + (t - d) * k;
+    }
+    if (S.mode === "calm" && now >= S.apexDue && S.apexDisp !== S.calmApex) {
+      const d = S.apexDisp, t = S.calmApex;
+      S.apexDisp = Math.abs(t - d) < 0.01 ? t : d + (t - d) * k;
+    }
+    if (S.multi) {
+      const q = Math.min(1, (now - S.multi.t0) / S.multi.dur), e = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;
+      S.multi.cur = S.multi.targets.map((t) => t * e);
+      if (q >= 1) finishHide();
+    }
+    if (S.mode === "memory" && S.phase === "show") {
+      const left = (S.showUntil - now) / 1000;
+      $("pzTime").textContent = `Hides in ${Math.max(0, Math.ceil(left))}s`;
+      $("pzMemBar").style.width = Math.max(0, (left / S.showLen) * 100) + "%";
+      if (left <= 0) { hidePattern(); ui(); }
+    } else if (S.mode === "memory") {
+      $("pzMemBar").style.width = S.limit ? Math.max(0, ((S.limit - S.moves) / S.limit) * 100) + "%" : "0%";
+    }
+    if (S.running) {
+      const el = (now - S.t0) / 1000;
+      S.clock = S.mode === "clock" ? S.base - el : el;
+      const s = Math.ceil(S.clock);
+      if (s !== lastSec) { lastSec = s; $("pzTime").textContent = S.mode === "clock" ? `${fmt(S.clock)} left` : fmt(S.clock); }
+      if (S.mode === "clock" && S.clock <= 0) { S.clock = 0; $("pzTime").textContent = "0:00 left"; lose("Out of time"); }
+    }
+    const rv = S.won && now - S.revealAt < 1400;
+    if (rv || revealing !== rv) { drawKeyMap(); revealing = rv; }
+    if (W && H) draw();
+    requestAnimationFrame(frame);
+  }
+  resize();
+  newGame();
+  addEventListener("resize", () => drawKeyMap());
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

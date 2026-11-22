@@ -1,0 +1,1002 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Exact Ledger</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: machined instrument. Left = display + keypad + procedure; right = history / notes tabs; full-width digit ledger below. */
+:root{
+  --bg:#e9ecef; --panel:#f8f9fa; --panel-2:#ffffff; --ink:#15191e; --muted:#5a6470; --line:#cdd3da;
+  --key:#dde2e8; --key-hi:#e8ecf0; --op:#f3e2c4; --op-ink:#6b4100; --accent:#b86a00; --accent-soft:#f6e7cf;
+  --eq:#1d2a36; --eq-ink:#f8f9fa; --ok:#1f7a4d; --warn:#9a5a00; --bad:#b3261e;
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101316; --panel:#171b20; --panel-2:#1d2228; --ink:#e7eaee; --muted:#93a0ad; --line:#2b323a;
+  --key:#252b32; --key-hi:#2e353d; --op:#3a2d17; --op-ink:#f3c57a; --accent:#f0a33a; --accent-soft:#2f2615;
+  --eq:#f0a33a; --eq-ink:#16120a; --ok:#5fcf97; --warn:#f0b25a; --bad:#ff8a80; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101316; --panel:#171b20; --panel-2:#1d2228; --ink:#e7eaee; --muted:#93a0ad; --line:#2b323a;
+  --key:#252b32; --key-hi:#2e353d; --op:#3a2d17; --op-ink:#f3c57a; --accent:#f0a33a; --accent-soft:#2f2615;
+  --eq:#f0a33a; --eq-ink:#16120a; --ok:#5fcf97; --warn:#f0b25a; --bad:#ff8a80; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:18px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,4vw,34px);letter-spacing:.02em;margin:0;line-height:1.05;text-wrap:balance}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13.5px;max-width:60ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:7px 12px;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.04em}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.field{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);font-family:var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.field select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-transform:none;letter-spacing:0;font-family:var(--f-mono);font-size:13px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0}
+.label{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* display */
+.display{padding:16px 16px 12px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.display .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#expr{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:var(--f-mono);font-size:18px}
+.result{font-family:var(--f-mono);font-weight:500;font-size:clamp(20px,3.4vw,26px);line-height:1.35;word-break:break-all;min-height:1.2em;max-height:12em;overflow:auto;font-variant-numeric:tabular-nums}
+.result .more{color:var(--muted)}
+.result.err{font-family:var(--f-body);font-size:15px;color:var(--bad);font-weight:500;word-break:normal}
+.result .rep{text-decoration:overline;text-decoration-color:var(--accent);text-decoration-thickness:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-mono);font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.exact{color:var(--ok);border-color:currentColor}
+.chip.approx{color:var(--warn);border-color:currentColor}
+.halves{font-family:var(--f-mono);font-size:13px;color:var(--op-ink);background:var(--op);border-radius:6px;padding:3px 8px;justify-self:start}
+
+/* keypad */
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 16px 16px}
+.k{border:1px solid var(--line);background:var(--key);border-radius:9px;min-height:54px;font-family:var(--f-mono);font-size:20px;font-weight:500;
+   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:background .12s, transform .06s;user-select:none}
+.k:hover{background:var(--key-hi)}
+.k:active{transform:translateY(1px)}
+.k small{font-family:var(--f-display);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.k.op{background:var(--op);color:var(--op-ink);border-color:transparent}
+.k.op small{color:var(--op-ink);opacity:.8}
+.k.fn{font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:.04em}
+.k.wide{grid-column:span 2}
+.k.eq{grid-column:span 5;background:var(--eq);color:var(--eq-ink);border-color:transparent;font-family:var(--f-display);font-weight:700;letter-spacing:.1em;font-size:18px;min-height:50px}
+.legend{border-top:1px solid var(--line);padding:12px 16px;display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.legend b{color:var(--ink);font-family:var(--f-mono);font-weight:600}
+
+/* procedure */
+.steps{padding:14px 16px;display:grid;gap:8px}
+.steps ol{margin:0;padding:0;list-style:none;display:grid;gap:6px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:28px 92px minmax(0,1fr);gap:8px;align-items:baseline;font-size:13.5px}
+.steps li::before{counter-increment:s;content:counter(s);font-family:var(--f-mono);color:var(--muted);text-align:right}
+.steps .tag{font-family:var(--f-display);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.steps code{font-family:var(--f-mono);font-size:13px;word-break:break-all}
+.order{font-family:var(--f-mono);font-size:13px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.muted{color:var(--muted)}
+
+/* side tabs */
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:transparent;padding:12px;font-family:var(--f-display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabbody{padding:14px 16px;display:grid;gap:12px;min-width:0}
+.saveline{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+/* history tape */
+.tape{display:grid;gap:0;max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+.hitem{display:grid;gap:4px;padding:10px 12px;border-bottom:1px dashed var(--line);min-width:0}
+.hitem:last-child{border-bottom:0}
+.hitem .h-top{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.hitem .h-name{font-family:var(--f-mono);font-weight:600;color:var(--accent)}
+.hitem .h-expr{font-family:var(--f-mono);font-size:13px;color:var(--muted);word-break:break-all}
+.hitem .h-res{font-family:var(--f-mono);font-size:17px;font-weight:500;word-break:break-all}
+.hitem .h-act{display:flex;flex-wrap:wrap;gap:6px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:5px 10px;font-size:13px;font-weight:500}
+.btn:hover{background:var(--key-hi)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--bad)}
+.empty{padding:18px;color:var(--muted);font-size:13.5px;text-align:left}
+
+/* notes */
+.folders{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.folder{border:1px solid var(--line);background:var(--panel-2);border-radius:7px;padding:5px 10px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.folder[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.folder .cnt{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.notes-split{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr);gap:12px}
+@media (max-width:520px){.notes-split{grid-template-columns:minmax(0,1fr)}}
+.nlist{display:grid;gap:4px;align-content:start;max-height:420px;overflow:auto}
+.nrow{text-align:left;border:1px solid transparent;background:transparent;border-radius:7px;padding:7px 9px;display:grid;gap:1px;min-width:0}
+.nrow:hover{background:var(--key-hi)}
+.nrow[aria-current="true"]{background:var(--panel-2);border-color:var(--line)}
+.nrow .t{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nrow .s{font-size:11.5px;color:var(--muted)}
+.editor{display:grid;gap:8px;min-width:0}
+.editor input,.editor textarea,.inline input,.editor select{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.editor input{font-weight:600}
+.editor textarea{min-height:220px;resize:vertical;font-family:var(--f-mono);font-size:13.5px;line-height:1.55}
+.row-wrap{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.inline{display:flex;gap:6px;flex-wrap:wrap}
+.inline input{flex:1;min-width:0}
+.confirm{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;background:var(--accent-soft);border-radius:8px;padding:6px 10px}
+
+/* digit ledger */
+.ledger{padding:16px;display:grid;gap:12px}
+.ledger-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.ledger h2{font-family:var(--f-display);font-weight:700;font-size:20px;margin:0;letter-spacing:.02em}
+.finder{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.finder input{flex:1 1 220px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--f-mono)}
+.finder .out{flex-basis:100%;font-size:14px}
+.finder .big{font-family:var(--f-mono);font-size:26px;font-weight:600;color:var(--accent);vertical-align:middle;margin:0 4px}
+.digits{margin:0;max-height:420px;overflow:auto;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+  font-family:var(--f-mono);font-size:13px;line-height:1.7;font-variant-numeric:tabular-nums;white-space:pre}
+.digits .pos{color:var(--muted)}
+.digits .intl{color:var(--accent);font-weight:600}
+.ledger .note{font-size:13px;color:var(--muted);max-width:75ch}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13.5px;z-index:20;max-width:calc(100% - 32px)}
+.phone-nav{display:none}
+@media (max-width:860px){
+  body{padding-block:14px calc(84px + env(safe-area-inset-bottom,0px))}
+  .brand p{display:none}
+  .v:not(.on){display:none!important}
+  .tabs{display:none}
+  .result{max-height:7.5em}
+  .tape{max-height:none}
+  .phone-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;
+    background:var(--panel);border-top:1px solid var(--line);
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  .phone-nav button{border:0;background:transparent;border-radius:10px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);position:relative}
+  .phone-nav button .ico{font-family:var(--f-mono);font-size:18px;line-height:1}
+  .phone-nav button[aria-current="true"]{color:var(--ink);background:var(--accent-soft)}
+  .phone-nav .badge{position:absolute;top:3px;left:calc(50% + 8px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--eq-ink);font-family:var(--f-mono);font-size:11px;line-height:18px;letter-spacing:0}
+  .phone-nav .badge.pop{animation:pop .5s ease}
+  .last-strip{display:flex}
+}
+@media (min-width:861px){.last-strip{display:none!important}}
+.last-strip{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 16px 0;font-size:12.5px;color:var(--muted)}
+.last-strip button{border:1px solid var(--line);background:var(--panel-2);border-radius:7px;padding:4px 10px;font-size:12.5px}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Exact Ledger</h1>
+      <p>Every answer is kept as an exact fraction, so any digit can be found, even at position 10<sup>1000</sup>. Results are saved to your history and notes.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Order of operations">
+        <button id="mode-custom" aria-pressed="true" title="Addition and subtraction first, exponents second, then multiplication and division">Your order</button>
+        <button id="mode-standard" aria-pressed="false" title="Exponents, then × ÷, then + −">Standard</button>
+      </div>
+      <label class="field" for="prec">Digits
+        <select id="prec">
+          <option value="50">50</option><option value="100">100</option><option value="250" selected>250</option>
+          <option value="1000">1,000</option><option value="5000">5,000</option><option value="20000">20,000</option><option value="100000">100,000</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="v v-calc" style="display:grid;gap:18px;min-width:0">
+      <section class="panel" aria-label="Calculator">
+        <div class="display">
+          <div class="row"><span class="label">Expression</span><span class="label" id="exactness"></span></div>
+          <input id="expr" type="text" inputmode="none" autocomplete="off" spellcheck="false" value="1÷7" aria-label="Expression">
+          <div class="result" id="result" aria-live="polite"></div>
+          <div class="halves" id="halves" hidden></div>
+          <div class="chips" id="chips"></div>
+        </div>
+        <div class="keys" id="keys">
+          <button class="k fn" data-k="(">(</button><button class="k fn" data-k=")">)</button>
+          <button class="k op" data-k="%">%<small>halves</small></button>
+          <button class="k fn" data-act="back" aria-label="Delete">⌫</button><button class="k fn" data-act="clear">AC</button>
+          <button class="k" data-k="7">7</button><button class="k" data-k="8">8</button><button class="k" data-k="9">9</button>
+          <button class="k op" data-k="÷">÷<small>a ÷ b</small></button><button class="k op" data-k="/">/<small>b ÷ a</small></button>
+          <button class="k" data-k="4">4</button><button class="k" data-k="5">5</button><button class="k" data-k="6">6</button>
+          <button class="k op" data-k="×">×</button><button class="k op" data-k="^">^<small>power</small></button>
+          <button class="k" data-k="1">1</button><button class="k" data-k="2">2</button><button class="k" data-k="3">3</button>
+          <button class="k op" data-k="-">−</button><button class="k op" data-k="√(">√<small>root</small></button>
+          <button class="k" data-k="0">0</button><button class="k" data-k=".">.</button>
+          <button class="k fn" data-k="Ans">Ans</button><button class="k op" data-k="+">+</button><button class="k op" data-k="π">π</button>
+          <button class="k op wide" data-act="right">[0.+]<small>point right</small></button>
+          <button class="k op" data-k="·">·<small>times</small></button>
+          <button class="k op wide" data-act="left">×0<small>point left</small></button>
+          <button class="k eq" data-act="eq">=</button>
+        </div>
+        <div class="last-strip" id="laststrip" hidden><span id="lastinfo"></span><button id="openhist">Open history</button></div>
+        <div class="legend">
+          <div><b>/</b> divides the opposite direction: <b>10 / 2</b> means 2 ÷ 10 = 0.2. Use <b>÷</b> for normal division.</div>
+          <div><b>[0.+]</b> at the front moves the decimal point right: <b>[00.+]5</b> = 500. <b>×0</b> at the end moves it left: <b>5×00</b> = 0.05. One zero per place, and only one of the two per expression.</div>
+          <div><b>·</b> is a multiplication dot and works the same as ×.</div>
+          <div><b>%</b> splits a number into two even halves: <b>10%</b> = 5 | 5, and the result carries 5 forward.</div>
+          <div>Type on your keyboard too. Enter calculates. Use <b>Ans</b> for the last answer or <b>H3</b> for history item 3.</div>
+        </div>
+      </section>
+
+      <section class="panel steps" aria-label="Procedure">
+        <div class="row-wrap" style="justify-content:space-between"><span class="label">Procedure</span><span class="order" id="order"></span></div>
+        <ol id="steps"></ol>
+      </section>
+    </div>
+
+    <section class="panel v v-history v-notes" aria-label="History and notes">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-h" aria-selected="true" aria-controls="pane-h">History</button>
+        <button role="tab" id="tab-n" aria-selected="false" aria-controls="pane-n">Notes</button>
+      </div>
+      <div class="tabbody" id="pane-h" role="tabpanel">
+        <div class="saveline"><span id="hcount">No calculations yet</span><button class="btn" id="hclear">Clear history</button></div>
+        <div id="hconfirm"></div>
+        <div class="tape" id="tape"></div>
+      </div>
+      <div class="tabbody" id="pane-n" role="tabpanel" hidden>
+        <div class="folders" id="folders"></div>
+        <div class="inline" id="folderbar"></div>
+        <div class="notes-split">
+          <div class="nlist" id="nlist"></div>
+          <div class="editor" id="editor"></div>
+        </div>
+        <div class="saveline"><span id="savestate"></span></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel ledger v v-digits" aria-label="Digit ledger">
+    <div class="ledger-head">
+      <h2>Digit ledger</h2>
+      <div class="row-wrap"><button class="btn" id="copydigits">Copy digits</button><button class="btn" id="dldigits">Download digits</button></div>
+    </div>
+    <div class="finder">
+      <label class="label" for="pos">Find the digit at position</label>
+      <input id="pos" type="text" value="10^1000" spellcheck="false" autocomplete="off">
+      <button class="btn primary" id="find">Find digit</button>
+      <div class="out" id="findout"></div>
+    </div>
+    <div class="note" id="ledgernote"></div>
+    <pre class="digits" id="digits"></pre>
+  </section>
+</div>
+<nav class="phone-nav" aria-label="Sections">
+  <button data-view="calc" aria-current="true"><span class="ico">=</span>Calc</button>
+  <button data-view="history"><span class="ico">≡</span>History<span class="badge" id="hbadge" hidden>0</span></button>
+  <button data-view="notes"><span class="ico">✎</span>Notes</button>
+  <button data-view="digits"><span class="ico">#</span>Digits</button>
+</nav>
+<div class="toast" id="toast" hidden></div>
+
+<script id="engine-src">// Exact Ledger math engine. Runs inside a Web Worker (and in Node for tests).
+// Every value is an exact fraction n/d of BigInts. Irrational results (roots, π)
+// are flagged exact:false and carried to the chosen precision plus guard digits.
+var Engine = (function () {
+  var GUARD = 12;
+  var MAX_RESULT_DIGITS = 2000000;
+
+  function CalcError(msg) { this.message = msg; }
+
+  function abs(a) { return a < 0n ? -a : a; }
+  function gcd(a, b) { a = abs(a); b = abs(b); while (b) { var t = a % b; a = b; b = t; } return a; }
+  function R(n, d, exact) {
+    if (d === undefined) d = 1n;
+    if (d === 0n) throw new CalcError("Can't divide by zero.");
+    if (d < 0n) { n = -n; d = -d; }
+    var g = gcd(n, d) || 1n;
+    return { n: n / g, d: d / g, exact: exact !== false };
+  }
+  function digitLen(x) { x = abs(x); return x === 0n ? 1 : x.toString().length; }
+  function bitLenUpper(x) { return x.toString(16).length * 4; }
+
+  // ---------- short display for the procedure steps ----------
+  function short(v) {
+    var neg = v.n < 0n, a = abs(v.n), ip = a / v.d, rem = a % v.d;
+    var s = ip.toString();
+    if (s.length > 24) s = s.slice(0, 10) + "…" + s.slice(-6) + " (" + s.length + " digits)";
+    if (rem !== 0n) {
+      // count the zeros right after the point, then keep 12 real digits after them
+      var z = 0, r0 = rem;
+      while (r0 * 10n < v.d && z < 100000) { r0 *= 10n; z++; }
+      var W = BigInt(z + 12);
+      var fr = ((rem * 10n ** W) / v.d).toString().padStart(z + 12, "0");
+      var more = (rem * 10n ** W) % v.d !== 0n;
+      fr = fr.replace(/0+$/, "");
+      if (z > 20) fr = "0…[" + z + " zeros]…" + fr.slice(z);
+      s += "." + fr + (more ? "…" : "");
+    }
+    return (neg ? "−" : "") + (v.exact ? "" : "≈") + s;
+  }
+
+  // ---------- tokenizer ----------
+  function tokenize(src, vars) {
+    vars = vars || {};
+    var s = src.replace(/[\s,_]/g, "").replace(/[*·•⋅]/g, "×").replace(/[−–]/g, "-");
+    var opens = (s.match(/\(/g) || []).length, closes = (s.match(/\)/g) || []).length;
+    if (closes > opens) throw new CalcError("There is a “)” with no matching “(”.");
+    s += ")".repeat(opens - closes);
+    var out = [], i = 0;
+    while (i < s.length) {
+      var c = s[i];
+      if (/[0-9.]/.test(c)) {
+        var j = i; while (j < s.length && /[0-9.]/.test(s[j])) j++;
+        var num = s.slice(i, j);
+        if ((num.match(/\./g) || []).length > 1 || num === ".") throw new CalcError("“" + num + "” is not a valid number.");
+        out.push({ t: "num", v: num }); i = j; continue;
+      }
+      if (/[A-Za-z]/.test(c)) {
+        var j2 = i; while (j2 < s.length && /[A-Za-z0-9]/.test(s[j2])) j2++;
+        var word = s.slice(i, j2), lw = word.toLowerCase();
+        if (lw === "pi") out.push({ t: "pi", v: "π" });
+        else if (lw === "sqrt") out.push({ t: "sqrt", v: "√" });
+        else {
+          var key = lw === "ans" ? "Ans" : word.toUpperCase();
+          if (!vars[key]) throw new CalcError(lw === "ans" ? "There is no previous answer yet." : "“" + word + "” isn't a saved result. History items are named H1, H2 and so on.");
+          var vv = vars[key];
+          out.push({ t: "var", v: key, val: R(BigInt(vv.n), BigInt(vv.d), vv.exact) });
+        }
+        i = j2; continue;
+      }
+      if ("+-×÷/^%()π√".indexOf(c) >= 0) {
+        out.push({ t: c === "(" || c === ")" ? c : (c === "π" ? "pi" : (c === "√" ? "sqrt" : "op")), v: c }); i++; continue;
+      }
+      throw new CalcError("“" + c + "” is not a key this calculator understands.");
+    }
+    // implicit multiplication like 2(3) or 2π is ambiguous under custom order: refuse clearly
+    for (var k = 1; k < out.length; k++) {
+      var a = out[k - 1], b = out[k];
+      var endsValue = a.t === "num" || a.t === "var" || a.t === ")" || a.t === "pi" || (a.t === "op" && a.v === "%");
+      var startsValue = b.t === "num" || b.t === "var" || b.t === "(" || b.t === "pi" || b.t === "sqrt";
+      if (endsValue && startsValue) throw new CalcError("Put an operator between “" + a.v + "” and “" + b.v + "” (for example ×).");
+    }
+    return out;
+  }
+
+  function numFromString(str) {
+    var parts = str.split(".");
+    var ip = parts[0] || "0", fp = parts[1] || "";
+    return R(BigInt(ip + fp), 10n ** BigInt(fp.length), true);
+  }
+
+  // ---------- parser (precedence climbing) ----------
+  var TABLES = {
+    // Your order: addition & subtraction first, exponents second, then × ÷ /
+    custom: { "+": 3, "-": 3, "^": 2, "×": 1, "÷": 1, "/": 1 },
+    standard: { "+": 1, "-": 1, "×": 2, "÷": 2, "/": 2, "^": 3 }
+  };
+
+  function parse(tokens, mode) {
+    var P = TABLES[mode], i = 0;
+    function peek() { return tokens[i]; }
+    function expr(minP) {
+      var left = unary();
+      for (;;) {
+        var t = peek();
+        if (!t || t.t !== "op" || !(t.v in P)) break;
+        var p = P[t.v];
+        if (p < minP) break;
+        i++;
+        if (!peek()) throw new CalcError("The expression ends with “" + t.v + "”. Add a number after it.");
+        var right = expr(t.v === "^" ? p : p + 1);
+        left = { k: "bin", op: t.v, l: left, r: right };
+      }
+      return left;
+    }
+    function unary() {
+      var t = peek();
+      if (t && t.t === "op" && (t.v === "-" || t.v === "+")) {
+        i++;
+        var e = mode === "standard" ? expr(P["^"]) : unary();
+        return t.v === "-" ? { k: "neg", e: e } : e;
+      }
+      return postfix();
+    }
+    function postfix() {
+      var e = primary();
+      while (peek() && peek().t === "op" && peek().v === "%") { i++; e = { k: "half", e: e }; }
+      return e;
+    }
+    function primary() {
+      var t = peek();
+      if (!t) throw new CalcError("Something is missing at the end. Add a number.");
+      if (t.t === "num") { i++; return { k: "num", v: numFromString(t.v), raw: t.v }; }
+      if (t.t === "pi") { i++; return { k: "pi" }; }
+      if (t.t === "var") { i++; return { k: "var", name: t.v, v: t.val }; }
+      if (t.t === "sqrt") { i++; return { k: "sqrt", e: postfix() }; }
+      if (t.t === "(") {
+        i++;
+        var e = expr(0);
+        if (!peek() || peek().t !== ")") throw new CalcError("A “(” was never closed.");
+        i++;
+        return { k: "paren", e: e };
+      }
+      throw new CalcError("“" + t.v + "” can't go here. Put a number before it.");
+    }
+    var tree = expr(0);
+    if (i < tokens.length) throw new CalcError("“" + tokens[i].v + "” can't go here.");
+    return tree;
+  }
+
+  // ---------- roots and powers ----------
+  function iroot(N, k) { // floor(N^(1/k)) for N >= 0
+    if (N < 2n) return N;
+    var K = BigInt(k);
+    var x = 1n << BigInt(Math.ceil(bitLenUpper(N) / k));
+    for (;;) {
+      var y = ((K - 1n) * x + N / (x ** (K - 1n))) / K;
+      if (y >= x) return x;
+      x = y;
+    }
+  }
+
+  function rationalRoot(v, q, prec, steps, label) {
+    // v^(1/q), q a positive integer
+    var neg = v.n < 0n;
+    if (neg && q % 2 === 0) throw new CalcError("An even root of a negative number has no real answer.");
+    var n = abs(v.n), d = v.d, Q = BigInt(q);
+    var inner = n * d ** (Q - 1n);
+    var s = iroot(inner, q);
+    if (s ** Q === inner && v.exact) return R(neg ? -s : s, d, true);
+    var G = BigInt(prec + GUARD);
+    var S = 10n ** G;
+    var r = iroot(inner * S ** Q, q);
+    return R(neg ? -r : r, d * S, false);
+  }
+
+  function power(a, b, prec) {
+    var exact = a.exact && b.exact;
+    if (b.d === 1n) {
+      var e = b.n;
+      if (a.n === 0n && e < 0n) throw new CalcError("0 raised to a negative power means dividing by zero.");
+      if (a.n === 0n) return R(e === 0n ? 1n : 0n, 1n, exact);
+      if (abs(a.n) === 1n && a.d === 1n) return R(e % 2n === 0n ? 1n : a.n, 1n, exact);
+      var est = Math.max(digitLen(a.n), digitLen(a.d)) * Number(abs(e) > 10n ** 9n ? 10n ** 9n : abs(e));
+      if (est > MAX_RESULT_DIGITS) throw new CalcError("That power would have about " + est.toLocaleString() + " digits. The limit is 2,000,000.");
+      var r = R(a.n ** abs(e), a.d ** abs(e), exact);
+      if (e < 0n) r = R(r.d, r.n, exact);
+      if (!exact) r = trim(r, prec);
+      return r;
+    }
+    var p = b.n, q = b.d;
+    if (q > 1000n) throw new CalcError("A fractional power needs a simple fraction (denominator up to 1000), like 0.5, 1.25 or 2/3 written as (3/2). This one reduces to " + p + "/" + q + ".");
+    var base = power(a, R(p < 0n ? -p : p, 1n, true), prec);
+    var root = rationalRoot(R(base.n, base.d, base.exact), Number(q), prec);
+    if (p < 0n) { if (root.n === 0n) throw new CalcError("Can't divide by zero."); root = R(root.d, root.n, root.exact); }
+    root.exact = root.exact && exact;
+    return root.exact ? root : trim(root, prec);
+  }
+
+  // keep approximate values at prec+GUARD digits so they don't balloon
+  function trim(v, prec) {
+    if (v.exact) return v;
+    var S = 10n ** BigInt(prec + GUARD);
+    if (v.d <= S) return v;
+    return R((v.n * S) / v.d, S, false);
+  }
+
+  function piValue(prec) {
+    var G = BigInt(prec + GUARD + 5), S = 10n ** G;
+    function atanInv(x) {
+      var X = BigInt(x), x2 = X * X, term = S / X, sum = term, k = 1n, sign = -1n;
+      while (term !== 0n) {
+        term = term / x2;
+        var t = term / (2n * k + 1n);
+        if (t === 0n) break;
+        sum += sign * t; sign = -sign; k++;
+      }
+      return sum;
+    }
+    var pi = 16n * atanInv(5) - 4n * atanInv(239);
+    return trim(R(pi, S, false), prec);
+  }
+
+  // ---------- evaluator with recorded procedure ----------
+  var OPNAME = { "+": "add", "-": "subtract", "×": "multiply", "÷": "divide", "/": "reverse-divide", "^": "exponent" };
+  // Your decimal-point rules (Your order mode):
+  //   [0.+] at the FRONT moves the point right, one place per zero: [00.+]5 = 500
+  //   ×0 at the END moves the point left, one place per zero: 5×00 = 0.05
+  //   Only one of the two per expression.
+  function isZeros(node) {
+    var neg = false;
+    while (node.k === "paren") node = node.e;
+    if (node.k === "neg") { neg = true; node = node.e; while (node.k === "paren") node = node.e; }
+    if (node.k === "num" && /^0+$/.test(node.raw)) return { places: node.raw.length, neg: neg };
+    return null;
+  }
+  function zeroText(n) { return n > 20 ? "0…[" + n + " zeros]" : "0".repeat(n); }
+  function shiftText(base, out, places, dir, how) {
+    return short(base) + "  " + how + "  → decimal point moves " + places + " place" + (places > 1 ? "s" : "") + " " + dir + " = " + short(out);
+  }
+  function evaluate(src, mode, prec, vars) {
+    var steps = [];
+    src = src.replace(/\s+/g, "");
+    var right = 0, m = src.match(/^\[(0+)\.\+\]/);
+    if (m) {
+      if (mode !== "custom") throw new CalcError("[0.+] is one of your rules. Switch to “Your order” to use it.");
+      right = m[1].length;
+      src = src.slice(m[0].length).replace(/^[×·*]/, "");
+      if (!src) throw new CalcError("Put a number after [0.+], like [0.+]5.");
+    }
+    if (src.indexOf("[") >= 0 || src.indexOf("]") >= 0) throw new CalcError("[0.+] only works at the very front of the expression, written exactly as [0.+] with one 0 per place.");
+    var tree = parse(tokenize(src, vars), mode);
+    var leftShift = null;
+    if (mode === "custom" && tree.k === "bin" && tree.op === "×") {
+      var z = isZeros(tree.r);
+      if (z && !z.neg) { leftShift = z.places; tree = tree.l; }
+    }
+    if (leftShift && right) throw new CalcError("Use [0.+] at the front or ×0 at the end, not both in the same expression.");
+    function ev(node) {
+      switch (node.k) {
+        case "num": return node.v;
+        case "var": steps.push({ kind: "const", text: node.name + " = " + short(node.v) }); return node.v;
+        case "paren": return ev(node.e);
+        case "pi": { var p = piValue(prec); steps.push({ kind: "const", text: "π = " + short(p) }); return p; }
+        case "neg": { var v = ev(node.e); return R(-v.n, v.d, v.exact); }
+        case "half": {
+          var x = ev(node.e), h = R(x.n, x.d * 2n, x.exact);
+          steps.push({ kind: "half", text: short(x) + "% → splits evenly into " + short(h) + " | " + short(h) });
+          return h;
+        }
+        case "sqrt": {
+          var a = ev(node.e), r = rationalRoot(a, 2, prec);
+          r = trim(r, prec);
+          steps.push({ kind: "exp", text: "√" + short(a) + " = " + short(r) });
+          return r;
+        }
+        case "bin": {
+          var L = ev(node.l), Rt = ev(node.r), out, sym = node.op, ex = L.exact && Rt.exact;
+          if (sym === "×" && mode === "custom") {
+            var zr = isZeros(node.r), zl = isZeros(node.l);
+            if (zr && zr.neg || zl && zl.neg) throw new CalcError("×−0 doesn't move the point. To move it right, put [0.+] at the front, like [0.+]5 = 50.");
+            if (zr || zl) throw new CalcError("×0 moves the decimal point only at the very end of the expression, like 5×0 = 0.5. To multiply by a real zero, type ×0.0.");
+          }
+          if (sym === "+") out = R(L.n * Rt.d + Rt.n * L.d, L.d * Rt.d, ex);
+          else if (sym === "-") out = R(L.n * Rt.d - Rt.n * L.d, L.d * Rt.d, ex);
+          else if (sym === "×") out = R(L.n * Rt.n, L.d * Rt.d, ex);
+          else if (sym === "÷") { if (Rt.n === 0n) throw new CalcError("Can't divide by zero."); out = R(L.n * Rt.d, L.d * Rt.n, ex); }
+          else if (sym === "/") { if (L.n === 0n) throw new CalcError("Reverse divide: " + short(L) + " / " + short(Rt) + " means " + short(Rt) + " ÷ " + short(L) + ", and that divides by zero."); out = R(Rt.n * L.d, Rt.d * L.n, ex); }
+          else if (sym === "^") out = power(L, Rt, prec);
+          if (!out.exact) out = trim(out, prec);
+          var txt = sym === "/" ? short(L) + " / " + short(Rt) + "  (means " + short(Rt) + " ÷ " + short(L) + ") = " + short(out)
+                                : short(L) + " " + (sym === "-" ? "−" : sym) + " " + short(Rt) + " = " + short(out);
+          steps.push({ kind: OPNAME[sym], text: txt });
+          return out;
+        }
+      }
+    }
+    var result = ev(tree);
+    if (leftShift) {
+      var o = R(result.n, result.d * 10n ** BigInt(leftShift), result.exact);
+      steps.push({ kind: "shift", text: shiftText(result, o, leftShift, "left", "×" + zeroText(leftShift) + " at the end") });
+      result = o;
+    }
+    if (right) {
+      var o2 = R(result.n * 10n ** BigInt(right), result.d, result.exact);
+      steps.push({ kind: "shift", text: shiftText(result, o2, right, "right", "[" + zeroText(right) + ".+] at the front") });
+      result = o2;
+    }
+    return { n: result.n, d: result.d, exact: result.exact, steps: steps };
+  }
+
+  // ---------- decimal expansion ----------
+  function expand(n, d, N) {
+    var neg = n < 0n, a = abs(n);
+    var ip = a / d, rem = a % d;
+    var t2 = 0, t5 = 0, dd = d;
+    while (dd % 2n === 0n) { dd /= 2n; t2++; }
+    while (dd % 5n === 0n) { dd /= 5n; t5++; }
+    var pre = Math.max(t2, t5), period = null, terminating = dd === 1n;
+    if (terminating && pre > N && pre <= 1000000) N = pre;
+    var frac = N > 0 ? ((rem * 10n ** BigInt(N)) / d).toString().padStart(N, "0") : "";
+    if (!terminating) {
+      var limit = 3000000, x = 10n % dd, k = 1;
+      while (x !== 1n && k < limit) { x = (x * 10n) % dd; k++; }
+      if (x === 1n) period = k;
+    }
+    return { neg: neg, int: ip.toString(), frac: frac, terminating: terminating, pre: pre, period: period, zeroFrac: rem === 0n };
+  }
+
+  function modpow(b, e, m) {
+    var r = 1n % m; b %= m;
+    while (e > 0n) { if (e & 1n) r = (r * b) % m; b = (b * b) % m; e >>= 1n; }
+    return r;
+  }
+  function digitAt(n, d, k) { // k-th digit after the decimal point, k >= 1 (BigInt)
+    var a = abs(n) % d;
+    var r = (a * modpow(10n, k - 1n, d)) % d;
+    return Number((r * 10n) / d);
+  }
+  function parsePosition(s) {
+    s = String(s).replace(/[\s,_]/g, "");
+    var m;
+    if (/^\d+$/.test(s)) return BigInt(s);
+    if ((m = s.match(/^(\d+)\^(\d+)$/))) { if (Number(m[2]) > 1000000) throw new CalcError("That position's exponent is too large."); return BigInt(m[1]) ** BigInt(m[2]); }
+    if ((m = s.match(/^(\d+(?:\.\d+)?)e(\d+)$/i))) { var v = numFromString(m[1]); var p = BigInt(m[2]); var r = (v.n * 10n ** p) / v.d; return r; }
+    throw new CalcError("Write the position as a whole number, like 1000000, or as a power, like 10^1000.");
+  }
+
+  return { evaluate: evaluate, expand: expand, digitAt: digitAt, parsePosition: parsePosition, CalcError: CalcError, short: short, R: R };
+})();
+
+if (typeof module !== "undefined") module.exports = Engine;
+
+if (typeof self !== "undefined" && typeof window === "undefined" && typeof module === "undefined") {
+  self.onmessage = function (ev) {
+    var m = ev.data, id = m.id;
+    try {
+      if (m.type === "eval") {
+        var r = Engine.evaluate(m.expr, m.mode, m.prec, m.vars);
+        self.postMessage({ id: id, ok: true, n: r.n.toString(), d: r.d.toString(), exact: r.exact, steps: r.steps });
+      } else if (m.type === "expand") {
+        var e = Engine.expand(BigInt(m.n), BigInt(m.d), m.N);
+        self.postMessage({ id: id, ok: true, x: e });
+      } else if (m.type === "digit") {
+        var k = Engine.parsePosition(m.k);
+        if (k < 1n) throw new Engine.CalcError("Positions start at 1 (the first digit after the decimal point).");
+        if (!m.exact && k > BigInt(m.prec)) throw new Engine.CalcError("This answer is irrational (it never repeats), so only the first " + Number(m.prec).toLocaleString() + " digits are known. Raise the precision to see further.");
+        var dg = Engine.digitAt(BigInt(m.n), BigInt(m.d), k);
+        var ks = k.toString();
+        self.postMessage({ id: id, ok: true, digit: dg, k: ks.length > 40 ? ks.slice(0, 12) + "…" + ks.slice(-6) + " (" + ks.length + "-digit position)" : Number(ks) <= 1e15 ? Number(ks).toLocaleString() : ks });
+      }
+    } catch (err) {
+      self.postMessage({ id: id, ok: false, error: err instanceof Engine.CalcError ? err.message : ("Calculation failed: " + (err && err.message || err)) });
+    }
+  };
+}
+</script>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var state={mode:"custom",prec:250,last:null,history:[],hseq:0,folders:["General"],notes:{},activeFolder:"General",activeNote:null};
+var store={kind:"local",uid:null,db:null,coll:null}, downloads=null;
+
+// ---------- worker ----------
+var worker=null, pending={}, reqId=0;
+try{ var blob=new Blob([$("engine-src").textContent],{type:"text/javascript"}); worker=new Worker(URL.createObjectURL(blob));
+  worker.onmessage=function(e){var cb=pending[e.data.id]; if(cb){delete pending[e.data.id]; cb(e.data);}};
+  worker.onerror=function(){worker=null}; }catch(e){worker=null}
+function call(msg){ return new Promise(function(res){ msg.id=++reqId;
+  if(worker){ pending[msg.id]=res; worker.postMessage(msg); return; }
+  // fallback on the main thread
+  try{ var E=window.Engine||Engine;
+    if(msg.type==="eval"){var r=E.evaluate(msg.expr,msg.mode,msg.prec,msg.vars);res({ok:true,n:r.n.toString(),d:r.d.toString(),exact:r.exact,steps:r.steps});}
+    else if(msg.type==="expand"){res({ok:true,x:E.expand(BigInt(msg.n),BigInt(msg.d),msg.N)});}
+    else if(msg.type==="digit"){var k=E.parsePosition(msg.k); if(k<1n) throw new E.CalcError("Positions start at 1."); if(!msg.exact&&k>BigInt(msg.prec)) throw new E.CalcError("This answer is irrational, so only the first "+msg.prec+" digits are known."); res({ok:true,digit:E.digitAt(BigInt(msg.n),BigInt(msg.d),k),k:k.toString()});}
+  }catch(err){res({ok:false,error:err.message||String(err)})}
+});}
+
+// ---------- helpers ----------
+function toast(t){var el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(function(){el.hidden=true},2200)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function groupInt(s){ if(s.length<=4) return s; return s.replace(/\B(?=(\d{3})+(?!\d))/g,","); }
+function clip(s,n){ return s.length>n ? s.slice(0,n)+"…" : s; }
+function fmtTime(t){var d=new Date(t);return d.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}
+// readable decimal from an expansion
+function decText(x, maxFrac, html){
+  var sign=x.neg?"−":"", ip=groupInt(x.int);
+  if(x.zeroFrac) return sign+ip;
+  if(x.terminating && x.pre<=x.frac.length) return sign+ip+"."+x.frac.slice(0,x.pre);
+  if(x.period && x.period<=40 && x.pre+x.period<=x.frac.length){
+    var a=x.frac.slice(0,x.pre), r=x.frac.slice(x.pre,x.pre+x.period);
+    return sign+ip+"."+a+(html?'<span class="rep">'+r+"</span>":"("+r+")");
+  }
+  return sign+ip+"."+x.frac.slice(0,maxFrac)+"…";
+}
+function longText(x,n){
+  var sign=x.neg?"−":"", ip=groupInt(x.int);
+  if(x.zeroFrac) return sign+ip;
+  var fr=x.frac, ends=x.terminating&&x.pre<=fr.length;
+  if(ends) fr=fr.slice(0,x.pre);
+  var z=(fr.match(/^0*/)||[""])[0].length; if(z>=fr.length) z=0;
+  var keep=Math.max(n,z+20);
+  if(z>40) return sign+ip+".0…["+z+" zeros]…"+fr.slice(z,z+20)+(fr.length>z+20||!ends?"…":"");
+  return sign+ip+"."+(fr.length>keep?fr.slice(0,keep)+"…":fr+(ends?"":"…"));
+}
+function fullDec(x){
+  var sign=x.neg?"−":"", ip=groupInt(x.int);
+  if(x.zeroFrac) return sign+ip;
+  var fr=x.frac, ends=x.terminating&&x.pre<=fr.length;
+  if(ends) fr=fr.slice(0,x.pre);
+  return sign+ip+"."+fr+(ends?"":'<span class="more">…</span>');
+}
+function vars(){ var v={}; if(state.last) v.Ans={n:state.last.n,d:state.last.d,exact:state.last.exact};
+  state.history.forEach(function(h){ v["H"+h.num]={n:h.n,d:h.d,exact:h.exact}; }); return v; }
+
+// ---------- calculator ----------
+var expr=$("expr");
+function insert(t){ var s=expr.selectionStart??expr.value.length, e=expr.selectionEnd??expr.value.length;
+  expr.value=expr.value.slice(0,s)+t+expr.value.slice(e); var p=s+t.length; expr.focus(); expr.setSelectionRange(p,p); }
+$("keys").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.k){ insert(b.dataset.k); return; }
+  var a=b.dataset.act;
+  if(a==="back"){ var s=expr.selectionStart, en=expr.selectionEnd; if(s!==en){expr.value=expr.value.slice(0,s)+expr.value.slice(en);expr.setSelectionRange(s,s);}
+    else if(s>0){ var cut=/Ans$/.test(expr.value.slice(0,s))?3:1; expr.value=expr.value.slice(0,s-cut)+expr.value.slice(s); expr.setSelectionRange(s-cut,s-cut);} expr.focus(); }
+  if(a==="clear"){ expr.value=""; expr.focus(); }
+  if(a==="right"){ var mm=expr.value.match(/^\[(0+)\.\+\]/); expr.value = mm ? "["+mm[1]+"0.+]"+expr.value.slice(mm[0].length) : "[0.+]"+expr.value; expr.focus(); expr.setSelectionRange(expr.value.length,expr.value.length); }
+  if(a==="left"){ expr.value += /×0+$/.test(expr.value) ? "0" : "×0"; expr.focus(); expr.setSelectionRange(expr.value.length,expr.value.length); }
+  if(a==="eq") calculate(true);
+});
+expr.addEventListener("keydown",function(e){ if(e.key==="Enter"){e.preventDefault();calculate(true);} });
+expr.addEventListener("input",function(){ var p=expr.selectionStart, v=expr.value.replace(/\*/g,"×").replace(/x(?=\d|\(|$)/g,function(m,o,s){return /\d|\)/.test(s[o-1]||"")?"×":m}); if(v!==expr.value){expr.value=v;expr.setSelectionRange(p,p);} });
+
+function setMode(m){ state.mode=m; $("mode-custom").setAttribute("aria-pressed",m==="custom"); $("mode-standard").setAttribute("aria-pressed",m==="standard");
+  $("order").textContent = m==="custom" ? "( )  →  + −  →  ^  →  × ÷ /" : "( )  →  ^  →  × ÷ /  →  + −"; lsSet("mode",m); }
+$("mode-custom").onclick=function(){setMode("custom"); if(expr.value.trim()) calculate(false)};
+$("mode-standard").onclick=function(){setMode("standard"); if(expr.value.trim()) calculate(false)};
+$("prec").onchange=function(){ state.prec=+this.value; lsSet("prec",state.prec); if(state.last) calculate(false); };
+
+var busy=0;
+function calculate(record){
+  var src=expr.value.trim(); if(!src) return;
+  var my=++busy; $("result").className="result"; $("result").textContent="Working…";
+  var evalPrec=Math.min(state.prec,20000);
+  call({type:"eval",expr:src,mode:state.mode,prec:evalPrec,vars:vars()}).then(function(r){
+    if(my!==busy) return;
+    if(!r.ok){ $("result").className="result err"; $("result").textContent=r.error; $("chips").innerHTML=""; $("halves").hidden=true; $("exactness").textContent=""; return; }
+    var res={expr:src,mode:state.mode,n:r.n,d:r.d,exact:r.exact,prec:r.exact?state.prec:evalPrec,steps:r.steps};
+    renderSteps(r.steps);
+    call({type:"expand",n:r.n,d:r.d,N:res.prec}).then(function(x){
+      if(my!==busy) return;
+      res.x=x.x; res.short=longText(x.x,60);
+      state.last=res; showResult(res);
+      if(record) addHistory(res);
+    });
+  });
+}
+function showResult(res){
+  var x=res.x, el=$("result");
+  el.className="result"; el.innerHTML=fullDec(x);
+  $("exactness").textContent=res.exact?"Exact":"Approximate";
+  var chips=[];
+  chips.push(res.exact?'<span class="chip exact">exact value</span>':'<span class="chip approx">irrational · correct to '+res.prec.toLocaleString()+' digits</span>');
+  if(res.exact && res.d!=="1"){ var f=(res.n.startsWith("-")?"−"+res.n.slice(1):res.n)+" / "+res.d; chips.push('<span class="chip" title="Exact fraction">fraction '+esc(clip(f,60))+'</span>'); }
+  if(res.exact && x.period) chips.push('<span class="chip">repeats every '+x.period.toLocaleString()+' digit'+(x.period>1?"s":"")+(x.pre?' after position '+x.pre:'')+'</span>');
+  if(res.exact && x.terminating && !x.zeroFrac) chips.push('<span class="chip">ends after '+x.pre.toLocaleString()+' decimal place'+(x.pre>1?"s":"")+'</span>');
+  if(x.int.length>15) chips.push('<span class="chip">'+x.int.length.toLocaleString()+' digits before the point</span>');
+  $("chips").innerHTML=chips.join("");
+  var halfStep=(res.steps||[]).filter(function(s){return s.kind==="half"}).pop();
+  $("halves").hidden=!halfStep; if(halfStep) $("halves").textContent=halfStep.text;
+  renderLedger(res);
+}
+function renderSteps(steps){
+  var ol=$("steps"); ol.innerHTML="";
+  if(!steps.length){ ol.innerHTML='<li><span class="tag">value</span><code>Nothing to work out. The number is its own answer.</code></li>'; return; }
+  var names={add:"add",subtract:"subtract",multiply:"multiply",divide:"divide","reverse-divide":"reverse ÷",exponent:"exponent",exp:"root",shift:"shift .",half:"halve",const:"value"};
+  steps.slice(0,400).forEach(function(s){ var li=document.createElement("li"); li.innerHTML='<span class="tag">'+(names[s.kind]||s.kind)+'</span><code></code>'; li.querySelector("code").textContent=s.text; ol.appendChild(li); });
+  if(steps.length>400){var li=document.createElement("li");li.innerHTML='<span class="tag">…</span><code>'+(steps.length-400)+' more steps</code>';ol.appendChild(li);}
+}
+
+// ---------- digit ledger ----------
+function ledgerText(res, html){
+  var x=res.x, lines=[], intPart=(x.neg?"-":"")+x.int;
+  var head = html ? '<span class="pos">whole part  </span><span class="intl">'+esc(groupInt(intPart))+'</span>' : "whole part  "+intPart;
+  lines.push(head);
+  var fr=x.frac; if(x.terminating && x.pre<fr.length) fr=fr.slice(0,x.pre);
+  if(!fr.length){ lines.push(html?'<span class="pos">no digits after the decimal point</span>':"no digits after the decimal point"); return lines.join("\n"); }
+  var w=String(fr.length).length;
+  for(var i=0;i<fr.length;i+=50){
+    var chunk=fr.slice(i,i+50).replace(/(.{10})(?=.)/g,"$1 ");
+    var pos=String(i+1).padStart(w," ");
+    lines.push(html?'<span class="pos">'+pos+'  </span>'+chunk:pos+"  "+chunk);
+  }
+  return lines.join("\n");
+}
+function renderLedger(res){
+  $("digits").innerHTML=ledgerText(res,true);
+  var x=res.x, n;
+  if(!res.exact&&state.prec>20000) n="This answer is irrational, so its digits never repeat. Irrational answers are computed to 20,000 digits at most; every digit shown is correct (truncated, not rounded).";
+  else if(!res.exact) n="This answer is irrational, so its digits never settle into a pattern. The first "+res.prec.toLocaleString()+" digits shown are each correct (truncated, not rounded). Raise Digits to compute more.";
+  else if(x.zeroFrac) n="A whole number. Every digit after the decimal point is 0, at any position.";
+  else if(x.terminating) n="This decimal ends after "+x.pre.toLocaleString()+" place"+(x.pre>1?"s":"")+". Every position past that is 0.";
+  else if(x.period) n="This decimal repeats a block of "+x.period.toLocaleString()+" digit"+(x.period>1?"s":"")+" forever"+(x.pre?" after the first "+x.pre+" place"+(x.pre>1?"s":""):"")+". The finder can reach any position, no matter how large, because the answer is stored as the exact fraction.";
+  else n="This decimal repeats with a block longer than 3,000,000 digits. Shown digits are exact, and the finder still reaches any position.";
+  $("ledgernote").textContent=n;
+  $("findout").textContent="";
+}
+function find(){
+  var r=state.last; if(!r){ $("findout").textContent="Calculate something first."; return; }
+  $("findout").textContent="Searching…";
+  call({type:"digit",n:r.n,d:r.d,k:$("pos").value,exact:r.exact,prec:r.prec}).then(function(o){
+    if(!o.ok){ $("findout").textContent=o.error; return; }
+    $("findout").innerHTML='Digit at position <b>'+esc(o.k)+'</b> after the decimal point:<span class="big">'+o.digit+'</span>'+(r.exact?'<span class="muted"> found with modular arithmetic, without writing out the digits before it.</span>':'');
+  });
+}
+$("find").onclick=find; $("pos").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();find();}});
+$("copydigits").onclick=function(){ if(!state.last) return; copyText(ledgerText(state.last,false)); };
+$("dldigits").onclick=function(){ if(!state.last) return; var r=state.last;
+  save("exact-ledger-digits.txt","Expression: "+r.expr+"\nOrder: "+(r.mode==="custom"?"+ − first, then ^, then × ÷ /":"standard")+"\n"+(r.exact?"Exact":"Irrational, correct to "+r.prec+" digits")+"\n\n"+ledgerText(r,false)+"\n"); };
+
+function copyText(t){ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){toast("Copied")},function(){fallbackCopy(t)}); } else fallbackCopy(t); }
+function fallbackCopy(t){ var ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");toast("Copied")}catch(e){toast("Select the text and copy it")} ta.remove(); }
+function save(filename,data){
+  if(!downloads){ copyText(data); toast("Downloads aren't available here, so the text was copied instead"); return; }
+  downloads.save({filename:filename,data:data}).then(function(){toast("Saved "+filename)},function(e){ if(e&&e.code==="declined") return; copyText(data); toast("Couldn't save the file, so the text was copied"); });
+}
+
+// ---------- history ----------
+function addHistory(res){
+  state.hseq++; var item={num:state.hseq,expr:res.expr,mode:res.mode,n:res.n.length>20000?null:res.n,d:res.d.length>20000?null:res.d,exact:res.exact,short:res.short,t:Date.now()};
+  if(!item.n||!item.d){ item.n=res.n; item.d=res.d; }
+  state.history.unshift(item); if(state.history.length>150) state.history.length=150;
+  renderHistory(); persistHistory();
+  var bd=$("hbadge"); bd.classList.remove("pop"); void bd.offsetWidth; bd.classList.add("pop");
+}
+function renderHistory(){
+  var tape=$("tape"); tape.innerHTML="";
+  $("hcount").textContent=state.history.length?state.history.length+" saved calculation"+(state.history.length>1?"s":""):"No calculations yet";
+  $("hclear").hidden=!state.history.length;
+  var bd=$("hbadge"); bd.hidden=!state.history.length; bd.textContent=state.history.length>99?"99+":state.history.length;
+  var ls=$("laststrip"); ls.hidden=!state.history.length;
+  if(state.history.length){ var h0=state.history[0]; $("lastinfo").textContent="Saved as H"+h0.num+" · "+state.history.length+" in history"; }
+  if(!state.history.length){ tape.innerHTML='<div class="empty">Press = and each answer lands here. Use any answer in a new calculation with its button or by typing its name, like H1.</div>'; return; }
+  state.history.forEach(function(h){
+    var d=document.createElement("div"); d.className="hitem";
+    d.innerHTML='<div class="h-top"><span class="h-name">H'+h.num+'</span><span>'+(h.mode==="custom"?"your order":"standard")+' · '+fmtTime(h.t)+'</span></div><div class="h-expr"></div><div class="h-res"></div><div class="h-act"><button class="btn" data-a="use">Use answer</button><button class="btn" data-a="edit">Edit expression</button><button class="btn" data-a="note">Add to note</button><button class="btn" data-a="copy">Copy</button></div>';
+    d.querySelector(".h-expr").textContent=h.expr; d.querySelector(".h-res").textContent="= "+h.short;
+    d.addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b) return; var a=b.dataset.a;
+      if(a==="use"){ var simple=h.exact&&h.d==="1"&&h.n.length<=20; if(isPhone()) showView("calc"); insert(simple?(h.n.startsWith("-")?"("+h.n+")":h.n):"H"+h.num); toast("H"+h.num+" added to your expression"); }
+      if(a==="edit"){ if(isPhone()) showView("calc"); expr.value=h.expr; if(h.mode!==state.mode) setMode(h.mode); expr.focus(); }
+      if(a==="copy"){ copyText(h.expr+" = "+h.short); }
+      if(a==="note"){ appendToNote(h.expr+" = "+h.short); }
+    });
+    tape.appendChild(d);
+  });
+}
+$("hclear").onclick=function(){ var c=$("hconfirm"); c.innerHTML='<div class="confirm">Clear all '+state.history.length+' calculations? <button class="btn danger" id="hyes">Clear</button><button class="btn" id="hno">Keep</button></div>';
+  $("hyes").onclick=function(){ state.history=[]; c.innerHTML=""; renderHistory(); persistHistory(); toast("History cleared"); }; $("hno").onclick=function(){c.innerHTML=""}; };
+
+// ---------- notes ----------
+function noteIds(folder){ return Object.keys(state.notes).filter(function(id){return state.notes[id].folder===folder}).sort(function(a,b){return state.notes[b].updated-state.notes[a].updated}); }
+function renderFolders(){
+  var f=$("folders"); f.innerHTML='<span class="label" style="margin-right:4px">Folders</span>';
+  state.folders.forEach(function(name){ var b=document.createElement("button"); b.className="folder"; b.setAttribute("aria-pressed",name===state.activeFolder);
+    b.innerHTML='<span></span><span class="cnt">'+noteIds(name).length+'</span>'; b.firstChild.textContent=name;
+    b.onclick=function(){ state.activeFolder=name; var ids=noteIds(name); state.activeNote=ids[0]||null; renderNotes(); }; f.appendChild(b); });
+  var add=document.createElement("button"); add.className="btn"; add.textContent="+ Folder"; add.onclick=function(){ folderForm("new"); }; f.appendChild(add);
+  var bar=$("folderbar"); bar.innerHTML="";
+  var mk=function(t,fn,cls){var b=document.createElement("button");b.className="btn"+(cls?" "+cls:"");b.textContent=t;b.onclick=fn;bar.appendChild(b);};
+  mk("+ Note",newNote,"primary");
+  mk("Download folder",function(){ downloadFolder(state.activeFolder); });
+  if(state.activeFolder!=="General"){ mk("Rename folder",function(){folderForm("rename")}); mk("Delete folder",confirmDeleteFolder,"danger"); }
+}
+function folderForm(kind){
+  var bar=$("folderbar"); bar.innerHTML='<input id="fname" type="text" placeholder="Folder name" maxlength="40"><button class="btn primary" id="fok">'+(kind==="new"?"Create":"Rename")+'</button><button class="btn" id="fcancel">Cancel</button>';
+  var inp=$("fname"); if(kind==="rename") inp.value=state.activeFolder; inp.focus();
+  var ok=function(){ var v=inp.value.trim(); if(!v){inp.focus();return;} if(state.folders.indexOf(v)>=0&&v!==state.activeFolder){toast("A folder with that name exists");return;}
+    if(kind==="new"){ state.folders.push(v); state.activeFolder=v; state.activeNote=null; }
+    else { var old=state.activeFolder; state.folders[state.folders.indexOf(old)]=v; noteIds(old).forEach(function(id){state.notes[id].folder=v; persistNote(id);}); state.activeFolder=v; }
+    persistFolders(); renderNotes(); };
+  $("fok").onclick=ok; inp.onkeydown=function(e){if(e.key==="Enter")ok(); if(e.key==="Escape")renderNotes();}; $("fcancel").onclick=renderNotes;
+}
+function confirmDeleteFolder(){
+  var name=state.activeFolder, n=noteIds(name).length, bar=$("folderbar");
+  bar.innerHTML='<div class="confirm">Delete “'+esc(name)+'”?'+(n?' Its '+n+' note'+(n>1?"s move":" moves")+' to General.':'')+' <button class="btn danger" id="dyes">Delete folder</button><button class="btn" id="dno">Keep</button></div>';
+  $("dyes").onclick=function(){ noteIds(name).forEach(function(id){state.notes[id].folder="General";persistNote(id);}); state.folders=state.folders.filter(function(f){return f!==name}); state.activeFolder="General"; persistFolders(); renderNotes(); toast("Folder deleted"); };
+  $("dno").onclick=renderNotes;
+}
+function newNote(){ var id="note_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  state.notes[id]={title:"Untitled note",body:"",folder:state.activeFolder,updated:Date.now()}; state.activeNote=id; persistNote(id); renderNotes(); var t=document.querySelector("#editor input"); if(t){t.focus();t.select();} }
+function appendToNote(text){
+  if(!state.activeNote||!state.notes[state.activeNote]){ var id="note_"+Date.now().toString(36); state.notes[id]={title:"Calculations",body:"",folder:state.activeFolder,updated:Date.now()}; state.activeNote=id; }
+  var n=state.notes[state.activeNote]; n.body=(n.body?n.body.replace(/\s*$/,"")+"\n":"")+text+"\n"; n.updated=Date.now(); persistNote(state.activeNote);
+  showView("notes"); renderNotes(); toast("Added to “"+n.title+"”");
+}
+function renderNotes(){
+  renderFolders();
+  var list=$("nlist"), ids=noteIds(state.activeFolder); list.innerHTML="";
+  if(state.activeNote && (!state.notes[state.activeNote] || state.notes[state.activeNote].folder!==state.activeFolder)) state.activeNote=ids[0]||null;
+  if(!state.activeNote && ids.length) state.activeNote=ids[0];
+  if(!ids.length) list.innerHTML='<div class="empty" style="padding:6px">No notes in this folder yet.</div>';
+  ids.forEach(function(id){ var n=state.notes[id], b=document.createElement("button"); b.className="nrow"; b.setAttribute("aria-current",id===state.activeNote);
+    b.innerHTML='<span class="t"></span><span class="s">'+fmtTime(n.updated)+'</span>'; b.querySelector(".t").textContent=n.title||"Untitled note";
+    b.onclick=function(){ state.activeNote=id; renderNotes(); }; list.appendChild(b); });
+  var ed=$("editor"); ed.innerHTML="";
+  if(!state.activeNote){ ed.innerHTML='<div class="empty" style="padding:6px">Create a note to keep working numbers, steps and ideas. Notes save on their own and can be downloaded as text or Markdown.</div>'; return; }
+  var id=state.activeNote, n=state.notes[id];
+  ed.innerHTML='<input id="ntitle" type="text" maxlength="80" aria-label="Note title"><textarea id="nbody" aria-label="Note text" placeholder="Write here. Use “Insert answer” to drop in the last result."></textarea>'+
+    '<div class="row-wrap"><button class="btn" id="nins">Insert answer</button><label class="field" for="nmove">Folder <select id="nmove"></select></label></div>'+
+    '<div class="row-wrap"><button class="btn" id="ntxt">Download .txt</button><button class="btn" id="nmd">Download .md</button><button class="btn danger" id="ndel">Delete note</button></div><div id="nconfirm"></div>';
+  $("ntitle").value=n.title; $("nbody").value=n.body;
+  var mv=$("nmove"); state.folders.forEach(function(f){var o=document.createElement("option");o.value=f;o.textContent=f;if(f===n.folder)o.selected=true;mv.appendChild(o);});
+  mv.onchange=function(){ n.folder=mv.value; n.updated=Date.now(); state.activeFolder=mv.value; persistNote(id); renderNotes(); };
+  var touch=function(){ n.title=$("ntitle").value; n.body=$("nbody").value; n.updated=Date.now(); persistNote(id); var cur=list.querySelector('[aria-current="true"] .t'); if(cur) cur.textContent=n.title||"Untitled note"; };
+  $("ntitle").oninput=touch; $("nbody").oninput=touch;
+  $("nins").onclick=function(){ if(!state.last){toast("Calculate something first");return;} var ta=$("nbody"), s=ta.selectionStart, t=state.last.expr+" = "+state.last.short; ta.value=ta.value.slice(0,s)+t+ta.value.slice(ta.selectionEnd); ta.focus(); ta.setSelectionRange(s+t.length,s+t.length); touch(); };
+  var fname=function(ext){ return (n.title||"note").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-").toLowerCase().slice(0,50)+"."+ext; };
+  $("ntxt").onclick=function(){ save(fname("txt"), n.title+"\n\n"+n.body); };
+  $("nmd").onclick=function(){ save(fname("md"), "# "+n.title+"\n\n_Folder: "+n.folder+"_\n\n"+n.body); };
+  $("ndel").onclick=function(){ $("nconfirm").innerHTML='<div class="confirm">Delete “'+esc(n.title)+'”? <button class="btn danger" id="nyes">Delete</button><button class="btn" id="nno">Keep</button></div>';
+    $("nyes").onclick=function(){ delete state.notes[id]; state.activeNote=null; removeNote(id); renderNotes(); toast("Note deleted"); }; $("nno").onclick=function(){$("nconfirm").innerHTML=""}; };
+}
+function downloadFolder(name){ var ids=noteIds(name); if(!ids.length){toast("This folder has no notes yet");return;}
+  var out="# "+name+"\n\n"+ids.map(function(id){var n=state.notes[id];return "## "+n.title+"\n\n"+n.body.trim()+"\n"}).join("\n");
+  save(name.replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-").toLowerCase()+"-notes.md", out); }
+
+var view="calc";
+function isPhone(){ return window.matchMedia("(max-width:860px)").matches; }
+function showView(v){
+  view=v; document.querySelectorAll(".v").forEach(function(el){ el.classList.toggle("on", el.classList.contains("v-"+v)); });
+  document.querySelectorAll(".phone-nav button").forEach(function(b){ b.setAttribute("aria-current", b.dataset.view===v); });
+  if(v==="history") selectTab("h", true); if(v==="notes") selectTab("n", true);
+  if(isPhone()) window.scrollTo(0,0);
+  lsSet("view",v);
+}
+document.querySelectorAll(".phone-nav button").forEach(function(b){ b.onclick=function(){ showView(b.dataset.view); }; });
+$("openhist").onclick=function(){ showView("history"); };
+function selectTab(w, fromView){ $("tab-h").setAttribute("aria-selected",w==="h"); $("tab-n").setAttribute("aria-selected",w==="n"); $("pane-h").hidden=w!=="h"; $("pane-n").hidden=w!=="n"; lsSet("tab",w);
+  if(!fromView){ var v=w==="h"?"history":"notes"; if(view!=="calc"&&view!=="digits"||!isPhone()) { view=v; document.querySelectorAll(".v").forEach(function(el){ el.classList.toggle("on", el.classList.contains("v-"+v)); }); document.querySelectorAll(".phone-nav button").forEach(function(b){ b.setAttribute("aria-current", b.dataset.view===v); }); } } }
+$("tab-h").onclick=function(){selectTab("h")}; $("tab-n").onclick=function(){selectTab("n")};
+
+// ---------- persistence ----------
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem("exactLedger."+k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem("exactLedger."+k, JSON.stringify(v)); }catch(e){} }
+var timers={}, dirty={};
+function setSaved(t){ $("savestate").textContent=t; }
+function debounce(key,fn){ dirty[key]=true; setSaved("Saving…"); clearTimeout(timers[key]); timers[key]=setTimeout(function(){ fn().then(function(){ delete dirty[key]; setSaved(store.kind==="db"?"Saved to your account":"Saved in this browser"); }, function(){ setSaved("Couldn't save. Your changes are still on screen; try again in a moment."); }); },700); }
+function persistLocal(){ lsSet("data",{folders:state.folders,notes:state.notes,history:state.history,hseq:state.hseq}); return Promise.resolve(); }
+function persistNote(id){ debounce("n:"+id,function(){ if(store.kind!=="db") return persistLocal(); var n=state.notes[id]; if(!n) return Promise.resolve(); return store.coll.doc(id).set({kind:"note",title:n.title,body:n.body,folder:n.folder,updated:n.updated}); }); }
+function removeNote(id){ clearTimeout(timers["n:"+id]); delete dirty["n:"+id]; if(store.kind!=="db"){persistLocal();return;} store.coll.doc(id).delete().catch(function(){toast("Couldn't delete that note from your account")}); }
+function persistFolders(){ debounce("folders",function(){ return store.kind==="db" ? store.coll.doc("folders").set({kind:"folders",names:state.folders}) : persistLocal(); }); }
+function persistHistory(){ debounce("history",function(){ if(store.kind!=="db") return persistLocal();
+  var items=state.history.map(function(h){ var big=h.n.length+h.d.length>40000; return {num:h.num,expr:h.expr,mode:h.mode,n:big?"0":h.n,d:big?"1":h.d,exact:h.exact,short:h.short,t:h.t,big:big}; });
+  return store.coll.doc("history").set({kind:"history",items:items,seq:state.hseq}); }); }
+
+function applyData(folders, notes, hist, seq){
+  if(folders&&folders.length){ state.folders=folders.indexOf("General")>=0?folders:["General"].concat(folders); }
+  Object.keys(notes).forEach(function(id){ if(!dirty["n:"+id]) state.notes[id]=notes[id]; });
+  Object.keys(state.notes).forEach(function(id){ if(!(id in notes)&&!dirty["n:"+id]&&store.kind==="db"&&applyData.seen&&applyData.seen[id]) delete state.notes[id]; });
+  applyData.seen=Object.assign({},notes);
+  if(hist&&!dirty.history){ state.history=hist.filter(function(h){return !h.big}); state.hseq=Math.max(seq||0, state.hseq); }
+  if(state.folders.indexOf(state.activeFolder)<0) state.activeFolder="General";
+  renderHistory();
+  var editing=document.activeElement && (document.activeElement.id==="nbody"||document.activeElement.id==="ntitle"||document.activeElement.id==="fname");
+  if(!editing) renderNotes(); else renderFolders();
+}
+function loadLocal(){ var d=lsGet("data")||{}; applyData(d.folders, d.notes||{}, d.history||[], d.hseq||0); setSaved("Saved in this browser"); }
+
+function connect(){
+  if(!window.claude||!window.claude.use){ loadLocal(); return; }
+  claude.use("downloads").then(function(d){downloads=d}).catch(function(){});
+  var loaded=false, timer=setTimeout(function(){ if(!loaded){ loaded=true; loadLocal(); } },10000);
+  Promise.all([claude.use("db"),claude.use("user")]).then(function(r){
+    var db=r[0], user=r[1];
+    if(!db||!user){ clearTimeout(timer); if(!loaded){loaded=true;loadLocal();} return; }
+    return user.id().then(function(uid){
+      if(!uid){ clearTimeout(timer); if(!loaded){loaded=true;loadLocal();} return; }
+      store={kind:"db",uid:uid,db:db,coll:db.collection("data/users/"+uid)};
+      store.coll.onSnapshot(function(snap){
+        clearTimeout(timer); loaded=true;
+        var folders=null, notes={}, hist=null, seq=0;
+        snap.docs.forEach(function(doc){ var v=doc.data()||{};
+          if(doc.id==="folders") folders=v.names||[];
+          else if(doc.id==="history"){ hist=v.items||[]; seq=v.seq||0; }
+          else if(v.kind==="note") notes[doc.id]={title:v.title||"",body:v.body||"",folder:v.folder||"General",updated:v.updated||0};
+        });
+        applyData(folders,notes,hist,seq); setSaved("Saved to your account");
+      }, function(){ clearTimeout(timer); if(!loaded){loaded=true; store={kind:"local"}; loadLocal();} else setSaved("Lost connection to your saved notes. Changes stay on screen."); });
+    });
+  }).catch(function(){ clearTimeout(timer); if(!loaded){loaded=true;loadLocal();} });
+}
+
+// ---------- start ----------
+var m=lsGet("mode"); setMode(m==="standard"?"standard":"custom");
+var p=lsGet("prec"); if(p&&[50,100,250,1000,5000,20000,100000].indexOf(p)>=0){ state.prec=p; $("prec").value=String(p); }
+selectTab(lsGet("tab")==="n"?"n":"h", true);
+var sv=lsGet("view"); showView(["calc","history","notes","digits"].indexOf(sv)>=0?sv:"calc");
+renderHistory(); renderNotes();
+calculate(false);
+connect();
+})();
+</script>
+
+</body></html>
