@@ -482,7 +482,18 @@ function drawnNerves(sex,W){
 /* ================================================================ three */
 const stage=document.getElementById('stage');
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+/* Screen sharpness: phones start at 1.5x (most of the look, far fewer pixels to shade than 3x) and the app
+   watches its own speed — if frames get slow it steps the sharpness down, and back up when there is room. */
+const PHONE=matchMedia('(pointer:coarse)').matches;
+const PR={max:Math.min(devicePixelRatio,PHONE?1.5:2),min:Math.min(devicePixelRatio,PHONE?.75:1),cur:0,ema:16,t:0,holdUp:0,last:0};
+PR.cur=PR.max;renderer.setPixelRatio(PR.cur);
+function tunePR(now){const raw=PR.last?Math.min(100,now-PR.last):16;PR.last=now;
+  if(document.hidden||queue.active.size){PR.t=0;return;}   // loading spikes are not a reason to drop sharpness
+  PR.ema+=(raw-PR.ema)*.06;PR.t+=raw;if(PR.t<1000)return;PR.t=0;
+  let n=PR.cur;
+  if(PR.ema>26&&PR.cur>PR.min){n=Math.max(PR.min,PR.cur-.25);PR.holdUp=now+8000;}
+  else if(PR.ema<18.5&&PR.cur<PR.max&&now>PR.holdUp)n=Math.min(PR.max,PR.cur+.25);
+  if(n!==PR.cur){PR.cur=n;renderer.setPixelRatio(n);}}
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 renderer.localClippingEnabled=true;
 stage.prepend(renderer.domElement);
@@ -581,6 +592,25 @@ async function gunzip(u8){
 }
 const manifest=sex=>MAN[sex]||(MAN[sex]=fetch(`assets/${sex}.json`).then(r=>{if(!r.ok)throw new Error('manifest '+r.status);return r.json();}).catch(e=>{delete MAN[sex];throw e;}));
 const queue={total:0,done:0,active:new Set()};
+/* Models ship as raw gzip data in .bin files: a quarter smaller than the old base64 .txt copies, and no slow
+   text-to-bytes decoding on the phone. A .txt copy is still read if a .bin is missing. If the host unzips
+   the data on the way (no gzip header left), it is used as is. */
+async function fetchPacked(file,onStart,onBytes){
+  const bin=file.replace(/\.txt$/,'.bin');let r=null,text=false;
+  if(bin!==file)r=await fetch('assets/'+bin).catch(()=>null);
+  if(!r||!r.ok){r=await fetch('assets/'+file);if(!r.ok)throw new Error(file+' '+r.status);text=/\.txt$/.test(file);}
+  onStart&&onStart(+r.headers.get('content-length')||0,text);
+  let u8;
+  if(r.body&&r.body.getReader){const rd=r.body.getReader(),parts=[];let n=0;
+    for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);n+=value.length;onBytes&&onBytes(value.length);}
+    u8=new Uint8Array(n);let o=0;for(const p of parts){u8.set(p,o);o+=p.length;}}
+  else{u8=new Uint8Array(await r.arrayBuffer());onBytes&&onBytes(u8.length);}
+  if(text)u8=new Uint8Array(await (await fetch('data:application/octet-stream;base64,'+new TextDecoder().decode(u8).trim())).arrayBuffer());
+  return u8[0]===0x1f&&u8[1]===0x8b?await gunzip(u8):u8.buffer;
+}
+/* Building a system's parts takes a while on a phone; hand the screen back every ~12 ms so it never freezes. */
+let sliceAt=0;
+function breathe(){const now=performance.now();if(now-sliceAt<12)return null;return new Promise(res=>setTimeout(()=>{sliceAt=performance.now();res();},0));}
 function showLoad(){const l=$('loader');if(!queue.active.size){l.hidden=true;queue.total=queue.done=0;return;}
   l.hidden=false;$('loadTxt').textContent=`Loading ${[...queue.active].join(', ')} · ${fmtMB(queue.done)} / ${fmtMB(queue.total)} MB`;
   $('loadBar').style.width=(queue.total?Math.min(100,queue.done/queue.total*100):0)+'%';}
@@ -589,9 +619,7 @@ function showLoad(){const l=$('loader');if(!queue.active.size){l.hidden=true;que
 const WARPP={};
 function warpField(sex){if(WARPP[sex])return WARPP[sex];
   return WARPP[sex]=(async()=>{const m=await manifest(sex);if(!m.warp)return null;const w=m.warp;
-    const r=await fetch('assets/'+w.file);if(!r.ok)throw new Error(w.file+' '+r.status);const txt=await r.text();
-    const bin=atob(txt.trim()),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
-    return {d:new Int8Array(await gunzip(u8)),n:w.dims,lo:w.lo,h:w.h};})().catch(e=>{delete WARPP[sex];throw e;});}
+    return {d:new Int8Array(await fetchPacked(w.file)),n:w.dims,lo:w.lo,h:w.h};})().catch(e=>{delete WARPP[sex];throw e;});}
 function warpXYZ(W,x,y,z,o){const n=W.n,d=W.d;
   const fx=Math.min(n[0]-1.001,Math.max(0,(x-W.lo[0])/W.h)),fy=Math.min(n[1]-1.001,Math.max(0,(y-W.lo[1])/W.h)),fz=Math.min(n[2]-1.001,Math.max(0,(z-W.lo[2])/W.h));
   const ix=fx|0,iy=fy|0,iz=fz|0,tx=fx-ix,ty=fy-iy,tz=fz-iz,sy=n[0]*3,sz=n[0]*n[1]*3,b=iz*sz+iy*sy+ix*3;
@@ -602,14 +630,9 @@ function warpPt(W,v){const o=[0,0,0];warpXYZ(W,v.x,v.y,v.z,o);return v.set(o[0],
 function chunk(sex,sys,label){const k=sex+'-'+sys;if(BUF[k])return BUF[k];
   BUF[k]=(async()=>{const m=await manifest(sex);const f=m.files[sys];if(!f)return null;
     queue.total+=f.gz;queue.active.add(label);showLoad();
-    try{const r=await fetch('assets/'+f.file);if(!r.ok)throw new Error(f.file+' '+r.status);
-      let txt;if(r.body&&r.body.getReader){const rd=r.body.getReader(),dec=new TextDecoder(),parts=[];
-        for(;;){const {done,value}=await rd.read();if(done)break;parts.push(dec.decode(value,{stream:true}));queue.done+=value.length;showLoad();}
-        parts.push(dec.decode());txt=parts.join('');}
-      else{txt=await r.text();queue.done+=txt.length;}
-      // models ship as base64 text of gzip data (the host serves text, not raw binary)
-      const bin=atob(txt.trim()),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
-      return await gunzip(u8);}
+    try{return await fetchPacked(f.file,
+        (len,text)=>{const est=len||(text?f.gz:Math.round(f.gz*.75));queue.total+=est-f.gz;showLoad();},
+        n=>{queue.done+=n;showLoad();});}
     finally{queue.active.delete(label);showLoad();}})().catch(e=>{delete BUF[k];throw e;});
   return BUF[k];}
 
@@ -763,17 +786,18 @@ function makePart(row,buf,m,sex,opts){
   mesh.userData.part=p;
   return p;
 }
+async function makePartSoon(...a){const w=breathe();if(w)await w;return makePart(...a);}
 function ensure(sex,sysId){
   const key=sex+'|'+sysId;if(loaded[key])return loaded[key];
   loaded[key]=(async()=>{
     const label=SYS[sysId].name,out=[];
     const own=await manifest(sex);const W=sex==='female'?await warpField('female'):null;const buf=await chunk(sex,sysId,label);
-    if(buf)for(const row of own.parts)if(row[2]===sysId&&!/retinaculum/i.test(row[0])&&!(sex==='female'&&HIDE_F.test(row[0])))out.push(makePart(row,buf,own,sex,{warp:W,src:sex==='male'?'BodyParts3D, adult male':sysId==='integ'?(/^skin/i.test(row[0])?'MakeHuman (CC0) female body, fitted over her anatomy':/sclera|^iris|^pupil/i.test(row[0])?'MakeHuman (CC0) eyes':'Human Reference Atlas, adult female, fitted to this body'):'Human Reference Atlas, adult female, fitted to this body'}));
+    if(buf)for(const row of own.parts)if(row[2]===sysId&&!/retinaculum/i.test(row[0])&&!(sex==='female'&&HIDE_F.test(row[0])))out.push(await makePartSoon(row,buf,own,sex,{warp:W,src:sex==='male'?'BodyParts3D, adult male':sysId==='integ'?(/^skin/i.test(row[0])?'MakeHuman (CC0) female body, fitted over her anatomy':/sclera|^iris|^pupil/i.test(row[0])?'MakeHuman (CC0) eyes':'Human Reference Atlas, adult female, fitted to this body'):'Human Reference Atlas, adult female, fitted to this body'}));
     if(sex==='female'&&FILL[sysId]){const mm=await manifest('male');const mb=await chunk('male',sysId,label+' fill');
       if(mb)for(const row of mm.parts){if(row[2]!==sysId)continue;const reg=regionOf(row[10]);if(!FILL[sysId](row,reg,row[10]))continue;
-        out.push(makePart(row,mb,mm,'female',{fill:fillMatrix(row[10],reg),warp:W,src:'BodyParts3D male reference, fitted to this body'}));}}
+        out.push(await makePartSoon(row,mb,mm,'female',{fill:fillMatrix(row[10],reg),warp:W,src:'BodyParts3D male reference, fitted to this body'}));}}
     if(sex==='male'&&MFILL[sysId]){const fm=await manifest('female');const fb=await chunk('female',sysId,label+' fill');
-      if(fb)for(const row of fm.parts){if(row[2]!==sysId||!MFILL[sysId](row))continue;out.push(makePart(row,fb,fm,'male',{fill:F2M,src:'Human Reference Atlas female organ, fitted to this body'}));}}
+      if(fb)for(const row of fm.parts){if(row[2]!==sysId||!MFILL[sysId](row))continue;out.push(await makePartSoon(row,fb,fm,'male',{fill:F2M,src:'Human Reference Atlas female organ, fitted to this body'}));}}
     if(sysId==='nerv')out.push(...drawnNerves(sex,W));
     if(sex==='female'&&sysId==='integ'){const sk=out.find(p=>/^skin of body/i.test(p.name));if(sk)out.push(...buildHair(sk));}
     return out;})().catch(e=>{delete loaded[key];throw e;});
@@ -1376,7 +1400,7 @@ function labelsFrame(now){
   const moved=LBL.lastCam.distanceToSquared(camera.position)>1e-8||LBL.lastTgt.distanceToSquared(controls.target)>1e-8;
   LBL.lastCam.copy(camera.position);LBL.lastTgt.copy(controls.target);
   if(moved){LBL.moving=true;LBL.stillAt=now;}else if(LBL.moving&&now-LBL.stillAt>140){LBL.moving=false;LBL.dirty=true;}
-  if(st.ready&&!queue.active.size&&(LBL.dirty||(LBL.moving&&now-LBL.lastPass>450))){LBL.dirty=false;LBL.lastPass=now;labelPass();}
+  if(st.ready&&!queue.active.size&&(LBL.dirty||(!PHONE&&LBL.moving&&now-LBL.lastPass>450))){LBL.dirty=false;LBL.lastPass=now;labelPass();}
   labelLayout();}
 lblBox.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const q=lblBox._placed[+b.dataset.i];if(!q)return;stopTour();
   if(Q.on)return;if(st.selSet.length===1&&st.selSet[0]===q.it.p){clearSel();renderCard();}else selectPart(q.it.p,false);});
@@ -1465,7 +1489,7 @@ function loop(now){const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
   if(L.on&&L.auto&&!queue.active.size){L.autoT+=dt;if(L.autoT>9){L.autoT=0;$('lNext').click();}}
   if(!reduce){stepPhysio(dt);drawECG();}drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const p of st.selSet)p.mat.emissive.copy(selCol);}
-  if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);renderer.render(scene,camera);requestAnimationFrame(loop);}
+  if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);renderer.render(scene,camera);tunePR(now||performance.now());requestAnimationFrame(loop);}
 
 /* boot */
 renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
