@@ -301,6 +301,10 @@ body.tabbed{overflow:hidden}
 .stprog{height:3px;background:var(--line);border-radius:2px;overflow:hidden}.stprog b{display:block;height:100%;width:0;background:var(--sys);transition:width .3s}
 .stctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .stopts{display:flex;gap:6px;margin-left:auto;align-items:center}
+.lopts{margin-left:0;flex-wrap:wrap}.lopts .lrate{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}.lopts select{font:inherit;font-size:13px;min-height:34px;border-radius:8px;border:1px solid var(--line);background:rgba(10,15,18,.7);color:var(--ink);padding:0 6px}
+.fxcap{position:absolute;top:max(14px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:max-content;max-width:min(440px,calc(100% - 480px));background:rgba(8,13,15,.86);border:1px solid var(--line);border-left:3px solid var(--sys);border-radius:10px;padding:7px 12px;font-size:13px;line-height:1.35;color:var(--ink);text-align:center;pointer-events:none;z-index:3}
+@media (max-width:900px){.fxcap{left:max(16px,env(safe-area-inset-left,0px));right:16px;transform:none;width:auto;max-width:none;top:calc(max(14px,env(safe-area-inset-top,0px)) + 92px);font-size:12px;padding:6px 10px}}
+@media (max-width:900px) and (hover:hover) and (pointer:fine){.fxcap{right:62px}}
 .stctl select{min-height:32px}
 .stans{justify-content:flex-start}
 .stans .btn{text-align:left}.stans .btn.good{border-color:var(--good);color:var(--good)}.stans .btn.bad{border-color:var(--bad);color:var(--bad)}
@@ -431,6 +435,7 @@ body.tabbed{overflow:hidden}
     </div>
     <div class="zoombtns" id="zoomBtns"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
     <div class="tourpill" id="tourPill" hidden><button id="tour" aria-pressed="false">Play tour</button><div class="bar" aria-hidden="true"><b id="tourBar"></b></div></div>
+    <div class="fxcap" id="fxCap" hidden aria-live="polite"></div>
     <div class="quizbar" id="quizBar" hidden>
       <div class="find"><span id="qProg">1 / 10</span><span>Find</span><span><span id="qScore">0</span> pts <span id="qStreak"></span></span></div>
       <h3 id="qPrompt">—</h3>
@@ -442,6 +447,7 @@ body.tabbed{overflow:hidden}
       <div class="lname"><span id="lName"></span><button class="closex" id="lClose" aria-label="Close lesson">×</button></div>
       <h3 id="lTitle"></h3>
       <p id="lText"></p>
+      <div class="stopts lopts"><button class="btn" id="lMute" aria-pressed="false">Mute</button><label class="lrate">Voice speed <select id="lRate" aria-label="Voice speed"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       <div class="foot"><div class="dots" id="lDots"></div>
         <div class="qbtns"><button class="btn" id="lPrev">Back</button><button class="btn" id="lAuto" aria-pressed="false">Auto-play</button><button class="btn primary" id="lNext">Next</button></div></div>
     </div>
@@ -680,7 +686,7 @@ const GROUPS = [
  G('endo','Pancreas',/pancrea/i,'#c4a0e8','About a million islets scattered through the pancreas release insulin and glucagon to hold blood sugar steady.'),
  G('endo','Gonads',/testis|ovary/i,'#c79bdf','Testes release testosterone; ovaries release estrogen and progesterone.'),
  G('card','Coronary vessels',/coronary|cardiac vein|great vein of heart|vein of left ventricle|oblique vein of left atrium|marginal (artery|vein|branch)|circumflex branch|descending branch|diagonal branch|ventricular branch|interventricular (branch|vein)|conus branch|(anterior|posterior|small|middle) cardiac vein/i,'#c2414a','The heart\'s own blood supply. A blocked coronary artery causes a heart attack.'),
- G('card','Heart',/ventricle|atrium|auricle|valve|septum|papillary|myocard|heart|chorda|trabecula|cusp|leaflet|conus arteriosus|fossa ovalis|crista/i,'#a1303a','A fist-sized pump with 4 chambers and 4 valves, beating about 100,000 times a day. The right side sends blood to the lungs; the stronger left side sends it to the body.'),
+ G('card','Heart',/^(?!.*(third ventricle|fourth ventricle|lateral ventricle|cerebral aqueduct|choroid)).*(?:ventricle|atrium|auricle|valve|septum|papillary|myocard|heart|chorda|trabecula|cusp|leaflet|conus arteriosus|fossa ovalis|crista)/i,'#a1303a','A fist-sized pump with 4 chambers and 4 valves, beating about 100,000 times a day. The right side sends blood to the lungs; the stronger left side sends it to the body.'),
   G('card','Pulmonary vessels',/pulmonary/i,'#7d5bc2','Pulmonary arteries carry oxygen-poor blood to the lungs; pulmonary veins bring oxygen-rich blood back to the left atrium.'),
  G('card','Aorta and great arteries',/aorta|brachiocephalic (artery|trunk)|common carotid|subclavian artery|celiac|common iliac artery/i,'#c8323b','The aorta, about 2.5 cm wide, arches from the left ventricle and runs down the spine, branching to every region.'),
  G('card','Venae cavae and great veins',/vena cava|brachiocephalic vein|azygos|hemiazygos|jugular|common iliac vein|portal vein/i,'#3c5fb8','The superior and inferior venae cavae return all body blood to the right atrium; the portal vein carries gut blood through the liver first.'),
@@ -829,20 +835,43 @@ const bodyRoot=new THREE.Group();scene.add(bodyRoot);   // every body part lives
   const m=new THREE.Mesh(new THREE.PlaneGeometry(4.267,4.267),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.y=.001;scene.add(m);})();
 
 /* tissue shader: baked crease shadows, wet translucent surfaces, fine surface detail, and flow along vessels and nerves */
-const U={uPeel:{value:99},uRootInv:{value:new THREE.Matrix4()},uTime:{value:0},uOn:{value:1},uHeart:{value:new THREE.Vector3(0,1.25,0)},uBrain:{value:new THREE.Vector3(0,1.6,-.02)},uBeat:{value:1},uPWV:{value:5}};
+const U={uPeel:{value:99},uRootInv:{value:new THREE.Matrix4()},uRoot:{value:new THREE.Matrix4()},uPoseOn:{value:0},uJ:{value:[0,1,2,3,4,5].map(()=>new THREE.Vector3())},uAngL:{value:new THREE.Vector4()},uAngA:{value:new THREE.Vector4()},uTime:{value:0},uOn:{value:1},uHeart:{value:new THREE.Vector3(0,1.25,0)},uBrain:{value:new THREE.Vector3(0,1.6,-.02)},uBeat:{value:1},uPWV:{value:5}};
 const CAN_BUMP=renderer.capabilities.isWebGL2;
 const BUMP=CAN_BUMP?`
   if(uKind>0.5){ float tq_lam=uKind<1.5?0.0012:uKind<2.5?0.007:uKind<3.5?0.004:uKind<4.5?0.0015:uKind<5.5?0.0015:0.0024; float tq_fw=length(fwidth(vWPos)); float tq_fade=1.0-smoothstep(0.25*tq_lam,0.7*tq_lam,tq_fw);
     if(tq_fade>0.0){ vec3 tq_sp=-vViewPosition; vec3 tq_dpx=dFdx(tq_sp),tq_dpy=dFdy(tq_sp); float tq_hx=dFdx(tH)*tq_fade,tq_hy=dFdy(tH)*tq_fade;
       vec3 tq_r1=cross(tq_dpy,normal),tq_r2=cross(normal,tq_dpx); float tq_det=dot(tq_dpx,tq_r1)*(gl_FrontFacing?1.0:-1.0); vec3 tq_gr=sign(tq_det)*(tq_hx*tq_r1+tq_hy*tq_r2); normal=normalize(abs(tq_det)*normal-tq_gr);} }`:'';
+/* Moving lessons bend the arms and legs here, on the graphics chip. Each limb turns about its joints (hip, knee,
+   shoulder, elbow) in the front-to-back plane; how much a point follows a joint fades in over a few cm, so the
+   surface bends smoothly instead of tearing. uPoseOn is 0 whenever no moving lesson is open, which skips all of it. */
+const POSE_GLSL=`
+uniform float uPoseOn;uniform mat4 uRoot;uniform vec3 uJ[6];uniform vec4 uAngL,uAngA;
+vec2 tqR2(vec2 v,float a){float c=cos(a),s=sin(a);return vec2(c*v.x-s*v.y,s*v.x+c*v.y);}
+float tqPose(vec3 p,out vec3 q){q=p;
+  bool R=p.x<0.0;vec3 r=vec3(R?p.x:-p.x,p.y,p.z);
+  float aH=R?uAngL.x:uAngL.z,aK=R?uAngL.y:uAngL.w,aS=R?uAngA.x:uAngA.z,aE=R?uAngA.y:uAngA.w;
+  vec3 H=uJ[0],K=uJ[1],A=uJ[2],S=uJ[3],E=uJ[4],T=uJ[5];
+  vec3 ab=T-S;float l=length(ab);float t=clamp(dot(r-S,ab)/(l*l),0.0,1.0);float d=distance(r,S+ab*t);
+  float rad=mix(0.05,0.088,smoothstep(0.55,0.95,t));float arm=1.0-smoothstep(rad,rad+0.024,d);float al=t*l,el=dot(E-S,ab)/l;
+  float wS=arm*smoothstep(0.015,0.09,al),wE=arm*smoothstep(el-0.02,el+0.02,al);
+  float lx=r.y>K.y?mix(K.x,H.x,clamp((r.y-K.y)/(H.y-K.y),0.0,1.0)):mix(A.x,K.x,clamp((r.y-A.y)/(K.y-A.y),0.0,1.0));
+  float leg=(1.0-smoothstep(0.10,0.13,abs(r.x-lx)))*smoothstep(0.0,0.025,-r.x)*(1.0-arm);
+  float wH=leg*smoothstep(0.0,0.07,H.y-r.y),wK=leg*smoothstep(-0.02,0.03,K.y-r.y);
+  float a1=aK*wK,a2=aH*wH,a3=aE*wE,a4=aS*wS;
+  q.yz=K.yz+tqR2(q.yz-K.yz,a1);q.yz=H.yz+tqR2(q.yz-H.yz,a2);
+  q.yz=E.yz+tqR2(q.yz-E.yz,a3);q.yz=S.yz+tqR2(q.yz-S.yz,a4);
+  return a1+a2+a3+a4;}
+`;
 function tissue(mat,o){
   const flowCol=o.flow===1?new THREE.Color('#ff6a48'):o.flow===-1?new THREE.Color('#9cc3ff'):new THREE.Color('#fff1a0');
   mat.userData.rim={value:0};mat.userData.tissue=o;   // rim: edge glow for see-through skin; tissue options kept so a shared copy can be made
   mat.onBeforeCompile=sh=>{
-    Object.assign(sh.uniforms,{uPeel:U.uPeel,uRootInv:U.uRootInv,uPeelOn:{value:o.peel?1:o.musc?2:0},uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
+    Object.assign(sh.uniforms,{uPeel:U.uPeel,uRootInv:U.uRootInv,uRoot:U.uRoot,uPoseOn:U.uPoseOn,uJ:U.uJ,uAngL:U.uAngL,uAngA:U.uAngA,uPeelOn:{value:o.peel?1:o.musc?2:0},uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
       uFlowKind:{value:o.flow||0},uFlowCol:{value:flowCol},uHasAO:{value:o.ao?1:0},uKind:{value:o.kind||0},uFiber:{value:o.fiber||new THREE.Vector3(0,1,0)},uFibA:{value:o.fiberAttr?1:0},uRim:mat.userData.rim,uSSS:{value:o.sss||new THREE.Color(0,0,0)},uBun:{value:o.bun||new THREE.Vector3()},uFace:{value:o.face||new THREE.Vector4()}});
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;attribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;')
-      .replace('#include <project_vertex>','#include <project_vertex>\nvWPos=(uRootInv*modelMatrix*vec4(transformed,1.0)).xyz;vAO=aAO;vFace=aFace;vFib=aFiber;');
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;attribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;'+POSE_GLSL)
+      .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nif(uPoseOn>0.5){vec3 tq_q;float tq_a=tqPose((uRootInv*modelMatrix*vec4(position,1.0)).xyz,tq_q);objectNormal.yz=tqR2(objectNormal.yz,tq_a);}')
+      .replace('#include <project_vertex>','#include <project_vertex>\nvWPos=(uRootInv*modelMatrix*vec4(transformed,1.0)).xyz;vAO=aAO;vFace=aFace;vFib=aFiber;'+
+        'if(uPoseOn>0.5){vec3 tq_q;tqPose(vWPos,tq_q);vec4 tq_w=uRoot*vec4(tq_q,1.0);mvPosition=viewMatrix*tq_w;gl_Position=projectionMatrix*mvPosition;}');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
 varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;uniform float uPeel,uPeelOn,uTime,uOn,uBeat,uPWV,uFlowKind,uHasAO,uKind,uFibA,uRim;uniform vec3 uOrigin,uFlowCol,uFiber,uSSS,uBun;uniform vec4 uFace;
 float tH=0.0;vec3 tFib=vec3(0.0,1.0,0.0);
@@ -1346,6 +1375,7 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
     else if(p.skin)o=(p.shell||st.skin>.25)?st.skin:0;
     else if(st.mode==='all'){o=1;pick=true;}
     else if(st.mode==='layered')o=.07;
+    if(st.fxOnly&&o>0&&inA(p)&&!st.fxOnly(p)){o=0;pick=false;}   // a moving lesson can show just the pieces it needs
     const m=p.mat,tr=o<.999;if(m.transparent!==tr){m.transparent=tr;m.needsUpdate=true;}m.opacity=o;m.depthWrite=!tr;
     p.mesh.visible=o>.004;p.mesh.userData.pick=pick;if(p.mesh.visible)tris+=p.tris;
     if(p.pre)p.pre.visible=tr&&p.mesh.visible;if(p.shell)m.userData.rim.value=tr?.5:0;useMat(p);}
@@ -1357,7 +1387,7 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
 const BUILD={male:{h:172,lb:154},female:{h:167,lb:137}};
 function buildTxt(){const h=st.hgt,lb=st.wgt,inch=Math.round(h/2.54);$('buildTxt').textContent=`${Math.floor(inch/12)} ft ${inch%12} in (${h} cm) · ${lb} lb (${Math.round(lb*.4536)} kg)`;}
 function applyBuild(){const b=BUILD[st.sex],sy=st.hgt/b.h,sw=Math.min(1.32,Math.max(.84,Math.sqrt((st.wgt/b.lb)/sy)));
-  bodyRoot.scale.set(sw,sy,sw);bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);U.uRootInv.value.copy(bodyRoot.matrix).invert();updateSlice();buildTxt();
+  bodyRoot.scale.set(sw,sy,sw);bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);U.uRootInv.value.copy(bodyRoot.matrix).invert();U.uRoot.value.copy(bodyRoot.matrix);updateSlice();buildTxt();
   LBL.moving=true;LBL.stillAt=performance.now();}
 function resetBuild(){const b=BUILD[st.sex];st.hgt=b.h;st.wgt=b.lb;$('hgt').value=b.h;$('wgt').value=b.lb;applyBuild();}
 $('hgt').oninput=e=>{st.hgt=+e.target.value;applyBuild();};
@@ -1604,89 +1634,93 @@ const S_=(sys,title,text,match,opts={})=>({sys,title,text,match,...opts});
 /* Guided tours. A step with sec:'…' starts a new part; each part can be played on its own. alt:[system, group] is a
    stand-in when this body has no model of the named structure (for example the inner ear). */
 const LESSONS=[
- {name:'The path of a breath',tag:'Respiratory',steps:[
-  S_('resp','Nose','Air enters through the nostrils. Hairs and mucus trap dust, and the curled conchae warm and moisten the air before it goes deeper.','Nose and sinuses',{sec:'Nose and throat'}),
+ {name:'The path of a breath',tag:'Respiratory · moving arrows, front-to-back cut',fx:'breath',steps:[
+  S_('resp','Nose','Air enters through the nostrils. Hairs and mucus trap dust, and the curled conchae warm and moisten the air before it goes deeper. The body is cut front to back so you can see inside the airways; the arrows show air flowing in, then out.','Nose and sinuses',{sec:'Nose and throat'}),
   S_('resp','Pharynx and larynx','The throat is shared with food. At the larynx the epiglottis flips shut each time you swallow, so food goes to the esophagus and air to the trachea. The vocal cords sit here.','Pharynx and larynx'),
   S_('resp','Trachea','The windpipe, about 11 cm long. C-shaped cartilage rings keep it open while the soft back wall lets the esophagus behind it expand.','Trachea',{sec:'Down the airways'}),
-  S_('resp','Bronchi','The trachea splits at the carina into left and right main bronchi, then branches about 23 times. The right main bronchus is wider and steeper, so inhaled objects usually land on the right.','Bronchi'),
-  S_('resp','Lungs and alveoli','The airways end in roughly 480 million alveoli with a combined surface of 50 to 75 m². Oxygen crosses a wall less than a micrometre thick into the blood.','Lungs',{sec:'Into the lungs'}),
-  S_('resp','Diaphragm','Watch it move: the diaphragm contracts and drops about 1.5 cm, the ribs swing up and out, and the lungs fill. Breathing out at rest is mostly passive recoil.','Diaphragm',{also:'Breathing muscles'})]},
- {name:'Journey of a meal',tag:'Digestive',steps:[
-  S_('dig','Mouth','Teeth cut and grind while saliva starts digesting starch. The tongue shapes food into a soft ball, the bolus.','Mouth and salivary glands',{sec:'Mouth to stomach'}),
+  S_('resp','Bronchi','The trachea splits at the carina into left and right main bronchi, then keeps branching, about 23 times in all. The right main bronchus is wider and steeper, so inhaled objects usually land on the right.','Bronchi'),
+  S_('resp','Lungs and alveoli','The airways end in roughly 480 million alveoli with a combined surface of 50 to 75 m². Oxygen crosses a wall less than a micrometre thick into the blood, and carbon dioxide comes back out.','Lungs',{sec:'Into the lungs'}),
+  S_('resp','Diaphragm','The diaphragm contracts and drops about 1.5 cm, the ribs swing up and out, and the lungs fill. Breathing out at rest is mostly the lungs springing back. Watch the arrows turn round.','Diaphragm',{also:'Breathing muscles'})]},
+ {name:'Journey of a meal',tag:'Digestive · front-to-back cut through each organ',fx:'meal',steps:[
+  S_('dig','Mouth','Teeth cut and grind while saliva starts digesting starch. The tongue shapes food into a soft ball, the bolus. Each stop cuts the body front to back through the organ, so you see its inside.','Mouth and salivary glands',{sec:'Mouth to stomach'}),
   S_('dig','Esophagus','Swallowing pushes the bolus down a 25 cm muscular tube. Waves of contraction (peristalsis) carry it to the stomach in about 8 seconds, even upside down.','Pharynx and esophagus'),
-  S_('dig','Stomach','Over 2 to 4 hours the stomach churns food in acid at about pH 2. Pepsin starts breaking down protein, turning the meal into a liquid called chyme.','Stomach'),
-  S_('dig','Liver','The liver makes up to a litre of bile a day for digesting fat. It also receives all the nutrient-rich blood from the gut through the portal vein.','Liver',{sec:'The helpers'}),
-  S_('dig','Gallbladder','Between meals bile is stored and concentrated here. A fatty meal makes it squeeze bile into the duodenum.','Gallbladder and bile ducts'),
+  S_('dig','Stomach','Inside, the stomach wall is folded into ridges (rugae) that flatten as it fills. Over 2 to 4 hours it churns food in acid at about pH 1.5 to 3.5, and pepsin starts breaking down protein, turning the meal into a liquid called chyme.','Stomach'),
+  S_('dig','Liver','The liver makes up to about a litre of bile a day for digesting fat. It also receives the nutrient-rich blood from the gut through the portal vein.','Liver',{sec:'The helpers'}),
+  S_('dig','Gallbladder','Between meals bile is stored and concentrated here. A fatty meal makes it squeeze bile into the duodenum, the first part of the small intestine.','Gallbladder and bile ducts'),
   S_('dig','Pancreas','Pancreatic juice neutralises stomach acid and brings the enzymes that break down fat, protein and carbohydrate.','Pancreas'),
-  S_('dig','Small intestine','6 to 7 m long and folded into villi, it absorbs about 90 percent of nutrients over 3 to 5 hours.','Small intestine',{sec:'The intestines'}),
+  S_('dig','Small intestine','6 to 7 m long and lined with finger-like villi, it absorbs about 90 percent of nutrients over 3 to 5 hours.','Small intestine',{sec:'The intestines'}),
   S_('dig','Large intestine','The colon reclaims water and salts over a day or more. Trillions of bacteria here ferment fibre and make vitamin K.','Large intestine')]},
- {name:'One heartbeat',tag:'Cardiovascular',steps:[
-  S_('card','Right atrium','Oxygen-poor blood from the whole body arrives here through the venae cavae. Watch the atria squeeze first, just after the P wave on the ECG.',/right (cardiac )?atrium|right auricle|atrium.*right|right atri/i,{sec:'The right side'}),
-  S_('card','Right ventricle','About 0.15 seconds later the ventricles contract (the tall QRS spike). The right ventricle pushes blood through the pulmonary valve.',/right ventricle/i),
-  S_('card','Pulmonary arteries','These are the only arteries that carry oxygen-poor blood. They take it to the lungs.',/pulmonary (trunk|artery)|pulmonary arteries|branch of (left|right) pulmonary artery/i),
-  S_('resp','Lungs','In the lungs the blood drops carbon dioxide and picks up oxygen in under a second.','Lungs',{sec:'Through the lungs'}),
-  S_('card','Left atrium','Oxygen-rich blood returns through four pulmonary veins into the left atrium.',/left (cardiac )?atrium|left auricle|atrium.*left|left atri|pulmonary vein/i),
-  S_('card','Left ventricle','The strongest chamber. Its wall is about three times thicker than the right ventricle\'s, because it pumps against the pressure of the whole body.',/left ventricle/i,{sec:'Out to the body'}),
-  S_('card','Aorta','Each beat sends about 70 mL into the aorta. Watch the pressure wave run outward along the arteries at about 5 m/s.','Aorta and great arteries')]},
- {name:'Tour of the skeleton',tag:'Skeletal',steps:[
-  S_('skel','Skull','22 bones, all fused except the mandible. The cranium protects the brain; the face holds the eyes, nose and teeth.','Skull',{sec:'Head and trunk'}),
-  S_('skel','Spine','33 vertebrae in an S-curve that springs under load. Each one has a ring of bone around the spinal cord.','Spine'),
-  S_('skel','Rib cage','12 pairs of ribs make a flexible cage that moves with every breath.','Ribs and sternum'),
-  S_('skel','Shoulder girdle','The clavicle is the only bony link between the arm and the trunk, so the shoulder trades stability for range of motion.','Shoulder girdle',{sec:'Arms and hands'}),
-  S_('skel','Arm','The radius rolls around the ulna to turn the palm up or down.','Arm bones'),
-  S_('skel','Hand','27 bones per hand. About a quarter of all the body\'s bones are in the hands.','Hand bones'),
-  S_('skel','Pelvis','A ring that carries the weight of the upper body to the legs. Switch to the female body to compare its wider shape.','Pelvis',{sec:'Hips and legs'}),
-  S_('skel','Leg','The femur can bear several times body weight; the patella improves the quadriceps\' leverage.','Leg bones'),
-  S_('skel','Foot','Three arches act as springs and spread load across the foot.','Foot bones')]},
- {name:'Fight or flight',tag:'Whole body · switches to Exercise',scn:'exercise',steps:[
-  S_('endo','Adrenal glands','A threat triggers the adrenal medulla to release adrenaline within seconds. Watch the vitals: the body state has switched to Exercise.','Adrenal glands',{sec:'The alarm'}),
+ {name:'One heartbeat',tag:'Cardiovascular · the whole heart in slow motion',fx:'heart',steps:[
+  S_('card','The whole heart','This heart is beating five times slower than real life, with the vessels hidden. The caption at the top names each phase as it happens. One beat at rest lasts just under a second.','Heart',{sec:'The beat'}),
+  S_('card','Right atrium','Oxygen-poor blood from the whole body arrives here through the venae cavae. The atria squeeze first, just after the P wave on the ECG, topping up the ventricles.',/right (cardiac )?atrium|right auricle|atrium.*right|right atri/i),
+  S_('card','Right ventricle','About 0.15 seconds later the ventricles contract (the tall QRS spike). The tricuspid valve snaps shut and the right ventricle pushes blood through the pulmonary valve.',/right ventricle/i,{sec:'Both sides at once'}),
+  S_('card','Left atrium','At the same moment, oxygen-rich blood that came back from the lungs through four pulmonary veins waits in the left atrium.',/left (cardiac )?atrium|left auricle|atrium.*left|left atri|pulmonary vein/i),
+  S_('card','Left ventricle','The strongest chamber. Its wall is about three times thicker than the right ventricle\'s because it pumps against the pressure of the whole body. The mitral valve closes as it squeezes ("lub"), and the aortic valve closes as it relaxes ("dub"). Each beat sends about 70 mL of blood into the aorta, and a pressure wave runs out along the arteries at about 5 m/s: the pulse you feel at your wrist.',/left ventricle/i),
+  S_('card','Coronary vessels','The heart feeds itself: the coronary arteries branch over its surface and fill mostly while it relaxes, between beats.','Coronary vessels',{sec:'Feeding the heart'})]},
+ {name:'Tour of the skeleton',tag:'Skeletal · counts all 206 bones',steps:[
+  S_('skel','Skull','22 bones: 8 form the cranium around the brain and 14 form the face. All are locked together by seams called sutures except the lower jaw (mandible). Inside each ear sit three tiny bones, and the U-shaped hyoid floats in the neck.','Skull',{sec:'Head and trunk',cap:'Skull 22, ear bones 6, hyoid 1 · running total 29 of 206'}),
+  S_('skel','Teeth','32 adult teeth replace 20 baby teeth. Teeth are not counted as bones; their enamel is the hardest substance in the body.','Teeth and gums',{cap:'Teeth are not bones · running total 29 of 206'}),
+  S_('skel','Spine','33 vertebrae at birth: 7 in the neck, 12 in the chest and 5 in the lower back, then 5 that fuse into the sacrum and about 4 into the coccyx. Discs between them absorb shock, and the S-shaped curve works like a spring.','Spine',{cap:'Vertebrae 24, sacrum 1, coccyx 1 · running total 55 of 206'}),
+  S_('skel','Rib cage','12 pairs of ribs and the sternum. The top 7 pairs join the sternum through their own cartilage, the next 3 join through shared cartilage, and the last 2 pairs float free at the front.','Ribs and sternum',{cap:'Ribs 24, sternum 1 · running total 80 of 206'}),
+  S_('skel','Shoulder girdle','A clavicle and a scapula on each side. The clavicle is the only bony link between the arm and the trunk, so the shoulder trades stability for range of motion.','Shoulder girdle',{sec:'Arms and hands',cap:'Clavicles 2, scapulae 2 · running total 84 of 206'}),
+  S_('skel','Arm','The humerus, then the radius and ulna. The radius rolls around the ulna to turn the palm up or down.','Arm bones',{cap:'Humerus, radius, ulna × 2 · running total 90 of 206'}),
+  S_('skel','Hands','27 bones in each hand: 8 carpals in the wrist, 5 metacarpals in the palm and 14 phalanges in the fingers. The two hands hold 54 of the body\'s 206 bones, about a quarter.','Hand bones',{cap:'Hands 54 · running total 144 of 206'}),
+  S_('skel','Pelvis','Each hip bone is three bones fused together: the ilium, ischium and pubis. With the sacrum they form a ring that carries the upper body\'s weight to the legs. The female pelvis is wider with a rounder opening, for childbirth. Switch to the female body to compare.','Pelvis',{sec:'Hips and legs',cap:'Hip bones 2 · running total 146 of 206'}),
+  S_('skel','Legs','The femur is the longest and strongest bone, about a quarter of your height. The kneecap (patella) sits inside the quadriceps tendon and improves its leverage. The tibia carries the weight; the thin fibula anchors muscles.','Leg bones',{cap:'Femur, patella, tibia, fibula × 2 · running total 154 of 206'}),
+  S_('skel','Feet','26 bones in each foot: 7 tarsals, 5 metatarsals and 14 phalanges. Three arches act as springs and spread the load.','Foot bones',{cap:'Feet 52 · total 206 of 206'}),
+  S_('skel','Joints and living bone','Smooth cartilage caps the ends of bones in joints, and ligaments tie bone to bone. Bone itself is living tissue: it remodels all the time, stores calcium, and red marrow inside it makes hundreds of billions of new blood cells every day.','Joints, cartilage and ligaments',{sec:'Living bone',cap:'206 bones in a typical adult'})]},
+ {name:'Fight or flight',tag:'Whole body · the body runs · switches to Exercise',scn:'exercise',fx:'run',steps:[
+  S_('endo','Adrenal glands','A threat triggers the adrenal medulla to release adrenaline within seconds. Watch the body start to run: the heart, lungs and adrenal glands light up, and the vitals switch to Exercise.','Adrenal glands',{sec:'The alarm'}),
   S_('card','Heart','The heart rate can more than double and each beat becomes stronger. Cardiac output rises from about 5 to more than 15 litres a minute.','Heart'),
-  S_('resp','Airways','The bronchi widen and breathing speeds up to bring in more oxygen.','Bronchi',{sec:'Fuel and air'}),
+  S_('resp','Airways and lungs','The bronchi widen and breathing becomes faster and deeper to bring in more oxygen.','Lungs',{sec:'Fuel and air'}),
   S_('dig','Liver','The liver releases stored glucose for fast fuel, while blood is diverted away from digestion.','Liver'),
-  S_('musc','Muscles','Blood flow to working muscles can rise about tenfold.','Thigh',{sec:'Ready to move'}),
-  S_('nerv','Eyes','The pupils dilate to let in more light.','Eye')]},
- {name:'Path of a nerve signal',tag:'Nervous',steps:[
-  S_('nerv','A fingertip touch','Touch receptors in the fingertip skin turn pressure into electrical impulses. Sensory fibres in the median and ulnar nerves carry them up the arm, the fastest at about 70 m/s.','Arm nerves',{sec:'Feeling a touch'}),
-  S_('nerv','Into the spinal cord','The impulse enters the cord through a dorsal root. For a reflex, such as pulling back from a hot pan, a short loop in the cord fires the muscles before the brain even knows.','Spinal cord'),
-  S_('nerv','Brainstem','Touch pathways cross to the opposite side, so the left brain feels the right hand. The brainstem relays them upward.','Cerebellum and brainstem',{sec:'Up to the brain'}),
-  S_('nerv','Thalamus','The thalamus is the main relay station: almost every sense except smell passes through it on the way to the cortex.','Diencephalon'),
-  S_('nerv','Cortex','The sensory cortex works out what and where; the motor cortex just in front of it plans a response.','Cerebrum'),
-  S_('nerv','Down the cord','The command runs down the corticospinal tract to motor neurons in the spinal cord.','Spinal cord',{sec:'Back down to act'}),
-  S_('nerv','Out along the nerve','Motor neurons carry it to the arm. At each nerve-muscle junction, acetylcholine makes the muscle fibres fire.','Arm nerves'),
-  S_('musc','The hand moves','Forearm muscles pull long tendons that curl the fingers. A simple reaction like this takes about a fifth of a second.','Forearm and hand')]},
- {name:'How a muscle moves',tag:'Muscular',steps:[
-  S_('nerv','The signal','The musculocutaneous nerve carries the command to bend the elbow to the biceps.','Arm nerves',{sec:'The command'}),
-  S_('musc','Biceps contracts','Inside each muscle fibre, myosin heads grab actin filaments and pull, using energy from ATP. Millions of these tiny pulls shorten the whole muscle.','Upper arm'),
-  S_('skel','Tendon pulls on bone','The biceps tendon attaches to the radius just below the elbow. With the elbow as the pivot, a short pull swings the hand a long way.','Arm bones',{sec:'Levers and pairs'}),
-  S_('musc','Opposing pairs','Muscles can only pull. To straighten the elbow the triceps contracts while the biceps relaxes. Most joints work with pairs like this.','Upper arm'),
+  S_('skel','Legs and arms','Blood flow to working muscles can rise about tenfold, powering the stride. The arms swing opposite to the legs to keep the body balanced.','Leg bones',{sec:'Ready to move'}),
+  S_('integ','Eyes','The pupils dilate to let in more light, and blood sugar and alertness rise. When the danger is over, the vagus nerve and the rest of the calming (parasympathetic) system bring the body back down.',/eyeball/i)]},
+ {name:'Path of a nerve signal',tag:'Nervous · a live signal, timed',fx:'nerve',steps:[
+  S_('nerv','A fingertip touch','Touch receptors in the right index fingertip turn pressure into electrical impulses. Watch the blue signal: it is slowed down about 120 times, and the caption counts the real time.','Arm nerves',{sec:'Feeling a touch'}),
+  S_('nerv','Up the arm','Sensory fibres in the median nerve carry the impulse up the arm at about 60 m/s, more than 200 km/h.','Arm nerves'),
+  S_('nerv','Into the spinal cord','The impulse enters the cord through a dorsal root in the neck. For a reflex, such as pulling back from a hot pan, a short loop in the cord fires the muscles before the brain even knows.','Spinal cord'),
+  S_('nerv','Brainstem and thalamus','Touch pathways cross to the opposite side in the brainstem, so the left brain feels the right hand. The thalamus relays the signal up to the cortex.','Diencephalon',{sec:'Up to the brain'}),
+  S_('nerv','Sensory and motor cortex','The sensory cortex works out what and where; the motor cortex just in front of it sends the reply. The orange signal is the command to move.','Cerebrum'),
+  S_('nerv','Back down','The command runs down the spinal cord and out along motor nerves to the forearm, at a similar speed of about 60 m/s.','Spinal cord',{sec:'Back down to act'}),
+  S_('musc','The hand moves','At each nerve-muscle junction, acetylcholine makes the muscle fibres fire, and forearm muscles pull the tendons that curl the fingers. A simple reaction like this takes about a fifth of a second, mostly time spent in the brain.','Forearm and hand')]},
+ {name:'How a muscle moves',tag:'Muscular · the knee bends',fx:'knee',steps:[
+  S_('musc','The knee bends','Watch the right leg. To bend the knee, the hamstrings at the back of the thigh tighten and shorten, while the quadriceps at the front relax and lengthen. The muscle that is tightening glows.',/right (rectus femoris|vastus|semitendinosus|semimembranosus|biceps femoris)|head of right biceps femoris/i,{sec:'Bend and straighten',leg:true}),
+  S_('musc','The knee straightens','Now the quadriceps tighten. Through the kneecap and patellar tendon they pull on the shin bone and swing the leg straight, while the hamstrings relax.',/right (rectus femoris|vastus|semitendinosus|semimembranosus|biceps femoris)|head of right biceps femoris/i,{leg:true}),
+  S_('nerv','The command','The femoral nerve carries the signal to the quadriceps, and the sciatic nerve (through its tibial branch) to the hamstrings. The brain keeps the two sides in balance.','Leg nerves',{sec:'Control'}),
+  S_('skel','A hinge and a lever','The knee is mainly a hinge. The rounded end of the femur rolls and glides on the tibia, and the kneecap holds the quadriceps tendon away from the joint so it pulls with more leverage.','Leg bones',{sec:'Bones and pairs'}),
+  S_('musc','Muscles only pull','A muscle can only pull, never push, so movement needs opposing pairs. The calf muscle (gastrocnemius) also crosses the back of the knee and helps bend it.','Leg and foot',{leg:true}),
+  S_('musc','Inside a muscle','Inside each fibre, myosin heads grab actin filaments and pull, using energy from ATP. Millions of these tiny pulls shorten the whole muscle.','Thigh',{sec:'Inside the fibre'}),
+  S_('musc','The elbow works the same way','The biceps bends the elbow by pulling on the radius just below the joint, with the elbow as the pivot, so a short pull swings the hand a long way. The triceps straightens it. The musculocutaneous nerve carries the command to the biceps.','Upper arm',{sec:'Another pair: the elbow'}),
   S_('musc','Shoulder','The deltoid lifts the arm out to the side; the rotator cuff muscles hold the ball of the humerus in its shallow socket.','Shoulder and chest'),
-  S_('card','Blood supply','Working muscle needs oxygen and glucose. Its blood flow can rise about tenfold during hard exercise.','Arm vessels',{sec:'Fuel and power'}),
-  S_('musc','The big movers','The thigh holds the largest muscles. The quadriceps straightens the knee and is among the strongest muscles in the body.','Thigh')]},
- {name:'Blood\'s round trip',tag:'Cardiovascular',steps:[
-  S_('card','Left ventricle','Oxygen-rich blood leaves the left ventricle. At rest the heart pumps about 5 litres a minute, roughly all of your blood.',/left ventricle/i,{sec:'Out to the body'}),
+  S_('card','Blood supply','Working muscle needs oxygen and glucose. Its blood flow can rise about tenfold during hard exercise.','Arm vessels')]},
+ {name:'Blood\'s round trip',tag:'Cardiovascular · a timed path through the body',fx:'blood',steps:[
+  S_('card','Left ventricle','Follow the glowing drop: red while it carries oxygen, blue after it has given it up. A full lap takes about a minute at rest; here it takes 24 seconds.',/left ventricle/i,{sec:'Out to the body'}),
   S_('card','Aorta','The aorta arches over the heart and runs down beside the spine, branching to every organ.','Aorta and great arteries'),
-  S_('card','Out to the legs','Arteries divide into ever smaller vessels, down to capillaries one cell wide, where oxygen and nutrients pass into the tissues.','Leg vessels'),
-  S_('card','Veins','Veins carry blood back at low pressure. One-way valves and squeezing leg muscles push it upward against gravity.','Leg vessels',{sec:'Back to the heart'}),
+  S_('card','Down to the leg','Arteries divide into ever smaller vessels, down to capillaries one cell wide, where oxygen and nutrients pass into the tissues. The drop turns blue in the foot.','Leg vessels'),
+  S_('card','Back up the veins','Veins carry blood back at low pressure. One-way valves and squeezing leg muscles push it upward against gravity.','Leg vessels',{sec:'Back to the heart'}),
   S_('card','Venae cavae','The two largest veins return blood from the lower and upper body into the right atrium.','Venae cavae and great veins'),
   S_('card','Right heart','The right atrium and ventricle send the oxygen-poor blood on toward the lungs.',/right (cardiac )?atrium|right ventricle|right auricle|right atri/i),
-  S_('card','Pulmonary arteries','Blood travels to the lungs along the pulmonary arteries.',/pulmonary (trunk|artery)|pulmonary arteries|branch of (left|right) pulmonary artery/i,{sec:'Through the lungs'}),
-  S_('resp','Lungs','In the lung capillaries carbon dioxide leaves the blood and oxygen is picked up.','Lungs'),
-  S_('card','Home again','Pulmonary veins bring the blood back to the left atrium, ready to go round again. At rest a full lap takes about a minute.',/left (cardiac )?atrium|left auricle|atrium.*left|left atri|pulmonary vein/i)]},
- {name:'Hearing a sound',tag:'Nervous',steps:[
-  S_('nerv','Outer ear','The curved outer ear funnels sound waves into the ear canal and helps tell whether a sound is in front or behind.','Ear',{sec:'Catching the sound',alt:['skel','Skull']}),
-  S_('skel','Eardrum and tiny bones','About 2.5 cm in, sound shakes the eardrum. Behind it, three tiny bones, the malleus, incus and stapes (the smallest bones in the body), sit inside the temporal bone and pass the vibration on.','Skull'),
-  S_('skel','Cochlea','The stapes pushes on the fluid-filled cochlea, a snail-shaped tube about 3.5 cm long if uncoiled. Different pitches make different parts of its membrane vibrate.','Skull',{sec:'The inner ear'}),
-  S_('skel','Hair cells','About 15,000 hair cells along the cochlea turn that movement into nerve signals. Very loud noise can damage them for good.','Skull'),
-  S_('nerv','Hearing nerve','The cochlear part of the eighth cranial nerve carries the signal into the brainstem.','Cranial nerves',{sec:'To the brain',alt:['nerv','Cerebellum and brainstem']}),
-  S_('nerv','Brainstem','Nuclei in the brainstem compare tiny timing differences between the two ears to work out where a sound comes from.','Cerebellum and brainstem'),
-  S_('nerv','Hearing cortex','The auditory cortex in the temporal lobe recognises the sound as a voice, music or noise.','Cerebrum')]},
- {name:'How bones heal',tag:'Skeletal',steps:[
-  S_('skel','A broken bone','The shin bone (tibia) and the wrist end of the radius are among the most often broken bones. Bone is living tissue with its own blood supply, so it can repair itself.','Leg bones',{sec:'The break'}),
-  S_('card','Blood clot','Torn vessels bleed into the break and a clot forms within hours. Over the first week, inflammation brings in cells that clear away debris.','Leg vessels'),
-  S_('skel','Soft callus','Over roughly the first three weeks, cartilage and fibrous tissue bridge the gap. It is not yet strong, which is why a cast holds the bone still.','Leg bones',{sec:'Soft callus'}),
-  S_('skel','Hard callus','From about the third week, bone-building cells lay new woven bone over the soft callus. By six to twelve weeks most adult fractures are joined.','Leg bones',{sec:'Hard callus'}),
-  S_('skel','Remodelling','Over months to years, osteoclasts remove extra bone and osteoblasts rebuild it along the lines of stress, until the bone is close to its old shape.','Leg bones',{sec:'Remodelling'}),
-  S_('skel','Helping it heal','Children heal fastest. Smoking, poor blood supply and some diseases slow healing; calcium, vitamin D and protein support it.','Arm bones')]}
+  S_('card','Pulmonary arteries','These are the only arteries that carry oxygen-poor blood. They take it to the lungs.',/pulmonary (trunk|artery)|pulmonary arteries|branch of (left|right) pulmonary artery/i,{sec:'Through the lungs'}),
+  S_('resp','Lungs','In the lung capillaries, in under a second, carbon dioxide leaves the blood and oxygen is picked up: the drop turns red again.','Lungs'),
+  S_('card','Home again','Pulmonary veins bring the blood back to the left atrium and ventricle, ready to go round again.',/left (cardiac )?atrium|left auricle|atrium.*left|left atri|pulmonary vein/i)]},
+ {name:'Hearing a sound',tag:'Nervous · a working ear model',fx:'ear',steps:[
+  S_('nerv','Outer ear','The model beside the head is a right ear, with its tiny inner parts enlarged so you can see them. The curved outer ear (pinna) funnels sound waves into the ear canal and helps tell whether a sound is in front or behind.','Cerebrum',{sec:'Catching the sound',fxk:'outer'}),
+  S_('nerv','Ear canal','The canal is about 2.5 cm long. Its length makes it resonate, boosting the pitches of speech before they reach the eardrum.','Cerebrum',{fxk:'canal'}),
+  S_('nerv','Eardrum','The eardrum is a thin membrane about 9 mm across. Sound waves make it vibrate, by less than the width of an atom for the quietest sounds.','Cerebrum',{sec:'The middle ear',fxk:'drum'}),
+  S_('nerv','Three tiny bones','The malleus, incus and stapes, the smallest bones in the body, pass the vibration on. Because the eardrum is about 17 times larger than the oval window under the stapes, the pressure rises about 20 times: enough to move fluid.','Cerebrum',{fxk:'bones'}),
+  S_('nerv','Cochlea','The stapes rocks in the oval window and sends a wave through the fluid-filled cochlea, a spiral of about 2.5 turns that would be about 3.5 cm long uncoiled. High pitches peak near its base, low pitches near the tip.','Cerebrum',{sec:'The inner ear',fxk:'cochlea'}),
+  S_('nerv','Hair cells','About 15,000 hair cells line the cochlea: roughly 3,500 inner hair cells that send the signal and 12,000 outer ones that amplify it. Very loud noise can destroy them for good.','Cerebrum',{fxk:'hair'}),
+  S_('nerv','Hearing nerve','The cochlear nerve, part of the eighth cranial nerve with about 30,000 fibres, carries the signal into the brainstem.','Cerebellum and brainstem',{sec:'To the brain',fxk:'nerve'}),
+  S_('nerv','Brainstem','Nuclei in the brainstem compare when a sound reaches each ear. Differences of about 10 millionths of a second are enough to tell where it came from.','Cerebellum and brainstem',{fxk:'stem'}),
+  S_('nerv','Hearing cortex','The signal passes through the midbrain and thalamus to the auditory cortex in each temporal lobe, which recognises it as a voice, music or noise. Each ear reaches both sides of the brain.','Cerebrum',{fxk:'cortex'})]},
+ {name:'How bones heal',tag:'Skeletal · a broken femur heals',fx:'heal',steps:[
+  S_('skel','The break','A break through the shaft of the right femur. Bone is living tissue with its own blood supply, so it can rebuild itself. Each stop moves the healing on.',/^right femur$/i,{sec:'The break',fxk:0,cap:'Day 0'}),
+  S_('skel','Blood clot','Torn vessels bleed into the break and a clot (haematoma) forms within hours. Over the first week, inflammation brings in cells that clear away debris and start the repair.',/^right femur$/i,{fxk:1,cap:'Hours to about 1 week'}),
+  S_('skel','Soft callus','Over roughly the next few weeks, cartilage and fibrous tissue bridge the gap. It is not yet strong, which is why a cast or a metal rod holds the bone still.',/^right femur$/i,{sec:'Callus',fxk:2,cap:'About weeks 1 to 3'}),
+  S_('skel','Hard callus','Bone-building cells (osteoblasts) turn the soft callus into woven bone, a bony collar that locks the ends together. A broken thigh bone usually takes about 3 to 6 months to join in an adult.',/^right femur$/i,{fxk:3,cap:'About weeks 3 to 12 and beyond'}),
+  S_('skel','Remodelling','Over months to years, osteoclasts remove the extra bone and osteoblasts rebuild it along the lines of stress, until the bone is close to its old shape.',/^right femur$/i,{sec:'Remodelling',fxk:4,cap:'Months to years'}),
+  S_('skel','Healed','Children heal fastest. Smoking, poor blood supply and some diseases slow healing; calcium, vitamin D and protein support it.',/^right femur$/i,{fxk:5,cap:'Healed'})]}
 ];
 const L={on:false,i:0,step:0,auto:false,autoT:0},AUTO_SEC=9;
 const secsOf=les=>les.secs||(les.secs=(()=>{const out=[];les.steps.forEach((s,k)=>{if(s.sec||!k)out.push({title:s.sec||les.name,start:k});});
@@ -1698,10 +1732,11 @@ function renderLessons(){$('lessonList').innerHTML=LESSONS.map((l,i)=>{const S=s
   <div class="lparts">${S.map((s,j)=>`<button data-i="${i}" data-s="${j}" aria-label="Play part ${j+1}, ${s.title}">▶ ${j+1}. ${s.title}<small>${s.end-s.start+1} stop${s.end>s.start?'s':''} · ${tourLen(s.end-s.start+1)}</small></button>`).join('')}</div></div>`;}).join('');}
 renderLessons();
 $('lessonList').addEventListener('click',e=>{const b=e.target.closest('button');if(b)startLesson(+b.dataset.i,b.dataset.s!==undefined?+b.dataset.s:0);});
-function startLesson(i,sec=0){closeSysTour();stopTour();mixOff();if(Q.on)endQuiz();const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0});
+function startLesson(i,sec=0){closeSysTour();stopTour();fxEnd();mixOff();if(Q.on)endQuiz();const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0,speaking:false});
+  st.mode='isolate';syncView();unlockVoice();syncLessonVoice();fxStart(les);
   if(les.scn){phys.scn=st.scn=les.scn;$('scnSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===les.scn)));}
   $('lesson').hidden=false;showStep();}
-function endLesson(){if(!L.on)return;L.on=false;L.auto=false;$('lesson').hidden=true;$('lAuto').setAttribute('aria-pressed','false');clearSel();renderCard();}
+function endLesson(){if(!L.on)return;L.on=false;L.auto=false;L.speaking=false;TR.tok++;hush();fxEnd();$('lesson').hidden=true;$('lAuto').setAttribute('aria-pressed','false');clearSel();renderCard();}
 async function showStep(){const les=LESSONS[L.i],stp=les.steps[L.step];const my=++L.gen||(L.gen=1);
   const S=secsOf(les),k=secOf(les,L.step),sec=S[k];
   $('lTitle').textContent=stp.title;$('lText').textContent=stp.text;$('lName').textContent=`${les.name} · part ${k+1} of ${S.length}: ${sec.title}`;
@@ -1715,7 +1750,7 @@ async function showStep(){const les=LESSONS[L.i],stp=les.steps[L.step];const my=
   if(!list.length&&stp.alt){list=await find(stp.alt[0],stp.alt[1]);if(my!==L.gen||!L.on)return;}
   if(!list.length&&typeof stp.match!=='string')list=(await find(stp.sys,'Heart'));
   selectSet(list,{title:stp.title,tag:`Tour · ${les.name} · part ${k+1}, stop ${L.step-sec.start+1} of ${sec.end-sec.start+1}`,desc:stp.text,src:list.length?sourceLine(list):''});
-  if(list.length)fit(list);L.autoT=0;}
+  if(list.length)fit(list);L.autoT=0;fxStep(stp,list);lessonSay(stp);}
 $('lNext').onclick=()=>{const les=LESSONS[L.i];if(L.step>=les.steps.length-1){endLesson();toast('Tour complete. Try the quiz to test yourself.');return;}L.step++;showStep();};
 $('lPrev').onclick=()=>{if(L.step>0){L.step--;showStep();}};
 $('lClose').onclick=endLesson;
@@ -1726,6 +1761,234 @@ function lessonAuto(){const les=LESSONS[L.i],sec=secsOf(les)[secOf(les,L.step)];
   L.step++;showStep();}
 $('learnSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('learnSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   $('quizBox').hidden=b.dataset.v!=='quiz';$('lessonBox').hidden=b.dataset.v!=='lessons';$('tourBox').hidden=b.dataset.v!=='tours';});
+/* ================================================================ moving lessons
+   Motion that plays only while its own guided lesson is open; everything is removed again when it closes, so the
+   rest of the app costs nothing extra. Limbs bend on the graphics chip (a few sums per corner point, switched off
+   with one number when no lesson needs it); signals, arrows and drops are a handful of tiny spheres and cones. */
+const V3=THREE.Vector3;
+// joint centres (right side, body space) measured from each body's own bones; the left side is the mirror
+const POSE={male:{hip:[-.06,.885,-.01],knee:[-.08,.455,-.02],ank:[-.075,.075,-.03],sh:[-.165,1.39,-.025],el:[-.225,1.115,-.02],tip:[-.306,.747,.078]},
+            female:{hip:[-.10,.815,-.05],knee:[-.143,.42,-.06],ank:[-.16,.08,-.07],sh:[-.165,1.33,-.085],el:[-.30,1.105,-.08],tip:[-.448,.8135,.071]}};
+// paths, as [x,y,z,label?]; a label names that stretch in the caption
+const PATHS={
+ male:{
+  blood:[[.041,1.291,.022,'Left ventricle'],[.012,1.335,.03,'Aorta'],[.003,1.39,-.004],[.008,1.37,-.032],[.009,1.29,-.03,'Descending aorta'],[.008,1.21,-.02],[.009,1.12,.008],[.004,1.03,.012],
+   [-.045,.93,.02,'Leg arteries'],[-.052,.73,.014],[-.076,.46,-.026],[-.086,.25,0],[-.08,.075,.035,'Capillaries in the foot'],[-.064,.06,.0,'Leg veins'],[-.06,.25,-.012],[-.066,.46,-.022],
+   [-.053,.72,.019],[-.04,.93,.02],[-.014,1.03,.016,'Inferior vena cava'],[-.014,1.15,.016],[-.014,1.265,.025],[-.015,1.309,.027,'Right atrium'],[.017,1.298,.044,'Right ventricle'],
+   [.027,1.353,.038,'Pulmonary artery'],[-.02,1.35,.0],[-.065,1.32,-.012,'Lung capillaries'],[-.026,1.326,-.003,'Pulmonary veins'],[.02,1.314,.0,'Left atrium'],[.041,1.291,.022]],
+  nerveUp:[[-.306,.747,.078,'Fingertip'],[-.29,.80,.05],[-.255,.89,.02,'Median nerve'],[-.24,1.0,.008],[-.212,1.115,0],[-.19,1.25,-.01],[-.14,1.36,-.02],[-.07,1.43,-.04],[0,1.46,-.05,'Spinal cord'],
+   [0,1.53,-.045],[0,1.56,-.03,'Brainstem'],[0,1.595,-.02],[.012,1.632,-.02,'Thalamus'],[.034,1.672,-.044,'Sensory cortex']],
+  nerveDown:[[.032,1.672,-.028,'Motor cortex'],[.015,1.63,-.015],[0,1.595,-.02,'Brainstem'],[0,1.56,-.03],[0,1.45,-.05,'Spinal cord'],[-.07,1.42,-.04],[-.14,1.355,-.02,'Motor nerve'],
+   [-.19,1.25,-.01],[-.212,1.115,0],[-.232,1.03,.005,'Forearm muscles']],
+  airR:[[0,1.565,.098],[0,1.575,.04],[0,1.565,-.012],[0,1.525,-.014],[0,1.497,.004],[0,1.47,-.006],[0,1.365,-.012],[-.033,1.315,-.024],[-.068,1.30,-.012]],
+  airL:[[0,1.565,.098],[0,1.575,.04],[0,1.565,-.012],[0,1.525,-.014],[0,1.497,.004],[0,1.47,-.006],[0,1.365,-.012],[.044,1.33,-.025],[.08,1.30,-.004]],
+  ear:[-.074,1.585,-.012],head:[0,1.63,-.02],stem:[0,1.59,-.022],cortexR:[-.055,1.61,-.01],cortexL:[.055,1.61,-.01]},
+ female:{
+  blood:[[.061,1.232,-.048,'Left ventricle'],[.03,1.275,-.04,'Aorta'],[.009,1.33,-.062],[.009,1.31,-.09],[.008,1.24,-.095,'Descending aorta'],[.006,1.14,-.088],[.004,1.04,-.075],[0,.96,-.068],
+   [-.055,.89,-.05,'Leg arteries'],[-.096,.70,-.023],[-.143,.44,-.067],[-.17,.22,-.04],[-.18,.06,-.015,'Capillaries in the foot'],[-.165,.05,-.06,'Leg veins'],[-.155,.22,-.07],[-.138,.44,-.07],
+   [-.105,.70,-.035],[-.06,.90,-.055],[-.02,.96,-.075,'Inferior vena cava'],[-.012,1.09,-.065],[-.01,1.20,-.055],[-.0065,1.235,-.044,'Right atrium'],[.041,1.24,-.027,'Right ventricle'],
+   [.017,1.285,-.044,'Pulmonary artery'],[-.025,1.28,-.07],[-.062,1.277,-.063,'Lung capillaries'],[-.03,1.265,-.078,'Pulmonary veins'],[.0076,1.257,-.062,'Left atrium'],[.061,1.232,-.048]],
+  nerveUp:[[-.448,.8135,.071,'Fingertip'],[-.425,.86,.04],[-.38,.93,0,'Median nerve'],[-.34,1.02,-.04],[-.30,1.11,-.075],[-.24,1.22,-.09],[-.17,1.31,-.085],[-.07,1.40,-.08],[-.008,1.44,-.075,'Spinal cord'],
+   [-.004,1.49,-.07],[-.002,1.519,-.061,'Brainstem'],[0,1.55,-.06],[-.0015,1.581,-.059,'Thalamus'],[.0325,1.613,-.077,'Sensory cortex']],
+  nerveDown:[[.0325,1.613,-.066,'Motor cortex'],[.012,1.58,-.055],[-.002,1.55,-.06,'Brainstem'],[-.002,1.519,-.061],[-.008,1.43,-.077,'Spinal cord'],[-.07,1.395,-.08],[-.17,1.30,-.085,'Motor nerve'],
+   [-.24,1.21,-.09],[-.30,1.10,-.075],[-.33,1.02,-.045,'Forearm muscles']],
+  airR:[[0,1.515,.066],[0,1.525,.01],[0,1.515,-.05],[-.002,1.47,-.045],[-.002,1.43,-.035],[-.005,1.42,-.045],[-.005,1.317,-.069],[-.03,1.295,-.074],[-.062,1.28,-.064]],
+  airL:[[0,1.515,.066],[0,1.525,.01],[0,1.515,-.05],[-.002,1.47,-.045],[-.002,1.43,-.035],[-.005,1.42,-.045],[-.005,1.317,-.069],[.026,1.30,-.076],[.068,1.272,-.064]],
+  ear:[-.073,1.535,-.04],head:[0,1.58,-.06],stem:[-.002,1.545,-.062],cortexR:[-.055,1.56,-.055],cortexL:[.05,1.56,-.055]}};
+// a path you can sample by distance along it
+function mkPath(pts){const P=pts.map(p=>new V3(p[0],p[1],p[2])),d=[0];for(let i=1;i<P.length;i++)d.push(d[i-1]+P[i].distanceTo(P[i-1]));
+  return {P,d,L:d[d.length-1],lab:pts.map(p=>p[3]||null),
+    at(u,out){const s=THREE.MathUtils.clamp(u,0,1)*this.L;let i=1;while(i<this.d.length-1&&this.d[i]<s)i++;const k=(s-this.d[i-1])/Math.max(1e-6,this.d[i]-this.d[i-1]);
+      out.lerpVectors(this.P[i-1],this.P[i],k);return i-1;},
+    label(i){for(let j=i;j>=0;j--)if(this.lab[j])return this.lab[j];return '';}};}
+const FXS={on:false,les:null,kind:null,root:null,t:0,sex:null,objs:{},glow:[],prev:{}};
+const lin=c=>new THREE.Color(c).convertSRGBToLinear();
+const fxMat=(c,o={})=>new THREE.MeshBasicMaterial(Object.assign({color:lin(c),transparent:true,depthTest:false,depthWrite:false},o));
+const dotGeo=()=>FXS.objs.dotG||(FXS.objs.dotG=new THREE.SphereGeometry(1,12,8));
+function fxDot(col,r,halo){const m=new THREE.Mesh(dotGeo(),fxMat(col));m.scale.setScalar(r);m.renderOrder=20;FXS.root.add(m);
+  if(halo){const h=new THREE.Mesh(dotGeo(),fxMat('#ffffff',{opacity:.28}));h.scale.setScalar(2.3);h.renderOrder=19;m.add(h);const c=new THREE.Mesh(dotGeo(),fxMat('#ffffff'));c.scale.setScalar(.45);c.renderOrder=21;m.add(c);}return m;}   // halo and bright core: easy to follow
+function fxCap(txt){const c=$('fxCap');if(!txt){c.hidden=true;return;}if(c.textContent!==txt)c.textContent=txt;c.hidden=false;}
+const fakePart=pts=>{const b=new THREE.Box3();pts.forEach(p=>b.expandByPoint(p.isVector3?p:new V3(p[0],p[1],p[2])));return {mesh:{geometry:{boundingBox:b},userData:{base:new THREE.Matrix4()}}};};
+const partsLike=re=>bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible&&re.test(p.name));
+function setPose(hR=0,kR=0,hL=0,kL=0,sR=0,eR=0,sL=0,eL=0){U.uAngL.value.set(hR,kR,hL,kL);U.uAngA.value.set(sR,eR,sL,eL);}
+function poseJoints(){const J=POSE[st.sex];['hip','knee','ank','sh','el','tip'].forEach((k,i)=>U.uJ.value[i].set(J[k][0],J[k][1],J[k][2]));}
+function setBob(y){bodyRoot.position.y=y;bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);U.uRootInv.value.copy(bodyRoot.matrix).invert();U.uRoot.value.copy(bodyRoot.matrix);}
+// a coronal (front-to-back) cut placed through the middle of what this stop shows, so you see inside it
+function fxCut(list){if(!list.length)return;const z=boxL(list).getCenter(new V3()).z,v=THREE.MathUtils.clamp((z+.03)/.2,-1,1);
+  st.slice='cor';st.slicePos=v;$('slice').value='cor';$('slicePos').value=v;$('slicePos').disabled=false;FXS.cut=true;updateSlice();}
+
+/* each moving lesson: start (build its pieces), step (when a stop opens), tick (every frame) */
+const FX={
+ breath:{start(){const P=PATHS[st.sex],o=FXS.objs,cg=new THREE.ConeGeometry(.0062,.017,10);cg.rotateX(Math.PI/2);o.cg=cg;
+    o.paths=[mkPath(P.airR),mkPath(P.airL)];o.arrows=[];o.u=0;
+    for(let k=0;k<2;k++)for(let i=0;i<9;i++){const m=new THREE.Mesh(cg,fxMat('#8fdcff',{opacity:.95}));m.renderOrder=20;FXS.root.add(m);o.arrows.push({m,k,i});}},
+  step(s,list){fxCut(list);},
+  tick(dt){const o=FXS.objs,sp=Math.sin(phys.breath*Math.PI*2),inh=sp>0;o.u+=dt*phys.speed*.55*sp*(V.rr/15);
+    const a=new V3(),b=new V3(),dir=inh?1:-1;
+    for(const A of o.arrows){const path=o.paths[A.k],u=(((A.i+A.k*.5)/9+o.u)%1+1)%1;path.at(u,a);
+      if(u+.01*dir>1||u+.01*dir<0){path.at(u-.01*dir,b);b.sub(a).negate().add(a);}else path.at(u+.01*dir,b);
+      A.m.position.copy(a);A.m.lookAt(b.applyMatrix4(FXS.root.matrixWorld));A.m.material.color.set(inh?'#8fdcff':'#d3a8ff').convertSRGBToLinear();
+      A.m.material.opacity=(.25+.75*Math.min(1,Math.abs(sp)*3))*THREE.MathUtils.smoothstep(u,0,.06)*(1-THREE.MathUtils.smoothstep(u,.94,1));}
+    fxCap(inh?'Breathing in: air flows down to the lungs':'Breathing out: the lungs spring back and push air out');}},
+ meal:{start(){},step(s,list){fxCut(list);fxCap(null);},tick(){}},
+ heart:{start(){FXS.prev.speed=phys.speed;phys.speed=.2;
+    st.fxOnly=p=>p.sys!=='card'||(p.grp&&/^(Heart|Coronary vessels)$/.test(p.grp.label));apply();},
+  step(){},
+  tick(){const c=cycle(phys.tau,phys.T),t=phys.tau,k=c.k;
+    fxCap(t<c.tp?'Filling: blood flows into all four relaxed chambers':t<c.tr?'Atria squeeze (P wave): they top up the ventricles':t<c.tr+.05*k?'Ventricles squeeze (QRS): the tricuspid and mitral valves snap shut, "lub"':
+      t<c.tt?'Blood is pushed out into the pulmonary trunk and the aorta':t<c.tt+.12*k?'Ventricles relax (T wave): the pulmonary and aortic valves close, "dub"':'Filling: blood flows into all four relaxed chambers');}},
+ run:{start(){poseJoints();U.uPoseOn.value=1;
+    st.fxOnly=p=>p.sys==='skel'||(p.sys==='card'&&p.grp&&p.grp.label==='Heart')||(p.sys==='resp'&&p.grp&&/^(Lungs|Bronchi|Trachea)$/.test(p.grp.label))||
+      (p.sys==='endo'&&/adrenal|suprarenal/i.test(p.name))||(p.sys==='dig'&&p.grp&&p.grp.label==='Liver')||!!p.eye;
+    st.mixOn=true;['skel','card','resp','endo','dig','integ'].forEach(x=>st.mix.add(x));syncView();renderInfo();refresh(false);},
+  step(){const all=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible);if(all.length)fit(all,-1.05);},
+  tick(dt){const o=FXS.objs;o.ph=(o.ph||0)+dt*2*Math.PI*1.35;const s=Math.sin(o.ph),c=Math.cos(o.ph);
+    const swing=.62*s,kn=(x)=>.25+1.05*Math.max(0,Math.sin(x+1.1));   // the knee folds most as the leg swings forward
+    setPose(-swing,kn(o.ph),swing,kn(o.ph+Math.PI),.55*s,-1.25,-.55*s,-1.25);setBob(.012*Math.abs(c));
+    const g=.25+.25*Math.max(0,Math.sin(phys.beat*Math.PI*2*1)),b=.18+.12*Math.sin(phys.breath*Math.PI*2);
+    for(const p of bodyParts){if(!p.mesh.visible)continue;let e=0,col=null;
+      if(p.sys==='card'&&p.grp&&p.grp.label==='Heart'){e=g+.15;col='#ff4d4d';}
+      else if(p.sys==='resp'){e=b+.08;col='#6fd2ff';}
+      else if(p.sys==='endo'){e=.45+.25*Math.sin(FXS.t*6);col='#ffcf4d';}
+      if(col){p.mat.emissive.set(col).convertSRGBToLinear().multiplyScalar(e);useMat(p);FXS.glow.add(p);}}
+    fxCap('Running: heart '+Math.round(V.hr)+' beats/min · breathing '+Math.round(V.rr)+'/min · adrenaline released');}},
+ knee:{start(){poseJoints();U.uPoseOn.value=1;},
+  step(s){if(!s.leg)return;const leg=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible&&boxL([p]).getCenter(new V3()).x<-.02&&boxL([p]).max.y<1.0);if(leg.length)fit(leg,-1.15);},
+  tick(dt){const o=FXS.objs;o.ph=(o.ph||0)+dt*2*Math.PI/4.2;const a=.5-.5*Math.cos(o.ph),bending=Math.sin(o.ph)>0;
+    setPose(-.12*a,1.45*a,0,0,0,0,0,0);
+    const Qd=/right (rectus femoris|vastus)/i,Hm=/right (semitendinosus|semimembranosus)|right biceps femoris|head of right biceps femoris/i,pulse=.35+.15*Math.sin(FXS.t*9);
+    for(const p of bodyParts){if(!p.mesh.visible||p.sys!=='musc')continue;const q=Qd.test(p.name),h=Hm.test(p.name);if(!q&&!h)continue;
+      const on=(h&&bending)||(q&&!bending);p.mat.emissive.set(on?'#ffd24d':'#000000').convertSRGBToLinear().multiplyScalar(on?pulse:0);useMat(p);FXS.glow.add(p);}
+    fxCap(bending?'Bending: the hamstrings (glowing) tighten, the quadriceps relax':'Straightening: the quadriceps (glowing) tighten, the hamstrings relax');}},
+ nerve:{start(){const P=PATHS[st.sex],o=FXS.objs;o.up=mkPath(P.nerveUp);o.dn=mkPath(P.nerveDown);o.dot=fxDot('#7fd0ff',.011,true);o.trail=[];
+    for(let i=0;i<6;i++){const d=fxDot('#7fd0ff',.009-i*.001);d.material.opacity=.6-i*.09;o.trail.push(d);}o.hist=[];o.t=0;
+    const tipM=fxDot('#ffffff',.009);tipM.position.set(...P.nerveUp[0].slice(0,3));o.tip=tipM;
+    // real timing: about 60 m/s up the sensory nerve, about 150 ms in the brain, about 60 m/s down the motor nerve; travel slowed 120 times
+    o.tUp=o.up.L/60*120;o.tBr=1.6;o.tDn=o.dn.L/60*120;o.tEnd=1.6;},
+  step(){const o=FXS.objs,pts=[...o.up.P,...o.dn.P];FXS.view=fakePart(pts);fit([FXS.view],-.5);},
+  tick(dt){const o=FXS.objs;o.t+=dt;const T=o.tUp+o.tBr+o.tDn+o.tEnd;if(o.t>T){o.t=0;o.hist.length=0;}
+    const t=o.t,p=new V3();let lab,ms;
+    if(t<o.tUp){const i=o.up.at(t/o.tUp,p);lab=o.up.label(i);ms=t/120*1000;o.dot.material.color.set('#7fd0ff').convertSRGBToLinear();}
+    else if(t<o.tUp+o.tBr){o.up.at(1,p);lab='Sensory cortex: the brain works out what and where, then decides';ms=o.tUp/120*1000+(t-o.tUp)/o.tBr*150;o.dot.material.color.set('#ffffff').convertSRGBToLinear();}
+    else if(t<o.tUp+o.tBr+o.tDn){const i=o.dn.at((t-o.tUp-o.tBr)/o.tDn,p);lab=o.dn.label(i);ms=o.tUp/120*1000+150+(t-o.tUp-o.tBr)/120*1000;o.dot.material.color.set('#ffab4d').convertSRGBToLinear();}
+    else{o.dn.at(1,p);lab='The fingers curl';ms=o.tUp/120*1000+150+o.tDn/120*1000;}
+    o.dot.position.copy(p);o.dot.scale.setScalar(.011*(1+.25*Math.sin(FXS.t*14)));o.hist.unshift(p.clone());if(o.hist.length>30)o.hist.length=30;
+    o.trail.forEach((d,i)=>{const h=o.hist[Math.min(o.hist.length-1,(i+1)*3)];if(h)d.position.copy(h);d.material.color.copy(o.dot.material.color);});
+    o.tip.material.opacity=t<.5?1-t:.0;
+    const spd=t<o.tUp?'sensory nerve about 60 m/s':t<o.tUp+o.tBr?'thinking':t<o.tUp+o.tBr+o.tDn?'motor nerve about 60 m/s':'done';
+    fxCap(`${lab} · real time ${ms.toFixed(ms<20?1:0)} ms · ${spd} · travel slowed 120×`);}},
+ blood:{start(){const o=FXS.objs;o.path=mkPath(PATHS[st.sex].blood);o.dot=fxDot('#ff3b3b',.017,true);o.trail=[];o.hist=[];
+    for(let i=0;i<8;i++){const d=fxDot('#ff3b3b',.014-i*.0014);d.material.opacity=.7-i*.08;o.trail.push(d);}o.t=0;o.T=24;},
+  step(){const o=FXS.objs;FXS.view=fakePart(o.path.P);fit([FXS.view],-.55);},
+  tick(dt){const o=FXS.objs;o.t=(o.t+dt)%o.T;const p=new V3(),i=o.path.at(o.t/o.T,p),lab=o.path.label(i);
+    const blue=/foot|Leg veins|vena|Right atrium|Right ventricle|Pulmonary artery/.test(lab),col=blue?'#4d8dff':'#ff3b3b';
+    o.dot.position.copy(p);o.dot.material.color.set(col).convertSRGBToLinear();o.hist.unshift(p.clone());if(o.hist.length>40)o.hist.length=40;
+    o.trail.forEach((d,k)=>{const h=o.hist[Math.min(o.hist.length-1,(k+1)*4)];if(h)d.position.copy(h);d.material.color.set(col).convertSRGBToLinear();});
+    const s=Math.floor(o.t);fxCap(`${lab} · ${blue?'oxygen-poor':'oxygen-rich'} · 0:${String(s).padStart(2,'0')} of 0:24 (a real lap takes about a minute)`);}},
+ ear:{start(){buildEar();},step(s,list){const o=FXS.objs;o.focus=s.fxk;
+    const near=['outer','canal','drum','bones','cochlea','hair'].includes(s.fxk),b=o.box.clone();
+    if(near)fit([fakePart([b.min,b.max])],-.35);else fit([fakePart([b.min,b.max,new V3(...PATHS[st.sex].cortexL),new V3(...PATHS[st.sex].head).add(new V3(0,.08,0))])],-.7);},
+  tick(dt){earTick(dt);}},
+ heal:{start(){},step(s){if(!FXS.objs.built){FXS.objs.built=true;buildCallus();}FXS.objs.target=s.fxk||0;const f=FXS.objs.femur;if(f)fit([fakePart([f.c.clone().addScaledVector(f.ax,.13),f.c.clone().addScaledVector(f.ax,-.13)])],-.6);},
+  tick(dt){healTick(dt);}}
+};
+
+/* the ear model: about three times life size, floating beside the right side of the head and joined to the brainstem */
+function buildEar(){const P=PATHS[st.sex],o=FXS.objs,S=3,E=new V3(...P.ear),A=E.clone().add(new V3(-.13,0,0));   // A: where the model sits
+  const std=(c,x={})=>new THREE.MeshStandardMaterial(Object.assign({color:lin(c),roughness:.55,metalness:0},x));
+  const g=new THREE.Group();g.position.copy(A);FXS.root.add(g);o.g=g;o.parts={};
+  const add=(k,mesh)=>{g.add(mesh);(o.parts[k]=o.parts[k]||[]).push(mesh);return mesh;};
+  // outer ear (pinna): a cupped shell with a rolled rim, facing out to the right; the canal runs inward (+x)
+  const pin=new THREE.SphereGeometry(.022*S/3*1.0,28,20,0,Math.PI*2,0,Math.PI*.42);pin.scale(.5,1.55,1);pin.rotateZ(-Math.PI/2);   // a shallow cup, open to the side
+  add('outer',new THREE.Mesh(pin,std('#d9a08a',{side:THREE.DoubleSide}))).position.set(.004,0,0);
+  const rim=new THREE.TorusGeometry(.0215,.0035,10,40,Math.PI*1.6);rim.scale(1,1.55,1);rim.rotateY(Math.PI/2);rim.rotateX(-Math.PI*.3);add('outer',new THREE.Mesh(rim,std('#d49884'))).position.set(-.004,0,0);
+  // ear canal: about 2.5 cm × 3
+  const L=.025*S,canal=new THREE.CylinderGeometry(.0028*S,.0024*S,L,20,1,true);canal.rotateZ(Math.PI/2);
+  add('canal',new THREE.Mesh(canal,std('#c98476',{side:THREE.DoubleSide,transparent:true,opacity:.55}))).position.set(L/2,0,0);
+  // eardrum
+  const drum=new THREE.Mesh(new THREE.CircleGeometry(.0045*S,28),std('#f0cdb4',{side:THREE.DoubleSide,transparent:true,opacity:.9}));drum.rotation.y=Math.PI/2;drum.position.set(L,0,0);add('drum',drum);o.drum=drum;
+  // the three ossicles: malleus on the drum, incus, stapes in the oval window
+  const bone=std('#efe4cc',{roughness:.4}),ob=new THREE.Group();ob.position.set(L,0,0);g.add(ob);o.oss=ob;
+  const mal=new THREE.Mesh(new THREE.CylinderGeometry(.0011*S,.0008*S,.008*S,8),bone);
+  mal.position.set(.0006*S,.0025*S,0);ob.add(mal);(o.parts.bones=o.parts.bones||[]).push(mal);
+  const malH=new THREE.Mesh(new THREE.SphereGeometry(.0018*S,12,8),bone);malH.position.set(.0012*S,.0068*S,0);ob.add(malH);o.parts.bones.push(malH);
+  const inc=new THREE.Mesh(new THREE.CylinderGeometry(.0012*S,.0007*S,.006*S,8),bone);inc.rotation.z=Math.PI*.62;inc.position.set(.0042*S,.0058*S,0);ob.add(inc);o.parts.bones.push(inc);
+  const stp=new THREE.Mesh(new THREE.TorusGeometry(.0014*S,.00035*S,6,14,Math.PI),bone);stp.rotation.z=-Math.PI/2;stp.position.set(.0078*S,.003*S,0);ob.add(stp);o.parts.bones.push(stp);
+  const fp=new THREE.Mesh(new THREE.CylinderGeometry(.0013*S,.0013*S,.0004*S,14),bone);fp.rotation.z=Math.PI/2;fp.position.set(.0092*S,.003*S,0);ob.add(fp);o.parts.bones.push(fp);o.stapes=[stp,fp];
+  // cochlea: a spiral of about 2.5 turns; vestibule and the three semicircular canals above it
+  const C0=new V3(L+.012*S,.001*S,-.002*S),pts=[];for(let i=0;i<=90;i++){const u=i/90,a=u*Math.PI*2*2.5,r=(.0045-.0032*u)*S;pts.push(new V3(C0.x+u*.003*S,C0.y+Math.cos(a)*r,C0.z+Math.sin(a)*r));}
+  const curve=new THREE.CatmullRomCurve3(pts);o.coch=curve;add('cochlea',new THREE.Mesh(new THREE.TubeGeometry(curve,160,.0011*S,10,false),std('#f2c29c',{roughness:.45})));
+  const ves=new THREE.Mesh(new THREE.SphereGeometry(.0022*S,14,10),std('#f2c29c'));ves.position.set(L+.0105*S,.0045*S,.0005*S);add('cochlea',ves);
+  [[0,0,0],[Math.PI/2,0,0],[0,Math.PI/2,0]].forEach((r,i)=>{const t=new THREE.Mesh(new THREE.TorusGeometry(.0028*S,.00045*S,6,28),std('#f2c29c'));t.rotation.set(r[0],r[1],r[2]);
+    t.position.set(L+.012*S+(i===2?.002*S:0),.0085*S,(i===1?-.002:.001)*S);add('cochlea',t);});
+  o.wave=new THREE.Mesh(new THREE.SphereGeometry(.0016*S,10,8),fxMat('#7dffb0'));o.wave.renderOrder=21;g.add(o.wave);
+  // hair cells: a glowing band along the spiral
+  // the cochlear nerve: from the cochlea's centre into the brainstem, then up to the hearing cortex on both sides
+  const cw=new V3().copy(C0).add(A),stem=new V3(...P.stem),nerve=new THREE.CatmullRomCurve3([cw,cw.clone().lerp(stem,.5).add(new V3(0,-.006,0)),stem]);o.nerve=nerve;
+  const nm=new THREE.Mesh(new THREE.TubeGeometry(nerve,40,.0018,8,false),std('#ffe08a',{emissive:lin('#3a2a00')}));FXS.root.add(nm);(o.parts.nerve=[]).push(nm);
+  o.up=[mkPath([[stem.x,stem.y,stem.z],[stem.x-.008,stem.y+.03,stem.z+.005],...[P.cortexR]]),mkPath([[stem.x,stem.y,stem.z],[stem.x+.008,stem.y+.03,stem.z+.005],...[P.cortexL]])];
+  o.sig=[fxDot('#ffe066',.004),fxDot('#ffe066',.004),fxDot('#ffe066',.004)];
+  // sound waves: three rings arriving from the right
+  o.rings=[0,1,2].map(()=>{const r=new THREE.Mesh(new THREE.TorusGeometry(.012*S,.0006*S,6,40),fxMat('#9fe6ff'));r.rotation.y=Math.PI/2;r.renderOrder=19;g.add(r);return r;});
+  FXS.root.updateMatrixWorld(true);o.box=new THREE.Box3().setFromObject(g);o.box.applyMatrix4(new THREE.Matrix4().copy(bodyRoot.matrixWorld).invert());o.box.expandByPoint(A.clone().add(new V3(-.03,0,0)));o.t=0;
+  o.cortex=[new V3(...P.cortexR),new V3(...P.cortexL)];}
+function earTick(dt){const o=FXS.objs;o.t=(o.t+dt)%4;const t=o.t,S=3,L=.025*S;
+  // 0–0.9 s waves arrive · 0.7–1.5 drum and bones move · 1.2–2.4 the wave runs up the cochlea · 2.2–4 the signal goes to the brain
+  o.rings.forEach((r,i)=>{const u=(t-i*.25)/.9;r.visible=u>0&&u<1;if(r.visible){r.position.x=-.05+u*.05;const s=1-.6*u;r.scale.setScalar(s);r.material.opacity=(1-u)*.9;}});
+  const vib=t>.6&&t<1.6?Math.sin(t*60)*(1-Math.abs(t-1.1)/.5):0;o.drum.position.x=L+.0006*vib;o.oss.position.x=L+.0004*vib;o.oss.rotation.z=.04*vib;
+  const cu=(t-1.2)/1.2;o.wave.visible=cu>0&&cu<1;if(o.wave.visible)o.wave.position.copy(o.coch.getPointAt(Math.min(1,cu)));
+  const su=(t-2.2)/1.4;o.sig.forEach((d,i)=>{d.visible=su>0&&su<1;if(!d.visible)return;const p=new V3();
+    if(su<.5)p.copy(o.nerve.getPointAt(Math.min(1,su*2*(1-i*.08))));else o.up[i%2].at((su-.5)*2,p);d.position.copy(p);});
+  const F={outer:'outer',canal:'canal',drum:'drum',bones:'bones',cochlea:'cochlea',hair:'cochlea',nerve:'nerve'}[o.focus];
+  for(const k in o.parts)for(const m of o.parts[k]){if(!m.material.emissive)continue;const on=k===F;m.material.emissive.set(on?'#ffbf5a':k==='nerve'?'#3a2a00':'#000000').multiplyScalar(on?.25+.2*Math.sin(FXS.t*5):1);}
+  fxCap(t<.9?'Sound waves are funnelled into the ear canal':t<1.5?'The eardrum vibrates and the three tiny bones pass it on':t<2.4?'A wave runs through the fluid of the cochlea; hair cells turn it into nerve signals':'The cochlear nerve carries the signal to the brainstem, then to the hearing cortex on both sides');}
+
+/* the healing femur: overlays around the middle of the right thigh bone */
+function buildCallus(){const o=FXS.objs,f=partsLike(/^right femur$/i)[0]||partsLike(/^femur.*right|right femur/i)[0];if(!f){o.femur=null;return;}
+  // the shaft's centre and direction, from the bone's own surface points
+  const g=f.mesh.geometry,pa=g.attributes.position,b=boxL([f]),M=f.mesh.userData.base,v=new V3(),y0=b.min.y+(b.max.y-b.min.y)*.5;
+  const band=(y,out)=>{let n=0;out.set(0,0,0);for(let i=0;i<pa.count;i+=3){v.fromBufferAttribute(pa,i).applyMatrix4(M);if(Math.abs(v.y-y)<.008){out.add(v);n++;}}return n?out.divideScalar(n):out.set((b.min.x+b.max.x)/2,y,(b.min.z+b.max.z)/2);};
+  const c=band(y0,new V3()),c1=band(y0+.06,new V3()),c0=band(y0-.06,new V3()),ax=c1.clone().sub(c0).normalize();
+  const rs=[];for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i).applyMatrix4(M);if(Math.abs(v.y-y0)<.006)rs.push(Math.hypot(v.x-c.x,v.z-c.z));}rs.sort((a,b)=>a-b);   // the outer surface (the bone is hollow inside)
+  const r=rs.length>8?Math.max(.008,rs[Math.floor(rs.length*.9)]):.013;
+  o.femur={c,ax,r};const q=new THREE.Quaternion().setFromUnitVectors(new V3(0,1,0),ax);
+  const mk=(geo,mat)=>{const m=new THREE.Mesh(geo,mat);m.position.copy(c);m.quaternion.copy(q);FXS.root.add(m);return m;};
+  const crack=new THREE.CylinderGeometry(r*1.06,r*1.06,.0035,28,1,true);crack.rotateX(.35);
+  o.crack=mk(crack,new THREE.MeshStandardMaterial({color:lin('#3b0b0b'),side:THREE.DoubleSide,transparent:true}));
+  const spindle=(R,H,bump)=>{const s=new THREE.SphereGeometry(1,28,18);const p=s.attributes.position,w=new V3();
+    for(let i=0;i<p.count;i++){w.fromBufferAttribute(p,i);const k=1+bump*(Math.sin(w.x*13+w.y*7)*Math.sin(w.z*11-w.y*5));p.setXYZ(i,w.x*R*k,w.y*H,w.z*R*k);}s.computeVertexNormals();return s;};
+  o.clot=mk(spindle(r*1.9,.032,.08),new THREE.MeshStandardMaterial({color:lin('#7a1018'),roughness:.6,transparent:true,opacity:0}));
+  o.soft=mk(spindle(r*1.7,.04,.05),new THREE.MeshStandardMaterial({color:lin('#a7c6d6'),roughness:.5,transparent:true,opacity:0}));
+  o.hard=mk(spindle(r*1.6,.042,.12),new THREE.MeshStandardMaterial({color:lin('#e7dcc2'),roughness:.75,transparent:true,opacity:0}));
+  o.level=0;o.target=0;}
+function healTick(dt){const o=FXS.objs;if(!o.femur)return;o.level+=(o.target-o.level)*Math.min(1,dt*1.6);const L=o.level,sm=(a,b)=>THREE.MathUtils.smoothstep(L,a,b);
+  o.crack.material.opacity=1-sm(2.2,3.2);o.crack.visible=o.crack.material.opacity>.02;
+  o.clot.material.opacity=sm(.2,1)*(1-sm(1.6,2.4))*.85;o.clot.scale.setScalar(1+.03*Math.sin(FXS.t*3));
+  o.soft.material.opacity=sm(1.3,2)*(1-sm(2.6,3.2))*.8;
+  const h=sm(2.4,3)*(1-sm(4.6,5));o.hard.material.opacity=h;o.hard.material.transparent=h<.99;
+  const rem=sm(3.5,4.8);o.hard.scale.set(1-.33*rem,1-.2*rem,1-.33*rem);
+  [o.clot,o.soft,o.hard].forEach(m=>m.visible=m.material.opacity>.02);}
+
+function fxStart(les){fxEnd();if(!les.fx||!FX[les.fx])return;FXS.on=true;FXS.les=les;FXS.kind=les.fx;FXS.sex=st.sex;FXS.t=0;FXS.objs={};FXS.glow=new Set();FXS.capHold=0;
+  FXS.root=new THREE.Group();bodyRoot.add(FXS.root);FX[les.fx].start();}
+function fxEnd(){$('fxCap').hidden=true;if(!FXS.on)return;FXS.on=false;
+  FXS.root.traverse(m=>{if(m.geometry&&m.geometry!==FXS.objs.dotG)m.geometry.dispose();if(m.material)m.material.dispose();});if(FXS.objs.dotG)FXS.objs.dotG.dispose();bodyRoot.remove(FXS.root);FXS.root=null;
+  for(const p of FXS.glow){p.mat.emissive.set(0);useMat(p);}FXS.glow=new Set();
+  U.uPoseOn.value=0;setPose();setBob(0);if(FXS.prev.speed!==undefined){phys.speed=FXS.prev.speed;delete FXS.prev.speed;}
+  if(FXS.cut){FXS.cut=false;$('slice').value='off';$('slice').dispatchEvent(new Event('change'));}
+  const hadOnly=!!st.fxOnly;st.fxOnly=null;FXS.view=null;if(st.mixOn)mixOff();if(hadOnly&&st.ready)apply();}
+function fxStep(stp,list){if(stp.cap)fxCap(stp.cap);else if(!FXS.on)fxCap(null);if(!FXS.on)return;
+  if(FXS.sex!==st.sex){const les=FXS.les;fxStart(les);}    // the body changed: rebuild the pieces for the new body
+  FX[FXS.kind].step(stp,list);if(stp.cap){FXS.capTxt=stp.cap;FXS.capHold=FXS.kind==='heal'?1e9:2.5;}else FXS.capHold=0;}
+// a stop's own caption (a running count or a time) stays up; otherwise the motion writes what is happening now
+function fxTick(dt){FXS.t+=dt;FX[FXS.kind].tick(dt);if(FXS.capHold>0){FXS.capHold-=dt;fxCap(FXS.capTxt);}}
+/* guided lessons are spoken too, with the same voice, mute and speed as the tours; Auto-play waits for the voice */
+function lessonSay(stp){if(!L.on)return;TR.tok++;L.speaking=true;const my=L.gen;
+  say(stp.title+'. '+stp.text,()=>{if(L.gen!==my)return;L.speaking=false;L.autoT=AUTO_SEC-1.2;});}
+function syncLessonVoice(){$('lMute').setAttribute('aria-pressed',String(VO.muted));$('lMute').textContent=VO.muted?'Unmute':'Mute';$('lRate').value=String(VO.rate);}
+$('lMute').onclick=()=>{VO.muted=!VO.muted;saveVO();syncLessonVoice();syncTourCtl();if(!L.on)return;
+  if(VO.muted){TR.tok++;hush();L.speaking=false;}else{unlockVoice();lessonSay(LESSONS[L.i].steps[L.step]);}};
+$('lRate').onchange=e=>{VO.rate=+e.target.value||1;saveVO();syncTourCtl();};
 
 /* Muscle facts: origin, insertion, main action, nerve (with usual root levels). Keys match the dataset's muscle names (side stripped). */
 const MFACTS={
@@ -2073,9 +2336,10 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
   const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
   if(tween){tween.t+=dt/tween.dur;const e=tween.t>=1?1:1-Math.pow(1-tween.t,3);controls.target.lerpVectors(tween.t0,tween.t1,e);camera.position.lerpVectors(tween.p0,tween.p1,e);if(tween.t>=1)tween=null;}
   if(st.tour&&st.ready&&!queue.active.size){st.tourT+=dt;$('tourBar').style.width=Math.min(100,st.tourT/TOUR_SEC*100)+'%';if(st.tourT>=TOUR_SEC)setSys((st.sys+1)%11);}
-  if(L.on&&L.auto&&!queue.active.size){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
+  if(L.on&&L.auto&&!queue.active.size&&!L.speaking){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
   if(!reduce){stepPhysio(dt);drawECG();}drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const p of st.selSet){p.mat.emissive.copy(selCol);useMat(p);}}
+  if(FXS.on)fxTick(dt);
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);renderer.render(scene,camera);tunePR(now||performance.now());requestAnimationFrame(loop);}
 
 /* ================================================================ add-on packs

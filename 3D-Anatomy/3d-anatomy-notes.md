@@ -23,7 +23,7 @@ Notes for whoever works on this app next (mostly Claude). Read this first, then 
 - 2026-11-23: new 3-round request started (eyes, skin, desktop controls, menu layout; spoken system tours; moving tours). See below.
 
 ## Unfinished / ideas
-- The body files have no inner ear, so hearing stops point at the skull. Round 3 of 2026-11-23 will add a small built ear model.
+- The body files have no inner ear; since Round 3 of 2026-11-23 the hearing lesson uses a built ear model (`buildEar`).
 - An earlier request (2026-11-22, second list) was replaced by the 2026-11-23 one: layered-view lag, bigger tap areas, starting builds, Evolution reshaping per era with side-by-side models, a gut tab with coronal cut. Not done; ask the owner before picking these up.
 
 ## 2026-11-23 Round 1 (done, commit "3D-Anatomy: eyes, solid skin peel, mouse controls, menu layout")
@@ -43,3 +43,26 @@ Notes for whoever works on this app next (mostly Claude). Read this first, then 
 - During a tour: Single view, skin outline off, peel reset, muscle layers reset, cut off, menus/tabs closed. Changing system or body by hand ends the tour.
 - Quiz after each tour: systems use the find-it quiz (groups after Short, named parts after Long); Evolution and Gut use 5 multiple-choice questions saved as `ca-best-tour-<id>`. Profile lists both kinds.
 - Pack data (ERAS, WHERE, JOBS, …) now sits outside `build()` so the packs can also register `tour` and `quiz`. `ensurePack(id)` runs a pack's code without opening its tab.
+
+## 2026-11-23 Round 3 (done, commit "3D-Anatomy: moving lessons, spoken lessons, fact check")
+- Moving lessons (`FX`, `fxStart`/`fxStep`/`fxTick`/`fxEnd`): a lesson with `fx:'…'` builds its motion when it opens and removes all of it when it closes. Kinds: `knee`, `run`, `nerve`, `heart`, `meal`, `breath`, `blood`, `ear`, `heal`.
+- Limb bending is in the tissue vertex shader (`POSE_GLSL`, `tqPose`): hip/knee/shoulder/elbow turn in the front-to-back plane, with weights that fade in over a few cm. Joint centres per body in `POSE` (measured from each body's bones). `U.uPoseOn=0` skips it. `U.uRoot` = body matrix (kept in `applyBuild`); `setBob()` moves the whole body up and down while running.
+- Paths (blood, nerve, airway, ear, brain points) are hand-placed per body in `PATHS`, from each body's own vessel, nerve and airway centres. `mkPath()` samples them by distance.
+- `st.fxOnly(p)`: lets a lesson show only some parts of the systems on screen (heart only for One heartbeat; skeleton + heart + lungs + adrenals + liver + eyeballs for Fight or flight, which mixes those systems).
+- Meal and Breath use a front-to-back cut through the middle of each stop's organs (`fxCut`); removed at the end.
+- Ear model (`buildEar`/`earTick`): enlarged pinna, canal, eardrum, 3 ossicles, cochlea spiral + semicircular canals, nerve tube into the real brainstem, signal dots to both hearing cortices.
+- Healing femur (`buildCallus`/`healTick`): overlays at the middle of the right femur (centre and radius taken from the bone's own surface): crack, clot, soft callus, hard callus, remodelling.
+- Caption on the stage (`#fxCap`) says what is happening now; stops with `cap:` keep their own caption (running bone count in Tour of the skeleton, times in How bones heal).
+- Guided lessons are now spoken too (`lessonSay`), sharing mute/speed with the tours; Auto-play waits for the voice to finish.
+- Fixed: the male brain's ventricles (stored with the cardiovascular files) were in the Heart group, so they pulsed with the heartbeat and pulled the heart centre up into the head. The Heart group now leaves them out.
+- How a muscle moves now centres on the knee; the old elbow, shoulder and blood-supply stops were kept as a last part, "Another pair: the elbow".
+
+## 2026-11-23 Fact check (all 3 rounds)
+- Checked every number in the new and rewritten text: bone counts (22 skull + 6 ear + 1 hyoid; 26 spine; 25 rib cage, adding up to 80 axial; 126 appendicular, total 206), cochlea 2.5 turns / ~3.5 cm, ~3,500 inner + ~12,000 outer hair cells, ~30,000 cochlear nerve fibres, eardrum ~9 mm, 17:1 area ratio / ~20× pressure gain, ear canal ~2.5 cm, nerve speed ~60 m/s, reaction ~0.2 s, fracture timeline, femur union 3–6 months, stomach pH 1.5–3.5, 480 million alveoli, 50–75 m², stroke volume ~70 mL, pulse wave ~5 m/s, circulation lap ~1 min.
+- Corrected while checking: motor nerve speed (was 80 m/s, now ~60 m/s like the sensory nerve); femur healing time (now 3–6 months).
+
+## Ideas for later
+- Ask the owner whether moving lessons should also keep the body state (Fight or flight leaves the vitals on Exercise, as it did before).
+- Breathing arrows could split into smaller bronchi; the blood drop could take a second lap through the arm or brain.
+- The ear model is built from simple shapes; a more detailed pinna would look better from close up.
+- Labels don't follow bent limbs while a moving lesson plays (they use the resting pose).
