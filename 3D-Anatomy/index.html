@@ -70,7 +70,7 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);font-size:1
 .rowc{display:flex;align-items:center;gap:10px}
 .rowc.build{gap:8px}.mini{font-size:11px;color:var(--mute);width:44px;flex:none}
 .linkbtn{border:0;background:none;color:var(--sys);font:inherit;font-size:11px;cursor:pointer;padding:2px 4px;text-decoration:underline}
-input[type=range]{flex:1;accent-color:var(--bone);min-width:0}
+input[type=range]{flex:1;accent-color:var(--bone);min-width:0;touch-action:pan-y}   /* a page scroll that crosses a slider scrolls; it does not move the slider */
 select,input[type=search]{background:var(--void);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;font-size:13px}
 input[type=search]{width:100%;min-width:0}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);cursor:pointer}
@@ -480,15 +480,15 @@ body.tabbed{overflow:hidden}
   <!-- Along the bottom of the body: the layer and shape sliders -->
   <section id="layers" class="band" aria-label="Layers">
       <div class="ctl"><span class="label" id="skinLbl">Skin peel</span>
-        <div class="rowc"><input type="range" id="skin" min="0" max="0.6" step="0.01" value="0" aria-label="Skin peel"></div></div>
+        <div class="rowc"><input type="range" autocomplete="off" id="skin" min="0" max="0.6" step="0.01" value="0" aria-label="Skin peel"></div></div>
       <div class="ctl" id="peelCtl" hidden><span class="label">Muscle layers · <span id="peelTxt">all showing</span></span>
         <div class="rowc"><input type="range" id="peel" min="0" max="3" step="1" value="0" aria-label="Peel muscle layers"></div></div>
       <div class="ctl wide"><span class="label">Cross-section</span>
         <div class="rowc"><select id="slice" aria-label="Slice plane"><option value="off">Off</option><option value="sag">Sagittal</option><option value="cor">Coronal</option><option value="tra">Transverse</option></select>
         <input type="range" id="slicePos" min="-1" max="1" step="0.005" value="0" aria-label="Slice position" disabled></div></div>
       <div class="ctl wide"><span class="label">Height and weight · <span id="buildTxt"></span> <button class="linkbtn" id="buildReset">Reset</button></span>
-        <div class="rowc build"><span class="mini">Height</span><input type="range" id="hgt" min="150" max="193" step="1" value="172" aria-label="Height in centimetres"></div>
-        <div class="rowc build"><span class="mini">Weight</span><input type="range" id="wgt" min="100" max="250" step="1" value="154" aria-label="Weight in pounds"></div></div>
+        <div class="rowc build"><span class="mini">Height</span><input type="range" autocomplete="off" id="hgt" min="150" max="193" step="1" value="172" aria-label="Height in centimetres"></div>
+        <div class="rowc build"><span class="mini">Weight</span><input type="range" autocomplete="off" id="wgt" min="100" max="250" step="1" value="154" aria-label="Weight in pounds"></div></div>
   </section>
 
   <!-- Under the body: only the info cards -->
@@ -646,7 +646,7 @@ const GROUPS = [
  G('integ','Eyes',/sclera|^iris|^pupil/i,'#ece6df','The visible eye: white sclera, the coloured iris that sizes the pupil, and the pupil itself, an opening that lets light reach the retina.'),
  G('integ','Breast fat and ligaments',/adipose|suspensory ligament of .*breast/i,'#e8c79c','Fat that shapes the breast, and suspensory (Cooper\'s) ligaments that support the gland tissue.'),
  G('musc','Eye muscles',/(medial|lateral|superior|inferior) rectus$|superior oblique$|inferior oblique$|levator palpebrae/i,'#b54840','Six muscles per eye aim the gaze; levator palpebrae lifts the upper lid.'),
- G('musc','Face and jaw',/masseter|temporalis|pterygoid|buccinator|orbicularis|zygomaticus|frontalis|occipitofrontalis|mentalis|nasalis|risorius|depressor|levator labii|procerus|corrugator|levator anguli/i,'#b2463d','Chewing muscles (masseter, temporalis, pterygoids) close and grind the jaw; facial muscles move skin to make expressions.'),
+ G('musc','Face and jaw',/masseter|temporalis|occipitalis|epicranial|pterygoid|buccinator|orbicularis|zygomaticus|frontalis|occipitofrontalis|mentalis|nasalis|risorius|depressor|levator labii|procerus|corrugator|levator anguli/i,'#b2463d','Chewing muscles (masseter, temporalis, pterygoids) close and grind the jaw; facial muscles move skin to make expressions.'),
  G('musc','Neck',/sternocleidomastoid|scalene|platysma|hyoid|thyroid|digastric|longus colli|longus capitis|splenius|semispinalis capitis|rectus capitis|obliquus capitis/i,'#a83f37','Turn, tilt and steady the head, lift the ribs in hard breathing, and move the hyoid and larynx when swallowing.'),
  G('musc','Shoulder and chest',/pectoralis|deltoid|serratus anterior|subscapularis|supraspinatus|infraspinatus|teres|coracobrachialis|subclavius/i,'#b6453c','Pectoralis pulls the arm across the body; the deltoid lifts it; the rotator cuff (supraspinatus, infraspinatus, teres minor, subscapularis) holds the ball of the shoulder in its socket.'),
  G('musc','Upper arm',/biceps brachii|triceps|brachialis/i,'#ad3e35','Biceps and brachialis bend the elbow; triceps straightens it. A classic opposing pair.'),
@@ -759,43 +759,101 @@ function fillMatrix(c,reg){
 }
 
 
-/* Drawn nerves: neither dataset includes peripheral nerves (and BodyParts3D has no spinal cord),
-   so the main nerves are routed along the real skeleton, in BodyParts3D coordinates, then fitted to the female body. */
-function drawnNerves(sex,W,hands){
-  const paths=[];const add=(name,pts,r0,r1)=>paths.push({name,pts,r0,r1});
-  if(sex==='male'){
-    const cord=[[0,1.575,-.034],[0,1.55,-.042],[0,1.534,-.045],[0,1.51,-.045],[0,1.484,-.045],[0,1.456,-.052],[0,1.44,-.056],[0,1.40,-.069],[0,1.347,-.075],[0,1.289,-.074],[0,1.234,-.066],[0,1.18,-.055],[0,1.14,-.042],[0,1.11,-.038]];
-    add('Spinal cord (drawn)',cord,.0048,.0036);
-    add('Cauda equina (drawn)',[[0,1.11,-.038],[0,1.066,-.036],[0,1.008,-.05],[0,.96,-.065],[0,.93,-.075]],.0035,.0022);
-  }
-  for(const s of [1,-1]){const S=s>0?'Left':'Right',X=x=>s*x;
-    const ax=[[X(.012),1.47,-.045],[X(.04),1.455,-.032],[X(.085),1.43,-.012],[X(.13),1.395,-.012],[X(.16),1.36,-.015]];
-    add(S+' brachial plexus (drawn)',ax,.0042,.0034);
-    add(S+' median nerve (drawn)',[[X(.16),1.36,-.015],[X(.178),1.25,0],[X(.2),1.11,.008],[X(.238),1.0,.009],[X(.255),.885,.018],[X(.26),.80,.032]],.0032,.0018);
-    add(S+' ulnar nerve (drawn)',[[X(.16),1.36,-.015],[X(.17),1.25,-.022],[X(.188),1.11,-.036],[X(.208),1.0,-.013],[X(.233),.885,.004],[X(.24),.81,.02]],.0028,.0016);
-    add(S+' radial nerve (drawn)',[[X(.16),1.36,-.015],[X(.188),1.33,-.046],[X(.218),1.22,-.042],[X(.235),1.11,-.006],[X(.265),1.0,-.006],[X(.28),.9,.004],[X(.284),.84,.016]],.003,.0016);
-    add(S+' sciatic nerve (drawn)',[[X(.018),.95,-.072],[X(.05),.91,-.076],[X(.08),.87,-.07],[X(.095),.79,-.052],[X(.092),.64,-.046],[X(.082),.51,-.036]],.0055,.0045);
-    add(S+' tibial nerve (drawn)',[[X(.082),.51,-.036],[X(.074),.4,-.042],[X(.07),.22,-.036],[X(.066),.09,-.036],[X(.07),.035,-.004],[X(.075),.018,.06]],.0035,.002);
-    add(S+' common fibular nerve (drawn)',[[X(.082),.51,-.036],[X(.098),.45,-.034],[X(.104),.405,-.01],[X(.096),.22,.004],[X(.082),.07,.03],[X(.08),.035,.085]],.0028,.0016);
-    add(S+' femoral nerve (drawn)',[[X(.022),1.05,-.03],[X(.05),.97,-.008],[X(.074),.885,.036],[X(.084),.79,.04],[X(.074),.64,.025],[X(.058),.47,-.002],[X(.058),.28,-.012],[X(.06),.1,-.004]],.0034,.0016);
-    add(S+' vagus nerve (drawn)',[[X(.014),1.56,-.032],[X(.026),1.49,-.004],[X(.03),1.41,.0],[X(.024),1.31,-.022],[X(.013),1.21,-.022],[X(.012),1.13,.0]],.0022,.0018);
-    for(let i=0;i<12;i++){const y=1.425-i*.0245,rr=.07+Math.min(i,7)*.009-(i>8?(i-8)*.01:0),d=.04+i*.003;const pts=[];
+/* Drawn nerves: neither dataset includes the nerves of the trunk and limbs (and BodyParts3D has no spinal cord), so the
+   main nerves are drawn here, in BodyParts3D coordinates, then fitted to the female body. They leave the spinal cord as
+   roots, gather into the plexuses, run down the limbs as thick trunks and split into thinner and thinner branches; the
+   finger and toe branches follow this body's own hand and foot bones out to the tips. Each named nerve is one part. */
+function drawnNerves(sex,W,hands,mm,namesOnly){
+  const parts=[];const part=(name,...branches)=>parts.push({name,branches:branches.filter(b=>b&&b.pts.length>1)});
+  const br=(pts,r0,r1)=>({pts:pts.filter(Boolean),r0,r1});
+  const C=new Map();if(mm)for(const r of mm.parts)if(r[2]==='skel')C.set(r[0].toLowerCase(),r[10]);
+  const B=(n,dx=0,dy=0,dz=0)=>{const c=C.get(n);return c?[c[0]+dx,c[1]+dy,c[2]+dz]:null;};
+  const tip=(a,b,k=.75)=>a&&b?[b[0]+(b[0]-a[0])*k,b[1]+(b[1]-a[1])*k,b[2]+(b[2]-a[2])*k]:null;
+  const mid=(a,b)=>a&&b?[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2]:a||b;
+  const cord=[[0,1.575,-.034],[0,1.55,-.042],[0,1.534,-.045],[0,1.51,-.045],[0,1.484,-.045],[0,1.456,-.052],[0,1.44,-.056],[0,1.40,-.069],[0,1.347,-.075],[0,1.289,-.074],[0,1.234,-.066],[0,1.18,-.055],[0,1.14,-.042],[0,1.11,-.038]];
+  const cz=y=>{for(let i=1;i<cord.length;i++)if(y>=cord[i][1]){const a=cord[i-1],b=cord[i],t=(a[1]-y)/(a[1]-b[1]);return a[2]+(b[2]-a[2])*t;}return -.038;};
+  if(sex==='male'){part('Spinal cord (drawn)',br(cord,.0048,.0036));
+    part('Cauda equina (drawn)',br([[0,1.11,-.038],[0,1.066,-.036],[0,1.008,-.05],[0,.96,-.065],[0,.93,-.075]],.0035,.0022));}
+  // a finger or toe branch: from a start point along the bones' centres (shifted toward the palm or sole) to the tip
+  const digit=(start,l,mc,f,d,r0,r1,foot)=>{const nm=foot?(f==='big'?'big toe':f+' toe'):(f==='thumb'?'thumb':f+' finger');
+    const M=B(l+' '+mc+(foot?' metatarsal bone':' metacarpal bone'),...d),P=B('proximal phalanx of '+l+' '+nm,...d),Mi=B('middle phalanx of '+l+' '+nm,...d),D=B('distal phalanx of '+l+' '+nm,...d);
+    return br([start,M,P,Mi,D,tip(Mi||P,D)],r0,r1);};
+  for(const s of [1,-1]){const S=s>0?'Left':'Right',l=s>0?'left':'right',X=x=>s*x;
+    // neck: cervical plexus and phrenic nerve (C3 to C5, down to the diaphragm)
+    part(S+' cervical plexus (drawn)',br([[X(.004),1.53,cz(1.53)],[X(.03),1.52,-.03],[X(.055),1.5,0],[X(.06),1.48,.03]],.0014,.0008),
+      br([[X(.03),1.52,-.03],[X(.058),1.535,-.04],[X(.066),1.565,-.03]],.0011,.0007));
+    part(S+' phrenic nerve (drawn)',br([[X(.03),1.515,-.022],[X(.035),1.44,-.006],[X(.045),1.35,0],[X(.06),1.27,.012],[X(.08),1.2,.0]],.0016,.0012));
+    // brachial plexus: five roots (C5 to T1) gather into one bundle that runs to the armpit
+    const A0=[X(.155),1.37,-.015],PX=[X(.06),1.445,-.028];
+    part(S+' brachial plexus (drawn)',...[1.50,1.485,1.47,1.455,1.44].map(y=>br([[X(.004),y,cz(y)],[X(.03),y-.008,cz(y)+.01],PX],.0017,.0019)),
+      br([PX,[X(.1),1.42,-.014],A0],.0046,.004));
+    part(S+' axillary nerve (drawn)',br([A0,[X(.172),1.36,-.04],[X(.196),1.35,-.03],[X(.215),1.33,0]],.0022,.0013));
+    part(S+' musculocutaneous nerve (drawn)',br([A0,[X(.17),1.3,.005],[X(.19),1.2,.02],[X(.215),1.11,.02],[X(.25),1.0,.02],[X(.27),.92,.015]],.0024,.0011));
+    const lun=B(l+' lunate'),cap=B(l+' capitate'),wr=mid(lun,cap)||[X(.25),.875,.019];
+    const wM=[wr[0],wr[1],wr[2]+.012],wU=[wr[0]-X(.014),wr[1]+.004,wr[2]+.008],pz=[0,0,.005];
+    part(S+' median nerve (drawn)',br([A0,[X(.178),1.25,0],[X(.2),1.11,.008],[X(.238),1.0,.009],[X(.25),.93,.014],wM],.0034,.0026),
+      digit(wM,l,'first','thumb',pz,.0013,.0006),digit(wM,l,'second','index',pz,.0013,.0006),digit(wM,l,'third','middle',pz,.0013,.0006),digit(wM,l,'fourth','ring',[X(.003),0,.005],.0012,.0006));
+    part(S+' ulnar nerve (drawn)',br([A0,[X(.17),1.25,-.022],[X(.188),1.11,-.036],[X(.208),1.0,-.013],[X(.226),.93,.0],wU],.003,.0023),
+      digit(wU,l,'fifth','little',pz,.0012,.0006),digit(wU,l,'fourth','ring',[X(-.003),0,.005],.001,.0005));
+    const rS=[X(.28),.905,.004],dz=[0,0,-.007];
+    part(S+' radial nerve (drawn)',br([A0,[X(.188),1.33,-.046],[X(.218),1.22,-.042],[X(.235),1.11,-.006],[X(.265),1.0,-.006],rS],.0033,.0017),
+      br([rS,B(l+' first metacarpal bone',...dz),B('proximal phalanx of '+l+' thumb',...dz)],.0011,.0006),
+      br([rS,B(l+' second metacarpal bone',...dz),B('proximal phalanx of '+l+' index finger',...dz)],.0011,.0006));
+    // chest and belly wall: twelve intercostal (thoracic) nerves curving round between the ribs
+    for(let i=0;i<12;i++){const y=1.425-i*.0245,rr=.07+Math.min(i,7)*.009-(i>8?(i-8)*.01:0),d=.075+i*.004;const pts=[[X(.006),y+.004,cz(y+.004)]];   // like the ribs, they slope down toward the front
       for(let k=0;k<=8;k++){const a=.12*Math.PI+k/8*(.7*Math.PI);pts.push([X(rr*Math.sin(a)),y-d*(a/Math.PI),-.062-.075*Math.cos(a)+.045]);}
-      add(S+' intercostal nerve '+(i+1)+' (drawn)',pts,.0016,.0011);}
+      part(S+' intercostal nerve '+(i+1)+' (drawn)',br(pts,.0014,.0006));}
+    part(S+' sympathetic trunk (drawn)',br([[X(.02),1.53,-.026],[X(.022),1.45,-.03],[X(.026),1.35,-.046],[X(.028),1.25,-.046],[X(.028),1.15,-.04],[X(.025),1.05,-.026],[X(.02),.98,-.036]],.0013,.0011));
+    part(S+' vagus nerve (drawn)',br([[X(.014),1.56,-.032],[X(.026),1.49,-.004],[X(.03),1.41,0],[X(.024),1.31,-.022],[X(.013),1.21,-.022],[X(.012),1.13,0],[X(.01),1.08,.02]],.0023,.0016));
+    // head: the facial nerve fans out over the face from in front of the ear; the trigeminal nerve brings feeling from the face
+    const fn=[X(.058),1.548,-.005];
+    part(S+' facial nerve (drawn)',br([[X(.05),1.565,-.035],[X(.056),1.553,-.022],fn],.0018,.0015),
+      br([fn,[X(.066),1.585,.02],[X(.058),1.625,.05]],.0011,.0006),br([fn,[X(.062),1.575,.032],[X(.046),1.578,.06]],.0011,.0006),
+      br([fn,[X(.056),1.545,.042],[X(.036),1.54,.072]],.0011,.0006),br([fn,[X(.052),1.522,.022],[X(.03),1.505,.064]],.0011,.0006),
+      br([fn,[X(.056),1.51,.0],[X(.05),1.475,.012]],.001,.0006));
+    const tg=[X(.022),1.585,-.005];
+    part(S+' trigeminal nerve (drawn)',br([[X(.01),1.585,-.02],tg],.0022,.002),br([tg,[X(.024),1.576,.03],[X(.025),1.571,.066],[X(.022),1.558,.077]],.0013,.0007),
+      br([tg,[X(.034),1.56,0],[X(.04),1.52,.03],[X(.024),1.502,.07]],.0013,.0007));
+    // legs: the lumbar plexus forms the femoral and obturator nerves; the sacral plexus forms the sciatic nerve
+    const FM=[X(.022),1.05,-.03],SC=[X(.03),.95,-.074],KN=[X(.082),.51,-.036],TH=[X(.084),.80,.04];
+    part(S+' lumbar plexus (drawn)',...[[1.07,-.038],[1.04,-.04],[1.01,-.048]].map(([y,z])=>br([[X(.004),y,z],[X(.016),(y+1.05)/2,-.034],FM],.0015,.0019)));
+    part(S+' femoral nerve (drawn)',br([FM,[X(.05),.97,-.008],[X(.074),.885,.036],TH],.004,.0032),
+      br([TH,[X(.1),.72,.05],[X(.11),.6,.045]],.0016,.0008),br([TH,[X(.087),.7,.06],[X(.087),.58,.055]],.0016,.0008),br([TH,[X(.062),.7,.032],[X(.056),.58,.022]],.0016,.0008));
+    part(S+' saphenous nerve (drawn)',br([TH,[X(.074),.64,.025],[X(.058),.47,-.002],[X(.058),.28,-.012],[X(.06),.1,-.004],[X(.07),.05,.02],[X(.08),.035,.05]],.0015,.0008));
+    part(S+' obturator nerve (drawn)',br([[X(.012),1.03,-.045],[X(.035),.98,-.02],[X(.045),.92,0],[X(.06),.85,.01],[X(.068),.72,-.005]],.0024,.0012));
+    part(S+' sacral plexus (drawn)',...[[1.0,-.05],[.975,-.06],[.95,-.068],[.93,-.075]].map(([y,z])=>br([[X(.004),y,z],[X(.019),(y+.95)/2,-.07],SC],.0017,.0024)));
+    part(S+' sciatic nerve (drawn)',br([SC,[X(.05),.91,-.076],[X(.08),.87,-.07],[X(.095),.79,-.052],[X(.092),.64,-.046],KN],.0068,.0052));
+    part(S+' gluteal nerves (drawn)',br([[X(.03),.955,-.074],[X(.06),.965,-.086],[X(.1),.96,-.075]],.0019,.001),br([[X(.045),.92,-.078],[X(.07),.9,-.096],[X(.1),.89,-.085]],.0019,.001));
+    const PL=[X(.072),.03,-.004],py=[0,-.006,0],toes=[['first','big'],['second','second'],['third','third'],['fourth','fourth'],['fifth','little']];
+    part(S+' tibial nerve (drawn)',br([KN,[X(.074),.4,-.042],[X(.07),.22,-.036],[X(.066),.09,-.036],[X(.066),.05,-.022],PL],.0042,.0028),
+      ...toes.map(([m,t])=>digit(PL,l,m,t,py,.0016,.0006,true)));
+    const FB=[X(.104),.405,-.01],DF=[X(.095),.062,.05],dy=[0,.007,0];
+    part(S+' common fibular nerve (drawn)',br([KN,[X(.098),.45,-.034],FB],.0034,.003),
+      br([FB,[X(.1),.3,0],[X(.096),.15,.01],[X(.09),.08,.03],DF],.0019,.0013),...toes.slice(1).map(([m,t])=>digit(DF,l,m,t,dy,.0011,.0005,true)),
+      br([FB,[X(.09),.3,.012],[X(.086),.15,.016],[X(.08),.07,.036],B(l+' first metatarsal bone',0,.011,0),mid(B('proximal phalanx of '+l+' big toe',0,.007,0),B('proximal phalanx of '+l+' second toe',0,.007,0))],.0014,.0006));
   }
-  const out=[];const mat0=SYS_COLOR.nerv;
-  for(const p of paths){
-    let pts=p.pts.map(a=>new THREE.Vector3(a[0],a[1],a[2]));
-    if(sex==='female')pts=pts.map(v=>v.applyMatrix4(fillMatrix([v.x,v.y,v.z],regionOf([v.x,v.y,v.z]))));
-    if(W)pts=pts.map(v=>{const o=[0,0,0];warpXYZ(W,v.x,v.y,v.z,o);if(hands&&regionOf([v.x,v.y,v.z])==='arm')handFix(hands,v.x,v.y,v.z,o);return v.set(o[0],o[1],o[2]);});
-    const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal');const segs=Math.max(30,pts.length*14),rad=10;
-    const g=new THREE.TubeGeometry(curve,segs,1,rad,false);const pos=g.attributes.position,nor=g.attributes.normal,P=new THREE.Vector3();
-    for(let i=0;i<=segs;i++){curve.getPointAt(i/segs,P);const r=p.r0+(p.r1-p.r0)*i/segs;for(let j=0;j<=rad;j++){const k=i*(rad+1)+j;pos.setXYZ(k,P.x+nor.getX(k)*r,P.y+nor.getY(k)*r,P.z+nor.getZ(k)*r);}}
-    g.computeBoundingSphere();g.computeBoundingBox();
-    const mat=new THREE.MeshPhysicalMaterial({color:new THREE.Color(mat0).convertSRGBToLinear(),roughness:.4,metalness:0,clearcoat:.4,clearcoatRoughness:.3,envMapIntensity:.6});tissue(mat,{flow:2,sss:new THREE.Color('#5a4a10')});
-    const mesh=new THREE.Mesh(g,mat);mesh.matrixAutoUpdate=false;mesh.userData.base=new THREE.Matrix4();mesh.matrix.identity();
-    const nm=p.name;const part={name:nm,concept:'schematic',sys:'nerv',also:[],grp:groupOf('nerv',nm.replace(' (drawn)','')),mesh,mat,fill:false,
-      src:'Drawn along this body\'s skeleton; the source datasets do not include it',tris:g.index.count/3,skin:false,drawn:true};
+  if(namesOnly)return parts.map(p=>p.name);
+  const out=[];const topt={flow:2,sss:new THREE.Color('#5a4a10')};
+  const base=new THREE.MeshPhysicalMaterial({color:new THREE.Color(SYS_COLOR.nerv).convertSRGBToLinear(),roughness:.4,metalness:0,clearcoat:PHONE?0:.4,clearcoatRoughness:.3,envMapIntensity:.6});
+  const pool=poolMat(base,topt);
+  const fitPt=v=>{if(sex==='female')v.applyMatrix4(fillMatrix([v.x,v.y,v.z],regionOf([v.x,v.y,v.z])));
+    if(W){const o=[0,0,0],x=v.x,y=v.y,z=v.z;warpXYZ(W,x,y,z,o);if(hands&&regionOf([x,y,z])==='arm')handFix(hands,x,y,z,o);v.set(o[0],o[1],o[2]);}return v;};
+  for(const p of parts){const P=[],N=[],I=[];
+    for(const b of p.branches){const pts=b.pts.map(a=>fitPt(new THREE.Vector3(a[0],a[1],a[2])));
+      const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal'),len=curve.getLength(),segs=Math.max(6,Math.min(90,Math.round(len/.006))),rad=b.r0>.0025?8:5;
+      const g=new THREE.TubeGeometry(curve,segs,1,rad,false),nor=g.attributes.normal,V=new THREE.Vector3(),o=P.length/3;
+      for(let i=0;i<=segs;i++){curve.getPointAt(i/segs,V);const r=b.r0+(b.r1-b.r0)*i/segs;for(let j=0;j<=rad;j++){const k=i*(rad+1)+j;
+        P.push(V.x+nor.getX(k)*r,V.y+nor.getY(k)*r,V.z+nor.getZ(k)*r);N.push(nor.getX(k),nor.getY(k),nor.getZ(k));}}
+      const ix=g.index.array;for(let i=0;i<ix.length;i++)I.push(ix[i]+o);g.dispose();
+      const e=pts[pts.length-1],r=b.r1,cs=new THREE.SphereGeometry(1,rad,4),cp=cs.attributes.position,co=P.length/3;   // round cap at the end
+      for(let i=0;i<cp.count;i++){P.push(e.x+cp.getX(i)*r,e.y+cp.getY(i)*r,e.z+cp.getZ(i)*r);N.push(cp.getX(i),cp.getY(i),cp.getZ(i));}
+      for(const i of cs.index.array)I.push(i+co);cs.dispose();}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));
+    g.setIndex(P.length/3>65535?new THREE.Uint32BufferAttribute(I,1):new THREE.Uint16BufferAttribute(I,1));g.computeBoundingSphere();g.computeBoundingBox();
+    const mat=base.clone();tissue(mat,topt);
+    const mesh=new THREE.Mesh(g,pool);mesh.matrixAutoUpdate=false;mesh.userData.base=new THREE.Matrix4();mesh.matrix.identity();
+    const nm=p.name;const part={name:nm,concept:'schematic',sys:'nerv',also:[],grp:groupOf('nerv',nm.replace(' (drawn)','')),mesh,mat,pool,fill:false,
+      src:'Drawn along this body\'s skeleton; the source datasets do not include it',tris:I.length/3,skin:false,drawn:true};
     mesh.userData.part=part;out.push(part);}
   return out;
 }
@@ -823,9 +881,16 @@ const controls=new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.08;controls.minDistance=.12;controls.maxDistance=7;controls.autoRotateSpeed=.6;
 controls.target.set(0,.95,0);
 if(THREE.RoomEnvironment){const pm=new THREE.PMREMGenerator(renderer);scene.environment=pm.fromScene(new THREE.RoomEnvironment(),.04).texture;}
-scene.add(new THREE.HemisphereLight(0xdfe9ff,0x2a1d18,.45));
+const hemi=new THREE.HemisphereLight(0xdfe9ff,0x2a1d18,.45);scene.add(hemi);
 const key=new THREE.DirectionalLight(0xfff1e0,1.25);key.position.set(2.5,4,3);scene.add(key);
 const rim=new THREE.DirectionalLight(0x8fd0ff,.6);rim.position.set(-3,2.5,-3);scene.add(rim);
+for(const l of [hemi,key,rim])l.layers.enableAll();   // lights reach both drawing layers (see drawScene)
+/* Drawing order. The skin is the body's outer layer, so it is drawn last, on its own layer, after the depth of
+   everything else is forgotten: nothing under the skin can ever poke through it, and no sizes change.
+   Only the skin's own nearest surface is drawn (see skinShell). */
+let skinLayerOn=false;
+function drawScene(){renderer.autoClear=false;renderer.clear();camera.layers.set(0);renderer.render(scene,camera);
+  if(skinLayerOn){renderer.clearDepth();camera.layers.set(1);renderer.render(scene,camera);camera.layers.set(0);}}
 const bodyRoot=new THREE.Group();scene.add(bodyRoot);   // every body part lives in here (see Height and weight)
 (function floor(){const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');g.translate(256,256);
   for(let r=1;r<=4;r++){g.beginPath();g.arc(0,0,r*60,0,Math.PI*2);g.strokeStyle=`rgba(180,205,200,${.22-r*.035})`;g.lineWidth=1.5;g.stroke();}
@@ -868,10 +933,14 @@ function tissue(mat,o){
   mat.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,{uPeel:U.uPeel,uRootInv:U.uRootInv,uRoot:U.uRoot,uPoseOn:U.uPoseOn,uJ:U.uJ,uAngL:U.uAngL,uAngA:U.uAngA,uPeelOn:{value:o.peel?1:o.musc?2:0},uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
       uFlowKind:{value:o.flow||0},uFlowCol:{value:flowCol},uHasAO:{value:o.ao?1:0},uKind:{value:o.kind||0},uFiber:{value:o.fiber||new THREE.Vector3(0,1,0)},uFibA:{value:o.fiberAttr?1:0},uRim:mat.userData.rim,uSSS:{value:o.sss||new THREE.Color(0,0,0)},uBun:{value:o.bun||new THREE.Vector3()},uFace:{value:o.face||new THREE.Vector4()}});
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;attribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;'+POSE_GLSL)
+    sh.uniforms.uBias={value:o.bias!==undefined?o.bias:o.musc?.004:o.flow?.002:0};
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;uniform float uBias;attribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;'+POSE_GLSL)
       .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nif(uPoseOn>0.5){vec3 tq_q;float tq_a=tqPose((uRootInv*modelMatrix*vec4(position,1.0)).xyz,tq_q);objectNormal.yz=tqR2(objectNormal.yz,tq_a);}')
       .replace('#include <project_vertex>','#include <project_vertex>\nvWPos=(uRootInv*modelMatrix*vec4(transformed,1.0)).xyz;vAO=aAO;vFace=aFace;vFib=aFiber;'+
-        'if(uPoseOn>0.5){vec3 tq_q;tqPose(vWPos,tq_q);vec4 tq_w=uRoot*vec4(tq_q,1.0);mvPosition=viewMatrix*tq_w;gl_Position=projectionMatrix*mvPosition;}');
+        'if(uPoseOn>0.5){vec3 tq_q;tqPose(vWPos,tq_q);vec4 tq_w=uRoot*vec4(tq_q,1.0);mvPosition=viewMatrix*tq_w;gl_Position=projectionMatrix*mvPosition;}'+
+        // layer order: the point is slid a few mm toward the eye along its own line of sight, so it lands on the same pixel
+        // but wins against anything just behind it (muscle over vessels and nerves, those over organs and bone)
+        'if(uBias>0.0){vec4 tq_b=mvPosition;tq_b.xyz*=max(0.2,1.0-uBias/max(length(tq_b.xyz),1e-4));gl_Position=projectionMatrix*tq_b;}');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
 varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;uniform float uPeel,uPeelOn,uTime,uOn,uBeat,uPWV,uFlowKind,uHasAO,uKind,uFibA,uRim;uniform vec3 uOrigin,uFlowCol,uFiber,uSSS,uBun;uniform vec4 uFace;
 float tH=0.0;vec3 tFib=vec3(0.0,1.0,0.0);
@@ -1203,7 +1272,7 @@ const SHELL=/^(skin|hair|ponytail|eyebrow|lip|pubic hair)/i;
 function skinShell(p){if(!SHELL.test(p.name))return;const m=p.mat;
   const dm=new THREE.MeshBasicMaterial({colorWrite:false,transparent:true,polygonOffset:m.polygonOffset,polygonOffsetFactor:m.polygonOffsetFactor,polygonOffsetUnits:m.polygonOffsetUnits});
   const pre=new THREE.Mesh(p.mesh.geometry,dm);pre.matrixAutoUpdate=false;pre.renderOrder=1;pre.visible=false;pre.raycast=()=>{};
-  p.mesh.add(pre);p.pre=pre;p.mesh.renderOrder=2;p.shell=true;}
+  p.mesh.add(pre);p.pre=pre;p.mesh.renderOrder=2;p.shell=true;p.mesh.layers.set(1);pre.layers.set(1);}
 async function makePartSoon(...a){const w=breathe();if(w)await w;return makePart(...a);}
 /* Eyeballs. The male skin model has empty eye openings and the female one only thin eye surfaces, so each body gets two
    modelled eyeballs about 24 mm across: white sclera with faint vessels toward the back, a coloured iris with radial
@@ -1218,17 +1287,17 @@ function eyeGeometry(){if(eyeGeo)return eyeGeo;const R=EYE_R,g=new THREE.SphereG
   for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i);const th=Math.acos(THREE.MathUtils.clamp(v.z/R,-1,1));
     if(th<.62){v.multiplyScalar(1+.085*Math.pow(1-th/.62,2));pa.setXYZ(i,v.x,v.y,v.z);}}   // the cornea's bulge
   g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox();return eyeGeo=g;}
-function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.25,metalness:0,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:.9});
+function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.4,metalness:0,clearcoat:.6,clearcoatRoughness:.1,envMapIntensity:.5});
   const ic=new THREE.Color(iris).convertSRGBToLinear();
   mat.onBeforeCompile=sh=>{sh.uniforms.uIris={value:ic};
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vEP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvEP=normalize(position);');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vEP;uniform vec3 uIris;').replace('#include <color_fragment>',`#include <color_fragment>
   float th=acos(clamp(vEP.z,-1.0,1.0)),ph=atan(vEP.y,vEP.x);
   const float IR=0.52,PR=0.15;
-  vec3 c=vec3(0.84,0.81,0.77);
+  vec3 c=vec3(0.6,0.55,0.5)*mix(1.0,0.5,smoothstep(1.1,2.3,th));   // an off-white, darker toward the back where it sits in the socket
   float vein=pow(max(0.0,sin(ph*19.0+sin(th*23.0)*2.2)),40.0)*smoothstep(0.9,1.7,th); c=mix(c,vec3(0.6,0.15,0.12),vein*0.45);
   float r=th/IR, fib=0.72+0.28*sin(ph*70.0+sin(ph*9.0)*2.5)*sin(r*18.0+ph*5.0);
-  vec3 ir=uIris*fib*mix(1.35,0.7,smoothstep(0.3,1.0,r));
+  vec3 ir=uIris*fib*mix(1.5,0.8,smoothstep(0.3,1.0,r));
   ir=mix(ir,uIris*1.7+vec3(0.04,0.03,0.0),(1.0-smoothstep(PR/IR,PR/IR+0.22,r))*0.55);
   c=mix(c,ir,1.0-smoothstep(IR-0.012,IR+0.012,th));
   c=mix(c,vec3(0.03,0.025,0.02),smoothstep(IR-0.08,IR-0.01,th)*(1.0-smoothstep(IR-0.01,IR+0.02,th))*0.7);
@@ -1236,11 +1305,93 @@ function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xfff
   diffuseColor.rgb=c;`);};
   mat.customProgramCacheKey=()=>'eyeball';return mat;}
 function buildEyes(sex){const E=EYES[sex],g=eyeGeometry();
-  return E.c.map(c=>{const mat=eyeMaterial(E.iris),mesh=new THREE.Mesh(g,mat);mesh.matrixAutoUpdate=false;
+  return E.c.map(c=>{const mat=eyeMaterial(E.iris),mesh=new THREE.Mesh(g,mat);mesh.matrixAutoUpdate=false;mesh.layers.set(1);   // drawn with the skin, so the eyelids and socket sit right around it
     mesh.userData.base=new THREE.Matrix4().makeTranslation(c[0],c[1],c[2]);mesh.matrix.copy(mesh.userData.base);
     const p={name:(c[0]>0?'Left':'Right')+' eyeball',concept:'modelled',sys:'integ',also:[],grp:groupOf('integ','sclera'),mesh,mat,fill:false,
       src:'Modelled for this view: an adult eyeball about 24 mm across, set in this body\'s eye socket',tris:g.index.count/3,skin:true,eye:true};
     mesh.userData.part=p;return p;});}
+/* Face and scalp muscles. Neither body's files include them (only the platysma), so they are modelled under each
+   body's own skin. The head's skin is first mapped as a distance from a point inside the head for every direction
+   (az: 0 = straight ahead, + = toward the body's left; el: 0 = eye level). Each muscle is then a sheet laid a few mm
+   under that surface, thickest in its middle, with fibres running the way the real muscle pulls. About 3,000 points
+   in all, built once per body. */
+const FACE_M=[ // name, shape, shape data, depth under the skin (m), belly thickness (m), sides (2 = left and right)
+ ['frontalis','quad',[[-.6,13],[-.6,54],[52,50],[48,10]],.0045,.0022,2],
+ ['occipitalis','quad',[[126,-6],[130,30],[180.6,32],[180.6,-6]],.005,.0022,2],
+ ['temporalis','quad',[[50,-8],[48,46],[128,36],[72,-8]],.006,.0042,2,{arc:6}],
+ ['masseter','quad',[[50,-18],[52,-56],[80,-56],[78,-18]],.0065,.0055,2],
+ ['buccinator','quad',[[30,-30],[30,-44],[50,-44],[50,-30]],.011,.003,2],
+ ['orbicularis oculi','ring',{c:[19.5,-1],i:[9.5,5.2],o:[20,15]},.0035,.0016,2],
+ ['procerus','quad',[[-4,-2],[-4,13],[4,13],[4,-2]],.004,.0014,1],
+ ['nasalis','band',{a:[5,-11],b:[9,-22],w:[4,5]},.003,.0012,2],
+ ['levator labii superioris','band',{a:[17,-9],b:[8,-28],w:[6,5]},.0045,.0018,2],
+ ['zygomaticus minor','band',{a:[33,-11],b:[12,-28],w:[3.5,3]},.004,.0014,2],
+ ['zygomaticus major','band',{a:[50,-12],b:[17,-33],w:[5,4]},.0045,.0022,2],
+ ['risorius','band',{a:[44,-36],b:[18,-34],w:[3,2.5]},.0035,.0012,2],
+ ['orbicularis oris','ring',{c:[0,-33],i:[11,1.6],o:[20,9.5]},.0035,.0022,1],
+ ['depressor anguli oris','band',{a:[17,-36],b:[22,-52],w:[3,8]},.004,.0016,2],
+ ['depressor labii inferioris','band',{a:[8,-39],b:[10,-50],w:[5,6]},.0045,.0014,2],
+ ['mentalis','quad',[[-7,-42],[-7,-53],[7,-53],[7,-42]],.005,.002,1],
+ ['epicranial aponeurosis','cap',null,.004,.0006,1]];
+function headMap(skins,C){
+  const NA=180,NE=114,R=new Float32Array(NA*NE),ok=new Uint8Array(NA*NE),D=180/Math.PI;
+  const pts=[],v=[0,0,0];
+  for(const sp of skins){const m=sp.q,s=m.range[0]/65535,lo=m.lo,Q=sp.posArr,I=sp.idx,n=Q.length/3,A=new Float32Array(n*3),keep=new Uint8Array(n);
+    for(let i=0;i<n;i++){const x=lo[0]+Q[i*3]*s-C.x,y=lo[1]+Q[i*3+1]*s-C.y,z=lo[2]+Q[i*3+2]*s-C.z,h=Math.hypot(x,z),r=Math.hypot(h,y);
+      A[i*3]=Math.atan2(x,z)*D;A[i*3+1]=Math.atan2(y,h)*D;A[i*3+2]=r;keep[i]=r<.17&&y>-.16?1:0;}
+    for(let t=0;t<I.length;t+=3){const a=I[t],b=I[t+1],c=I[t+2];if(!keep[a]||!keep[b]||!keep[c])continue;
+      let az=[A[a*3],A[b*3],A[c*3]];const el=[A[a*3+1],A[b*3+1],A[c*3+1]],rr=[A[a*3+2],A[b*3+2],A[c*3+2]];
+      if(Math.max(...az)-Math.min(...az)>180)az=az.map(x=>x<0?x+360:x);
+      const i0=Math.floor((Math.min(...az)+180)/2),i1=Math.ceil((Math.max(...az)+180)/2),j0=Math.max(0,Math.floor((Math.min(...el)+80)/1.5)),j1=Math.min(NE-1,Math.ceil((Math.max(...el)+80)/1.5));
+      const det=(az[1]-az[0])*(el[2]-el[0])-(az[2]-az[0])*(el[1]-el[0]);if(Math.abs(det)<1e-9)continue;
+      for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const pa=i*2-180,pe=j*1.5-80;
+        const l1=((pa-az[0])*(el[2]-el[0])-(az[2]-az[0])*(pe-el[0]))/det,l2=((az[1]-az[0])*(pe-el[0])-(pa-az[0])*(el[1]-el[0]))/det,l0=1-l1-l2;
+        if(l0<-.02||l1<-.02||l2<-.02)continue;const r=l0*rr[0]+l1*rr[1]+l2*rr[2],k=j*NA+((i%NA)+NA)%NA;if(!ok[k]||r>R[k]){R[k]=r;ok[k]=1;}}}}
+  for(let it=0;it<12;it++){const R2=R.slice(),o2=ok.slice();   // fill small gaps (eye openings, seams) from their neighbours
+    for(let j=0;j<NE;j++)for(let i=0;i<NA;i++){const k=j*NA+i;if(ok[k])continue;let s=0,c=0;
+      for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const jj=j+dj;if(jj<0||jj>=NE)continue;const kk=jj*NA+((i+di+NA)%NA);if(ok[kk]){s+=R[kk];c++;}}
+      if(c){R2[k]=s/c;o2[k]=1;}}R.set(R2);ok.set(o2);}
+  for(let it=0;it<2;it++){const R2=R.slice();for(let j=1;j<NE-1;j++)for(let i=0;i<NA;i++){const k=j*NA+i;
+    R2[k]=(R[k]*4+R[j*NA+(i+1)%NA]+R[j*NA+(i+NA-1)%NA]+R[k+NA]+R[k-NA])/8;}R.set(R2);}
+  return (az,el)=>{const fi=(az+180)/2,fj=Math.min(NE-1.001,Math.max(0,(el+80)/1.5)),i=Math.floor(fi),j=Math.floor(fj),u=fi-i,w=fj-j,
+    g=(ii,jj)=>R[jj*NA+((ii%NA)+NA)%NA];return (g(i,j)*(1-u)+g(i+1,j)*u)*(1-w)+(g(i,j+1)*(1-u)+g(i+1,j+1)*u)*w;};}
+function faceMuscles(sex,skinParts){
+  const skins=skinParts.filter(p=>/^skin/i.test(p.name)&&p.posArr);if(!skins.length)return [];
+  const E=EYES[sex].c,ey=E[0][1],ez=E[0][2];let zmin=0;
+  for(const sp of skins){const m=sp.q,s=m.range[0]/65535,lo=m.lo,Q=sp.posArr;for(let i=0;i<Q.length/3;i++){const y=lo[1]+Q[i*3+1]*s;if(Math.abs(y-ey)<.012)zmin=Math.min(zmin,lo[2]+Q[i*3+2]*s);}}
+  const C=new THREE.Vector3(0,ey,(ez+.012+zmin)/2),rAt=headMap(skins,C),D=Math.PI/180;
+  const dir=(az,el)=>new THREE.Vector3(Math.sin(az*D)*Math.cos(el*D),Math.sin(el*D),Math.cos(az*D)*Math.cos(el*D));
+  const lerp2=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+  const out=[];
+  for(const [nm,shape,P,depth,thick,sides,opt] of FACE_M)for(let side=0;side<sides;side++){
+    const sg=side?-1:1;let ns,nt,at,ring=false;   // at(s,t) → [az,el]; s runs along the fibres
+    if(shape==='quad'){ns=14;nt=10;at=(s,t)=>{const a=lerp2(lerp2(P[0],P[3],t),lerp2(P[1],P[2],t),s);if(opt&&opt.arc)a[1]+=opt.arc*s*Math.sin(Math.PI*t);return a;};}
+    else if(shape==='band'){ns=12;nt=5;at=(s,t)=>{const a=lerp2(P.a,P.b,s),dx=P.b[0]-P.a[0],dy=P.b[1]-P.a[1],L=Math.hypot(dx,dy),w=(P.w[0]+(P.w[1]-P.w[0])*s)*(t-.5);return [a[0]-dy/L*w,a[1]+dx/L*w];};}
+    else if(shape==='ring'){ring=true;ns=48;nt=5;at=(s,t)=>{const th=s*Math.PI*2,rx=P.i[0]+(P.o[0]-P.i[0])*t,ry=P.i[1]+(P.o[1]-P.i[1])*t;return [P.c[0]+rx*Math.cos(th),P.c[1]+ry*Math.sin(th)];};}
+    else {ring=true;ns=60;nt=8;const low=az=>{const b=Math.abs(az);return b<50?46:b<90?46-(b-50)/40*12:b<130?34-(b-90)/40*26:8-(b-130)/50*4;};
+      at=(s,t)=>{const az=-180+s*360;const lo=low(az);return [az,lo+(90-lo)*t];};}
+    const pos=[],fib=[],idx=[],V=new THREE.Vector3();
+    for(let i=0;i<=ns;i++)for(let j=0;j<=nt;j++){const s=i/ns,t=j/nt;let [az,el]=at(s,t);az*=sg;
+      const belly=(ring?1:Math.pow(Math.sin(Math.PI*s),.45))*Math.pow(Math.sin(Math.PI*t),.6);
+      V.copy(dir(az,el)).multiplyScalar(rAt(az,el)-depth-.0015*(1-belly)+thick*belly).add(C);pos.push(V.x,V.y,V.z);}
+    const at3=(i,j)=>new THREE.Vector3(pos[(i*(nt+1)+j)*3],pos[(i*(nt+1)+j)*3+1],pos[(i*(nt+1)+j)*3+2]);
+    for(let i=0;i<=ns;i++)for(let j=0;j<=nt;j++){const f=at3(Math.min(ns,i+1),j).sub(at3(Math.max(0,i-1),j)).normalize();fib.push(Math.round(f.x*127),Math.round(f.y*127),Math.round(f.z*127));}
+    for(let i=0;i<ns;i++)for(let j=0;j<nt;j++){const a=i*(nt+1)+j,b=a+nt+1;idx.push(a,b,a+1,b,b+1,a+1);}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);
+    g.setAttribute('aFiber',new THREE.BufferAttribute(new Int8Array(fib),3,true));g.computeVertexNormals();
+    {const n=g.attributes.normal,k=Math.floor(ns/2)*(nt+1)+Math.floor(nt/2),pc=at3(Math.floor(ns/2),Math.floor(nt/2)).sub(C);   // face outward
+      if(n.getX(k)*pc.x+n.getY(k)*pc.y+n.getZ(k)*pc.z<0){for(let q=0;q<idx.length;q+=3){const tmp=idx[q+1];idx[q+1]=idx[q+2];idx[q+2]=tmp;}g.setIndex(idx);g.computeVertexNormals();}}
+    g.computeBoundingSphere();g.computeBoundingBox();
+    const name=(sides>1?(side?'Right ':'Left '):'')+nm,ten=shape==='cap',grp=groupOf('musc',name);
+    const col=new THREE.Color(ten?'#dcd3c2':grp?grp.color:'#b2463d');if(!ten){const h={};col.getHSL(h);col.setHSL(h.h,Math.min(1,h.s*1.08),h.l*(.8+((name.length*37)%20)/100));}
+    const mat=new THREE.MeshPhysicalMaterial({color:col.clone().convertSRGBToLinear(),metalness:0,roughness:.48,clearcoat:PHONE?0:.18,clearcoatRoughness:.35,envMapIntensity:.45});
+    const topt={flow:0,ao:false,kind:ten?0:1,fiber:null,fiberAttr:!ten,sss:new THREE.Color('#4a0a06'),musc:true};tissue(mat,topt);
+    const pool=poolMat(mat,topt),mesh=new THREE.Mesh(g,pool);mesh.matrixAutoUpdate=false;mesh.userData.base=new THREE.Matrix4();
+    const p={name:name.charAt(0).toUpperCase()+name.slice(1),concept:'modelled',sys:'musc',also:[],grp,mesh,mat,pool,fill:false,
+      src:'Modelled for this view under this body\'s own skin; the source datasets do not include the face and scalp muscles',tris:idx.length/3,skin:false,drawn:true};
+    mesh.userData.part=p;out.push(p);}
+  return out;}
+const FACE_NAMES=FACE_M.flatMap(m=>m[5]>1?['Left '+m[0],'Right '+m[0]]:[m[0].charAt(0).toUpperCase()+m[0].slice(1)]);
 function ensure(sex,sysId){
   const key=sex+'|'+sysId;if(loaded[key])return loaded[key];
   loaded[key]=(async()=>{
@@ -1253,7 +1404,8 @@ function ensure(sex,sysId){
         out.push(await makePartSoon(row,mb,mm,'female',{fill:fillMatrix(row[10],reg),reg,hands,warp:W,src:'BodyParts3D male reference, fitted to this body'}));}}
     if(sex==='male'&&MFILL[sysId]){const fm=await manifest('female');const fb=await chunk('female',sysId,label+' fill');
       if(fb)for(const row of fm.parts){if(row[2]!==sysId||!MFILL[sysId](row))continue;out.push(await makePartSoon(row,fb,fm,'male',{fill:F2M,src:'Human Reference Atlas female organ, fitted to this body'}));}}
-    if(sysId==='nerv')out.push(...drawnNerves(sex,W,hands));
+    if(sysId==='nerv')out.push(...drawnNerves(sex,W,hands,await manifest('male')));
+    if(sysId==='musc')out.push(...faceMuscles(sex,await ensure(sex,'integ')));   // modelled face and scalp muscles
     if(sysId==='integ')out.push(...buildEyes(sex));   // modelled eyeballs replace the thin eye surfaces
     if(sex==='female'&&sysId==='integ'){const sk=out.find(p=>/^skin of body/i.test(p.name));if(sk)out.push(...buildHair(sk));}
     return out;})().catch(e=>{delete loaded[key];throw e;});
@@ -1366,19 +1518,23 @@ async function refresh(fly){
 }
 const visibleIn=(p,cur)=>p.sys===cur||p.also.includes(cur);
 function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayers();
-  U.uPeel.value=A.has('integ')&&st.skinOwn<1?peelY(st.skinOwn):99;
-  const inA=p=>A.has(p.sys)||p.also.some(x=>A.has(x)),peeled=A.has('integ')&&st.skinOwn<1;
+  U.uPeel.value=99;   // the skin no longer cuts away from the top: it fades (below)
+  const inA=p=>A.has(p.sys)||p.also.some(x=>A.has(x)),peeled=A.has('integ')&&st.skinOwn<1,skinFull=A.has('integ')&&!peeled;
+  const fades=p=>p.sys==='integ'&&p.mat.userData.tissue&&p.mat.userData.tissue.peel;   // skin, hair, lips, breast fat
+  let shellOn=false;
   for(const p of bodyParts){let o=0,pick=false;
     if(inA(p)){o=p.glass&&st.mode!=='all'?.42:1;pick=true;if(st.peel&&A.has('musc')&&p.sys==='musc'&&p.layer<st.peel){o=0;pick=false;}
-      if(peeled&&p.sys==='integ'&&p.mat.userData.tissue&&p.mat.userData.tissue.peel){o=st.skinOwn>.003?1:0;pick=false;}}   // skin system: skin, hair and breast tissue stay solid and are cut away from the top down
-    else if(peeled&&p.sys==='musc'){o=1;pick=true;}            // ...and every muscle shows underneath
+      if(peeled&&fades(p)){o=st.skinOwn;pick=false;}}   // skin system: Skin peel fades the skin out as the muscles underneath come in
+    else if(peeled&&p.sys==='musc'){o=1;pick=true;}            // ...every muscle is there under the fading skin
     else if(p.skin)o=(p.shell||st.skin>.25)?st.skin:0;
     else if(st.mode==='all'){o=1;pick=true;}
     else if(st.mode==='layered')o=.07;
+    if(skinFull&&!(p.sys==='integ'&&(p.shell||p.eye))){o=0;pick=false;}   // the skin is fully on: nothing under it is drawn at all
     if(st.fxOnly&&o>0&&inA(p)&&!st.fxOnly(p)){o=0;pick=false;}   // a moving lesson can show just the pieces it needs
     const m=p.mat,tr=o<.999;if(m.transparent!==tr){m.transparent=tr;m.needsUpdate=true;}m.opacity=o;m.depthWrite=!tr;
-    p.mesh.visible=o>.004;p.mesh.userData.pick=pick;if(p.mesh.visible)tris+=p.tris;
+    p.mesh.visible=o>.004;p.mesh.userData.pick=pick;if(p.mesh.visible)tris+=p.tris;if((p.shell||p.eye)&&p.mesh.visible)shellOn=true;
     if(p.pre)p.pre.visible=tr&&p.mesh.visible;if(p.shell)m.userData.rim.value=tr?.5:0;useMat(p);}
+  skinLayerOn=shellOn;
   $('tris').textContent=(tris/1e6).toFixed(2)+' M triangles shown';LBL.dirty=true;
   updateFillNote();updateAnimTargets();}
 /* Height and weight. The whole body sits in one group (bodyRoot); the sliders only stretch that group, so the phone
@@ -1441,7 +1597,7 @@ function renderCard(){const s=st.sel;if(!$('tutor').hidden)tutorCtxLine();$('car
   const f=$('cardFacts');f.hidden=!s.mf;f.innerHTML=s.mf?['Origin','Insertion','Action','Nerve'].map((k,i)=>`<div><dt>${k}</dt><dd>${s.mf[i]}</dd></div>`).join(''):'';}
 
 /* search */
-const DRAWN={};const drawnNames=sex=>DRAWN[sex]||(DRAWN[sex]=drawnNerves(sex).map(p=>{p.mesh.geometry.dispose();p.mat.dispose();return p.name;}));
+const DRAWN={};const drawnNames=sex=>DRAWN[sex]||(DRAWN[sex]=drawnNerves(sex,null,null,null,true));
 let searchT=0;
 $('q').addEventListener('input',()=>{clearTimeout(searchT);searchT=setTimeout(doSearch,120);});
 async function doSearch(){const q=$('q').value.trim().toLowerCase(),box=$('results');if(q.length<2){box.innerHTML='';return;}
@@ -1450,6 +1606,7 @@ async function doSearch(){const q=$('q').value.trim().toLowerCase(),box=$('resul
   if(st.sex==='female'){const mm=await manifest('male');mm.parts.forEach(r=>{if(!FILL[r[2]]||!r[0].toLowerCase().includes(q))return;if(FILL[r[2]](r,regionOf(r[10]),r[10]))rows.push({r,fill:true});});}
   if(st.sex==='male'){const fm=await manifest('female');fm.parts.forEach(r=>{if(MFILL[r[2]]&&MFILL[r[2]](r)&&r[0].toLowerCase().includes(q))rows.push({r,fill:true});});}
   drawnNames(st.sex).forEach(n=>{if(n.toLowerCase().includes(q))rows.push({r:[n,'schematic','nerv'],fill:false});});
+  FACE_NAMES.forEach(n=>{if(n.toLowerCase().includes(q))rows.push({r:[n,'modelled','musc'],fill:false});});
   const seen=new Set();const list=rows.filter(x=>{const k=x.r[0]+'|'+x.r[2];if(seen.has(k))return false;seen.add(k);return true;})
     .sort((a,b)=>(a.r[0].toLowerCase().indexOf(q)-b.r[0].toLowerCase().indexOf(q))||a.r[0].length-b.r[0].length).slice(0,40);
   box.innerHTML=list.length?list.map((x,i)=>`<button data-i="${i}" style="--c:${SYS[x.r[2]].color}"><span>${x.r[0]}</span><em>${SYS[x.r[2]].name}</em></button>`).join(''):'<span class="note">No match in this body.</span>';
@@ -1995,6 +2152,23 @@ const MFACTS={
 // head, neck and jaw
 'sternocleidomastoid':['Manubrium of sternum and medial third of clavicle','Mastoid process of the temporal bone','Turns the head to the opposite side; both together flex the neck','Accessory nerve (CN XI)'],
 'platysma':['Skin and fascia over the upper chest','Lower border of the mandible and skin of the lower face','Tenses the skin of the neck; pulls the corners of the mouth down','Facial nerve (CN VII), cervical branch'],
+'frontalis':['Epicranial aponeurosis (the scalp tendon)','Skin of the eyebrows and forehead','Raises the eyebrows and wrinkles the forehead','Facial nerve (CN VII), temporal branch'],
+'occipitalis':['Superior nuchal line of the occipital bone and the mastoid process','Epicranial aponeurosis','Pulls the scalp backward','Facial nerve (CN VII), posterior auricular branch'],
+'epicranial aponeurosis':['A flat tendon covering the top of the skull','Joins the frontalis in front and the occipitalis behind','Lets the two bellies move the scalp as one sheet','No nerve of its own (it is tendon, not muscle)'],
+'temporalis':['Temporal fossa and the temporal fascia on the side of the skull','Coronoid process and front of the ramus of the mandible','Closes the jaw; its back fibres pull the jaw backward','Deep temporal nerves (CN V3)'],
+'masseter':['Zygomatic arch and the zygomatic process of the maxilla','Outer surface of the ramus and angle of the mandible','Closes the jaw powerfully for chewing','Masseteric nerve (CN V3)'],
+'buccinator':['Alveolar processes of the maxilla and mandible beside the molars, and the pterygomandibular raphe','Corner of the mouth and the lips','Presses the cheek against the teeth, keeping food between them; helps blowing','Facial nerve (CN VII), buccal branch'],
+'orbicularis oculi':['Inner rim of the orbit, the medial palpebral ligament and the lacrimal bone','Skin around the eye and the lateral palpebral raphe','Closes the eyelids: gently to blink, tightly to squeeze','Facial nerve (CN VII), temporal and zygomatic branches'],
+'procerus':['Fascia over the nasal bone and upper nasal cartilage','Skin between the eyebrows','Pulls the inner eyebrows down, making lines across the top of the nose','Facial nerve (CN VII)'],
+'nasalis':['Maxilla beside the nose','Cartilages of the nose','Narrows and widens the nostrils','Facial nerve (CN VII), buccal branch'],
+'levator labii superioris':['Lower rim of the orbit, above the infraorbital foramen','Skin and muscle of the upper lip','Raises the upper lip','Facial nerve (CN VII), buccal branch'],
+'zygomaticus minor':['Zygomatic bone','Upper lip','Raises the upper lip','Facial nerve (CN VII), zygomatic and buccal branches'],
+'zygomaticus major':['Zygomatic (cheek) bone','Corner of the mouth','Pulls the corner of the mouth up and out: the smiling muscle','Facial nerve (CN VII), zygomatic and buccal branches'],
+'risorius':['Fascia over the parotid gland and masseter','Corner of the mouth','Pulls the corner of the mouth sideways','Facial nerve (CN VII), buccal branch'],
+'orbicularis oris':['Maxilla, mandible and the muscles that meet at the corners of the mouth','Skin and lining of the lips','Closes and purses the lips','Facial nerve (CN VII), buccal and marginal mandibular branches'],
+'depressor anguli oris':['Oblique line of the mandible','Corner of the mouth','Pulls the corner of the mouth down (frowning)','Facial nerve (CN VII), marginal mandibular branch'],
+'depressor labii inferioris':['Oblique line of the mandible','Skin of the lower lip','Pulls the lower lip down','Facial nerve (CN VII), marginal mandibular branch'],
+'mentalis':['Incisive fossa of the mandible','Skin of the chin','Raises and wrinkles the chin and pushes up the lower lip (pouting)','Facial nerve (CN VII), marginal mandibular branch'],
 'digastric':['Mastoid notch (posterior belly); digastric fossa of mandible (anterior belly)','Intermediate tendon, held to the hyoid bone','Opens the jaw; raises the hyoid when swallowing','Facial nerve (posterior belly); nerve to mylohyoid from CN V3 (anterior belly)'],
 'mylohyoid':['Mylohyoid line of the mandible','Body of the hyoid and a midline raphe','Forms the floor of the mouth; raises the hyoid and tongue','Nerve to mylohyoid (CN V3)'],
 'geniohyoid':['Inferior mental spine of the mandible','Body of the hyoid','Pulls the hyoid forward and up','C1 fibres carried by the hypoglossal nerve'],
@@ -2200,7 +2374,7 @@ function labelPass(){
     const m=p.mesh.material;p.mesh.material=p.idMat;return m;});
   const bg=scene.background,cc=renderer.getClearColor(new THREE.Color()),ca=renderer.getClearAlpha(),te=renderer.toneMapping,oe=renderer.outputEncoding;
   scene.background=null;renderer.setClearColor(0,1);
-  renderer.setRenderTarget(LBL.rt);renderer.clear();renderer.render(scene,camera);renderer.readRenderTargetPixels(LBL.rt,0,0,W,H,LBL.buf);renderer.setRenderTarget(null);
+  renderer.setRenderTarget(LBL.rt);renderer.clear();camera.layers.enableAll();renderer.render(scene,camera);camera.layers.set(0);renderer.readRenderTargetPixels(LBL.rt,0,0,W,H,LBL.buf);renderer.setRenderTarget(null);
   scene.background=bg;renderer.setClearColor(cc,ca);
   list.forEach((p,i)=>p.mesh.material=mats[i]);hidden.forEach(o=>o.visible=true);
   // per-structure pixel count and centroid, then the pixel of that structure nearest its centroid
@@ -2289,6 +2463,7 @@ async function findRow(q){q=q.toLowerCase().replace(/^(left|right)\s+/,'').trim(
   if(st.sex==='female'){const mm=await manifest('male');mm.parts.forEach(r=>{if(FILL[r[2]]&&r[0].toLowerCase().includes(q)&&FILL[r[2]](r,regionOf(r[10]),r[10]))rows.push({r,fill:true});});}
   if(st.sex==='male'){const fm=await manifest('female');fm.parts.forEach(r=>{if(MFILL[r[2]]&&MFILL[r[2]](r)&&r[0].toLowerCase().includes(q))rows.push({r,fill:true});});}
   drawnNames(st.sex).forEach(n=>{if(n.toLowerCase().includes(q))rows.push({r:[n,'schematic','nerv'],fill:false});});
+  FACE_NAMES.forEach(n=>{if(n.toLowerCase().includes(q))rows.push({r:[n,'modelled','musc'],fill:false});});
   if(!rows.length)return null;const cur=SYSTEMS[st.sys].id;
   rows.sort((a,b)=>((a.r[2]!==cur)-(b.r[2]!==cur))||(a.r[0].length-b.r[0].length));return rows[0];}
 async function showStructure(q,btn){const x=await findRow(q);if(!x){if(btn){btn.disabled=true;btn.title='Not modelled in this body';}toast(`“${q}” isn't modelled in this body.`);return;}
@@ -2340,7 +2515,7 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
   if(!reduce){stepPhysio(dt);drawECG();}drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const p of st.selSet){p.mat.emissive.copy(selCol);useMat(p);}}
   if(FXS.on)fxTick(dt);
-  if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);renderer.render(scene,camera);tunePR(now||performance.now());requestAnimationFrame(loop);}
+  if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);drawScene();tunePR(now||performance.now());requestAnimationFrame(loop);}
 
 /* ================================================================ add-on packs
    A pack is a piece of code that calls AnatomyPacks.register({...}). It can add a tab, tours and body conditions,
@@ -2535,7 +2710,8 @@ $('sysTours').addEventListener('click',e=>{const b=e.target.closest('button');if
 $('mbLearn').addEventListener('click',()=>{if(!$('mLearn').hidden)renderTourList();});
 if(HAS_TTS)speechSynthesis.onvoiceschanged=()=>{};   // makes some browsers load their voice list early
 /* boot */
-setActive(false);buildTxt();renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
+setActive(false);resetBuild();addEventListener("pageshow",e=>{if(e.persisted)resetBuild();});   // always start at the average, fit build (phones can bring back old slider positions)
+renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
 refresh(true).then(()=>setTimeout(bootPacks,1500));requestAnimationFrame(loop);
 })();
 </script>
