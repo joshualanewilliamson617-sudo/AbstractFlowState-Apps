@@ -99,3 +99,20 @@ Unfinished / ideas
 - The skin block's layers are drawn thicker than true scale (said in the narration).
 - Evolution effects could get a short spoken line of their own; the fish fin could swing into the arm shape.
 - Labels still don't follow bent limbs during moving lessons.
+
+## 2026-11-23 Third request: menus, Gut cards, vitals, tour card, real Evolution shapes (one commit)
+Owner was away and said: don't ask, choose, list choices at the end. Phone smoothness first.
+
+What changed
+- Menus: the option you're on gets a tinted outline and a ✓ (seg buttons, tabs, species list, chips, running tour, current lesson). The top buttons show the current pick: `sectionBtn()` ("Evolution: Chimpanzee", "Section: Body · Male", tab title) and `learnBtn()` ("Tour: …", "Lesson: …", "Quiz: …"). `menuTick` refreshes them every 400 ms.
+- Section menu has a new "Evolution · body shape" picker (`#spList`, `SP_MENU`, `setSpecies`): Modern human, Chimpanzee, Lucy, Homo habilis, Homo erectus, Neanderthal, Early primate. Tapping one reshapes the body and shows a card. Tours, lessons and quizzes reset it to Modern human (`spReset`).
+- Body reshaping runs on the graphics chip (`MORPH_GLSL`, `tqMorph`, uniforms `uMorph uMo0..3 uML`), with a matching JS copy (`morphPt`) for eyes, overlays and camera. Per species (`SPECIES`): arm and leg length, braincase height/length/width, face forward, jaw, brow ridge, chin, head tilt, pelvis width/height (bones only, `uBone`), crouch, forward lean, overall size. `moTo/moTick` animate; `moCull` turns off view culling while reshaped.
+- Evolution stops 2–12 now use real shapes (`evShape`): early primate, chimp, Lucy (110 cm, both bodies), habilis, erectus (grows from Lucy and runs), brain stop blends early erectus skull → ours, sapiens stop blends ours ↔ erectus, voice stop blends ape face ↔ ours, tail stop goes tailed ancestor → human. Stops 0, 1, 13 (fish fin, ear bones, milk) are unchanged. Proof: before/after sheets made in the session scratchpad (compare1/compare2/species).
+- Gut microbiome tab: every row (where they live, jobs, phyla, history) is tappable; a card sticks to the bottom with "What it is" / "What it does" and "See it on the body". The tapped row is highlighted. On the body, tapping stomach, small or large intestine adds a "Gut microbes here" line (pack `partNote`, `packNotes`).
+- Vitals: "–" button shrinks it to a beating heart (beat follows heart rate); remembered in localStorage `ca-vitals`. Hidden automatically during spoken tours and the systems tour (`stage.touring`), not during lessons (Fight or flight uses it).
+- Tour and lesson cards: ▾ collapse button (`#stMin`, `#lMin`) shrinks to a one-line pill; tap it to open again. The camera is shifted up by the card's height (`camera.setViewOffset`, `VOFF`, `coverNow`, ResizeObserver) so the card never covers the part or the skin block (checked: skin block centre 76 px above the card top at phone size).
+
+Unfinished / ideas
+- Tapping the body while reshaped hits the un-reshaped shape; name labels are hidden while reshaped.
+- Neanderthal is in the picker only (no Evolution stop of its own).
+- Headless Edge won't go below ~490 px wide; phone checks were done in a 390×844 frame.
