@@ -30,6 +30,7 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);font-size:1
 #sysbar .dial{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
 #sysbar .chip{padding:7px 8px}
 #stage{height:clamp(380px,72vh,1000px);flex:none}
+#layers>.card{grid-column:1/-1}
 #layers{background:var(--panel);border-block:1px solid var(--line);padding-block:12px 14px;display:grid;gap:10px 22px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));align-items:start}
 #panel{background:var(--void);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:18px 36px;align-items:start;
   padding-block:20px 28px;max-width:1240px;width:100%;margin-inline:auto;box-sizing:border-box}
@@ -231,6 +232,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   </main>
 
   <section id="layers" class="band" aria-label="Layers">
+    <div class="card" id="card" aria-live="polite" hidden><div class="tag" id="cardTag"></div><h3 id="cardName"></h3><p id="cardDesc"></p><dl class="mf" id="cardFacts" hidden></dl><div class="src" id="cardSrc"></div></div>
       <div class="ctl wide"><span class="label">View</span>
         <div class="seg" id="modeSeg"><button data-v="isolate" aria-pressed="true">Isolate</button><button data-v="layered" aria-pressed="false">Layered</button><button data-v="all" aria-pressed="false">All systems</button></div></div>
       <div class="ctl" id="peelCtl" hidden><span class="label">Muscle layers · <span id="peelTxt">all showing</span></span>
@@ -280,7 +282,6 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <dl class="facts" id="facts"></dl>
       <p class="fillnote" id="fillnote" hidden></p>
       <div class="ctl"><span class="label">Structure groups · click to locate</span><div class="plist" id="plist"></div></div>
-      <div class="card" id="card" hidden><div class="tag" id="cardTag"></div><h3 id="cardName"></h3><p id="cardDesc"></p><dl class="mf" id="cardFacts" hidden></dl><div class="src" id="cardSrc"></div></div>
       <div class="ctl"><label class="label" for="q">Find any structure</label>
         <input type="search" id="q" placeholder="e.g. femur, mitral valve, sciatic" autocomplete="off">
         <div class="results" id="results"></div></div>
