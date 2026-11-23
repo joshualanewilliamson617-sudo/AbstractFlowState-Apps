@@ -67,6 +67,8 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);font-size:1
 .seg button{border:0;border-radius:6px;padding:7px 4px;background:transparent;color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .rowc{display:flex;align-items:center;gap:10px}
+.rowc.build{gap:8px}.mini{font-size:11px;color:var(--mute);width:44px;flex:none}
+.linkbtn{border:0;background:none;color:var(--sys);font:inherit;font-size:11px;cursor:pointer;padding:2px 4px;text-decoration:underline}
 input[type=range]{flex:1;accent-color:var(--bone);min-width:0}
 select,input[type=search]{background:var(--void);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;font-size:13px}
 input[type=search]{width:100%;min-width:0}
@@ -189,6 +191,47 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   #layers .wide{grid-column:1/-1}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* tabs: Body plus one per pack (Evolution, Gut microbiome, …) */
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--raise);color:var(--mute);font:inherit;font-size:13px;cursor:pointer;min-height:36px}
+.tabs button[aria-pressed="true"]{color:var(--ink);border-color:var(--sys);box-shadow:inset 0 0 0 1px var(--sys)}
+.tabview{position:fixed;inset:0;z-index:40;background:var(--void);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.tabview header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.tabview header h2{margin:0;font-family:var(--display);font-weight:500;font-size:20px}
+.tabview header button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;min-height:38px}
+#tabBody{max-width:760px;margin:0 auto;padding:16px 16px 48px;line-height:1.55;font-size:14.5px}
+body.tabbed{overflow:hidden}
+.tv-lead{font-size:15.5px;color:var(--ink)}
+.tv-h{font-family:var(--display);font-weight:500;font-size:18px;margin:28px 0 6px}
+.tv-sub,.tv-note{color:var(--mute);font-size:12.5px}
+.tv-time{list-style:none;margin:16px 0;padding:0 0 0 18px;border-left:2px solid var(--line)}
+.tv-time li{position:relative;margin:0 0 20px}
+.tv-time li::before{content:"";position:absolute;left:-25px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--sys)}
+.tv-time h3{margin:2px 0 4px;font-size:16px;font-weight:600}
+.tv-time p{margin:0 0 6px}
+.tv-t{font-size:12px;color:var(--sys);letter-spacing:.02em}
+.tv-see{border:1px solid var(--line);background:var(--raise);color:var(--ink);border-radius:8px;padding:7px 11px;font:inherit;font-size:12.5px;cursor:pointer;min-height:36px}
+.tv-see:hover{border-color:var(--sys)}
+.tv-bars{display:grid;gap:14px}
+.tv-row{display:flex;justify-content:space-between;gap:8px;font-size:13.5px}
+.tv-row span{color:var(--mute)}
+.tv-track{height:10px;border-radius:5px;background:var(--raise);overflow:hidden;margin:4px 0}
+.tv-track i{display:block;height:100%;background:var(--sys);border-radius:5px}
+.tv-bar p{margin:2px 0 6px;font-size:13px;color:var(--mute)}
+.tv-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+.tv-card{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 12px}
+.tv-card p{margin:4px 0 8px;font-size:13px;color:var(--mute)}
+.tv-who dt{font-weight:600;margin-top:8px}.tv-who dd{margin:0;color:var(--mute);font-size:13.5px}
+/* add-on packs list */
+.packs{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:12.5px}
+.packs li{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.packs li span{color:var(--mute);font-size:11.5px;overflow-wrap:anywhere}
+#packForm{margin-top:6px}
+#packForm input{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-size:13px}
+#packForm button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.packhelp{font-size:12px;color:var(--mute);margin-top:6px}
+.packhelp pre{white-space:pre-wrap;background:var(--raise);padding:8px;border-radius:8px;font-size:11px;overflow-x:auto}
 </style>
 
 <div id="app">
@@ -206,6 +249,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       </section>
       <button id="mixBtn" class="mixbtn" aria-pressed="false" title="Show several body systems at once">Mix systems</button>
     </div>
+    <nav class="tabs" id="tabs" aria-label="Sections"><button aria-pressed="true">Body</button></nav>
       <div class="dial" id="dial" role="group" aria-label="Organ systems"></div>
   </header>
 
@@ -261,6 +305,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <div class="ctl wide"><span class="label">Cross-section</span>
         <div class="rowc"><select id="slice" aria-label="Slice plane"><option value="off">Off</option><option value="sag">Sagittal</option><option value="cor">Coronal</option><option value="tra">Transverse</option></select>
         <input type="range" id="slicePos" min="-1" max="1" step="0.005" value="0" aria-label="Slice position" disabled></div></div>
+      <div class="ctl wide"><span class="label">Height and weight · <span id="buildTxt"></span> <button class="linkbtn" id="buildReset">Reset</button></span>
+        <div class="rowc build"><span class="mini">Height</span><input type="range" id="hgt" min="150" max="193" step="1" value="172" aria-label="Height in centimetres"></div>
+        <div class="rowc build"><span class="mini">Weight</span><input type="range" id="wgt" min="100" max="250" step="1" value="154" aria-label="Weight in pounds"></div></div>
   </section>
 
   <aside id="panel" class="band">
@@ -307,6 +354,22 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <p class="note">Educational reference, not for diagnosis. Keys: ← → cycle systems, space plays the tour, Esc clears the selection.</p>
     </section>
 
+      <div class="ctl" id="condBox" hidden><span class="label">Body conditions · from add-on packs</span><div class="lessons" id="condList"></div></div>
+      <div class="ctl"><span class="label">Add-on packs</span>
+        <ul class="packs" id="packList"></ul>
+        <form id="packForm" class="rowc"><input id="packUrl" type="url" inputmode="url" placeholder="Web address of a pack (.js)" aria-label="Web address of an add-on pack"><button type="submit">Add</button></form>
+        <details class="packhelp"><summary>How to make a pack</summary>
+          <p>A pack is a small .js file. It can add a tab, tours and body conditions. Only add packs you trust: a pack runs as part of this page.</p>
+<pre>AnatomyPacks.register({
+  id: 'conditions', name: 'Body conditions',
+  conditions: [{ name: 'Osteoporosis', sys: 'skel',
+    group: 'Spine', text: 'Bones lose density...' }],
+  lessons: [{ name: 'My tour', steps: [
+    { sys: 'card', title: 'Heart', text: '...',
+      match: 'Heart', sec: 'Part 1' }] }],
+  tab: { title: 'My tab',
+    build(el, api) { el.innerHTML = '...'; } }
+});</pre></details></div>
     <footer class="credits">
       <span class="label">Model sources</span>
       <span>Male: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener">BodyParts3D</a>, © The Database Center for Life Science, licensed under CC Attribution 4.0 International.</span>
@@ -318,6 +381,76 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   </aside>
 </div>
 
+<section id="tabView" class="tabview" hidden role="dialog" aria-modal="true" aria-labelledby="tabTitle">
+  <header><button id="tabBack">‹ Back to the body</button><h2 id="tabTitle"></h2></header>
+  <div id="tabBody"></div>
+</section>
+<script type="text/x-anatomy-pack" data-id="evolution" data-name="Evolution of the human body" data-tab="Evolution">
+/* Built-in pack: Evolution of the human body. Runs only when its tab is first opened. */
+AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tab:{title:'Evolution',build(el,api){
+  const ERAS=[
+   {t:'~375 million years ago',h:'Fish come ashore',p:'Lobe-finned fish such as Tiktaalik had fin bones in the same pattern as our arm: one bone (humerus), then two (radius and ulna), then many small ones. Your arm and hand still follow that plan.',see:['skel','Arm bones','Arm bones']},
+   {t:'~200 million years ago',h:'Early mammals',p:'Small, warm-blooded mammals appear. Two bones that once formed the reptile jaw joint shrank and moved into the ear, becoming the malleus and incus, two of the three tiny hearing bones.',see:['skel','Skull','Skull and ear bones']},
+   {t:'~55 million years ago',h:'Early primates',p:'Life in trees favoured grasping hands with nails instead of claws, forward-facing eyes for judging depth, and good colour vision for spotting ripe fruit.',see:['skel','Hand bones','Grasping hands']},
+   {t:'~7 to 6 million years ago',h:'Our line splits from chimpanzees',p:'Sahelanthropus, among the earliest known members of the human line, has a skull opening that suggests it may have held its head over an upright spine.',see:['skel','Spine','The spine under the skull']},
+   {t:'~3.7 to 3 million years ago',h:'Walking upright',p:'Australopithecus ("Lucy", about 3.2 million years old) had a short, bowl-shaped pelvis and knees angled inward under the body, much like ours, but a brain about the size of a chimpanzee\'s. Footprints at Laetoli, about 3.66 million years old, show a fully upright walk.',see:['skel','Pelvis','A pelvis for walking']},
+   {t:'~3.7 million years ago',h:'The arched foot',p:'The big toe moved in line with the others and the foot gained arches, turning a grasping foot into a springy lever for walking and later running.',see:['skel','Foot bones','The arched foot']},
+   {t:'~3.3 to 2.6 million years ago',h:'Stone tools',p:'The oldest known stone tools are about 3.3 million years old. A longer, stronger thumb that could press against each fingertip made precise grips possible.',see:['musc','Forearm and hand','Muscles of a precise grip']},
+   {t:'~1.9 million years ago',h:'Homo erectus: built to run',p:'Long legs, a narrow waist, large buttock muscles, a ligament that steadies the head, and millions of sweat glands for cooling made long-distance running possible. Body hair thinned.',see:['musc','Hip and buttock','Running muscles']},
+   {t:'~1.9 million years ago onward',h:'Smaller gut, bigger brain',p:'Meat, marrow and later cooking gave more energy from less food. The gut grew shorter while the brain grew; the brain now uses about 20 percent of the body\'s energy at only 2 percent of its weight.',see:['dig','Large intestine','A shorter gut']},
+   {t:'~800,000 to 300,000 years ago',h:'A growing brain',p:'Brain size climbed from roughly 600 to 900 cm³ in early Homo erectus toward about 1,300 to 1,400 cm³. The cortex, the folded outer layer used for planning and language, expanded the most.',see:['nerv','Cerebrum','The cerebrum']},
+   {t:'~300,000 years ago',h:'Homo sapiens',p:'The oldest Homo sapiens fossils, from Jebel Irhoud in Morocco, are about 300,000 years old. Our species has a rounded skull, a flat face, a chin and smaller teeth.',see:['skel','Skull','The modern skull']},
+   {t:'Speech',h:'A voice box set low',p:'In adults the larynx sits lower in the throat than in other apes, giving a long vocal tract for clear vowel sounds. The cost: we are more prone to choking.',see:['resp','Pharynx and larynx','The larynx']},
+   {t:'Leftovers',h:'Traces of the past',p:'Some parts carry history: the coccyx is all that remains of a tail; goosebumps come from tiny muscles that once fluffed up fur; wisdom teeth often lack room in our shorter jaws. The appendix, once called useless, may store helpful gut bacteria.',see:['skel','Spine','The coccyx (tailbone)']},
+   {t:'Last 10,000 years',h:'Still changing',p:'Evolution has not stopped. Since farming began, the ability to digest milk as an adult spread in several dairying peoples, and skin colour, height and resistance to some diseases have shifted with diet, sunlight and germs.',see:['dig','Small intestine','Where milk is digested']}];
+  el.innerHTML=`<p class="tv-lead">From fish fins to a walking, talking ape: how parts of your own body came to be. Tap <b>See it on the body</b> on any step to jump to that part in 3D.</p>
+   <ol class="tv-time">${ERAS.map((e,i)=>`<li><span class="tv-t">${e.t}</span><h3>${e.h}</h3><p>${e.p}</p><button class="tv-see" data-i="${i}">See it on the body ›</button></li>`).join('')}</ol>
+   <p class="tv-note">Dates are approximate and are revised as new fossils are found.</p>`;
+  el.addEventListener('click',e=>{const b=e.target.closest('.tv-see');if(!b)return;const x=ERAS[+b.dataset.i];api.show(x.see[0],x.see[1],{title:x.see[2],tag:'Evolution · '+x.t,text:x.p});});
+}}});
+</script>
+<script type="text/x-anatomy-pack" data-id="microbiome" data-name="The gut microbiome" data-tab="Gut microbiome">
+/* Built-in pack: the gut microbiome, its history and its jobs. Runs only when its tab is first opened. */
+AnatomyPacks.register({id:'microbiome',name:'The gut microbiome',tab:{title:'Gut microbiome',build(el,api){
+  const WHERE=[
+   {n:'Stomach',g:'Stomach',e:2,d:'Acid kills most microbes. A few hardy ones survive, such as Lactobacillus and Helicobacter pylori, which can cause ulcers.'},
+   {n:'Duodenum and jejunum',g:'Small intestine',e:3,d:'Bile, enzymes and a fast flow keep numbers low in the first part of the small intestine.'},
+   {n:'Ileum',g:'Small intestine',e:8,d:'Numbers climb toward the end of the small intestine as the flow slows.'},
+   {n:'Colon',g:'Large intestine',e:11.5,d:'Home to almost all gut microbes: up to about 100 billion per gram of contents, from hundreds of species. Slow transit and plenty of undigested fibre let them thrive.'}];
+  const HIST=[
+   ['1670s to 1680s','Antonie van Leeuwenhoek, using his own microscopes, describes tiny "animalcules" from his mouth and his own stool: the first look at human microbes.'],
+   ['1885','Theodor Escherich finds the gut bacterium later named Escherichia coli in babies\' nappies.'],
+   ['1899','Henry Tissier finds Bifidobacterium in the stool of breastfed babies.'],
+   ['1907','Élie Metchnikoff suggests that the lactic-acid bacteria in soured milk could help health, an early version of the probiotic idea.'],
+   ['1940s to 1970s','New methods let scientists grow anaerobes, microbes that die in air. Most gut microbes are this kind, so most had been missed before.'],
+   ['1977','Carl Woese uses a gene called 16S rRNA to tell microbes apart. Later this lets researchers list gut microbes from their DNA, even ones that cannot be grown in a lab.'],
+   ['2007 to 2016','The Human Microbiome Project and Europe\'s MetaHIT map the microbes of healthy people. MetaHIT finds about 3.3 million microbial genes in the gut, roughly 150 times more than human genes.'],
+   ['2016','A careful recount estimates about 38 trillion bacteria in a typical body, mostly in the colon: about as many as the body\'s own cells, not the ten times more once claimed.'],
+   ['Today','Stool transplants from healthy donors cure most cases of recurrent C. difficile infection. Research on links to obesity, allergies, mood and other diseases is active, but much is still unproven.']];
+  const JOBS=[
+   ['Digest fibre','Gut bacteria ferment fibre we cannot break down into short-chain fatty acids. One of them, butyrate, is the main fuel for the cells lining the colon.','dig','Large intestine'],
+   ['Make vitamins','Some gut bacteria make vitamin K and several B vitamins.','dig','Large intestine'],
+   ['Train the immune system','Much of the immune system sits in and around the gut wall. Early contact with microbes helps it learn what to attack and what to ignore.','lymph','Spleen'],
+   ['Guard against germs','Resident microbes take up space and food and make substances that keep harmful bacteria out. Antibiotics can upset this balance.','dig','Small intestine'],
+   ['Recycle bile','Bacteria change bile acids made by the liver, which affects how fat is digested and how much bile is reused.','dig','Liver'],
+   ['Talk to the brain','The gut and brain signal each other through the vagus nerve, hormones and immune messengers, the "gut–brain axis". About 90 percent of the body\'s serotonin is made in the gut, and microbes influence how much.','nerv','Cranial nerves']];
+  const WHO=[['Bacillota (Firmicutes)','Many fibre fermenters and butyrate makers, such as Faecalibacterium.'],['Bacteroidota','Experts at breaking down complex plant sugars, such as Bacteroides.'],
+   ['Actinomycetota','Includes Bifidobacterium, common in babies.'],['Pseudomonadota','Includes E. coli; usually only a small share.'],['Verrucomicrobiota','Includes Akkermansia, which lives in the gut\'s mucus layer.'],
+   ['Not only bacteria','Archaea such as Methanobrevibacter (they make methane), yeasts and other fungi, and huge numbers of viruses that infect bacteria (phages).']];
+  el.innerHTML=`<p class="tv-lead">Trillions of microbes live in your gut, mostly in the colon. Together they weigh roughly 0.2 kg and carry far more genes than you do. Tap <b>See it on the body</b> to jump to the part in 3D.</p>
+   <h3 class="tv-h">Where they live</h3><p class="tv-sub">Microbes per gram or millilitre of gut contents (each step on the bar is ten times more).</p>
+   <div class="tv-bars">${WHERE.map((w,i)=>`<div class="tv-bar"><div class="tv-row"><b>${w.n}</b><span>about 10<sup>${String(w.e).replace('.5','')}</sup>${w.e%1?' to 10<sup>12</sup>':''}</span></div>
+     <div class="tv-track"><i style="width:${(w.e/12*100).toFixed(0)}%"></i></div><p>${w.d}</p><button class="tv-see" data-w="${i}">See it on the body ›</button></div>`).join('')}</div>
+   <h3 class="tv-h">What they do for you</h3><div class="tv-cards">${JOBS.map((j,i)=>`<div class="tv-card"><b>${j[0]}</b><p>${j[1]}</p><button class="tv-see" data-j="${i}">See it on the body ›</button></div>`).join('')}</div>
+   <h3 class="tv-h">Who lives there</h3><dl class="tv-who">${WHO.map(w=>`<dt>${w[0]}</dt><dd>${w[1]}</dd>`).join('')}</dl>
+   <h3 class="tv-h">A lifetime of microbes</h3><p>Babies pick up their first microbes at birth, from their mother and surroundings. Breast milk contains sugars babies cannot digest; they feed Bifidobacterium instead. By about age three the gut community looks much like an adult's. After that, diet (especially fibre), antibiotics, illness and age shape it. Everyone's mix is different, like a fingerprint.</p>
+   <h3 class="tv-h">How we found out</h3><ol class="tv-time">${HIST.map(h=>`<li><span class="tv-t">${h[0]}</span><p>${h[1]}</p></li>`).join('')}</ol>
+   <p class="tv-note">Numbers are rough estimates and vary a lot between people.</p>`;
+  el.addEventListener('click',e=>{const b=e.target.closest('.tv-see');if(!b)return;
+    if(b.dataset.w!==undefined){const w=WHERE[+b.dataset.w];api.show('dig',w.g,{title:w.n,tag:'Gut microbiome',text:w.d});}
+    else{const j=JOBS[+b.dataset.j];api.show(j[2],j[3],{title:j[0],tag:'Gut microbiome',text:j[1]});}});
+}}});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/environments/RoomEnvironment.js"></script>
@@ -551,6 +684,7 @@ if(THREE.RoomEnvironment){const pm=new THREE.PMREMGenerator(renderer);scene.envi
 scene.add(new THREE.HemisphereLight(0xdfe9ff,0x2a1d18,.45));
 const key=new THREE.DirectionalLight(0xfff1e0,1.25);key.position.set(2.5,4,3);scene.add(key);
 const rim=new THREE.DirectionalLight(0x8fd0ff,.6);rim.position.set(-3,2.5,-3);scene.add(rim);
+const bodyRoot=new THREE.Group();scene.add(bodyRoot);   // every body part lives in here (see Height and weight)
 (function floor(){const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');g.translate(256,256);
   for(let r=1;r<=4;r++){g.beginPath();g.arc(0,0,r*60,0,Math.PI*2);g.strokeStyle=`rgba(180,205,200,${.22-r*.035})`;g.lineWidth=1.5;g.stroke();}
   g.strokeStyle='rgba(180,205,200,.10)';g.beginPath();g.moveTo(-240,0);g.lineTo(240,0);g.moveTo(0,-240);g.lineTo(0,240);g.stroke();
@@ -923,10 +1057,10 @@ function ensure(sex,sysId){
 }
 
 /* ================================================================ state + UI */
-const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:.1,skinOwn:1,mixOn:false,mix:new Set(),active:false,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
+const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:.1,skinOwn:1,mixOn:false,mix:new Set(),active:false,hgt:172,wgt:154,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
 let bodyParts=[];const inScene=new Set();
-function attach(list){for(const p of list){if(inScene.has(p))continue;inScene.add(p);scene.add(p.mesh);bodyParts.push(p);}}
-function detachAll(){for(const p of bodyParts)scene.remove(p.mesh);inScene.clear();bodyParts=[];}
+function attach(list){for(const p of list){if(inScene.has(p))continue;inScene.add(p);bodyRoot.add(p.mesh);bodyParts.push(p);}}
+function detachAll(){for(const p of bodyParts)bodyRoot.remove(p.mesh);inScene.clear();bodyParts=[];}
 
 $('dial').innerHTML=SYSTEMS.map((s,i)=>`<button class="chip" data-i="${i}" style="--c:${s.color}" aria-pressed="false"><i></i><span>${s.name}</span></button>`).join('');
 /* Mix systems: off, a chip shows that one system (as before). On, chips switch systems on and off together;
@@ -946,7 +1080,7 @@ $('prev').onclick=()=>{stopTour();setSys((st.sys+10)%11);};
 $('next').onclick=()=>{stopTour();setSys((st.sys+1)%11);};
 const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));st[key]=b.dataset.v;fn&&fn();});
-segs('sexSeg','sex',()=>{clearSel();detachAll();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
+segs('sexSeg','sex',()=>{clearSel();detachAll();resetBuild();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
 segs('modeSeg','mode',()=>refresh(false));
 // Skin peel: in the skin system it peels the skin off the muscles (full skin at the right); elsewhere it sets how much see-through skin shows
 $('skin').oninput=e=>{const v=+e.target.value;if(actv().has('integ')){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
@@ -992,6 +1126,18 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
     if(p.pre)p.pre.visible=tr&&p.mesh.visible;if(p.shell)m.userData.rim.value=tr?.5:0;useMat(p);}
   $('tris').textContent=(tris/1e6).toFixed(2)+' M triangles shown';LBL.dirty=true;
   updateFillNote();updateAnimTargets();}
+/* Height and weight. The whole body sits in one group (bodyRoot); the sliders only stretch that group, so the phone
+   does no extra work per part. Height stretches it upward from the feet; weight widens and deepens it, worked out so
+   that the build stays in a normal range (width ∝ √(weight ÷ height)). */
+const BUILD={male:{h:172,lb:154},female:{h:167,lb:137}};
+function buildTxt(){const h=st.hgt,lb=st.wgt,inch=Math.round(h/2.54);$('buildTxt').textContent=`${Math.floor(inch/12)} ft ${inch%12} in (${h} cm) · ${lb} lb (${Math.round(lb*.4536)} kg)`;}
+function applyBuild(){const b=BUILD[st.sex],sy=st.hgt/b.h,sw=Math.min(1.32,Math.max(.84,Math.sqrt((st.wgt/b.lb)/sy)));
+  bodyRoot.scale.set(sw,sy,sw);bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);updateSlice();buildTxt();
+  LBL.moving=true;LBL.stillAt=performance.now();}
+function resetBuild(){const b=BUILD[st.sex];st.hgt=b.h;st.wgt=b.lb;$('hgt').value=b.h;$('wgt').value=b.lb;applyBuild();}
+$('hgt').oninput=e=>{st.hgt=+e.target.value;applyBuild();};
+$('wgt').oninput=e=>{st.wgt=+e.target.value;applyBuild();};
+$('buildReset').onclick=()=>{resetBuild();fit(bodyParts.filter(p=>p.mesh.visible),.38);};
 function updateFillNote(){const cur=SYSTEMS[st.sys].id,n=$('fillnote');
   const msg={integ:'Her skin and eyes are a MakeHuman (CC0) female body. Her scanned organs, bones and the male fill are carried inside it by a smooth 3D warp, so every system still lines up.',
    skel:'Her spine, pelvis, knees and leg bones come from the female dataset. Skull, ribs, arms and feet are filled from the male reference and fitted to her posture.',
@@ -1059,7 +1205,7 @@ $('results').addEventListener('click',async e=>{const b=e.target.closest('button
 /* camera */
 let tween=null;const tmpBox=new THREE.Box3(),tmpB2=new THREE.Box3();
 function flyTo(target,pos,dur=1.1){tween={t:0,dur,t0:controls.target.clone(),p0:camera.position.clone(),t1:target,p1:pos};}
-function boxOf(list){tmpBox.makeEmpty();for(const p of list){tmpB2.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.userData.base);tmpBox.union(tmpB2);}return tmpBox.clone();}
+function boxOf(list){tmpBox.makeEmpty();for(const p of list){tmpB2.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.userData.base);tmpBox.union(tmpB2);}return tmpBox.clone().applyMatrix4(bodyRoot.matrix);}
 function fit(list,az){if(!list.length)return;const b=boxOf(list),c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
   const fov=camera.fov*Math.PI/180,hfov=2*Math.atan(Math.tan(fov/2)*camera.aspect);
   const dist=Math.max((sz.y/2)/Math.tan(fov/2),(Math.max(sz.x,sz.z)/2)/Math.tan(hfov/2))*1.18+Math.max(sz.x,sz.z)*.5;
@@ -1078,6 +1224,7 @@ function updateSlice(){const v=st.slicePos,on=st.slice!=='off';
     if(st.slice==='sag')plane.set(new THREE.Vector3(-1,0,0),v*.32);
     else if(st.slice==='cor')plane.set(new THREE.Vector3(0,0,-1),v*.2-.03);
     else plane.set(new THREE.Vector3(0,-1,0),.88+v*.86);
+    plane.applyMatrix4(bodyRoot.matrix);   // the cut follows the body when it is taller or wider
   }
   // undoing a cut puts every material back exactly as it was: one-sided and unclipped
   LBL.dirty=true;const side=on?THREE.DoubleSide:THREE.FrontSide,cp=on?CLIP:null;
@@ -1556,7 +1703,7 @@ function labelPass(){
   const W=Math.max(64,Math.round(stage.clientWidth/3)),H=Math.max(64,Math.round(stage.clientHeight/3));
   if(LBL.rt.width!==W||LBL.rt.height!==H){LBL.rt.setSize(W,H);LBL.buf=new Uint8Array(W*H*4);}
   const list=bodyParts.filter(p=>p.mesh.visible&&p.mesh.userData.pick);
-  const hidden=[];scene.children.forEach(o=>{if(o.visible&&!(o.userData.part&&list.includes(o.userData.part))){o.visible=false;hidden.push(o);}});
+  const hidden=[];[...scene.children,...bodyRoot.children].forEach(o=>{if(o!==bodyRoot&&o.visible&&!(o.userData.part&&list.includes(o.userData.part))){o.visible=false;hidden.push(o);}});
   const mats=list.map((p,i)=>{if(!p.idMat)p.idMat=new THREE.MeshBasicMaterial({toneMapped:false,fog:false});const id=i+1;
     p.idMat.color.setRGB((id&255)/255,((id>>8)&255)/255,((id>>16)&255)/255);p.idMat.side=p.mat.side;p.idMat.clippingPlanes=p.mat.clippingPlanes;
     const m=p.mesh.material;p.mesh.material=p.idMat;return m;});
@@ -1694,7 +1841,8 @@ function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSiz
 new ResizeObserver(resize).observe(stage);
 const clock=new THREE.Clock(),reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,TOUR_SEC=10;
 const selCol=new THREE.Color();
-function loop(now){const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab covers the body: draw nothing
+  const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
   if(tween){tween.t+=dt/tween.dur;const e=tween.t>=1?1:1-Math.pow(1-tween.t,3);controls.target.lerpVectors(tween.t0,tween.t1,e);camera.position.lerpVectors(tween.p0,tween.p1,e);if(tween.t>=1)tween=null;}
   if(st.tour&&st.ready&&!queue.active.size){st.tourT+=dt;$('tourBar').style.width=Math.min(100,st.tourT/TOUR_SEC*100)+'%';if(st.tourT>=TOUR_SEC)setSys((st.sys+1)%11);}
   if(L.on&&L.auto&&!queue.active.size){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
@@ -1702,9 +1850,77 @@ function loop(now){const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const p of st.selSet){p.mat.emissive.copy(selCol);useMat(p);}}
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);renderer.render(scene,camera);tunePR(now||performance.now());requestAnimationFrame(loop);}
 
+/* ================================================================ add-on packs
+   A pack is a piece of code that calls AnatomyPacks.register({...}). It can add a tab, tours and body conditions,
+   without changing this file. Built-in packs sit at the end of the page as inert text (<script type="text/x-anatomy-pack">)
+   and only run when their tab is first opened. Extra packs are .js files added by web address under "Add-on packs";
+   they are remembered on this device and load after the body is ready. */
+const PACKS=new Map(),CONDS=[];let tabOpen=null;
+const packApi={
+  // jump to the body and highlight a structure group (or parts whose names match a RegExp) in a system
+  show:async(sys,match,info={})=>{closeTab();stopTour();mixOff();endLesson();if(Q.on)endQuiz();
+    if(!SYS[sys])return;if(SYSTEMS[st.sys].id!==sys){st.sys=SYS[sys].i;clearSel();await refresh(false);}
+    for(let n=0;!st.ready&&n<200;n++)await new Promise(r=>setTimeout(r,150));
+    const lab=p=>{const g=(p.grp&&p.grp.sys===sys)?p.grp:groupOf(sys,p.name);return g?g.label:'';};
+    const list=bodyParts.filter(p=>visibleIn(p,sys)&&(match instanceof RegExp?match.test(p.name):lab(p)===match));
+    selectSet(list,{title:info.title||String(match),tag:info.tag||SYSTEMS[st.sys].name,desc:info.text||'',src:list.length?sourceLine(list):''});
+    if(list.length)fit(list);stage.scrollIntoView({behavior:'smooth',block:'center'});},
+  addLesson:les=>{if(les&&les.name&&Array.isArray(les.steps)){LESSONS.push({tag:'Add-on',...les,steps:les.steps.map(s=>({...s}))});renderLessons();}},
+  addCondition:c=>{if(!c||!c.name||!c.sys)return;CONDS.push(c);renderConds();},
+  toast:m=>toast(m),
+  systems:()=>SYSTEMS.map(s=>({id:s.id,name:s.name})),
+  groups:sys=>GROUPS.filter(g=>g.sys===sys).map(g=>g.label).filter((v,i,a)=>a.indexOf(v)===i)};
+function registerPack(p){if(!p||!p.id)return;const old=PACKS.get(p.id)||{};const pk=Object.assign(old,p,{loaded:true});PACKS.set(p.id,pk);
+  if(p.tab&&!old.tabBtn)addTabBtn(pk);
+  (p.lessons||[]).forEach(packApi.addLesson);(p.conditions||[]).forEach(packApi.addCondition);
+  if(typeof p.init==='function')try{p.init(packApi);}catch(e){console.error(e);}
+  renderPackList();return pk;}
+window.AnatomyPacks={register:registerPack,api:packApi,version:1};
+
+/* tabs: Body is the 3D view; every other tab covers it and the 3D drawing pauses until you come back */
+function addTabBtn(pk){const b=document.createElement('button');b.textContent=pk.tab&&pk.tab.title||pk.name;b.dataset.pack=pk.id;
+  b.setAttribute('aria-pressed','false');$('tabs').append(b);pk.tabBtn=b;}
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;b.dataset.pack?openTab(b.dataset.pack):closeTab();});
+async function openTab(id){const pk=PACKS.get(id);if(!pk)return;
+  if(!pk.loaded&&pk.code){try{new Function('AnatomyPacks',pk.code)(window.AnatomyPacks);}catch(e){console.error(e);toast('That tab could not load.');return;}}
+  const P=PACKS.get(id);if(!P.tab){toast('That pack has no tab.');return;}
+  stopTour();tabOpen=id;st.paused=true;document.body.classList.add('tabbed');
+  $('tabTitle').textContent=P.tab.title||P.name;const host=$('tabBody');[...host.children].forEach(c=>c.hidden=c.dataset.pack!==id);
+  let el=host.querySelector(`[data-pack="${id}"]`);
+  if(!el){el=document.createElement('div');el.dataset.pack=id;host.append(el);try{await P.tab.build(el,packApi);}catch(e){console.error(e);el.textContent='This tab could not load.';}}
+  $('tabView').hidden=false;$('tabView').scrollTop=0;$('tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pack===id)));
+  $('tabBack').focus({preventScroll:true});}
+function closeTab(){if(!tabOpen)return;tabOpen=null;st.paused=false;clock.getDelta();document.body.classList.remove('tabbed');$('tabView').hidden=true;
+  $('tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(!b.dataset.pack)));}
+$('tabBack').onclick=closeTab;
+addEventListener('keydown',e=>{if(e.key==='Escape'&&tabOpen){e.stopImmediatePropagation();closeTab();}},true);
+// the built-in packs: only their name and tab title are read now; their code runs when the tab is first opened
+document.querySelectorAll('script[type="text/x-anatomy-pack"]').forEach(s=>{const pk={id:s.dataset.id,name:s.dataset.name,code:s.textContent,builtin:true,loaded:false,tab:{title:s.dataset.tab}};
+  PACKS.set(pk.id,pk);addTabBtn(pk);});
+
+/* body conditions added by packs: a list under Learn that highlights the affected parts */
+function renderConds(){const box=$('condBox');box.hidden=!CONDS.length;
+  $('condList').innerHTML=CONDS.map((c,i)=>`<button data-c="${i}"><b>${esc(String(c.name))}</b><span>${esc(SYS[c.sys]?SYSTEMS[SYS[c.sys].i].name:String(c.sys))}${c.pack?' · '+esc(String(c.pack)):''}</span></button>`).join('');}
+$('condList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const c=CONDS[+b.dataset.c];
+  packApi.show(c.sys,c.match instanceof RegExp?c.match:(c.group||c.match),{title:c.name,tag:'Condition'+(c.pack?' · '+c.pack:''),text:c.text||''});});
+
+/* extra packs from a web address, remembered on this device */
+const PK_KEY='ca-packs';
+const savedPacks=()=>{try{return JSON.parse(localStorage.getItem(PK_KEY)||'[]');}catch(e){return [];}};
+const savePacks=a=>{try{localStorage.setItem(PK_KEY,JSON.stringify(a));}catch(e){}};
+function loadPackUrl(url){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=url;s.async=true;s.onload=ok;s.onerror=()=>no(new Error('not found'));document.head.append(s);});}
+function renderPackList(){const urls=savedPacks();
+  $('packList').innerHTML=[...[...PACKS.values()].map(p=>`<li><b>${esc(String(p.name||p.id))}</b><span>${p.builtin?'built in'+(p.loaded?'':' · loads when opened'):'added'}</span></li>`),
+    ...urls.map((u,i)=>`<li><b>${esc(u.split('/').pop())}</b><span>${esc(u)}</span><button class="linkbtn" data-rm="${i}">Remove</button></li>`)].join('');}
+$('packList').addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(!b)return;const a=savedPacks();a.splice(+b.dataset.rm,1);savePacks(a);renderPackList();toast('Removed. Reload the page to unload it.');});
+$('packForm').onsubmit=async e=>{e.preventDefault();const url=$('packUrl').value.trim();if(!/^https?:\/\/|^\.{0,2}\//.test(url)){toast('Enter the web address of a pack (.js).');return;}
+  try{await loadPackUrl(url);const a=savedPacks();if(!a.includes(url)){a.push(url);savePacks(a);}$('packUrl').value='';renderPackList();toast('Pack added.');}
+  catch(err){toast('That pack could not load. Check the address.');}};
+function bootPacks(){const q=new URLSearchParams(location.search).getAll('pack');
+  for(const u of [...savedPacks(),...q])loadPackUrl(u).catch(()=>toast('An add-on pack did not load: '+u));renderPackList();}
 /* boot */
-setActive(false);renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
-refresh(true);requestAnimationFrame(loop);
+setActive(false);buildTxt();renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
+refresh(true).then(()=>setTimeout(bootPacks,1500));requestAnimationFrame(loop);
 })();
 </script>
 <script>
