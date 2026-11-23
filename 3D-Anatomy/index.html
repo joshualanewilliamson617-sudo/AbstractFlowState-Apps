@@ -51,6 +51,11 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);font-size:1
 .chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip:hover{color:var(--ink);background:var(--raise)}
 .chip[aria-pressed="true"]{color:var(--ink);border-color:var(--c);background:var(--raise)}
+.mixbtn{flex:none;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--mute);font:inherit;font-size:12.5px;cursor:pointer}
+.mixbtn[aria-pressed="true"]{color:var(--ink);border-color:var(--sys);box-shadow:inset 0 0 0 1px var(--sys)}
+.dial.mixing .chip i{width:12px;height:12px;border:2px solid var(--c);background:transparent}
+.dial.mixing .chip[aria-pressed="true"] i{background:var(--c)}
+.dial.mixing .chip.main{box-shadow:inset 0 0 0 1px var(--c)}
 .tour{display:flex;align-items:center;gap:10px}
 .tour button{flex:none;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-weight:500;cursor:pointer}
 .tour button[aria-pressed="true"]{border-color:var(--sys);color:var(--sys)}
@@ -96,7 +101,15 @@ input[type=search]{width:100%;min-width:0}
 .credits{font-size:11px;color:var(--faint);border-top:1px solid var(--line);padding-top:12px;display:grid;gap:4px}
 .credits a{color:var(--mute)}
 #stage{position:relative;min-width:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 38%,#18252b 0%,var(--stage) 45%,var(--void) 100%)}
-#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+/* scroll mode: a finger on the body scrolls the page; active mode (tap the body): the finger turns it, two fingers zoom */
+#stage canvas{display:block;width:100%;height:100%;touch-action:pan-x pan-y}
+#stage.active canvas{touch-action:none}
+#stage::after{content:"";position:absolute;inset:0;pointer-events:none;border:2px solid transparent;transition:border-color .2s}
+#stage.active::after{border-color:var(--sys)}
+.turnbtn{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(10,15,18,.6);color:var(--mute);border-radius:6px;padding:3px 7px;font:inherit;font-size:11px;cursor:pointer;text-align:left;line-height:1.3}
+.turnbtn i{width:7px;height:7px;border-radius:50%;flex:none;border:1.5px solid var(--mute)}
+.turnbtn[aria-pressed="true"]{color:var(--ink);border-color:var(--sys)}
+.turnbtn[aria-pressed="true"] i{background:var(--sys);border-color:var(--sys)}
 .hud{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));font-family:var(--mono);font-size:11px;color:var(--faint);pointer-events:none}
 .scalebar{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:max(14px,env(safe-area-inset-top,0px));font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right;pointer-events:none;display:grid;gap:2px;font-variant-numeric:tabular-nums}
 #loader{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:max(40px,env(safe-area-inset-bottom,0px));background:rgba(10,15,18,.88);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:11.5px;color:var(--mute);display:grid;gap:6px;width:min(340px,calc(100% - 32px))}
@@ -139,6 +152,9 @@ input[type=search]{width:100%;min-width:0}
 .lessons{display:grid;gap:6px}
 .lessons button{display:grid;gap:1px;text-align:left;border:1px solid var(--line);background:var(--raise);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit;cursor:pointer}
 .lessons button:hover{border-color:var(--sys)}.lessons button b{font-weight:500;font-size:13px}.lessons button span{font-size:11.5px;color:var(--mute)}
+.lcard{display:grid;gap:4px}.lparts{display:flex;flex-wrap:wrap;gap:4px}
+.lessons .lparts button{display:flex;flex-direction:column;gap:0;padding:5px 8px;font-size:11.5px;color:var(--mute);border-radius:6px;min-height:36px;justify-content:center}
+.lessons .lparts button small{font-size:10.5px;opacity:.8}
 
 .tutorbtn{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:max(44px,calc(env(safe-area-inset-bottom,0px) + 44px));z-index:5;display:flex;align-items:center;gap:8px;
   padding:9px 14px;border-radius:999px;border:1px solid var(--sys);background:rgba(8,13,15,.88);color:var(--ink);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
@@ -164,7 +180,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   .band{padding-inline:max(12px,env(safe-area-inset-left,0px)) max(12px,env(safe-area-inset-right,0px))}
   #sysbar{padding-block:8px;gap:8px}
   .brandrow h1{font-size:19px}
-  .brandrow .cycler{flex-basis:100%;max-width:none}
+  .brandrow .cycler{flex-basis:100%;max-width:none;order:2}
+  .brandrow .mixbtn{margin-left:auto;order:1;padding:6px 10px}
   #sysbar .dial{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
   #sysbar .chip{padding:7px 6px;font-size:12px;gap:6px}
   #stage{height:62vh;height:62svh;min-height:320px}
@@ -187,6 +204,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         </div>
         <button id="next" aria-label="Next system">›</button>
       </section>
+      <button id="mixBtn" class="mixbtn" aria-pressed="false" title="Show several body systems at once">Mix systems</button>
     </div>
       <div class="dial" id="dial" role="group" aria-label="Organ systems"></div>
   </header>
@@ -202,6 +220,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         <div class="v"><b id="vO2">98</b><span>SpO₂ %</span></div>
       </div>
       <canvas id="ecg" aria-label="ECG trace, lead II"></canvas>
+      <button class="turnbtn" id="turnBtn" aria-pressed="false"><i></i><span id="turnTxt">Scroll mode · tap the body to turn it</span></button>
     </div>
     <div class="quizbar" id="quizBar" hidden>
       <div class="find"><span id="qProg">1 / 10</span><span>Find</span><span><span id="qScore">0</span> pts <span id="qStreak"></span></span></div>
@@ -904,13 +923,25 @@ function ensure(sex,sysId){
 }
 
 /* ================================================================ state + UI */
-const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:.1,skinOwn:1,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
+const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:.1,skinOwn:1,mixOn:false,mix:new Set(),active:false,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
 let bodyParts=[];const inScene=new Set();
 function attach(list){for(const p of list){if(inScene.has(p))continue;inScene.add(p);scene.add(p.mesh);bodyParts.push(p);}}
 function detachAll(){for(const p of bodyParts)scene.remove(p.mesh);inScene.clear();bodyParts=[];}
 
 $('dial').innerHTML=SYSTEMS.map((s,i)=>`<button class="chip" data-i="${i}" style="--c:${s.color}" aria-pressed="false"><i></i><span>${s.name}</span></button>`).join('');
-$('dial').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b){stopTour();setSys(+b.dataset.i);}});
+/* Mix systems: off, a chip shows that one system (as before). On, chips switch systems on and off together;
+   the last one switched on is the main system, whose facts, groups, quiz and colour the panel shows. */
+const actv=()=>{const s=new Set([SYSTEMS[st.sys].id]);if(st.mixOn)for(const x of st.mix)s.add(x);return s;};
+function mixOff(){if(!st.mixOn)return;st.mixOn=false;st.mix.clear();$('mixBtn').setAttribute('aria-pressed','false');$('dial').classList.remove('mixing');renderInfo();}
+$('mixBtn').onclick=()=>{stopTour();if(st.mixOn){mixOff();clearSel();refresh(false);return;}
+  st.mixOn=true;$('mixBtn').setAttribute('aria-pressed','true');$('dial').classList.add('mixing');renderInfo();toast('Mix on: tap systems to add or remove them.');};
+$('dial').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;stopTour();const i=+b.dataset.i,id=SYSTEMS[i].id;
+  if(!st.mixOn){setSys(i);return;}
+  const A=actv();
+  if(!A.has(id)){st.mix.add(SYSTEMS[st.sys].id);st.mix.delete(id);setSys(i);}            // add it, and make it the main system
+  else if(A.size>1){if(i===st.sys){const rest=[...st.mix],nm=rest.pop();st.mix.delete(nm);setSys(SYS[nm].i);}
+    else{st.mix.delete(id);clearSel();renderInfo();refresh(false);}}
+  else toast('At least one system stays on.');});
 $('prev').onclick=()=>{stopTour();setSys((st.sys+10)%11);};
 $('next').onclick=()=>{stopTour();setSys((st.sys+1)%11);};
 const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -918,8 +949,8 @@ const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.clos
 segs('sexSeg','sex',()=>{clearSel();detachAll();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
 segs('modeSeg','mode',()=>refresh(false));
 // Skin peel: in the skin system it peels the skin off the muscles (full skin at the right); elsewhere it sets how much see-through skin shows
-$('skin').oninput=e=>{const v=+e.target.value;if(SYSTEMS[st.sys].id==='integ'){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
-function skinSlider(){const own=SYSTEMS[st.sys].id==='integ',s=$('skin');s.max=own?1:.6;s.value=own?st.skinOwn:st.skin;
+$('skin').oninput=e=>{const v=+e.target.value;if(actv().has('integ')){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
+function skinSlider(){const own=actv().has('integ'),s=$('skin');s.max=own?1:.6;s.value=own?st.skinOwn:st.skin;
   $('skinLbl').textContent=own?'Skin peel · drag left to see the muscles underneath':'Skin peel';}
 function loadPeelMuscles(){const sex=st.sex,gen=st.gen;ensure(sex,'musc').then(l=>{if(gen!==st.gen||sex!==st.sex)return;attach(l);apply();updateSlice();}).catch(console.error);}
 $('flow').onchange=e=>{st.flow=e.target.checked;FLOW.uOn.value=st.flow?1:0;};
@@ -928,29 +959,30 @@ $('slicePos').oninput=e=>{st.slicePos=+e.target.value;updateSlice();};
 $('tour').onclick=()=>st.tour?stopTour():startTour();
 addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea'))return;
   if(e.key==='ArrowRight'){stopTour();setSys((st.sys+1)%11);}else if(e.key==='ArrowLeft'){stopTour();setSys((st.sys+10)%11);}
-  else if(e.key===' '){e.preventDefault();st.tour?stopTour():startTour();}else if(e.key==='Escape'){if(Q.on)endQuiz();else if(L.on)endLesson();else{clearSel();renderCard();}}});
-function startTour(){st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
+  else if(e.key===' '){e.preventDefault();st.tour?stopTour():startTour();}else if(e.key==='Escape'){if(st.active)setActive(false);else if(Q.on)endQuiz();else if(L.on)endLesson();else{clearSel();renderCard();}}});
+function startTour(){mixOff();st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
 function stopTour(){if(!st.tour)return;st.tour=false;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
 function setSys(i){if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson();st.sys=i;clearSel();st.tourT=0;refresh(true);}
 
 async function refresh(fly){
-  const gen=++st.gen,sex=st.sex,cur=SYSTEMS[st.sys].id;st.ready=false;$('err').hidden=true;
+  const gen=++st.gen,sex=st.sex,A=actv();st.ready=false;$('err').hidden=true;
   renderInfo();apply();
-  const need=new Set(['integ',cur]);if(st.mode!=='isolate')SYSTEMS.forEach(s=>need.add(s.id));if(cur==='integ'&&st.skinOwn<1)need.add('musc');
+  const need=new Set(['integ',...A]);if(st.mode!=='isolate')SYSTEMS.forEach(s=>need.add(s.id));if(A.has('integ')&&st.skinOwn<1)need.add('musc');
   try{
-    const homes=new Set(['integ',cur]);const own=await manifest(sex);own.parts.forEach(r=>{if(r[3]&&r[3].split(',').includes(cur))homes.add(r[2]);});
-    if(sex==='female'){const mm=await manifest('male');mm.parts.forEach(r=>{if(r[3]&&r[3].split(',').includes(cur)&&FILL[r[2]])homes.add(r[2]);});}
+    const hit=r=>r[3]&&r[3].split(',').some(x=>A.has(x));
+    const homes=new Set(['integ',...A]);const own=await manifest(sex);own.parts.forEach(r=>{if(hit(r))homes.add(r[2]);});
+    if(sex==='female'){const mm=await manifest('male');mm.parts.forEach(r=>{if(hit(r)&&FILL[r[2]])homes.add(r[2]);});}
     const first=await Promise.all([...homes].map(h=>ensure(sex,h)));if(gen!==st.gen)return;
     first.forEach(attach);apply();updateSlice();renderGroups();if(fly)focusSystem();st.ready=true;
     for(const s of [...need].filter(s=>!homes.has(s))){const l=await ensure(sex,s);if(gen!==st.gen)return;attach(l);apply();updateSlice();}
   }catch(e){console.error(e);$('err').hidden=false;$('err').textContent='The anatomy files did not load ('+e.message+'). Check your connection, then choose the system again.';}
 }
 const visibleIn=(p,cur)=>p.sys===cur||p.also.includes(cur);
-function apply(){const cur=SYSTEMS[st.sys].id;let tris=0;if(st.peel&&cur==='musc')muscleLayers();
-  const peeled=cur==='integ'&&st.skinOwn<1;
+function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayers();
+  const inA=p=>A.has(p.sys)||p.also.some(x=>A.has(x)),peeled=A.has('integ')&&st.skinOwn<1;
   for(const p of bodyParts){let o=0,pick=false;
-    if(visibleIn(p,cur)){o=p.glass&&st.mode!=='all'?.42:1;pick=true;if(st.peel&&cur==='musc'&&p.sys==='musc'&&p.layer<st.peel){o=0;pick=false;}
-      if(peeled&&(p.shell||!/sclera|iris|pupil/i.test(p.name)))o=st.skinOwn;}   // skin system: the skin peel slider fades skin, hair and breast tissue away
+    if(inA(p)){o=p.glass&&st.mode!=='all'?.42:1;pick=true;if(st.peel&&A.has('musc')&&p.sys==='musc'&&p.layer<st.peel){o=0;pick=false;}
+      if(peeled&&p.sys==='integ'&&(p.shell||!/sclera|iris|pupil/i.test(p.name)))o=st.skinOwn;}   // skin system: the skin peel slider fades skin, hair and breast tissue away
     else if(peeled&&p.sys==='musc'){o=1;pick=true;}            // ...and every muscle shows underneath
     else if(p.skin)o=(p.shell||st.skin>.25)?st.skin:0;
     else if(st.mode==='all'){o=1;pick=true;}
@@ -974,9 +1006,9 @@ function updateFillNote(){const cur=SYSTEMS[st.sys].id,n=$('fillnote');
   const t=st.sex==='female'?msg:male;n.hidden=!t;if(t)n.textContent=t;}
 
 function renderInfo(){const s=SYSTEMS[st.sys];document.documentElement.style.setProperty('--sys',s.color);
-  $('sysIdx').textContent=String(st.sys+1).padStart(2,'0')+' / 11';$('sysTitle').textContent=s.name;$('sysJob').textContent=s.job;
-  $('dial').querySelectorAll('.chip').forEach((b,i)=>b.setAttribute('aria-pressed',i===st.sys));
-  $('peelCtl').hidden=s.id!=='musc';skinSlider();
+  $('sysIdx').textContent=st.mixOn&&st.mix.size?(st.mix.size+1)+' systems mixed · main':String(st.sys+1).padStart(2,'0')+' / 11';$('sysTitle').textContent=s.name;$('sysJob').textContent=s.job;
+  const A=actv();$('dial').querySelectorAll('.chip').forEach((b,i)=>{b.setAttribute('aria-pressed',A.has(SYSTEMS[i].id));b.classList.toggle('main',st.mixOn&&i===st.sys);});
+  $('peelCtl').hidden=!A.has('musc');skinSlider();
   $('sysSummary').textContent=s.summary;$('facts').innerHTML=s.facts.map(f=>`<div><dt>${f[0]}</dt><dd>${f[1]}</dd></div>`).join('');
   $('plist').innerHTML='<span class="note">Loading structures…</span>';renderCard();}
 let groupList=[];
@@ -1037,7 +1069,7 @@ function fit(list,az){if(!list.length)return;const b=boxOf(list),c=b.getCenter(n
   const tp=document.getElementById('tutor');if(tOpen){const frac=Math.min(.5,(tp.offsetWidth+24)/Math.max(1,stage.clientWidth)/2);
     const right=new THREE.Vector3().crossVectors(dir,new THREE.Vector3(0,1,0)).normalize().negate(),sh=D*Math.tan(hfov/2)*frac*2;c.addScaledVector(right,sh);pos.addScaledVector(right,sh);}
   flyTo(c,pos);}
-function focusSystem(){const cur=SYSTEMS[st.sys].id;const list=bodyParts.filter(p=>visibleIn(p,cur));fit(list.length?list:bodyParts,.38);}
+function focusSystem(){const A=actv();const list=bodyParts.filter(p=>A.has(p.sys)||p.also.some(x=>A.has(x)));fit(list.length?list:bodyParts,.38);}
 
 /* slicing */
 const plane=new THREE.Plane(),CLIP=[plane];
@@ -1060,9 +1092,20 @@ function pickAt(cx,cy){const r=renderer.domElement.getBoundingClientRect();mouse
 renderer.domElement.addEventListener('pointermove',e=>{if(e.pointerType==='touch'||e.buttons)return;hoverPending=[e.clientX,e.clientY];});
 renderer.domElement.addEventListener('pointerleave',()=>{$('tip').hidden=true;hoverPending=null;});
 renderer.domElement.addEventListener('pointerdown',e=>{downAt=[e.clientX,e.clientY];$('tip').hidden=true;});
+renderer.domElement.addEventListener('pointercancel',()=>{downAt=null;});   // the page scrolled instead (scroll mode)
 renderer.domElement.addEventListener('pointerup',e=>{if(!downAt)return;const moved=Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1]);downAt=null;if(moved>5)return;
+  if(!st.active){setActive(true);return;}   // first tap only wakes the body up
   if(Q.on){quizClick(pickAt(e.clientX,e.clientY));return;}stopTour();selectPart(pickAt(e.clientX,e.clientY),false);});
 controls.addEventListener('start',()=>{tween=null;});
+/* Active / scroll mode. Scroll mode (the start): a finger on the body scrolls the page and nothing zooms.
+   Tap or click the body to make it active: drag turns it, pinch or the mouse wheel zooms, taps pick parts.
+   Tapping anywhere outside the body, the mode button, or Esc goes back to scroll mode. */
+function setActive(on){st.active=on;controls.enabled=on;stage.classList.toggle('active',on);renderer.domElement.style.touchAction=on?'none':'pan-x pan-y';
+  $('turnBtn').setAttribute('aria-pressed',String(on));
+  $('turnTxt').textContent=on?(PHONE?'Active · drag to turn, pinch to zoom · tap outside to scroll':'Active · drag to turn, wheel to zoom · click outside or Esc to stop')
+    :(PHONE?'Scroll mode · tap the body to turn it':'Scroll mode · click the body to turn it');}
+$('turnBtn').onclick=e=>{e.stopPropagation();setActive(!st.active);};
+document.addEventListener('pointerdown',e=>{if(st.active&&!stage.contains(e.target))setActive(false);},true);
 function doHover(now){if(!hoverPending||now-lastHover<80)return;lastHover=now;const [x,y]=hoverPending;hoverPending=null;const p=pickAt(x,y),tip=$('tip');
   if(p){const r=stage.getBoundingClientRect();tip.hidden=false;tip.textContent=p.name;tip.style.left=(x-r.left)+'px';tip.style.top=(y-r.top)+'px';renderer.domElement.style.cursor='pointer';}
   else{tip.hidden=true;renderer.domElement.style.cursor='grab';}}
@@ -1157,7 +1200,7 @@ function quizPool(){const cur=SYSTEMS[st.sys].id;
     const r=p.mesh.geometry.boundingSphere.radius*p.mesh.userData.base.getMaxScaleOnAxis();if(r<.008)continue;
     const k=p.name.toLowerCase();if(seen.has(k))continue;seen.add(k);out.push({label:p.name.charAt(0).toUpperCase()+p.name.slice(1),parts:bodyParts.filter(q=>q.name.toLowerCase()===k&&visibleIn(q,cur))});}
   return out;}
-function startQuiz(){stopTour();endLesson();clearSel();renderCard();const pool=quizPool();
+function startQuiz(){mixOff();setActive(true);stopTour();endLesson();clearSel();renderCard();const pool=quizPool();
   if(pool.length<3){toast('Not enough structures loaded for a quiz in this system yet.');return;}
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   Object.assign(Q,{on:true,items:pool.slice(0,10),i:0,score:0,streak:0,right:0});$('quizBar').hidden=false;$('qEnd').hidden=true;$('tip').hidden=true;nextQ(true);}
@@ -1183,71 +1226,129 @@ function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTim
 
 /* ================================================================ guided lessons */
 const S_=(sys,title,text,match,opts={})=>({sys,title,text,match,...opts});
+/* Guided tours. A step with sec:'…' starts a new part; each part can be played on its own. alt:[system, group] is a
+   stand-in when this body has no model of the named structure (for example the inner ear). */
 const LESSONS=[
- {name:'The path of a breath',sub:'Respiratory · 6 stops',steps:[
-  S_('resp','Nose','Air enters through the nostrils. Hairs and mucus trap dust, and the curled conchae warm and moisten the air before it goes deeper.','Nose and sinuses'),
+ {name:'The path of a breath',tag:'Respiratory',steps:[
+  S_('resp','Nose','Air enters through the nostrils. Hairs and mucus trap dust, and the curled conchae warm and moisten the air before it goes deeper.','Nose and sinuses',{sec:'Nose and throat'}),
   S_('resp','Pharynx and larynx','The throat is shared with food. At the larynx the epiglottis flips shut each time you swallow, so food goes to the esophagus and air to the trachea. The vocal cords sit here.','Pharynx and larynx'),
-  S_('resp','Trachea','The windpipe, about 11 cm long. C-shaped cartilage rings keep it open while the soft back wall lets the esophagus behind it expand.','Trachea'),
+  S_('resp','Trachea','The windpipe, about 11 cm long. C-shaped cartilage rings keep it open while the soft back wall lets the esophagus behind it expand.','Trachea',{sec:'Down the airways'}),
   S_('resp','Bronchi','The trachea splits at the carina into left and right main bronchi, then branches about 23 times. The right main bronchus is wider and steeper, so inhaled objects usually land on the right.','Bronchi'),
-  S_('resp','Lungs and alveoli','The airways end in roughly 480 million alveoli with a combined surface of 50 to 75 m². Oxygen crosses a wall less than a micrometre thick into the blood.','Lungs'),
+  S_('resp','Lungs and alveoli','The airways end in roughly 480 million alveoli with a combined surface of 50 to 75 m². Oxygen crosses a wall less than a micrometre thick into the blood.','Lungs',{sec:'Into the lungs'}),
   S_('resp','Diaphragm','Watch it move: the diaphragm contracts and drops about 1.5 cm, the ribs swing up and out, and the lungs fill. Breathing out at rest is mostly passive recoil.','Diaphragm',{also:'Breathing muscles'})]},
- {name:'Journey of a meal',sub:'Digestive · 8 stops',steps:[
-  S_('dig','Mouth','Teeth cut and grind while saliva starts digesting starch. The tongue shapes food into a soft ball, the bolus.','Mouth and salivary glands'),
+ {name:'Journey of a meal',tag:'Digestive',steps:[
+  S_('dig','Mouth','Teeth cut and grind while saliva starts digesting starch. The tongue shapes food into a soft ball, the bolus.','Mouth and salivary glands',{sec:'Mouth to stomach'}),
   S_('dig','Esophagus','Swallowing pushes the bolus down a 25 cm muscular tube. Waves of contraction (peristalsis) carry it to the stomach in about 8 seconds, even upside down.','Pharynx and esophagus'),
   S_('dig','Stomach','Over 2 to 4 hours the stomach churns food in acid at about pH 2. Pepsin starts breaking down protein, turning the meal into a liquid called chyme.','Stomach'),
-  S_('dig','Liver','The liver makes up to a litre of bile a day for digesting fat. It also receives all the nutrient-rich blood from the gut through the portal vein.','Liver'),
+  S_('dig','Liver','The liver makes up to a litre of bile a day for digesting fat. It also receives all the nutrient-rich blood from the gut through the portal vein.','Liver',{sec:'The helpers'}),
   S_('dig','Gallbladder','Between meals bile is stored and concentrated here. A fatty meal makes it squeeze bile into the duodenum.','Gallbladder and bile ducts'),
   S_('dig','Pancreas','Pancreatic juice neutralises stomach acid and brings the enzymes that break down fat, protein and carbohydrate.','Pancreas'),
-  S_('dig','Small intestine','6 to 7 m long and folded into villi, it absorbs about 90 percent of nutrients over 3 to 5 hours.','Small intestine'),
+  S_('dig','Small intestine','6 to 7 m long and folded into villi, it absorbs about 90 percent of nutrients over 3 to 5 hours.','Small intestine',{sec:'The intestines'}),
   S_('dig','Large intestine','The colon reclaims water and salts over a day or more. Trillions of bacteria here ferment fibre and make vitamin K.','Large intestine')]},
- {name:'One heartbeat',sub:'Cardiovascular · 7 stops',steps:[
-  S_('card','Right atrium','Oxygen-poor blood from the whole body arrives here through the venae cavae. Watch the atria squeeze first, just after the P wave on the ECG.',/right (cardiac )?atrium|right auricle|atrium.*right|right atri/i),
+ {name:'One heartbeat',tag:'Cardiovascular',steps:[
+  S_('card','Right atrium','Oxygen-poor blood from the whole body arrives here through the venae cavae. Watch the atria squeeze first, just after the P wave on the ECG.',/right (cardiac )?atrium|right auricle|atrium.*right|right atri/i,{sec:'The right side'}),
   S_('card','Right ventricle','About 0.15 seconds later the ventricles contract (the tall QRS spike). The right ventricle pushes blood through the pulmonary valve.',/right ventricle/i),
   S_('card','Pulmonary arteries','These are the only arteries that carry oxygen-poor blood. They take it to the lungs.',/pulmonary (trunk|artery)|pulmonary arteries|branch of (left|right) pulmonary artery/i),
-  S_('resp','Lungs','In the lungs the blood drops carbon dioxide and picks up oxygen in under a second.','Lungs'),
+  S_('resp','Lungs','In the lungs the blood drops carbon dioxide and picks up oxygen in under a second.','Lungs',{sec:'Through the lungs'}),
   S_('card','Left atrium','Oxygen-rich blood returns through four pulmonary veins into the left atrium.',/left (cardiac )?atrium|left auricle|atrium.*left|left atri|pulmonary vein/i),
-  S_('card','Left ventricle','The strongest chamber. Its wall is about three times thicker than the right ventricle\'s, because it pumps against the pressure of the whole body.',/left ventricle/i),
+  S_('card','Left ventricle','The strongest chamber. Its wall is about three times thicker than the right ventricle\'s, because it pumps against the pressure of the whole body.',/left ventricle/i,{sec:'Out to the body'}),
   S_('card','Aorta','Each beat sends about 70 mL into the aorta. Watch the pressure wave run outward along the arteries at about 5 m/s.','Aorta and great arteries')]},
- {name:'Tour of the skeleton',sub:'Skeletal · 9 stops',steps:[
-  S_('skel','Skull','22 bones, all fused except the mandible. The cranium protects the brain; the face holds the eyes, nose and teeth.','Skull'),
+ {name:'Tour of the skeleton',tag:'Skeletal',steps:[
+  S_('skel','Skull','22 bones, all fused except the mandible. The cranium protects the brain; the face holds the eyes, nose and teeth.','Skull',{sec:'Head and trunk'}),
   S_('skel','Spine','33 vertebrae in an S-curve that springs under load. Each one has a ring of bone around the spinal cord.','Spine'),
   S_('skel','Rib cage','12 pairs of ribs make a flexible cage that moves with every breath.','Ribs and sternum'),
-  S_('skel','Shoulder girdle','The clavicle is the only bony link between the arm and the trunk, so the shoulder trades stability for range of motion.','Shoulder girdle'),
+  S_('skel','Shoulder girdle','The clavicle is the only bony link between the arm and the trunk, so the shoulder trades stability for range of motion.','Shoulder girdle',{sec:'Arms and hands'}),
   S_('skel','Arm','The radius rolls around the ulna to turn the palm up or down.','Arm bones'),
   S_('skel','Hand','27 bones per hand. About a quarter of all the body\'s bones are in the hands.','Hand bones'),
-  S_('skel','Pelvis','A ring that carries the weight of the upper body to the legs. Switch to the female body to compare its wider shape.','Pelvis'),
+  S_('skel','Pelvis','A ring that carries the weight of the upper body to the legs. Switch to the female body to compare its wider shape.','Pelvis',{sec:'Hips and legs'}),
   S_('skel','Leg','The femur can bear several times body weight; the patella improves the quadriceps\' leverage.','Leg bones'),
   S_('skel','Foot','Three arches act as springs and spread load across the foot.','Foot bones')]},
- {name:'Fight or flight',sub:'Whole body · 6 stops · switches to Exercise',scn:'exercise',steps:[
-  S_('endo','Adrenal glands','A threat triggers the adrenal medulla to release adrenaline within seconds. Watch the vitals: the body state has switched to Exercise.','Adrenal glands'),
+ {name:'Fight or flight',tag:'Whole body · switches to Exercise',scn:'exercise',steps:[
+  S_('endo','Adrenal glands','A threat triggers the adrenal medulla to release adrenaline within seconds. Watch the vitals: the body state has switched to Exercise.','Adrenal glands',{sec:'The alarm'}),
   S_('card','Heart','The heart rate can more than double and each beat becomes stronger. Cardiac output rises from about 5 to more than 15 litres a minute.','Heart'),
-  S_('resp','Airways','The bronchi widen and breathing speeds up to bring in more oxygen.','Bronchi'),
+  S_('resp','Airways','The bronchi widen and breathing speeds up to bring in more oxygen.','Bronchi',{sec:'Fuel and air'}),
   S_('dig','Liver','The liver releases stored glucose for fast fuel, while blood is diverted away from digestion.','Liver'),
-  S_('musc','Muscles','Blood flow to working muscles can rise about tenfold.','Thigh'),
-  S_('nerv','Eyes','The pupils dilate to let in more light.','Eye')]}
+  S_('musc','Muscles','Blood flow to working muscles can rise about tenfold.','Thigh',{sec:'Ready to move'}),
+  S_('nerv','Eyes','The pupils dilate to let in more light.','Eye')]},
+ {name:'Path of a nerve signal',tag:'Nervous',steps:[
+  S_('nerv','A fingertip touch','Touch receptors in the fingertip skin turn pressure into electrical impulses. Sensory fibres in the median and ulnar nerves carry them up the arm, the fastest at about 70 m/s.','Arm nerves',{sec:'Feeling a touch'}),
+  S_('nerv','Into the spinal cord','The impulse enters the cord through a dorsal root. For a reflex, such as pulling back from a hot pan, a short loop in the cord fires the muscles before the brain even knows.','Spinal cord'),
+  S_('nerv','Brainstem','Touch pathways cross to the opposite side, so the left brain feels the right hand. The brainstem relays them upward.','Cerebellum and brainstem',{sec:'Up to the brain'}),
+  S_('nerv','Thalamus','The thalamus is the main relay station: almost every sense except smell passes through it on the way to the cortex.','Diencephalon'),
+  S_('nerv','Cortex','The sensory cortex works out what and where; the motor cortex just in front of it plans a response.','Cerebrum'),
+  S_('nerv','Down the cord','The command runs down the corticospinal tract to motor neurons in the spinal cord.','Spinal cord',{sec:'Back down to act'}),
+  S_('nerv','Out along the nerve','Motor neurons carry it to the arm. At each nerve-muscle junction, acetylcholine makes the muscle fibres fire.','Arm nerves'),
+  S_('musc','The hand moves','Forearm muscles pull long tendons that curl the fingers. A simple reaction like this takes about a fifth of a second.','Forearm and hand')]},
+ {name:'How a muscle moves',tag:'Muscular',steps:[
+  S_('nerv','The signal','The musculocutaneous nerve carries the command to bend the elbow to the biceps.','Arm nerves',{sec:'The command'}),
+  S_('musc','Biceps contracts','Inside each muscle fibre, myosin heads grab actin filaments and pull, using energy from ATP. Millions of these tiny pulls shorten the whole muscle.','Upper arm'),
+  S_('skel','Tendon pulls on bone','The biceps tendon attaches to the radius just below the elbow. With the elbow as the pivot, a short pull swings the hand a long way.','Arm bones',{sec:'Levers and pairs'}),
+  S_('musc','Opposing pairs','Muscles can only pull. To straighten the elbow the triceps contracts while the biceps relaxes. Most joints work with pairs like this.','Upper arm'),
+  S_('musc','Shoulder','The deltoid lifts the arm out to the side; the rotator cuff muscles hold the ball of the humerus in its shallow socket.','Shoulder and chest'),
+  S_('card','Blood supply','Working muscle needs oxygen and glucose. Its blood flow can rise about tenfold during hard exercise.','Arm vessels',{sec:'Fuel and power'}),
+  S_('musc','The big movers','The thigh holds the largest muscles. The quadriceps straightens the knee and is among the strongest muscles in the body.','Thigh')]},
+ {name:'Blood\'s round trip',tag:'Cardiovascular',steps:[
+  S_('card','Left ventricle','Oxygen-rich blood leaves the left ventricle. At rest the heart pumps about 5 litres a minute, roughly all of your blood.',/left ventricle/i,{sec:'Out to the body'}),
+  S_('card','Aorta','The aorta arches over the heart and runs down beside the spine, branching to every organ.','Aorta and great arteries'),
+  S_('card','Out to the legs','Arteries divide into ever smaller vessels, down to capillaries one cell wide, where oxygen and nutrients pass into the tissues.','Leg vessels'),
+  S_('card','Veins','Veins carry blood back at low pressure. One-way valves and squeezing leg muscles push it upward against gravity.','Leg vessels',{sec:'Back to the heart'}),
+  S_('card','Venae cavae','The two largest veins return blood from the lower and upper body into the right atrium.','Venae cavae and great veins'),
+  S_('card','Right heart','The right atrium and ventricle send the oxygen-poor blood on toward the lungs.',/right (cardiac )?atrium|right ventricle|right auricle|right atri/i),
+  S_('card','Pulmonary arteries','Blood travels to the lungs along the pulmonary arteries.',/pulmonary (trunk|artery)|pulmonary arteries|branch of (left|right) pulmonary artery/i,{sec:'Through the lungs'}),
+  S_('resp','Lungs','In the lung capillaries carbon dioxide leaves the blood and oxygen is picked up.','Lungs'),
+  S_('card','Home again','Pulmonary veins bring the blood back to the left atrium, ready to go round again. At rest a full lap takes about a minute.',/left (cardiac )?atrium|left auricle|atrium.*left|left atri|pulmonary vein/i)]},
+ {name:'Hearing a sound',tag:'Nervous',steps:[
+  S_('nerv','Outer ear','The curved outer ear funnels sound waves into the ear canal and helps tell whether a sound is in front or behind.','Ear',{sec:'Catching the sound',alt:['skel','Skull']}),
+  S_('skel','Eardrum and tiny bones','About 2.5 cm in, sound shakes the eardrum. Behind it, three tiny bones, the malleus, incus and stapes (the smallest bones in the body), sit inside the temporal bone and pass the vibration on.','Skull'),
+  S_('skel','Cochlea','The stapes pushes on the fluid-filled cochlea, a snail-shaped tube about 3.5 cm long if uncoiled. Different pitches make different parts of its membrane vibrate.','Skull',{sec:'The inner ear'}),
+  S_('skel','Hair cells','About 15,000 hair cells along the cochlea turn that movement into nerve signals. Very loud noise can damage them for good.','Skull'),
+  S_('nerv','Hearing nerve','The cochlear part of the eighth cranial nerve carries the signal into the brainstem.','Cranial nerves',{sec:'To the brain',alt:['nerv','Cerebellum and brainstem']}),
+  S_('nerv','Brainstem','Nuclei in the brainstem compare tiny timing differences between the two ears to work out where a sound comes from.','Cerebellum and brainstem'),
+  S_('nerv','Hearing cortex','The auditory cortex in the temporal lobe recognises the sound as a voice, music or noise.','Cerebrum')]},
+ {name:'How bones heal',tag:'Skeletal',steps:[
+  S_('skel','A broken bone','The shin bone (tibia) and the wrist end of the radius are among the most often broken bones. Bone is living tissue with its own blood supply, so it can repair itself.','Leg bones',{sec:'The break'}),
+  S_('card','Blood clot','Torn vessels bleed into the break and a clot forms within hours. Over the first week, inflammation brings in cells that clear away debris.','Leg vessels'),
+  S_('skel','Soft callus','Over roughly the first three weeks, cartilage and fibrous tissue bridge the gap. It is not yet strong, which is why a cast holds the bone still.','Leg bones',{sec:'Soft callus'}),
+  S_('skel','Hard callus','From about the third week, bone-building cells lay new woven bone over the soft callus. By six to twelve weeks most adult fractures are joined.','Leg bones',{sec:'Hard callus'}),
+  S_('skel','Remodelling','Over months to years, osteoclasts remove extra bone and osteoblasts rebuild it along the lines of stress, until the bone is close to its old shape.','Leg bones',{sec:'Remodelling'}),
+  S_('skel','Helping it heal','Children heal fastest. Smoking, poor blood supply and some diseases slow healing; calcium, vitamin D and protein support it.','Arm bones')]}
 ];
-const L={on:false,i:0,step:0,auto:false,autoT:0};
-$('lessonList').innerHTML=LESSONS.map((l,i)=>`<button data-i="${i}"><b>${l.name}</b><span>${l.sub}</span></button>`).join('');
-$('lessonList').addEventListener('click',e=>{const b=e.target.closest('button');if(b)startLesson(+b.dataset.i);});
-function startLesson(i){stopTour();if(Q.on)endQuiz();Object.assign(L,{on:true,i,step:0,autoT:0});const les=LESSONS[i];
+const L={on:false,i:0,step:0,auto:false,autoT:0},AUTO_SEC=9;
+const secsOf=les=>les.secs||(les.secs=(()=>{const out=[];les.steps.forEach((s,k)=>{if(s.sec||!k)out.push({title:s.sec||les.name,start:k});});
+  out.forEach((s,j)=>s.end=(j+1<out.length?out[j+1].start:les.steps.length)-1);return out;})());
+const secOf=(les,k)=>secsOf(les).findIndex(s=>k>=s.start&&k<=s.end);
+const tourLen=n=>{const s=n*AUTO_SEC;return s<60?'under 1 min':'about '+Math.round(s/60)+' min';};
+function renderLessons(){$('lessonList').innerHTML=LESSONS.map((l,i)=>{const S=secsOf(l);
+  return `<div class="lcard"><button class="lstart" data-i="${i}"><b>${l.name}</b><span>${l.tag} · ${S.length} parts · ${l.steps.length} stops · ${tourLen(l.steps.length)}</span></button>
+  <div class="lparts">${S.map((s,j)=>`<button data-i="${i}" data-s="${j}" aria-label="Play part ${j+1}, ${s.title}">▶ ${j+1}. ${s.title}<small>${s.end-s.start+1} stop${s.end>s.start?'s':''} · ${tourLen(s.end-s.start+1)}</small></button>`).join('')}</div></div>`;}).join('');}
+renderLessons();
+$('lessonList').addEventListener('click',e=>{const b=e.target.closest('button');if(b)startLesson(+b.dataset.i,b.dataset.s!==undefined?+b.dataset.s:0);});
+function startLesson(i,sec=0){stopTour();mixOff();if(Q.on)endQuiz();const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0});
   if(les.scn){phys.scn=st.scn=les.scn;$('scnSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===les.scn)));}
   $('lesson').hidden=false;showStep();}
 function endLesson(){if(!L.on)return;L.on=false;L.auto=false;$('lesson').hidden=true;$('lAuto').setAttribute('aria-pressed','false');clearSel();renderCard();}
 async function showStep(){const les=LESSONS[L.i],stp=les.steps[L.step];const my=++L.gen||(L.gen=1);
-  $('lTitle').textContent=stp.title;$('lText').textContent=stp.text;$('lName').textContent=les.name;
-  $('lDots').innerHTML=les.steps.map((_,k)=>`<i class="${k===L.step?'on':''}"></i>`).join('');
-  $('lPrev').disabled=L.step===0;$('lNext').textContent=L.step===les.steps.length-1?'Finish':'Next';
-  if(SYSTEMS[st.sys].id!==stp.sys){st.sys=SYS[stp.sys].i;clearSel();await refresh(false);}
-  if(my!==L.gen||!L.on)return;
-  const cur=stp.sys,lab=p=>{const g=(p.grp&&p.grp.sys===cur)?p.grp:groupOf(cur,p.name);return g?g.label:'';};
-  let list=bodyParts.filter(p=>visibleIn(p,cur)&&(typeof stp.match==='string'?(lab(p)===stp.match||(stp.also&&lab(p)===stp.also)):stp.match.test(p.name)));
-  if(!list.length&&typeof stp.match!=='string')list=bodyParts.filter(p=>visibleIn(p,cur)&&lab(p)==='Heart');
-  selectSet(list,{title:stp.title,tag:`Lesson · ${les.name} · ${L.step+1} of ${les.steps.length}`,desc:stp.text,src:list.length?sourceLine(list):''});
+  const S=secsOf(les),k=secOf(les,L.step),sec=S[k];
+  $('lTitle').textContent=stp.title;$('lText').textContent=stp.text;$('lName').textContent=`${les.name} · part ${k+1} of ${S.length}: ${sec.title}`;
+  $('lDots').innerHTML=les.steps.slice(sec.start,sec.end+1).map((_,j)=>`<i class="${sec.start+j===L.step?'on':''}"></i>`).join('');
+  $('lPrev').disabled=L.step===0;$('lNext').textContent=L.step===les.steps.length-1?'Finish':L.step===sec.end?'Next part':'Next';
+  const find=async(sys,match)=>{if(SYSTEMS[st.sys].id!==sys){st.sys=SYS[sys].i;clearSel();await refresh(false);}
+    for(let n=0;!st.ready&&n<200&&my===L.gen;n++)await new Promise(r=>setTimeout(r,150));   // a load started by the previous stop is still running
+    const lab=p=>{const g=(p.grp&&p.grp.sys===sys)?p.grp:groupOf(sys,p.name);return g?g.label:'';};
+    return bodyParts.filter(p=>visibleIn(p,sys)&&(typeof match==='string'?(lab(p)===match||(stp.also&&lab(p)===stp.also)):match.test(p.name)));};
+  let list=await find(stp.sys,stp.match);if(my!==L.gen||!L.on)return;
+  if(!list.length&&stp.alt){list=await find(stp.alt[0],stp.alt[1]);if(my!==L.gen||!L.on)return;}
+  if(!list.length&&typeof stp.match!=='string')list=(await find(stp.sys,'Heart'));
+  selectSet(list,{title:stp.title,tag:`Tour · ${les.name} · part ${k+1}, stop ${L.step-sec.start+1} of ${sec.end-sec.start+1}`,desc:stp.text,src:list.length?sourceLine(list):''});
   if(list.length)fit(list);L.autoT=0;}
-$('lNext').onclick=()=>{const les=LESSONS[L.i];if(L.step>=les.steps.length-1){endLesson();toast('Lesson complete. Try the quiz to test yourself.');return;}L.step++;showStep();};
+$('lNext').onclick=()=>{const les=LESSONS[L.i];if(L.step>=les.steps.length-1){endLesson();toast('Tour complete. Try the quiz to test yourself.');return;}L.step++;showStep();};
 $('lPrev').onclick=()=>{if(L.step>0){L.step--;showStep();}};
 $('lClose').onclick=endLesson;
 $('lAuto').onclick=()=>{L.auto=!L.auto;L.autoT=0;$('lAuto').setAttribute('aria-pressed',String(L.auto));};
+// auto-play plays the current part, then waits at its end
+function lessonAuto(){const les=LESSONS[L.i],sec=secsOf(les)[secOf(les,L.step)];
+  if(L.step>=sec.end){L.auto=false;$('lAuto').setAttribute('aria-pressed','false');toast(L.step>=les.steps.length-1?'Tour complete.':'Part done. Tap Next part to keep going.');return;}
+  L.step++;showStep();}
 $('learnSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('learnSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   $('quizBox').hidden=b.dataset.v!=='quiz';$('lessonBox').hidden=b.dataset.v!=='lessons';});
 
@@ -1596,13 +1697,13 @@ const selCol=new THREE.Color();
 function loop(now){const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
   if(tween){tween.t+=dt/tween.dur;const e=tween.t>=1?1:1-Math.pow(1-tween.t,3);controls.target.lerpVectors(tween.t0,tween.t1,e);camera.position.lerpVectors(tween.p0,tween.p1,e);if(tween.t>=1)tween=null;}
   if(st.tour&&st.ready&&!queue.active.size){st.tourT+=dt;$('tourBar').style.width=Math.min(100,st.tourT/TOUR_SEC*100)+'%';if(st.tourT>=TOUR_SEC)setSys((st.sys+1)%11);}
-  if(L.on&&L.auto&&!queue.active.size){L.autoT+=dt;if(L.autoT>9){L.autoT=0;$('lNext').click();}}
+  if(L.on&&L.auto&&!queue.active.size){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
   if(!reduce){stepPhysio(dt);drawECG();}drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const p of st.selSet){p.mat.emissive.copy(selCol);useMat(p);}}
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);renderer.render(scene,camera);tunePR(now||performance.now());requestAnimationFrame(loop);}
 
 /* boot */
-renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
+setActive(false);renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
 refresh(true);requestAnimationFrame(loop);
 })();
 </script>
