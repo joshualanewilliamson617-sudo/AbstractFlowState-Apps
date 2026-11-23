@@ -1,4 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('ca-theme')||'dark'}catch(e){}</script>
 <title>3D Anatomy</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -196,7 +197,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .tabs::-webkit-scrollbar{display:none}
 .tabs button{flex:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--raise);color:var(--mute);font:inherit;font-size:13px;cursor:pointer;min-height:36px}
 .tabs button[aria-pressed="true"]{color:var(--ink);border-color:var(--sys);box-shadow:inset 0 0 0 1px var(--sys)}
-.tabview{position:fixed;inset:0;z-index:40;background:var(--void);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.tabview{position:fixed;inset:0;top:var(--barH,0px);z-index:40;background:var(--void);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .tabview header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
 .tabview header h2{margin:0;font-family:var(--display);font-weight:500;font-size:20px}
 .tabview header button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;min-height:38px}
@@ -232,12 +233,93 @@ body.tabbed{overflow:hidden}
 #packForm button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
 .packhelp{font-size:12px;color:var(--mute);margin-top:6px}
 .packhelp pre{white-space:pre-wrap;background:var(--raise);padding:8px;border-radius:8px;font-size:11px;overflow-x:auto}
+/* ---- layout (Nov 23): top bar with four menus, the body, its sliders, then the info cards ---- */
+/* themes: dark (default), dim and light. The 3D stage keeps its own dark overlay colours in every theme. */
+:root[data-theme="dim"]{--void:#161d21;--stage:#1a2328;--panel:#1c2529;--raise:#243036;--line:#33424a;--ink:#edf0ee;--mute:#a4b2ae;--faint:#7d8d89;color-scheme:dark}
+:root[data-theme="light"]{--void:#f3f1ec;--stage:#dfe4e3;--panel:#ffffff;--raise:#f0ede6;--line:#d6d0c5;--ink:#1d2427;--mute:#55625f;--faint:#7a8783;--bone:#8a6d3b;color-scheme:light}
+:root[data-theme="light"] .info p,:root[data-theme="light"] .plist button,:root[data-theme="light"] .results button{color:var(--ink)}
+:root[data-theme="light"] .plist button[aria-pressed="true"]{color:#fff}
+#stage{--void:#0a0f12;--panel:#11181c;--raise:#162026;--line:#223038;--ink:#e8ece9;--mute:#8d9d99;--faint:#5f706c;color:var(--ink);
+  background:radial-gradient(120% 90% at 50% 38%,var(--stage-hi,#18252b) 0%,var(--stage-mid,#0d1417) 45%,var(--stage-lo,#0a0f12) 100%)}
+:root[data-theme="dim"] #stage{--stage-hi:#26343b;--stage-mid:#1a2429;--stage-lo:#141b1f}
+:root[data-theme="light"] #stage{--stage-hi:#f4f6f5;--stage-mid:#d9dfde;--stage-lo:#c3cbca;--leader:rgba(20,30,34,.5)}
+#lblSvg path{stroke:var(--leader,rgba(232,236,233,.42))}
+#stage{scroll-margin-top:70px}
+#topbar{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--line);padding-block:8px}
+.menus{display:flex;align-items:stretch;gap:6px}
+.mbtn{display:grid;gap:0;text-align:left;min-width:0;flex:0 1 auto;padding:5px 12px;border-radius:10px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;cursor:pointer;min-height:44px}
+.mbtn .mlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.mbtn b{font-weight:500;font-size:13.5px;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mbtn b span{overflow:hidden;text-overflow:ellipsis}
+.mbtn .sysdot{width:9px;height:9px;border-radius:50%;background:var(--sys);flex:none}
+.mbtn[aria-expanded="true"]{border-color:var(--sys);box-shadow:inset 0 0 0 1px var(--sys)}
+.mbtn.more{margin-left:auto;flex:none;width:44px;padding:0;display:grid;place-items:center}
+.mbtn.more svg{fill:currentColor}
+.menu{position:absolute;top:calc(100% + 6px);left:var(--ml,12px);width:min(440px,calc(100vw - 24px));max-height:calc(100vh - 90px);max-height:calc(100svh - 90px);overflow-y:auto;overscroll-behavior:contain;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.35);padding:14px;display:grid;gap:14px;align-content:start;box-sizing:border-box}
+.menu .cycler{padding:6px;grid-template-columns:40px 1fr 40px;gap:8px}
+.menu .cycler button{height:40px}
+.menu .sysname h2{font-size:19px;margin:0}
+.menu .dial{grid-template-columns:repeat(2,minmax(0,1fr))}
+.menu .tabs{display:grid;gap:4px;overflow:visible}
+.menu .tabs button{border-radius:8px;text-align:left;padding:10px 12px;font-size:14px}
+.about .note{margin:0 0 6px}
+.scores{display:grid;gap:4px;font-size:13px}
+.scores div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:5px 0}
+.scores b{font-family:var(--mono);font-weight:500;color:var(--sys)}
+#layers{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+#info{padding-block:14px 28px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));align-items:start;max-width:1240px;width:100%;margin-inline:auto;box-sizing:border-box}
+#info .facts{margin-top:4px}
+#info .card p{color:var(--ink);max-width:70ch}
+.tourpill{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;width:min(320px,calc(100% - 32px));
+  background:rgba(8,13,15,.85);border:1px solid var(--sys);border-radius:999px;padding:4px 12px 4px 4px;z-index:4}
+.tourpill button{flex:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-weight:500;cursor:pointer}
+.zoombtns{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:62px;display:none;flex-direction:column;gap:6px;z-index:3}
+.zoombtns button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:rgba(10,15,18,.7);color:var(--ink);font:inherit;font-size:18px;line-height:1;cursor:pointer}
+.zoombtns button:hover{border-color:var(--sys)}
+@media (hover:hover) and (pointer:fine){.zoombtns{display:flex}}
+/* with a mouse the body is always ready to turn, so the scroll/active badge and outline are only for touch */
+.mouse .turnbtn{display:none}
+.mouse #stage.active::after{border-color:transparent}
+@media (max-width:600px){
+  .menus{gap:4px}
+  .mbtn{padding:4px 8px;flex:1 1 0}
+  .mbtn b{font-size:12.5px}
+  .mbtn.more{flex:none;width:40px}
+  .menu{left:8px!important;right:8px;width:auto}
+  #layers{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* bigger tap areas: small buttons keep their look, but an invisible margin around them catches a fingertip */
+@media (pointer:coarse){
+  .chip,.seg button,.plist button,.results button,.closex,.linkbtn,.btn,.lessons button,.tabs button,.turnbtn,.tv-see{position:relative}
+  .seg button::after,.plist button::after,.closex::after,.linkbtn::after,.btn::after,.turnbtn::after,.tv-see::after{content:"";position:absolute;inset:-6px}
+  .chip::after{content:"";position:absolute;inset:-3px}
+  input[type=range]{min-height:32px}
+}
 </style>
 
 <div id="app">
-  <header id="sysbar" class="band">
-    <div class="brandrow">
-      <h1>3D Anatomy</h1>
+  <!-- Top bar, left to right: Section, Systems, Learn, and the three-dot menu (Profile, Settings). Each opens a panel under the bar. -->
+  <header id="topbar" class="band">
+    <nav class="menus" aria-label="Main menus">
+      <button class="mbtn" id="mbSection" aria-expanded="false" aria-controls="mSection"><span class="mlab">Section</span><b id="mbSectionTxt">Body</b></button>
+      <button class="mbtn" id="mbSystems" aria-expanded="false" aria-controls="mSystems"><span class="mlab">Systems</span><b><i class="sysdot"></i><span id="mbSysTxt">Skeletal</span></b></button>
+      <button class="mbtn" id="mbLearn" aria-expanded="false" aria-controls="mLearn"><span class="mlab">Learn</span><b>Tours, quizzes</b></button>
+      <button class="mbtn more" id="mbMore" aria-expanded="false" aria-controls="mMore" aria-label="Profile and settings"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+    </nav>
+
+    <div class="menu" id="mSection" hidden role="dialog" aria-label="Section">
+      <div class="ctl"><span class="label">Section</span>
+        <nav class="tabs" id="tabs" aria-label="Sections"><button aria-pressed="true">Body</button></nav></div>
+      <div class="ctl"><span class="label">Body</span>
+        <div class="seg" id="sexSeg"><button data-v="male" aria-pressed="true">Male</button><button data-v="female" aria-pressed="false">Female</button></div></div>
+    </div>
+
+    <div class="menu" id="mSystems" hidden role="dialog" aria-label="Systems">
+      <div class="ctl"><span class="label">Show</span>
+        <div class="seg" id="viewSeg"><button data-v="single" aria-pressed="true">Single</button><button data-v="mixed" aria-pressed="false">Mixed</button><button data-v="all" aria-pressed="false">All systems</button></div>
+        <label class="check" id="faintRow"><input type="checkbox" id="faint"> Show the other systems faintly behind</label>
+        <p class="note" id="viewNote">Tap a system to show it.</p></div>
       <section class="cycler" aria-label="System cycler">
         <button id="prev" aria-label="Previous system">‹</button>
         <div class="sysname">
@@ -247,10 +329,73 @@ body.tabbed{overflow:hidden}
         </div>
         <button id="next" aria-label="Next system">›</button>
       </section>
-      <button id="mixBtn" class="mixbtn" aria-pressed="false" title="Show several body systems at once">Mix systems</button>
-    </div>
-    <nav class="tabs" id="tabs" aria-label="Sections"><button aria-pressed="true">Body</button></nav>
       <div class="dial" id="dial" role="group" aria-label="Organ systems"></div>
+      <div class="ctl"><span class="label">Structure groups · tap to locate</span><div class="plist" id="plist"></div></div>
+      <div class="ctl"><label class="label" for="q">Find any structure</label>
+        <input type="search" id="q" placeholder="e.g. femur, mitral valve, sciatic" autocomplete="off">
+        <div class="results" id="results"></div></div>
+    </div>
+
+    <div class="menu" id="mLearn" hidden role="dialog" aria-label="Learn">
+      <div class="seg" id="learnSeg"><button data-v="tours" aria-pressed="true">Tours</button><button data-v="lessons" aria-pressed="false">Guided lessons</button><button data-v="quiz" aria-pressed="false">Quizzes</button></div>
+      <div id="tourBox" class="ctl">
+        <p class="note">The systems tour turns the body slowly and moves through all 11 systems, about 10 seconds each.</p>
+        <div class="rowc"><button class="btn primary" id="tourStart">Play the systems tour</button></div>
+      </div>
+      <div id="lessonBox" class="lessons" hidden><div class="lessons" id="lessonList"></div>
+        <div class="ctl" id="condBox" hidden><span class="label">Body conditions · from add-on packs</span><div class="lessons" id="condList"></div></div></div>
+      <div id="quizBox" class="ctl" hidden>
+        <p class="note">Ten questions on the current system. Tap the structure named at the top of the view. Faster answers score more, and streaks multiply.</p>
+        <div class="seg" id="qModeSeg"><button data-v="group" aria-pressed="true">Groups</button><button data-v="part" aria-pressed="false">Named structures</button></div>
+        <div class="rowc"><button class="btn primary" id="qStart">Start quiz</button><span class="note" id="qBest"></span></div>
+      </div>
+    </div>
+
+    <div class="menu right" id="mMore" hidden role="dialog" aria-label="Profile and settings">
+      <div class="seg" id="moreSeg"><button data-v="profile" aria-pressed="true">Profile</button><button data-v="settings" aria-pressed="false">Settings</button></div>
+      <div id="profileBox" class="ctl">
+        <span class="label">Saved quiz scores · best on this device</span>
+        <div id="scoreList" class="scores"></div>
+      </div>
+      <div id="settingsBox" class="ctrls" hidden>
+        <div class="ctl"><span class="label">Appearance</span>
+          <div class="seg" id="themeSeg"><button data-v="light" aria-pressed="false">Light</button><button data-v="dim" aria-pressed="false">Dim</button><button data-v="dark" aria-pressed="true">Dark</button></div></div>
+        <div class="ctl"><span class="label">Name labels · zoom in to name smaller parts</span>
+          <div class="seg" id="lblSeg"><button data-v="off" aria-pressed="false">Off</button><button data-v="key" aria-pressed="true">Key parts</button><button data-v="dense" aria-pressed="false">As many as fit</button></div></div>
+        <label class="check"><input type="checkbox" id="flow" checked> Show flow along vessels and nerves</label>
+        <div class="ctl"><span class="label">Body state</span>
+          <div class="seg" id="scnSeg"><button data-v="rest" aria-pressed="true">Rest</button><button data-v="exercise" aria-pressed="false">Exercise</button><button data-v="sleep" aria-pressed="false">Sleep</button></div></div>
+        <div class="ctl"><span class="label">Time</span>
+          <div class="seg" id="spdSeg"><button data-v="1" aria-pressed="true">Real time</button><button data-v="0.25" aria-pressed="false">Slow ×4</button></div>
+          <p class="note" id="pwvNote">The arterial pulse wave travels at its real speed, about 5 m/s.</p></div>
+        <div class="ctl"><span class="label">Add-on packs</span>
+          <ul class="packs" id="packList"></ul>
+          <form id="packForm" class="rowc"><input id="packUrl" type="url" inputmode="url" placeholder="Web address of a pack (.js)" aria-label="Web address of an add-on pack"><button type="submit">Add</button></form>
+          <details class="packhelp"><summary>How to make a pack</summary>
+            <p>A pack is a small .js file. It can add a tab, tours and body conditions. Only add packs you trust: a pack runs as part of this page.</p>
+<pre>AnatomyPacks.register({
+  id: 'conditions', name: 'Body conditions',
+  conditions: [{ name: 'Osteoporosis', sys: 'skel',
+    group: 'Spine', text: 'Bones lose density...' }],
+  lessons: [{ name: 'My tour', steps: [
+    { sys: 'card', title: 'Heart', text: '...',
+      match: 'Heart', sec: 'Part 1' }] }],
+  tab: { title: 'My tab',
+    build(el, api) { el.innerHTML = '...'; } }
+});</pre></details></div>
+        <div class="ctl about"><span class="label">About 3D Anatomy</span>
+          <p class="note">Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag the body to turn it; tap or click any structure.</p>
+          <p class="note">On a phone, tap the body first to turn it, and pinch to zoom; tap outside it to scroll again. With a mouse, drag to turn, use + and − to zoom, and the wheel scrolls the page.</p>
+          <p class="note">Keys: ← → change system, + − zoom, space plays the systems tour, Esc closes menus and clears the selection. Educational reference, not for diagnosis.</p>
+          <footer class="credits">
+            <span class="label">Model sources</span>
+            <span>Male: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener">BodyParts3D</a>, © The Database Center for Life Science, licensed under CC Attribution 4.0 International.</span>
+            <span>Female: K. Browne and H. Schlehlein, <a href="https://doi.org/10.48539/HBM352.BTSQ.586" target="_blank" rel="noopener">3D Reference Organ Set for Female v1.5</a>, Human Reference Atlas (HuBMAP), CC BY 4.0.</span>
+            <span>Female skin: <a href="https://github.com/makehumancommunity/makehuman" target="_blank" rel="noopener">MakeHuman</a> base mesh and targets, CC0 1.0. Eyeballs are modelled for this view.</span>
+            <span>Meshes repacked for the web from <a href="https://github.com/ashemag/human-atlas" target="_blank" rel="noopener">human-atlas</a> (MIT). Coordinates quantized; geometry otherwise unchanged.</span>
+          </footer></div>
+      </div>
+    </div>
   </header>
 
   <main id="stage">
@@ -266,6 +411,8 @@ body.tabbed{overflow:hidden}
       <canvas id="ecg" aria-label="ECG trace, lead II"></canvas>
       <button class="turnbtn" id="turnBtn" aria-pressed="false"><i></i><span id="turnTxt">Scroll mode · tap the body to turn it</span></button>
     </div>
+    <div class="zoombtns" id="zoomBtns"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
+    <div class="tourpill" id="tourPill" hidden><button id="tour" aria-pressed="false">Play tour</button><div class="bar" aria-hidden="true"><b id="tourBar"></b></div></div>
     <div class="quizbar" id="quizBar" hidden>
       <div class="find"><span id="qProg">1 / 10</span><span>Find</span><span><span id="qScore">0</span> pts <span id="qStreak"></span></span></div>
       <h3 id="qPrompt">—</h3>
@@ -294,14 +441,12 @@ body.tabbed{overflow:hidden}
     <div id="err" hidden></div>
   </main>
 
+  <!-- Along the bottom of the body: the layer and shape sliders -->
   <section id="layers" class="band" aria-label="Layers">
-    <div class="card" id="card" aria-live="polite" hidden><div class="tag" id="cardTag"></div><h3 id="cardName"></h3><p id="cardDesc"></p><dl class="mf" id="cardFacts" hidden></dl><div class="src" id="cardSrc"></div></div>
-      <div class="ctl wide"><span class="label">View</span>
-        <div class="seg" id="modeSeg"><button data-v="isolate" aria-pressed="true">Isolate</button><button data-v="layered" aria-pressed="false">Layered</button><button data-v="all" aria-pressed="false">All systems</button></div></div>
+      <div class="ctl"><span class="label" id="skinLbl">Skin peel</span>
+        <div class="rowc"><input type="range" id="skin" min="0" max="0.6" step="0.01" value="0" aria-label="Skin peel"></div></div>
       <div class="ctl" id="peelCtl" hidden><span class="label">Muscle layers · <span id="peelTxt">all showing</span></span>
         <div class="rowc"><input type="range" id="peel" min="0" max="3" step="1" value="0" aria-label="Peel muscle layers"></div></div>
-      <div class="ctl"><span class="label" id="skinLbl">Skin peel</span>
-        <div class="rowc"><input type="range" id="skin" min="0" max="0.6" step="0.01" value="0.1" aria-label="Skin opacity"></div></div>
       <div class="ctl wide"><span class="label">Cross-section</span>
         <div class="rowc"><select id="slice" aria-label="Slice plane"><option value="off">Off</option><option value="sag">Sagittal</option><option value="cor">Coronal</option><option value="tra">Transverse</option></select>
         <input type="range" id="slicePos" min="-1" max="1" step="0.005" value="0" aria-label="Slice position" disabled></div></div>
@@ -310,75 +455,11 @@ body.tabbed{overflow:hidden}
         <div class="rowc build"><span class="mini">Weight</span><input type="range" id="wgt" min="100" max="250" step="1" value="154" aria-label="Weight in pounds"></div></div>
   </section>
 
-  <aside id="panel" class="band">
-    <div class="col">
-    <header class="brand">
-      <p>Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag to rotate, scroll or pinch to zoom, click or tap any structure.</p>
-    </header>
-    <div class="tour">
-      <button id="tour" aria-pressed="false">Play tour</button>
-      <div class="bar" aria-hidden="true"><b id="tourBar"></b></div>
-    </div>
-    <section class="ctrls">
-      <div class="ctl"><span class="label">Body</span>
-        <div class="seg" id="sexSeg"><button data-v="male" aria-pressed="true">Male · 172 cm</button><button data-v="female" aria-pressed="false">Female · 167 cm</button></div></div>
-      <label class="check"><input type="checkbox" id="flow" checked> Show flow along vessels and nerves</label>
-      <div class="ctl"><span class="label">Name labels · zoom in to name smaller parts</span>
-        <div class="seg" id="lblSeg"><button data-v="off" aria-pressed="false">Off</button><button data-v="key" aria-pressed="true">Key parts</button><button data-v="dense" aria-pressed="false">As many as fit</button></div></div>
-      <div class="ctl"><span class="label">Body state</span>
-        <div class="seg" id="scnSeg"><button data-v="rest" aria-pressed="true">Rest</button><button data-v="exercise" aria-pressed="false">Exercise</button><button data-v="sleep" aria-pressed="false">Sleep</button></div></div>
-      <div class="ctl"><span class="label">Time</span>
-        <div class="seg" id="spdSeg"><button data-v="1" aria-pressed="true">Real time</button><button data-v="0.25" aria-pressed="false">Slow ×4</button></div>
-        <p class="note" id="pwvNote">The arterial pulse wave travels at its real speed, about 5 m/s.</p></div>
-    </section>
-    <section class="ctrls" aria-label="Learn">
-      <div class="ctl"><span class="label">Learn</span>
-        <div class="seg" id="learnSeg"><button data-v="lessons" aria-pressed="true">Guided lessons</button><button data-v="quiz" aria-pressed="false">Quiz</button></div></div>
-      <div id="lessonBox" class="lessons"><div class="lessons" id="lessonList"></div></div>
-      <div id="quizBox" class="ctl" hidden>
-        <p class="note">Ten questions on the current system. Click the structure named at the top of the view; answers are faster for more points, and streaks multiply.</p>
-        <div class="seg" id="qModeSeg"><button data-v="group" aria-pressed="true">Groups</button><button data-v="part" aria-pressed="false">Named structures</button></div>
-        <div class="rowc"><button class="btn primary" id="qStart">Start quiz</button><span class="note" id="qBest"></span></div>
-      </div>
-    </section>
-    </div>
-    <div class="col">
-    <section class="info" aria-live="polite">
-      <p id="sysSummary"></p>
-      <dl class="facts" id="facts"></dl>
-      <p class="fillnote" id="fillnote" hidden></p>
-      <div class="ctl"><span class="label">Structure groups · click to locate</span><div class="plist" id="plist"></div></div>
-      <div class="ctl"><label class="label" for="q">Find any structure</label>
-        <input type="search" id="q" placeholder="e.g. femur, mitral valve, sciatic" autocomplete="off">
-        <div class="results" id="results"></div></div>
-      <p class="note">Educational reference, not for diagnosis. Keys: ← → cycle systems, space plays the tour, Esc clears the selection.</p>
-    </section>
-
-      <div class="ctl" id="condBox" hidden><span class="label">Body conditions · from add-on packs</span><div class="lessons" id="condList"></div></div>
-      <div class="ctl"><span class="label">Add-on packs</span>
-        <ul class="packs" id="packList"></ul>
-        <form id="packForm" class="rowc"><input id="packUrl" type="url" inputmode="url" placeholder="Web address of a pack (.js)" aria-label="Web address of an add-on pack"><button type="submit">Add</button></form>
-        <details class="packhelp"><summary>How to make a pack</summary>
-          <p>A pack is a small .js file. It can add a tab, tours and body conditions. Only add packs you trust: a pack runs as part of this page.</p>
-<pre>AnatomyPacks.register({
-  id: 'conditions', name: 'Body conditions',
-  conditions: [{ name: 'Osteoporosis', sys: 'skel',
-    group: 'Spine', text: 'Bones lose density...' }],
-  lessons: [{ name: 'My tour', steps: [
-    { sys: 'card', title: 'Heart', text: '...',
-      match: 'Heart', sec: 'Part 1' }] }],
-  tab: { title: 'My tab',
-    build(el, api) { el.innerHTML = '...'; } }
-});</pre></details></div>
-    <footer class="credits">
-      <span class="label">Model sources</span>
-      <span>Male: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener">BodyParts3D</a>, © The Database Center for Life Science, licensed under CC Attribution 4.0 International.</span>
-      <span>Female: K. Browne and H. Schlehlein, <a href="https://doi.org/10.48539/HBM352.BTSQ.586" target="_blank" rel="noopener">3D Reference Organ Set for Female v1.5</a>, Human Reference Atlas (HuBMAP), CC BY 4.0.</span>
-      <span>Female skin and eyes: <a href="https://github.com/makehumancommunity/makehuman" target="_blank" rel="noopener">MakeHuman</a> base mesh and targets, CC0 1.0.</span>
-      <span>Meshes repacked for the web from <a href="https://github.com/ashemag/human-atlas" target="_blank" rel="noopener">human-atlas</a> (MIT). Coordinates quantized; geometry otherwise unchanged.</span>
-    </footer>
-    </div>
-  </aside>
+  <!-- Under the body: only the info cards -->
+  <section id="info" class="band" aria-live="polite">
+    <div class="card" id="card" hidden><div class="tag" id="cardTag"></div><h3 id="cardName"></h3><p id="cardDesc"></p><dl class="mf" id="cardFacts" hidden></dl><div class="src" id="cardSrc"></div></div>
+    <div class="card syscard"><div class="tag">About this system</div><h3 id="sysCardName"></h3><p id="sysSummary"></p><dl class="facts" id="facts"></dl><p class="fillnote" id="fillnote" hidden></p></div>
+  </section>
 </div>
 
 <section id="tabView" class="tabview" hidden role="dialog" aria-modal="true" aria-labelledby="tabTitle">
@@ -693,7 +774,7 @@ const bodyRoot=new THREE.Group();scene.add(bodyRoot);   // every body part lives
   const m=new THREE.Mesh(new THREE.PlaneGeometry(4.267,4.267),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.y=.001;scene.add(m);})();
 
 /* tissue shader: baked crease shadows, wet translucent surfaces, fine surface detail, and flow along vessels and nerves */
-const U={uTime:{value:0},uOn:{value:1},uHeart:{value:new THREE.Vector3(0,1.25,0)},uBrain:{value:new THREE.Vector3(0,1.6,-.02)},uBeat:{value:1},uPWV:{value:5}};
+const U={uPeel:{value:99},uRootInv:{value:new THREE.Matrix4()},uTime:{value:0},uOn:{value:1},uHeart:{value:new THREE.Vector3(0,1.25,0)},uBrain:{value:new THREE.Vector3(0,1.6,-.02)},uBeat:{value:1},uPWV:{value:5}};
 const CAN_BUMP=renderer.capabilities.isWebGL2;
 const BUMP=CAN_BUMP?`
   if(uKind>0.5){ float tq_lam=uKind<1.5?0.0012:uKind<2.5?0.007:uKind<3.5?0.004:uKind<4.5?0.0015:uKind<5.5?0.0015:0.0024; float tq_fw=length(fwidth(vWPos)); float tq_fade=1.0-smoothstep(0.25*tq_lam,0.7*tq_lam,tq_fw);
@@ -703,12 +784,12 @@ function tissue(mat,o){
   const flowCol=o.flow===1?new THREE.Color('#ff6a48'):o.flow===-1?new THREE.Color('#9cc3ff'):new THREE.Color('#fff1a0');
   mat.userData.rim={value:0};mat.userData.tissue=o;   // rim: edge glow for see-through skin; tissue options kept so a shared copy can be made
   mat.onBeforeCompile=sh=>{
-    Object.assign(sh.uniforms,{uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
+    Object.assign(sh.uniforms,{uPeel:U.uPeel,uRootInv:U.uRootInv,uPeelOn:{value:o.peel?1:o.musc?2:0},uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
       uFlowKind:{value:o.flow||0},uFlowCol:{value:flowCol},uHasAO:{value:o.ao?1:0},uKind:{value:o.kind||0},uFiber:{value:o.fiber||new THREE.Vector3(0,1,0)},uFibA:{value:o.fiberAttr?1:0},uRim:mat.userData.rim,uSSS:{value:o.sss||new THREE.Color(0,0,0)},uBun:{value:o.bun||new THREE.Vector3()},uFace:{value:o.face||new THREE.Vector4()}});
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;')
-      .replace('#include <project_vertex>','#include <project_vertex>\nvWPos=(modelMatrix*vec4(transformed,1.0)).xyz;vAO=aAO;vFace=aFace;vFib=aFiber;');
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;attribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;')
+      .replace('#include <project_vertex>','#include <project_vertex>\nvWPos=(uRootInv*modelMatrix*vec4(transformed,1.0)).xyz;vAO=aAO;vFace=aFace;vFib=aFiber;');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
-varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;uniform float uTime,uOn,uBeat,uPWV,uFlowKind,uHasAO,uKind,uFibA,uRim;uniform vec3 uOrigin,uFlowCol,uFiber,uSSS,uBun;uniform vec4 uFace;
+varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;uniform float uPeel,uPeelOn,uTime,uOn,uBeat,uPWV,uFlowKind,uHasAO,uKind,uFibA,uRim;uniform vec3 uOrigin,uFlowCol,uFiber,uSSS,uBun;uniform vec4 uFace;
 float tH=0.0;vec3 tFib=vec3(0.0,1.0,0.0);
 float tissueH(vec3 p){
   if(uKind<0.5) return 0.0;
@@ -722,6 +803,8 @@ float tissueH(vec3 p){
   return 0.00004*(0.55*sin(u+3.0*sin(dot(p,d)*160.0))+0.3*sin(u*2.7+1.3+sin(dot(p,d)*70.0))+0.15*sin(u*0.37+dot(p,d)*40.0));
 }`)
      .replace('#include <color_fragment>',`#include <color_fragment>
+  if(uPeelOn>0.5&&uPeelOn<1.5&&vWPos.y>uPeel+0.012*sin(vWPos.x*85.0+vWPos.z*60.0)+0.005*sin(vWPos.z*190.0-vWPos.x*47.0)) discard;   // skin peel: cut away from the top down
+  if(uPeelOn>1.5&&uPeel<50.0&&vWPos.y<uPeel-0.04) discard;   // muscle still under the skin is not drawn, so it can never poke through
   tFib=uFibA>0.5?normalize(vFib+vec3(0.0,1e-5,0.0)):uFiber; tH=tissueH(vWPos); if(uKind>2.5&&uKind<3.5) diffuseColor.rgb*=1.0+tH*2500.0; else if(uKind>0.5&&uKind<1.5) diffuseColor.rgb*=1.0+tH*1500.0; else if(uKind>4.5) diffuseColor.rgb*=1.0+tH*5000.0;
   if(uFace.w>1.5){ // hair cap: the hairline is baked per vertex (0.3 = the line), broken up a little so it isn't polygonal
     float edge=0.3+0.025*sin(vWPos.x*620.0+vWPos.z*480.0);
@@ -933,7 +1016,7 @@ function buildHair(skinPart){
   const tailDir=new THREE.Vector3(cx+.006,top-.6,hang); // tail strands run down its length
   const hairCol=new THREE.Color('#1c100a').convertSRGBToLinear();
   const mk=(geo,name,kind)=>{const mat=new THREE.MeshPhysicalMaterial({color:hairCol,roughness:.64,metalness:0,clearcoat:.16,clearcoatRoughness:.45,envMapIntensity:.14,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
-    tissue(mat,{kind:kind===7?0:5,bun:kind===6?tailDir:bun,sss:new THREE.Color('#1c0c05'),face:kind===5?new THREE.Vector4(cx,top,cz,2):null});if(kind===7)mat.color.set('#0d0d10');geo.computeBoundingSphere();geo.computeBoundingBox();
+    tissue(mat,{peel:true,kind:kind===7?0:5,bun:kind===6?tailDir:bun,sss:new THREE.Color('#1c0c05'),face:kind===5?new THREE.Vector4(cx,top,cz,2):null});if(kind===7)mat.color.set('#0d0d10');geo.computeBoundingSphere();geo.computeBoundingBox();
     const mesh=new THREE.Mesh(geo,mat);mesh.matrixAutoUpdate=false;mesh.userData.base=new THREE.Matrix4();
     const p={name,concept:'styled',sys:'integ',also:[],grp:groupOf('integ','hair'),mesh,mat,fill:false,src:'Styled for this view; neither dataset models hair',tris:(geo.index?geo.index.count:geo.attributes.position.count)/3,skin:true,drawn:true};
     mesh.userData.part=p;skinShell(p);return p;};
@@ -1007,7 +1090,7 @@ function makePart(row,buf,m,sex,opts){
   const fib=kind===1?fiberAxis(g,W?null:opts.fill):null;
   if(fib){const a=new Int8Array(vc*3),x=Math.round(fib.x*127),y=Math.round(fib.y*127),z=Math.round(fib.z*127);for(let v=0;v<vc;v++){a[v*3]=x;a[v*3+1]=y;a[v*3+2]=z;}
     g.setAttribute('aFiber',new THREE.BufferAttribute(a,3,true));}
-  const topt={flow:flowKind,ao:aoOff!==undefined,kind,fiber:fib,fiberAttr:!!fib,sss,face:faceU};
+  const topt={flow:flowKind,ao:aoOff!==undefined,kind,fiber:fib,fiberAttr:!!fib,sss,face:faceU,peel:skin&&!eyeSurf,musc:sys==='musc'};
   tissue(mat,topt);
   const pool=skin||faceU||eyeSurf?null:poolMat(mat,topt);
   const mesh=new THREE.Mesh(g,pool||mat);mesh.matrixAutoUpdate=false;
@@ -1023,7 +1106,7 @@ function makePart(row,buf,m,sex,opts){
    is see-through or highlighted, and back again after. */
 const POOLS=new Map();
 function poolMat(mat,o){const f=x=>typeof x==='number'?x.toFixed(3):x&&x.getHexString?x.getHexString():String(x);
-  const key=[mat.color,mat.roughness,mat.clearcoat,mat.clearcoatRoughness,mat.envMapIntensity,mat.polygonOffset,mat.polygonOffsetFactor,mat.polygonOffsetUnits,o.flow,o.ao,o.kind,o.sss,o.fiberAttr].map(f).join('|');
+  const key=[mat.color,mat.roughness,mat.clearcoat,mat.clearcoatRoughness,mat.envMapIntensity,mat.polygonOffset,mat.polygonOffsetFactor,mat.polygonOffsetUnits,o.flow,o.ao,o.kind,o.sss,o.fiberAttr,!!o.musc].map(f).join('|');
   let m=POOLS.get(key);if(m)return m;
   m=new THREE.MeshPhysicalMaterial({color:mat.color.clone(),metalness:0,roughness:mat.roughness,clearcoat:mat.clearcoat,clearcoatRoughness:mat.clearcoatRoughness,envMapIntensity:mat.envMapIntensity,
     polygonOffset:mat.polygonOffset,polygonOffsetFactor:mat.polygonOffsetFactor,polygonOffsetUnits:mat.polygonOffsetUnits});
@@ -1038,12 +1121,48 @@ function skinShell(p){if(!SHELL.test(p.name))return;const m=p.mat;
   const pre=new THREE.Mesh(p.mesh.geometry,dm);pre.matrixAutoUpdate=false;pre.renderOrder=1;pre.visible=false;pre.raycast=()=>{};
   p.mesh.add(pre);p.pre=pre;p.mesh.renderOrder=2;p.shell=true;}
 async function makePartSoon(...a){const w=breathe();if(w)await w;return makePart(...a);}
+/* Eyeballs. The male skin model has empty eye openings and the female one only thin eye surfaces, so each body gets two
+   modelled eyeballs about 24 mm across: white sclera with faint vessels toward the back, a coloured iris with radial
+   fibres and a darker rim, a black pupil, and a glossy clear cornea that bulges slightly in front of the iris.
+   Centres: male from the lens positions in his eye data; female from her MakeHuman eye surfaces. One sphere each,
+   so they cost almost nothing to draw. */
+const EYES={male:{c:[[0.0296,1.596,0.0527],[-0.0309,1.596,0.0527]],iris:'#4d6878'},
+            female:{c:[[0.0297,1.5585,0.0232],[-0.0297,1.5585,0.0232]],iris:'#5b3d24'}};
+const EYE_R=.0118;let eyeGeo=null;
+function eyeGeometry(){if(eyeGeo)return eyeGeo;const R=EYE_R,g=new THREE.SphereGeometry(R,PHONE?36:56,PHONE?24:36);g.rotateX(Math.PI/2);   // poles front and back
+  const pa=g.attributes.position,v=new THREE.Vector3();
+  for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i);const th=Math.acos(THREE.MathUtils.clamp(v.z/R,-1,1));
+    if(th<.62){v.multiplyScalar(1+.085*Math.pow(1-th/.62,2));pa.setXYZ(i,v.x,v.y,v.z);}}   // the cornea's bulge
+  g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox();return eyeGeo=g;}
+function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.25,metalness:0,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:.9});
+  const ic=new THREE.Color(iris).convertSRGBToLinear();
+  mat.onBeforeCompile=sh=>{sh.uniforms.uIris={value:ic};
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vEP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvEP=normalize(position);');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vEP;uniform vec3 uIris;').replace('#include <color_fragment>',`#include <color_fragment>
+  float th=acos(clamp(vEP.z,-1.0,1.0)),ph=atan(vEP.y,vEP.x);
+  const float IR=0.52,PR=0.15;
+  vec3 c=vec3(0.84,0.81,0.77);
+  float vein=pow(max(0.0,sin(ph*19.0+sin(th*23.0)*2.2)),40.0)*smoothstep(0.9,1.7,th); c=mix(c,vec3(0.6,0.15,0.12),vein*0.45);
+  float r=th/IR, fib=0.72+0.28*sin(ph*70.0+sin(ph*9.0)*2.5)*sin(r*18.0+ph*5.0);
+  vec3 ir=uIris*fib*mix(1.35,0.7,smoothstep(0.3,1.0,r));
+  ir=mix(ir,uIris*1.7+vec3(0.04,0.03,0.0),(1.0-smoothstep(PR/IR,PR/IR+0.22,r))*0.55);
+  c=mix(c,ir,1.0-smoothstep(IR-0.012,IR+0.012,th));
+  c=mix(c,vec3(0.03,0.025,0.02),smoothstep(IR-0.08,IR-0.01,th)*(1.0-smoothstep(IR-0.01,IR+0.02,th))*0.7);
+  c=mix(c,vec3(0.006),1.0-smoothstep(PR-0.01,PR+0.01,th));
+  diffuseColor.rgb=c;`);};
+  mat.customProgramCacheKey=()=>'eyeball';return mat;}
+function buildEyes(sex){const E=EYES[sex],g=eyeGeometry();
+  return E.c.map(c=>{const mat=eyeMaterial(E.iris),mesh=new THREE.Mesh(g,mat);mesh.matrixAutoUpdate=false;
+    mesh.userData.base=new THREE.Matrix4().makeTranslation(c[0],c[1],c[2]);mesh.matrix.copy(mesh.userData.base);
+    const p={name:(c[0]>0?'Left':'Right')+' eyeball',concept:'modelled',sys:'integ',also:[],grp:groupOf('integ','sclera'),mesh,mat,fill:false,
+      src:'Modelled for this view: an adult eyeball about 24 mm across, set in this body\'s eye socket',tris:g.index.count/3,skin:true,eye:true};
+    mesh.userData.part=p;return p;});}
 function ensure(sex,sysId){
   const key=sex+'|'+sysId;if(loaded[key])return loaded[key];
   loaded[key]=(async()=>{
     const label=SYS[sysId].name,out=[];
     const own=await manifest(sex);const W=sex==='female'?await warpField('female'):null;const buf=await chunk(sex,sysId,label);
-    if(buf)for(const row of own.parts)if(row[2]===sysId&&!/retinaculum/i.test(row[0])&&!(sex==='female'&&HIDE_F.test(row[0])))out.push(await makePartSoon(row,buf,own,sex,{warp:W,src:sex==='male'?'BodyParts3D, adult male':sysId==='integ'?(/^skin/i.test(row[0])?'MakeHuman (CC0) female body, fitted over her anatomy':/sclera|^iris|^pupil/i.test(row[0])?'MakeHuman (CC0) eyes':'Human Reference Atlas, adult female, fitted to this body'):'Human Reference Atlas, adult female, fitted to this body'}));
+    if(buf)for(const row of own.parts)if(row[2]===sysId&&!/retinaculum/i.test(row[0])&&!(sex==='female'&&HIDE_F.test(row[0]))&&!(sysId==='integ'&&/sclera|^iris|^pupil/i.test(row[0])))out.push(await makePartSoon(row,buf,own,sex,{warp:W,src:sex==='male'?'BodyParts3D, adult male':sysId==='integ'?(/^skin/i.test(row[0])?'MakeHuman (CC0) female body, fitted over her anatomy':/sclera|^iris|^pupil/i.test(row[0])?'MakeHuman (CC0) eyes':'Human Reference Atlas, adult female, fitted to this body'):'Human Reference Atlas, adult female, fitted to this body'}));
     const hands=sex==='female'?await handFrames():null;
     if(sex==='female'&&FILL[sysId]){const mm=await manifest('male');const mb=await chunk('male',sysId,label+' fill');
       if(mb)for(const row of mm.parts){if(row[2]!==sysId)continue;const reg=regionOf(row[10]);if(!FILL[sysId](row,reg,row[10]))continue;
@@ -1051,13 +1170,14 @@ function ensure(sex,sysId){
     if(sex==='male'&&MFILL[sysId]){const fm=await manifest('female');const fb=await chunk('female',sysId,label+' fill');
       if(fb)for(const row of fm.parts){if(row[2]!==sysId||!MFILL[sysId](row))continue;out.push(await makePartSoon(row,fb,fm,'male',{fill:F2M,src:'Human Reference Atlas female organ, fitted to this body'}));}}
     if(sysId==='nerv')out.push(...drawnNerves(sex,W,hands));
+    if(sysId==='integ')out.push(...buildEyes(sex));   // modelled eyeballs replace the thin eye surfaces
     if(sex==='female'&&sysId==='integ'){const sk=out.find(p=>/^skin of body/i.test(p.name));if(sk)out.push(...buildHair(sk));}
     return out;})().catch(e=>{delete loaded[key];throw e;});
   return loaded[key];
 }
 
 /* ================================================================ state + UI */
-const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:.1,skinOwn:1,mixOn:false,mix:new Set(),active:false,hgt:172,wgt:154,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
+const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:0,skinOwn:1,mixOn:false,mix:new Set(),active:false,hgt:172,wgt:154,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
 let bodyParts=[];const inScene=new Set();
 function attach(list){for(const p of list){if(inScene.has(p))continue;inScene.add(p);bodyRoot.add(p.mesh);bodyParts.push(p);}}
 function detachAll(){for(const p of bodyParts)bodyRoot.remove(p.mesh);inScene.clear();bodyParts=[];}
@@ -1066,11 +1186,20 @@ $('dial').innerHTML=SYSTEMS.map((s,i)=>`<button class="chip" data-i="${i}" style
 /* Mix systems: off, a chip shows that one system (as before). On, chips switch systems on and off together;
    the last one switched on is the main system, whose facts, groups, quiz and colour the panel shows. */
 const actv=()=>{const s=new Set([SYSTEMS[st.sys].id]);if(st.mixOn)for(const x of st.mix)s.add(x);return s;};
-function mixOff(){if(!st.mixOn)return;st.mixOn=false;st.mix.clear();$('mixBtn').setAttribute('aria-pressed','false');$('dial').classList.remove('mixing');renderInfo();}
-$('mixBtn').onclick=()=>{stopTour();if(st.mixOn){mixOff();clearSel();refresh(false);return;}
-  st.mixOn=true;$('mixBtn').setAttribute('aria-pressed','true');$('dial').classList.add('mixing');renderInfo();toast('Mix on: tap systems to add or remove them.');};
+/* Systems menu: Single (one system), Mixed (any set of systems together), All systems. "Faintly behind" is the old
+   Layered view: the other systems show as faint ghosts. */
+function syncView(){const v=st.mode==='all'?'all':st.mixOn?'mixed':'single';
+  $('viewSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===v)));
+  $('faint').checked=st.mode==='layered';$('faintRow').hidden=v==='all';$('dial').classList.toggle('mixing',st.mixOn);
+  $('viewNote').textContent=v==='single'?'Tap a system to show it.':v==='mixed'?'Tap systems to add or remove them. The last one added is the main system for the info card and quizzes.':'Every system is showing. Tap a system to choose which one the info card describes.';}
+function mixOff(){if(!st.mixOn)return;st.mixOn=false;st.mix.clear();syncView();renderInfo();}
+$('viewSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;stopTour();const v=b.dataset.v;
+  if(v==='mixed'){st.mixOn=true;if(st.mode==='all')st.mode=$('faint').checked?'layered':'isolate';}
+  else{st.mixOn=false;st.mix.clear();st.mode=v==='all'?'all':($('faint').checked?'layered':'isolate');}
+  syncView();clearSel();renderInfo();refresh(false);});
+$('faint').onchange=()=>{if(st.mode==='all')return;st.mode=$('faint').checked?'layered':'isolate';refresh(false);};
 $('dial').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;stopTour();const i=+b.dataset.i,id=SYSTEMS[i].id;
-  if(!st.mixOn){setSys(i);return;}
+  if(!st.mixOn){setSys(i);closeMenus();return;}
   const A=actv();
   if(!A.has(id)){st.mix.add(SYSTEMS[st.sys].id);st.mix.delete(id);setSys(i);}            // add it, and make it the main system
   else if(A.size>1){if(i===st.sys){const rest=[...st.mix],nm=rest.pop();st.mix.delete(nm);setSys(SYS[nm].i);}
@@ -1080,22 +1209,61 @@ $('prev').onclick=()=>{stopTour();setSys((st.sys+10)%11);};
 $('next').onclick=()=>{stopTour();setSys((st.sys+1)%11);};
 const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));st[key]=b.dataset.v;fn&&fn();});
-segs('sexSeg','sex',()=>{clearSel();detachAll();resetBuild();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
-segs('modeSeg','mode',()=>refresh(false));
+segs('sexSeg','sex',()=>{clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
 // Skin peel: in the skin system it peels the skin off the muscles (full skin at the right); elsewhere it sets how much see-through skin shows
 $('skin').oninput=e=>{const v=+e.target.value;if(actv().has('integ')){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
 function skinSlider(){const own=actv().has('integ'),s=$('skin');s.max=own?1:.6;s.value=own?st.skinOwn:st.skin;
-  $('skinLbl').textContent=own?'Skin peel · drag left to see the muscles underneath':'Skin peel';}
+  $('skinLbl').textContent=own?'Skin peel · drag left to see the muscles underneath':'Skin outline · drag right to show the skin over this system';}
+// the skin peel cut line, in the body's own space: 1 keeps the whole skin, 0 peels it all
+function peelY(v){const sk=bodyParts.filter(p=>p.sys==='integ'&&p.mat.userData.tissue&&p.mat.userData.tissue.peel);if(!sk.length)return 99;
+  if(!peelY.b||peelY.n!==sk.length||peelY.s!==st.sex){peelY.b=boxL(sk);peelY.n=sk.length;peelY.s=st.sex;}const b=peelY.b;return b.min.y-.03+v*(b.max.y-b.min.y+.06);}
 function loadPeelMuscles(){const sex=st.sex,gen=st.gen;ensure(sex,'musc').then(l=>{if(gen!==st.gen||sex!==st.sex)return;attach(l);apply();updateSlice();}).catch(console.error);}
 $('flow').onchange=e=>{st.flow=e.target.checked;FLOW.uOn.value=st.flow?1:0;};
 $('slice').onchange=e=>{st.slice=e.target.value;$('slicePos').disabled=st.slice==='off';updateSlice();};
 $('slicePos').oninput=e=>{st.slicePos=+e.target.value;updateSlice();};
 $('tour').onclick=()=>st.tour?stopTour():startTour();
+$('tourStart').onclick=()=>{closeMenus();startTour();};
 addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea'))return;
   if(e.key==='ArrowRight'){stopTour();setSys((st.sys+1)%11);}else if(e.key==='ArrowLeft'){stopTour();setSys((st.sys+10)%11);}
+  else if(e.key==='+'||e.key==='='){zoomBy(.8);}else if(e.key==='-'||e.key==='_'){zoomBy(1.25);}
   else if(e.key===' '){e.preventDefault();st.tour?stopTour():startTour();}else if(e.key==='Escape'){if(st.active)setActive(false);else if(Q.on)endQuiz();else if(L.on)endLesson();else{clearSel();renderCard();}}});
-function startTour(){mixOff();st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
-function stopTour(){if(!st.tour)return;st.tour=false;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
+/* Top-bar menus: one panel open at a time; tapping outside the bar or Esc closes it. */
+const MENUS={mbSection:'mSection',mbSystems:'mSystems',mbLearn:'mLearn',mbMore:'mMore'};let openMenu=null;
+function setMenu(id){openMenu=id;for(const [b,m] of Object.entries(MENUS)){const on=m===id;$(m).hidden=!on;$(b).setAttribute('aria-expanded',String(on));
+  if(on&&id==='mMore'&&!$('profileBox').hidden)renderScores();
+  if(on&&innerWidth>600){const bl=$(b).offsetLeft;$(m).style.setProperty('--ml',Math.max(12,Math.min(bl,innerWidth-452))+'px');}}}
+function closeMenus(){if(openMenu)setMenu(null);}
+for(const [b,m] of Object.entries(MENUS))$(b).onclick=()=>setMenu(openMenu===m?null:m);
+document.addEventListener('pointerdown',e=>{if(openMenu&&!e.target.closest('#topbar'))closeMenus();},true);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&openMenu){e.stopImmediatePropagation();closeMenus();}},true);
+/* After choosing something in a menu (a group, a search result, a lesson, a quiz or the tour), close it and bring the body into view */
+$('topbar').addEventListener('click',e=>{if(!e.target.closest('.plist button,.results button,.lessons button,#qStart,#tourStart'))return;closeMenus();
+  const r=stage.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight+r.height*.25)setTimeout(()=>stage.scrollIntoView({behavior:'smooth',block:'start'}),60);});
+/* Settings: light, dim or dark, remembered on this device */
+function setTheme(t){if(!['light','dim','dark'].includes(t))t='dark';document.documentElement.dataset.theme=t;
+  $('themeSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===t)));try{localStorage.setItem('ca-theme',t);}catch(e){}}
+{let t='dark';try{t=localStorage.getItem('ca-theme')||'dark';}catch(e){}setTheme(t);}
+$('themeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setTheme(b.dataset.v);});
+$('moreSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('moreSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  $('profileBox').hidden=b.dataset.v!=='profile';$('settingsBox').hidden=b.dataset.v!=='settings';if(b.dataset.v==='profile')renderScores();});
+/* Profile: the best quiz score saved for each system, body and quiz type */
+function renderScores(){const rows=[];
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),m=/^ca-best-(male|female)-([a-z]+)-(group|part)$/.exec(k||'');
+    if(m&&SYS[m[2]])rows.push({sys:SYSTEMS[SYS[m[2]].i].name,sex:m[1]==='male'?'Male':'Female',mode:m[3]==='group'?'groups':'named structures',v:+localStorage.getItem(k)||0});}}catch(e){}
+  rows.sort((a,b)=>a.sys.localeCompare(b.sys)||a.sex.localeCompare(b.sex)||a.mode.localeCompare(b.mode));
+  $('scoreList').innerHTML=rows.length?rows.map(r=>`<div><span>${r.sys} · ${r.sex} · ${r.mode}</span><b>${r.v} pts</b></div>`).join('')
+    :'<p class="note">No quiz scores yet. Finish a quiz under Learn › Quizzes and your best score for each system shows here.</p>';}
+/* Mouse and trackpad: the body is always ready, so dragging turns it straight away and the wheel scrolls the page.
+   Zoom with the + and − buttons or keys. Touch keeps tap-to-turn and pinch to zoom. */
+if(matchMedia('(hover:hover) and (pointer:fine)').matches)document.body.classList.add('mouse');
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'){document.body.classList.add('mouse');controls.enabled=true;controls.enableZoom=false;}
+  else{controls.enabled=st.active;controls.enableZoom=true;}},true);
+function zoomBy(f){tween=null;const d=camera.position.clone().sub(controls.target),L=THREE.MathUtils.clamp(d.length()*f,controls.minDistance,controls.maxDistance);
+  camera.position.copy(controls.target).addScaledVector(d.normalize(),L);controls.update();}
+$('zoomIn').onclick=()=>zoomBy(.8);$('zoomOut').onclick=()=>zoomBy(1.25);
+function startTour(){mixOff();$('tourPill').hidden=false;st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
+function stopTour(){if(!st.tour)return;st.tour=false;$('tourPill').hidden=true;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
 function setSys(i){if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson();st.sys=i;clearSel();st.tourT=0;refresh(true);}
 
 async function refresh(fly){
@@ -1113,10 +1281,11 @@ async function refresh(fly){
 }
 const visibleIn=(p,cur)=>p.sys===cur||p.also.includes(cur);
 function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayers();
+  U.uPeel.value=A.has('integ')&&st.skinOwn<1?peelY(st.skinOwn):99;
   const inA=p=>A.has(p.sys)||p.also.some(x=>A.has(x)),peeled=A.has('integ')&&st.skinOwn<1;
   for(const p of bodyParts){let o=0,pick=false;
     if(inA(p)){o=p.glass&&st.mode!=='all'?.42:1;pick=true;if(st.peel&&A.has('musc')&&p.sys==='musc'&&p.layer<st.peel){o=0;pick=false;}
-      if(peeled&&p.sys==='integ'&&(p.shell||!/sclera|iris|pupil/i.test(p.name)))o=st.skinOwn;}   // skin system: the skin peel slider fades skin, hair and breast tissue away
+      if(peeled&&p.sys==='integ'&&p.mat.userData.tissue&&p.mat.userData.tissue.peel){o=st.skinOwn>.003?1:0;pick=false;}}   // skin system: skin, hair and breast tissue stay solid and are cut away from the top down
     else if(peeled&&p.sys==='musc'){o=1;pick=true;}            // ...and every muscle shows underneath
     else if(p.skin)o=(p.shell||st.skin>.25)?st.skin:0;
     else if(st.mode==='all'){o=1;pick=true;}
@@ -1132,7 +1301,7 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
 const BUILD={male:{h:172,lb:154},female:{h:167,lb:137}};
 function buildTxt(){const h=st.hgt,lb=st.wgt,inch=Math.round(h/2.54);$('buildTxt').textContent=`${Math.floor(inch/12)} ft ${inch%12} in (${h} cm) · ${lb} lb (${Math.round(lb*.4536)} kg)`;}
 function applyBuild(){const b=BUILD[st.sex],sy=st.hgt/b.h,sw=Math.min(1.32,Math.max(.84,Math.sqrt((st.wgt/b.lb)/sy)));
-  bodyRoot.scale.set(sw,sy,sw);bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);updateSlice();buildTxt();
+  bodyRoot.scale.set(sw,sy,sw);bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);U.uRootInv.value.copy(bodyRoot.matrix).invert();updateSlice();buildTxt();
   LBL.moving=true;LBL.stillAt=performance.now();}
 function resetBuild(){const b=BUILD[st.sex];st.hgt=b.h;st.wgt=b.lb;$('hgt').value=b.h;$('wgt').value=b.lb;applyBuild();}
 $('hgt').oninput=e=>{st.hgt=+e.target.value;applyBuild();};
@@ -1155,6 +1324,7 @@ function renderInfo(){const s=SYSTEMS[st.sys];document.documentElement.style.set
   $('sysIdx').textContent=st.mixOn&&st.mix.size?(st.mix.size+1)+' systems mixed · main':String(st.sys+1).padStart(2,'0')+' / 11';$('sysTitle').textContent=s.name;$('sysJob').textContent=s.job;
   const A=actv();$('dial').querySelectorAll('.chip').forEach((b,i)=>{b.setAttribute('aria-pressed',A.has(SYSTEMS[i].id));b.classList.toggle('main',st.mixOn&&i===st.sys);});
   $('peelCtl').hidden=!A.has('musc');skinSlider();
+  $('mbSysTxt').textContent=st.mode==='all'?'All systems':st.mixOn&&st.mix.size?(st.mix.size+1)+' systems':s.name;$('sysCardName').textContent=s.name;
   $('sysSummary').textContent=s.summary;$('facts').innerHTML=s.facts.map(f=>`<div><dt>${f[0]}</dt><dd>${f[1]}</dd></div>`).join('');
   $('plist').innerHTML='<span class="note">Loading structures…</span>';renderCard();}
 let groupList=[];
@@ -1205,6 +1375,8 @@ $('results').addEventListener('click',async e=>{const b=e.target.closest('button
 /* camera */
 let tween=null;const tmpBox=new THREE.Box3(),tmpB2=new THREE.Box3();
 function flyTo(target,pos,dur=1.1){tween={t:0,dur,t0:controls.target.clone(),p0:camera.position.clone(),t1:target,p1:pos};}
+// boxL: a box in the body's own space (before height and weight), for motion centres inside the body
+function boxL(list){tmpBox.makeEmpty();for(const p of list){tmpB2.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.userData.base);tmpBox.union(tmpB2);}return tmpBox.clone();}
 function boxOf(list){tmpBox.makeEmpty();for(const p of list){tmpB2.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.userData.base);tmpBox.union(tmpB2);}return tmpBox.clone().applyMatrix4(bodyRoot.matrix);}
 function fit(list,az){if(!list.length)return;const b=boxOf(list),c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
   const fov=camera.fov*Math.PI/180,hfov=2*Math.atan(Math.tan(fov/2)*camera.aspect);
@@ -1241,7 +1413,7 @@ renderer.domElement.addEventListener('pointerleave',()=>{$('tip').hidden=true;ho
 renderer.domElement.addEventListener('pointerdown',e=>{downAt=[e.clientX,e.clientY];$('tip').hidden=true;});
 renderer.domElement.addEventListener('pointercancel',()=>{downAt=null;});   // the page scrolled instead (scroll mode)
 renderer.domElement.addEventListener('pointerup',e=>{if(!downAt)return;const moved=Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1]);downAt=null;if(moved>5)return;
-  if(!st.active){setActive(true);return;}   // first tap only wakes the body up
+  if(!st.active&&e.pointerType!=='mouse'){setActive(true);return;}   // touch: the first tap only wakes the body up
   if(Q.on){quizClick(pickAt(e.clientX,e.clientY));return;}stopTour();selectPart(pickAt(e.clientX,e.clientY),false);});
 controls.addEventListener('start',()=>{tween=null;});
 /* Active / scroll mode. Scroll mode (the start): a finger on the body scrolls the page and nothing zooms.
@@ -1271,17 +1443,17 @@ function updateAnimTargets(){
   const vis=p=>p.mesh.visible;
   const heart=bodyParts.filter(p=>p.sys==='card'&&p.grp&&/^(Heart|Coronary vessels)$/.test(p.grp.label)&&vis(p));
   atria=heart.filter(p=>/atri(um|al)|auricle/i.test(p.name));ventr=heart.filter(p=>!atria.includes(p));
-  if(atria.length)atC.copy(boxOf(atria).getCenter(new THREE.Vector3()));if(ventr.length)veC.copy(boxOf(ventr).getCenter(new THREE.Vector3()));
-  const hAll=bodyParts.filter(p=>p.sys==='card'&&p.grp&&p.grp.label==='Heart');if(hAll.length)U.uHeart.value.copy(boxOf(hAll).getCenter(new THREE.Vector3()));
-  const br=bodyParts.filter(p=>p.sys==='nerv'&&/midbrain|pons|thalam|brainstem|medulla oblongata/i.test(p.name));if(br.length)U.uBrain.value.copy(boxOf(br).getCenter(new THREE.Vector3()));
+  if(atria.length)atC.copy(boxL(atria).getCenter(new THREE.Vector3()));if(ventr.length)veC.copy(boxL(ventr).getCenter(new THREE.Vector3()));
+  const hAll=bodyParts.filter(p=>p.sys==='card'&&p.grp&&p.grp.label==='Heart');if(hAll.length)U.uHeart.value.copy(boxL(hAll).getCenter(new THREE.Vector3()));
+  const br=bodyParts.filter(p=>p.sys==='nerv'&&/midbrain|pons|thalam|brainstem|medulla oblongata/i.test(p.name));if(br.length)U.uBrain.value.copy(boxL(br).getCenter(new THREE.Vector3()));
   lungParts=bodyParts.filter(p=>p.sys==='resp'&&p.grp&&p.grp.label==='Lungs'&&vis(p));
-  const cx=p=>boxOf([p]).getCenter(new THREE.Vector3());
+  const cx=p=>boxL([p]).getCenter(new THREE.Vector3());
   const L=lungParts.filter(p=>cx(p).x>0),Rr=lungParts.filter(p=>!L.includes(p));
-  const apex=list=>{if(!list.length)return null;const b=boxOf(list),c=b.getCenter(new THREE.Vector3());c.y=b.max.y;return c;};
+  const apex=list=>{if(!list.length)return null;const b=boxL(list),c=b.getCenter(new THREE.Vector3());c.y=b.max.y;return c;};
   const la=apex(L),ra=apex(Rr);lungParts.forEach(p=>p.apex=L.includes(p)?la:ra);
   diaParts=bodyParts.filter(p=>/diaphragm/i.test(p.name)&&vis(p)&&!/artery|vein|nerve/i.test(p.name));
   ribParts=bodyParts.filter(p=>vis(p)&&((p.sys==='skel'&&p.grp&&p.grp.label==='Ribs and sternum')||/intercostal|costal cartilage/i.test(p.name))&&!p.drawn);
-  if(ribParts.length)ribC.copy(boxOf(ribParts).getCenter(new THREE.Vector3()));
+  if(ribParts.length)ribC.copy(boxL(ribParts).getCenter(new THREE.Vector3()));
   skinParts=bodyParts.filter(p=>p.skin&&/^skin/i.test(p.name));swayParts=bodyParts.filter(p=>p.sway&&p.mesh.visible);
 }
 const T1=new THREE.Matrix4(),T2=new THREE.Matrix4(),SC=new THREE.Matrix4();
@@ -1497,7 +1669,7 @@ function lessonAuto(){const les=LESSONS[L.i],sec=secsOf(les)[secOf(les,L.step)];
   if(L.step>=sec.end){L.auto=false;$('lAuto').setAttribute('aria-pressed','false');toast(L.step>=les.steps.length-1?'Tour complete.':'Part done. Tap Next part to keep going.');return;}
   L.step++;showStep();}
 $('learnSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('learnSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
-  $('quizBox').hidden=b.dataset.v!=='quiz';$('lessonBox').hidden=b.dataset.v!=='lessons';});
+  $('quizBox').hidden=b.dataset.v!=='quiz';$('lessonBox').hidden=b.dataset.v!=='lessons';$('tourBox').hidden=b.dataset.v!=='tours';});
 
 /* Muscle facts: origin, insertion, main action, nerve (with usual root levels). Keys match the dataset's muscle names (side stripped). */
 const MFACTS={
@@ -1884,13 +2056,14 @@ $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)
 async function openTab(id){const pk=PACKS.get(id);if(!pk)return;
   if(!pk.loaded&&pk.code){try{new Function('AnatomyPacks',pk.code)(window.AnatomyPacks);}catch(e){console.error(e);toast('That tab could not load.');return;}}
   const P=PACKS.get(id);if(!P.tab){toast('That pack has no tab.');return;}
-  stopTour();tabOpen=id;st.paused=true;document.body.classList.add('tabbed');
+  stopTour();closeMenus();tabOpen=id;st.paused=true;document.body.classList.add('tabbed');$('mbSectionTxt').textContent=P.tab.title||P.name;
+  document.documentElement.style.setProperty('--barH',$('topbar').offsetHeight+'px');
   $('tabTitle').textContent=P.tab.title||P.name;const host=$('tabBody');[...host.children].forEach(c=>c.hidden=c.dataset.pack!==id);
   let el=host.querySelector(`[data-pack="${id}"]`);
   if(!el){el=document.createElement('div');el.dataset.pack=id;host.append(el);try{await P.tab.build(el,packApi);}catch(e){console.error(e);el.textContent='This tab could not load.';}}
   $('tabView').hidden=false;$('tabView').scrollTop=0;$('tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pack===id)));
   $('tabBack').focus({preventScroll:true});}
-function closeTab(){if(!tabOpen)return;tabOpen=null;st.paused=false;clock.getDelta();document.body.classList.remove('tabbed');$('tabView').hidden=true;
+function closeTab(){closeMenus();if(!tabOpen)return;tabOpen=null;$('mbSectionTxt').textContent='Body';st.paused=false;clock.getDelta();document.body.classList.remove('tabbed');$('tabView').hidden=true;
   $('tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(!b.dataset.pack)));}
 $('tabBack').onclick=closeTab;
 addEventListener('keydown',e=>{if(e.key==='Escape'&&tabOpen){e.stopImmediatePropagation();closeTab();}},true);
@@ -1922,12 +2095,5 @@ function bootPacks(){const q=new URLSearchParams(location.search).getAll('pack')
 setActive(false);buildTxt();renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
 refresh(true).then(()=>setTimeout(bootPacks,1500));requestAnimationFrame(loop);
 })();
-</script>
-<script>
-/* when a control further down changes the body (lesson, quiz, structure group, search result, tour), bring the body back into view */
-document.getElementById("panel").addEventListener("click",e=>{
-  if(!e.target.closest(".lessons button,#qStart,#qAgain,.plist button,.results button,#tour"))return;
-  const r=document.getElementById("stage").getBoundingClientRect();
-  if(r.top<-r.height*.25||r.bottom>innerHeight+r.height*.25)setTimeout(()=>document.getElementById("stage").scrollIntoView({behavior:"smooth",block:"start"}),60);});
 </script>
 </body></html>
