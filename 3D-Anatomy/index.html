@@ -507,11 +507,11 @@ body.tabbed{overflow:hidden}
   const ERAS=[
    {t:'~375 million years ago',h:'Fish come ashore',p:'Lobe-finned fish such as Tiktaalik had fin bones in the same pattern as our arm: one bone (humerus), then two (radius and ulna), then many small ones. Your arm and hand still follow that plan.',see:['skel','Arm bones','Arm bones']},
    {t:'~200 million years ago',h:'Early mammals',p:'Small, warm-blooded mammals appear. Two bones that once formed the reptile jaw joint shrank and moved into the ear, becoming the malleus and incus, two of the three tiny hearing bones.',see:['skel','Skull','Skull and ear bones']},
-   {t:'~55 million years ago',h:'Early primates',p:'Life in trees favoured grasping hands with nails instead of claws, forward-facing eyes for judging depth, and good colour vision for spotting ripe fruit.',see:['skel','Hand bones','Grasping hands']},
+   {t:'~55 million years ago',h:'Early primates',p:'Life in trees favoured grasping hands with nails instead of claws, forward-facing eyes for judging depth, and good colour vision for spotting ripe fruit.',see:['nerv','Eye','Forward-facing eyes']},
    {t:'~7 to 6 million years ago',h:'Our line splits from chimpanzees',p:'Sahelanthropus, among the earliest known members of the human line, has a skull opening that suggests it may have held its head over an upright spine.',see:['skel','Spine','The spine under the skull']},
    {t:'~3.7 to 3 million years ago',h:'Walking upright',p:'Australopithecus ("Lucy", about 3.2 million years old) had a short, bowl-shaped pelvis and knees angled inward under the body, much like ours, but a brain about the size of a chimpanzee\'s. Footprints at Laetoli, about 3.66 million years old, show a fully upright walk.',see:['skel','Pelvis','A pelvis for walking']},
    {t:'~3.7 million years ago',h:'The arched foot',p:'The big toe moved in line with the others and the foot gained arches, turning a grasping foot into a springy lever for walking and later running.',see:['skel','Foot bones','The arched foot']},
-   {t:'~3.3 to 2.6 million years ago',h:'Stone tools',p:'The oldest known stone tools are about 3.3 million years old. A longer, stronger thumb that could press against each fingertip made precise grips possible.',see:['musc','Forearm and hand','Muscles of a precise grip']},
+   {t:'~3.3 to 2.6 million years ago',h:'Stone tools',p:'The oldest known stone tools are about 3.3 million years old. A longer, stronger thumb that could press against each fingertip made precise grips possible.',see:['skel','Hand bones','A thumb for a precise grip']},
    {t:'~1.9 million years ago',h:'Homo erectus: built to run',p:'Long legs, a narrow waist, large buttock muscles, a ligament that steadies the head, and millions of sweat glands for cooling made long-distance running possible. Body hair thinned.',see:['musc','Hip and buttock','Running muscles']},
    {t:'~1.9 million years ago onward',h:'Smaller gut, bigger brain',p:'Meat, marrow and later cooking gave more energy from less food. The gut grew shorter while the brain grew; the brain now uses about 20 percent of the body\'s energy at only 2 percent of its weight.',see:['dig','Large intestine','A shorter gut']},
    {t:'~800,000 to 300,000 years ago',h:'A growing brain',p:'Brain size climbed from roughly 600 to 900 cm³ in early Homo erectus toward about 1,300 to 1,400 cm³. The cortex, the folded outer layer used for planning and language, expanded the most.',see:['nerv','Cerebrum','The cerebrum']},
@@ -520,7 +520,7 @@ body.tabbed{overflow:hidden}
    {t:'Leftovers',h:'Traces of the past',p:'Some parts carry history: the coccyx is all that remains of a tail; goosebumps come from tiny muscles that once fluffed up fur; wisdom teeth often lack room in our shorter jaws. The appendix, once called useless, may store helpful gut bacteria.',see:['skel','Spine','The coccyx (tailbone)']},
    {t:'Last 10,000 years',h:'Still changing',p:'Evolution has not stopped. Since farming began, the ability to digest milk as an adult spread in several dairying peoples, and skin colour, height and resistance to some diseases have shifted with diet, sunlight and germs.',see:['dig','Small intestine','Where milk is digested']}];
   // spoken tour (Learn › Tours) and its quiz
-  const EVO_STEP=e=>({sys:e.see[0],group:e.see[1],title:e.h,text:(e.t.charAt(0)==='~'?'About '+e.t.slice(1):e.t)+'. '+e.h+'. '+e.p});
+  const EVO_STEP=e=>({sys:e.see[0],group:e.see[1],efx:'era'+ERAS.indexOf(e),title:e.h,text:(e.t.charAt(0)==='~'?'About '+e.t.slice(1):e.t)+'. '+e.h+'. '+e.p});
   const EVO_TOUR={intro:'Evolution of the human body: how parts of your own body came to be, from fish fins to a walking, talking ape.',
     short:[0,1,4,6,7,9,10].map(i=>EVO_STEP(ERAS[i])),long:ERAS.map(EVO_STEP)};
   const EVO_QUIZ=[
@@ -533,7 +533,7 @@ AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tour:EV
   el.innerHTML=`<p class="tv-lead">From fish fins to a walking, talking ape: how parts of your own body came to be. Tap <b>See it on the body</b> on any step to jump to that part in 3D.</p>
    <ol class="tv-time">${ERAS.map((e,i)=>`<li><span class="tv-t">${e.t}</span><h3>${e.h}</h3><p>${e.p}</p><button class="tv-see" data-i="${i}">See it on the body ›</button></li>`).join('')}</ol>
    <p class="tv-note">Dates are approximate and are revised as new fossils are found.</p>`;
-  el.addEventListener('click',e=>{const b=e.target.closest('.tv-see');if(!b)return;const x=ERAS[+b.dataset.i];api.show(x.see[0],x.see[1],{title:x.see[2],tag:'Evolution · '+x.t,text:x.p});});
+  el.addEventListener('click',e=>{const b=e.target.closest('.tv-see');if(!b)return;const x=ERAS[+b.dataset.i];api.show(x.see[0],x.see[1],{title:x.see[2],tag:'Evolution · '+x.t,text:x.p,efx:'era'+b.dataset.i});});
 }}});
 </script>
 <script type="text/x-anatomy-pack" data-id="microbiome" data-name="The gut microbiome" data-tab="Gut microbiome">
@@ -663,7 +663,7 @@ const GROUPS = [
  G('skel','Ribs and sternum',/\brib\b|costal cartilage|sternum|manubrium|xiphoid/i,'#e6d7ba','12 pairs of ribs. Ribs 1–7 join the sternum directly, 8–10 by shared cartilage, 11–12 float. The cage protects the heart and lungs.'),
  G('skel','Shoulder girdle',/clavicle|scapula/i,'#e4d5b7','The collarbone braces the shoulder; the shoulder blade glides over the ribs and gives the arm its range.'),
  G('skel','Arm bones',/humerus|radius|\bulna\b/i,'#e5d6b8','Humerus in the upper arm; radius and ulna in the forearm, which cross over each other to turn the palm.'),
- G('skel','Hand bones',/carpal|metacarp|phalanx of (left|right)? ?(index|middle|ring|little|thumb)|(index|middle|ring|little) finger|thumb|scaphoid|lunate|triquetr|pisiform|trapezium|trapezoid|capitate|hamate/i,'#e7d9bd','27 bones per hand: 8 carpals, 5 metacarpals and 14 phalanges.'),
+ G('skel','Hand bones',/carpal|metacarp|phalanx of (left|right)? ?(index|middle|ring|little|thumb)(?! toe)|(index|middle|ring|little) finger|thumb|scaphoid|lunate|triquetr|pisiform|trapezium|trapezoid|capitate|hamate/i,'#e7d9bd','27 bones per hand: 8 carpals, 5 metacarpals and 14 phalanges.'),
  G('skel','Pelvis',/hip bone|ilium|ischium|pubis|pelvi|compact bone tissue|trabecular bone tissue|pubic/i,'#e2d3b4','Two hip bones (ilium, ischium and pubis fused) plus the sacrum. The female pelvis is wider and shallower with a rounder inlet, for childbirth.'),
  G('skel','Leg bones',/femur|\btibia\b|^(left|right) fibula|patella$|condyle|epicondyl|intercondylar|patellar surface/i,'#e4d5b6','The femur is the longest bone, about a quarter of height; the patella guards the knee; the tibia carries weight and the fibula anchors muscles.'),
  G('skel','Foot bones',/talus|calcaneus|navicular|cuboid|cuneiform|metatars|toe|hallux/i,'#e7d9bd','26 bones per foot form arches that spring and spread the load with every step.'),
@@ -1448,7 +1448,7 @@ $('prev').onclick=()=>{stopTour();setSys((st.sys+10)%11);};
 $('next').onclick=()=>{stopTour();setSys((st.sys+1)%11);};
 const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));st[key]=b.dataset.v;fn&&fn();});
-segs('sexSeg','sex',()=>{if(!TR.switching){VIEW.s=null;if(TR.on)closeSysTour('drop');}clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
+segs('sexSeg','sex',()=>{evoFx(null);if(!TR.switching){VIEW.s=null;if(TR.on)closeSysTour('drop');}clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
 // Skin peel: in the skin system it peels the skin off the muscles (full skin at the right); elsewhere it sets how much see-through skin shows
 $('skin').oninput=e=>{const v=+e.target.value;if(actv().has('integ')){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
 function skinSlider(){const own=actv().has('integ'),s=$('skin');s.max=own?1:.6;s.value=own?st.skinOwn:st.skin;
@@ -1504,7 +1504,7 @@ function zoomBy(f){tween=null;const d=camera.position.clone().sub(controls.targe
 $('zoomIn').onclick=()=>zoomBy(.8);$('zoomOut').onclick=()=>zoomBy(1.25);
 function startTour(){closeSysTour();mixOff();$('tourPill').hidden=false;st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
 function stopTour(){if(!st.tour)return;st.tour=false;$('tourPill').hidden=true;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
-function setSys(i){VIEW.s=null;if(TR.on)closeSysTour('drop');if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson('drop');st.sys=i;clearSel();st.tourT=0;refresh(true);}
+function setSys(i){evoFx(null);VIEW.s=null;if(TR.on)closeSysTour('drop');if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson('drop');st.sys=i;clearSel();st.tourT=0;refresh(true);}
 /* Tours and guided lessons show one system alone. The view you had before (body, systems, mix, skin, cut, vitals and
    camera) is kept here and put back when the tour or lesson ends, or after the quiz that follows it. Choosing a
    system or body yourself during a tour means you took over, so the old view is let go. */
@@ -1922,7 +1922,7 @@ function renderLessons(){$('lessonList').innerHTML=LESSONS.map((l,i)=>{const S=s
   <div class="lparts">${S.map((s,j)=>`<button data-i="${i}" data-s="${j}" aria-label="Play part ${j+1}, ${s.title}">▶ ${j+1}. ${s.title}<small>${s.end-s.start+1} stop${s.end>s.start?'s':''} · ${tourLen(s.end-s.start+1)}</small></button>`).join('')}</div></div>`;}).join('');}
 renderLessons();
 $('lessonList').addEventListener('click',e=>{const b=e.target.closest('button');if(b)startLesson(+b.dataset.i,b.dataset.s!==undefined?+b.dataset.s:0);});
-function startLesson(i,sec=0){saveView();closeSysTour('keep');stopTour();fxEnd();mixOff();st.skin=0;st.skinOwn=1;st.peel=0;skinSlider();if(Q.on){Q.on=false;$('quizBar').hidden=true;}const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0,speaking:false});
+function startLesson(i,sec=0){evoFx(null);saveView();closeSysTour('keep');stopTour();fxEnd();mixOff();st.skin=0;st.skinOwn=1;st.peel=0;skinSlider();if(Q.on){Q.on=false;$('quizBar').hidden=true;}const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0,speaking:false});
   st.mode='isolate';syncView();apply();unlockVoice();syncLessonVoice();fxStart(les);
   if(les.scn){phys.scn=st.scn=les.scn;$('scnSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===les.scn)));}
   $('lesson').hidden=false;showStep();}
@@ -2613,9 +2613,133 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
   if(L.on&&L.auto&&!queue.active.size&&!L.speaking){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
   if(!reduce){stepPhysio(dt);drawECG();}drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const m of st.selPools)m.emissive.copy(selCol);for(const p of st.selEach){p.mat.emissive.copy(selCol);useMat(p);}}
-  if(FXS.on)fxTick(dt);
+  if(FXS.on)fxTick(dt);if(EV.tick){EV.t+=dt;EV.tick(dt,EV.t);}
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);drawScene();tunePR(now||performance.now());requestAnimationFrame(loop);}
 
+/* ================================================================ Evolution: what changed in each era
+   Each Evolution stop changes the body in a way that fits its date: a fish fin beside the arm, the jaw bones moving into
+   the ear, overlapping fields of view, the opening under the skull, Lucy's height, the big toe swinging into line, the
+   thumb lengthening, Homo erectus growing tall and running, the gut shrinking, the brain growing, the old long, low skull,
+   the voice box dropping, the lost tail and milk digestion. Built only while that stop is open, and undone when it closes. */
+const EV={key:null,sex:null,root:null,world:null,tick:null,undo:[],t:0};
+const evMat=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:lin(c),roughness:.5,metalness:0,transparent:true},o));
+const evXray=(c,o={})=>new THREE.MeshBasicMaterial(Object.assign({color:lin(c),transparent:true,depthTest:false,depthWrite:false},o));
+const evAbout=(c,M)=>new THREE.Matrix4().makeTranslation(c.x,c.y,c.z).multiply(M).multiply(new THREE.Matrix4().makeTranslation(-c.x,-c.y,-c.z));
+const evCtr=list=>boxL(list).getCenter(new V3());
+const evSm=(x,a,b)=>THREE.MathUtils.smoothstep(x,a,b);
+function evLab(t,pos,h,col,align){const s=txtSprite(t,(h||.011)*1.8,col);s.center.set(align==='r'?0:align==='l'?1:.5,.5);s.position.copy(pos);EV.root.add(s);return s;}
+function evAdd(geo,mat,pos){const m=new THREE.Mesh(geo,mat);if(pos)m.position.copy(pos);m.renderOrder=22;EV.root.add(m);return m;}
+// move or resize body parts for a while: returns a setter that places them at M × their own place
+function evMove(list){const L=list.filter(p=>p&&p.mesh);EV.undo.push(()=>{for(const p of L){p.mesh.matrix.copy(p.mesh.userData.base);p.mesh.matrixWorldNeedsUpdate=true;}});
+  return M=>{for(const p of L){p.mesh.matrix.multiplyMatrices(M,p.mesh.userData.base);p.mesh.matrixWorldNeedsUpdate=true;}};}
+function evGlow(list,col){const c=lin(col);EV.undo.push(()=>{for(const p of list){p.mat.emissive.setRGB(0,0,0);useMat(p);}});return k=>{for(const p of list){p.mat.emissive.copy(c).multiplyScalar(k);useMat(p);}};}
+function evFit(pts,az){const b=new THREE.Box3();pts.forEach(p=>b.expandByPoint(p));fit([fakePart([b.min,b.max])],az);}
+function evLook(c,off){const t=c.clone().applyMatrix4(bodyRoot.matrixWorld);flyTo(t,t.clone().add(off));}
+function evHeight(h1,w1){const h0=st.hgt,w0=st.wgt;EV.undo.push(()=>{st.hgt=h0;st.wgt=w0;applyBuild();});
+  return (u,ha=h0,wa=w0)=>{st.hgt=Math.round(THREE.MathUtils.lerp(ha,h1,u));st.wgt=Math.round(THREE.MathUtils.lerp(wa,w1,u));applyBuild();};}
+const EVFX={
+ era0(){clearSel();const S=st.sex==='female',J=POSE[st.sex],sh=new V3(...J.sh);
+  const hum=partsLike(/humerus/i),fa=partsLike(/radius|\bulna\b/i),hand=partsLike(/carpal|metacarp|finger|thumb|scaphoid|lunate|triquetr|pisiform|trapezi|capitate|hamate/i).filter(p=>p.sys==='skel');
+  const g=[evGlow(hum,'#ffb83a'),evGlow(fa,'#2fd3c0'),evGlow(hand,'#b08cff')];
+  const x0=sh.x-(S?.31:.23),top=sh.y+.02,F=1.5,P=(dx,dy)=>new V3(x0+dx*F,top+dy*F,sh.z);
+  const rod=(a,b,r,c)=>{r*=F;const v=b.clone().sub(a),m=evAdd(new THREE.CylinderGeometry(r*.8,r,v.length(),10),evMat(c,{emissive:lin(c),emissiveIntensity:.35}),a.clone().addScaledVector(v,.5));m.quaternion.setFromUnitVectors(new V3(0,1,0),v.normalize());};
+  rod(P(0,0),P(0,-.11),.009,'#ffb83a');rod(P(-.009,-.116),P(-.015,-.2),.006,'#2fd3c0');rod(P(.009,-.116),P(.015,-.2),.0055,'#2fd3c0');
+  for(let i=0;i<6;i++){const a=-.55+i*.22,b=P(-.022+i*.009,-.206);rod(b,b.clone().add(new V3(Math.sin(a)*.035,-.032,0)),.0028,'#b08cff');}
+  evAdd(new THREE.CircleGeometry(.1*F,28,Math.PI*1.2,Math.PI*.6),evMat('#7fa7c8',{opacity:.25,side:THREE.DoubleSide,depthWrite:false}),P(0,-.17));
+  evLab('Fish fin (Tiktaalik)',P(0,.04),.012);evLab('1 bone',P(.03,-.055),.009,'#ffcf7a','r');evLab('2 bones',P(.03,-.16),.009,'#7ff0e0','r');evLab('many bones',P(.04,-.235),.009,'#d4bcff','r');
+  evLab('Your arm',new V3(...J.el).add(new V3(0,.03,.07)),.012);
+  evFit([P(-.09,.06),P(.06,-.3),new V3(...J.tip),sh.clone().add(new V3(.02,0,0))],-.15);
+  fxCap('One bone, then two, then many small ones: the same plan in a fish fin and in your arm');
+  EV.tick=(dt,t)=>{const k=.32+.14*Math.sin(t*3);g.forEach(f=>f(k));};},
+ era1(){const E=new V3(...PATHS[st.sex].ear),jaw=E.clone().add(new V3(.012,-.014,.022)),mid=E.clone().add(new V3(.017,.002,-.002));
+  const a=evAdd(new THREE.SphereGeometry(.0042,12,10),evXray('#ffcf4d')),b=evAdd(new THREE.SphereGeometry(.0036,12,10),evXray('#ff8f5a'));a.scale.set(1,1.7,1);b.scale.set(1.3,1,1);
+  const lJ=evLab('Reptile: jaw joint bones',jaw.clone().add(new V3(-.03,-.022,.035)),.009,'#ffe08a'),lE=evLab('Mammal: hearing bones',mid.clone().add(new V3(-.03,.032,0)),.009,'#ffc08a');
+  evFit([E.clone().add(new V3(-.07,-.07,-.06)),E.clone().add(new V3(.05,.07,.09))],-1.35);
+  EV.tick=(dt,t)=>{const u=evSm(t%5.5,1.2,3.6);a.position.lerpVectors(jaw,mid,u);b.position.lerpVectors(jaw.clone().add(new V3(0,.007,-.005)),mid.clone().add(new V3(.004,.004,-.004)),u);
+    lJ.material.opacity=1-u*.75;lE.material.opacity=.25+u*.75;
+    fxCap(u<.5?'In reptiles these two small bones form the jaw joint':'In mammals they shrank and moved into the ear: the malleus and incus');};},
+ era2(){const Ec=EYES[st.sex].c.map(c=>new V3(...c));
+  for(const c of Ec){const g=new THREE.ConeGeometry(.11,.32,32,1,true);g.translate(0,-.16,0);g.rotateX(-Math.PI/2);
+    const m=evAdd(g,new THREE.MeshBasicMaterial({color:lin('#6fd0ff'),transparent:true,opacity:.16,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}),c);m.rotation.y=c.x<0?-.12:.12;}
+  const y=Ec[0].y,z=Ec[0].z;evLab('Overlap: depth vision',new V3(0,y+.07,z+.3),.016,'#bfefff');
+  evFit([new V3(-.1,y-.08,z-.12),new V3(.1,y+.1,z+.34)],-.85);
+  fxCap('Forward-facing eyes: their views overlap, so the brain can judge depth. Tree-living primates also gained grasping hands with nails');},
+ era3(){const fm=new V3(...PATHS[st.sex].stem).add(new V3(0,-.03,-.01)),gold='#ffcf4d',grey='#a9b4bd';
+  const ring=(p,rx,c)=>{const m=evAdd(new THREE.TorusGeometry(.011,.0018,8,28),evXray(c),p);m.rotation.x=rx;return m;};
+  const line=(a,b,c,r)=>{const v=b.clone().sub(a),m=evAdd(new THREE.CylinderGeometry(r,r,v.length(),8),evXray(c,{opacity:.85}),a.clone().addScaledVector(v,.5));m.quaternion.setFromUnitVectors(new V3(0,1,0),v.normalize());return m;};
+  ring(fm,Math.PI/2,gold);line(fm,fm.clone().add(new V3(0,-.22,-.02)),gold,.0016);
+  const ap=fm.clone().add(new V3(0,0,-.04)),gr=ring(ap,Math.PI/2-.9,grey),gl=line(ap,ap.clone().add(new V3(0,-.1,-.1)),grey,.0014);
+  evLab('Human: under the skull',fm.clone().add(new V3(0,-.1,.08)),.009,'#ffe08a');evLab('Chimpanzee: further back, at a slant',ap.clone().add(new V3(0,-.12,-.1)),.009,'#cfd8de');
+  evFit([fm.clone().add(new V3(0,.14,.12)),fm.clone().add(new V3(0,-.24,-.2))],-1.5);
+  fxCap('The opening for the spinal cord sits under the skull, so the head balances on an upright spine. In Sahelanthropus it may already have moved forward');
+  EV.tick=(dt,t)=>{const k=.45+.4*Math.sin(t*2.5);gr.material.opacity=gl.material.opacity=k;};},
+ era4(){const H=evHeight(110,64),h0=st.hgt,w=new THREE.Group();scene.add(w);EV.world=w;
+  const bar=(y,c,txt)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.7,.003,.003),evXray(c));m.position.set(0,y,0);m.renderOrder=22;w.add(m);const s=txtSprite(txt,.04,c);s.center.set(0,.5);s.position.set(.36,y,0);w.add(s);};
+  bar(h0/100,'#cfd8de',`You: ${h0} cm`);bar(1.10,'#ffcf4d','Lucy: about 110 cm');
+  evFit([new V3(-.45,0,0),new V3(.45,h0/100+.1,0)],-.35);
+  fxCap('Lucy (Australopithecus) stood about 1.1 m tall and weighed about 29 kg, with a brain the size of a chimpanzee\'s. Her pelvis and knees were already built for walking upright');
+  EV.tick=(dt,t)=>{if(t<3)H(evSm(t,.6,2.4),h0);};},
+ era5(){const toe=partsLike(/first metatarsal|big toe|hallux/i).filter(p=>p.sys==='skel'),side=s=>toe.filter(p=>Math.sign(evCtr([p]).x||1)===s);
+  const piv=list=>{const mt=list.find(p=>/metatarsal/i.test(p.name))||list[0];if(!mt)return new V3();const b=boxL([mt]);return new V3((b.min.x+b.max.x)/2,(b.min.y+b.max.y)/2,b.min.z);};
+  const R=side(-1),Lf=side(1),pR=piv(R),pL=piv(Lf),mR=evMove(R),mL=evMove(Lf),rot=a=>new THREE.Matrix4().makeRotationY(a);
+  if(R.length)evLook(pR.clone().add(new V3(0,0,.06)),new V3(-.12,.34,.22));
+  EV.tick=(dt,t)=>{const s=t%6,a=.42*(1-evSm(s,1.5,3.2))+.42*evSm(s,4.8,6);mR(evAbout(pR,rot(a)));mL(evAbout(pL,rot(-a)));
+    fxCap(a>.2?'Ape-like foot: the big toe sticks out to the side for gripping branches':'Human foot: the big toe lines up with the others, and arches make a springy lever for walking');};},
+ era6(){const th=partsLike(/first metacarpal|thumb/i).filter(p=>p.sys==='skel'&&evCtr([p]).x<0),mc=th.find(p=>/metacarpal/i.test(p.name));
+  const b=mc?boxL([mc]):boxL(th),pv=new V3((b.min.x+b.max.x)/2,b.max.y,(b.min.z+b.max.z)/2),mv=evMove(th);
+  const tT=partsLike(/distal phalanx of right thumb/i)[0],tI=partsLike(/distal phalanx of right index/i)[0];
+  if(tT&&tI){const c=evCtr([tT]).add(evCtr([tI])).multiplyScalar(.5).add(new V3(0,-.004,.016)),g=new THREE.IcosahedronGeometry(.018,0);g.scale(1,.42,.8);
+    const st0=evAdd(g,evMat('#8b857a',{flatShading:true,roughness:.9,opacity:1,transparent:false}),c);st0.renderOrder=0;st0.rotation.set(.3,.5,.2);}
+  const hc=evCtr(th.length?th:[mc]);evFit([hc.clone().add(new V3(-.08,-.09,-.06)),hc.clone().add(new V3(.07,.07,.08))],-.55);
+  EV.tick=(dt,t)=>{const s=t%5.5,k=.8+.2*evSm(s,1.2,3)-.2*evSm(s,4.6,5.5);mv(evAbout(pv,new THREE.Matrix4().makeScale(k,k,k)));
+    fxCap(k<.9?'A shorter, ape-like thumb cannot press firmly against the fingertips':'The longer, stronger human thumb meets each fingertip: a precise pinch for making stone tools');};},
+ era7(){const H=evHeight(st.hgt,st.wgt),h0=st.hgt,w0=st.wgt;poseJoints();U.uPoseOn.value=1;EV.undo.push(()=>{U.uPoseOn.value=0;setPose();setBob(0);});
+  H(0,110,64);evFit([new V3(-.35,0,-.25),new V3(.35,h0/100+.05,.3)],-1.2);
+  EV.tick=(dt,t)=>{if(t<3.2)H(evSm(t,.5,2.6),110,64);EV.ph=(EV.ph||0)+dt*2*Math.PI*1.25;const ph=EV.ph,s=Math.sin(ph),k=.25+.75*evSm(t,2.4,3.2);
+    const kn=x=>.25+1.05*Math.max(0,Math.sin(x+1.1));setPose(-.62*s*k,kn(ph)*k,.62*s*k,kn(ph+Math.PI)*k,.55*s*k,-1.25*k,-.55*s*k,-1.25*k);setBob(.012*Math.abs(Math.cos(ph))*k);
+    fxCap(t<2.6?'From Lucy\'s about 1.1 m to about 1.5 to 1.8 m tall: long legs and a narrow waist':'Built to run: big buttock muscles, springy legs and millions of sweat glands for cooling');};},
+ era8(){const list=st.selSet.slice(),c=evCtr(list),mv=evMove(list);
+  EV.tick=(dt,t)=>{const s=t%6,k=1+.28*(1-evSm(s,1.4,3))+.28*evSm(s,4.8,6);mv(evAbout(c,new THREE.Matrix4().makeScale(k,k,k)));
+    fxCap(k>1.14?'Ape-like: a bigger colon for fermenting tough plant food':'Human: a smaller colon. Meat, marrow and cooked food need less gut, freeing energy for a bigger brain');};},
+ era9(){const list=st.selSet.slice(),c=evCtr(list),mv=evMove(list);
+  EV.tick=(dt,t)=>{const s=t%6,k=.763+.237*evSm(s,.6,3.6);mv(evAbout(c,new THREE.Matrix4().makeScale(k,k,k)));const v=Math.round(1350*k*k*k/50)*50;
+    fxCap(`Brain size: about ${v.toLocaleString('en')} cm³`+(k<.79?' (early Homo erectus)':k>.995?' (people today)':''));};},
+ era10(){const list=st.selSet.slice(),c=evCtr(list),M=evAbout(c,new THREE.Matrix4().makeScale(1,.86,1.13)),gm=new THREE.MeshBasicMaterial({color:lin('#ff9a4d'),transparent:true,opacity:.25,depthWrite:false});
+  for(const p of list){const m=new THREE.Mesh(p.mesh.geometry,gm);m.userData.keep=true;m.matrixAutoUpdate=false;m.matrix.multiplyMatrices(M,p.mesh.userData.base);m.renderOrder=23;EV.root.add(m);}
+  const ey=EYES[st.sex].c[0],br=new THREE.TorusGeometry(.036,.006,8,24,Math.PI);br.rotateX(Math.PI/2);const bm=evAdd(br,gm,new V3(0,ey[1]+.024,ey[2]-.026));bm.scale.z=1.13;
+  evFit([c.clone().add(new V3(-.11,-.13,-.13)),c.clone().add(new V3(.11,.12,.15))],-1.45);
+  EV.tick=(dt,t)=>{const s=t%7,o=evSm(s,.3,1.2)*(1-evSm(s,3.4,4.2));gm.opacity=.32*o;
+    fxCap(o>.5?'Homo erectus (orange): a long, low braincase and a heavy brow ridge':'Homo sapiens: a high, rounded braincase, a flat face and a chin');};},
+ era11(){const all=st.selSet.slice(),list=all.filter(p=>/epiglott|inferior pharyngeal/i.test(p.name)),mv=evMove(list),tr=partsLike(/^trachea/i)[0],D=.04;
+  // the body model has no separate voice-box cartilages, so a drawn voice box sits on top of the windpipe and moves with the epiglottis
+  const tb=tr?boxL([tr]):boxL(all),c=new V3((tb.min.x+tb.max.x)/2,tb.max.y+.018,(tb.min.z+tb.max.z)/2+.006);
+  const vg=new THREE.CylinderGeometry(.021,.016,.036,16,1,true,-1.3,2.6),vb=evAdd(vg,evMat('#ffcf4d',{opacity:.75,side:THREE.DoubleSide,emissive:lin('#6a4a00'),depthWrite:false}),c);
+  evLab('Voice box',c.clone().add(new V3(0,0,.05)),.009,'#ffe08a','r').userData.mv=true;
+  // two marks beside the throat: where an ape's voice box sits, and where an adult human's does
+  for(const [y,col,txt] of [[c.y+D,'#cfd8de','Ape: high'],[c.y,'#ffcf4d','Human adult: low']]){evAdd(new THREE.BoxGeometry(.003,.003,.09),evXray(col),new V3(c.x-.03,y,c.z));evLab(txt,new V3(c.x-.035,y,c.z+.05),.009,col,'l');}
+  const lab=EV.root.children.find(m=>m.userData.mv);
+  evFit([c.clone().add(new V3(-.07,-.07,-.08)),c.clone().add(new V3(.07,.1,.08))],-1.45);
+  EV.tick=(dt,t)=>{const s=t%6,dy=D*(1-evSm(s,1.4,3))+D*evSm(s,4.8,6);mv(new THREE.Matrix4().makeTranslation(0,dy,0));vb.position.y=c.y+dy;lab.position.y=c.y+dy;
+    fxCap(dy>.017?'Ape-like: the voice box sits high, near the back of the tongue':'Adult human: the voice box sits lower, giving a long throat for clear vowels, at the cost of choking more easily');};},
+ era12(){const coc=partsLike(/coccy/i),b=boxL(coc.length?coc:st.selSet),bm=evMat('#f3e6c8',{opacity:.7,depthWrite:false,emissive:lin('#4a3a1a')});
+  let p=new V3((b.min.x+b.max.x)/2,b.min.y+.004,(b.min.z+b.max.z)/2),d=new V3(0,-.75,-.66).normalize(),L=.024,r=.0085;const segs=[],p0=p.clone();
+  for(let i=0;i<10;i++){const q=p.clone().addScaledVector(d,L),m=evAdd(new THREE.CylinderGeometry(r*.85,r,L*.82,10),bm,p.clone().addScaledVector(d,L*.5));m.quaternion.setFromUnitVectors(new V3(0,1,0),d);m.renderOrder=0;segs.push(m);
+    p=q;d.applyAxisAngle(new V3(1,0,0),-.1).normalize();L*=.93;r*=.88;}
+  evLab('An ancestor\'s tail',p.clone().add(new V3(0,-.02,-.02)),.012,'#f4e8cf');
+  evFit([p0.clone().add(new V3(-.06,.1,.08)),p.clone().add(new V3(.06,-.03,-.03))],-1.45);
+  fxCap('Monkey-like ancestors had a tail. In us only the coccyx (tailbone) is left; an embryo has a short tail for a few weeks early in pregnancy');
+  EV.tick=(dt,t)=>{bm.opacity=.5+.3*(.5+.5*Math.sin(t*2));};},
+ era13(){const b=boxL(st.selSet.length?st.selSet:partsLike(/intestin|ileum|jejun/i)),g=new THREE.SphereGeometry(.0055,10,8),dots=[];
+  for(let i=0;i<16;i++){const m=evAdd(g,evXray('#ffffff',{opacity:.9}),new V3(THREE.MathUtils.lerp(b.min.x,b.max.x,Math.random()),THREE.MathUtils.lerp(b.min.y,b.max.y,Math.random()),b.max.z+.004));
+    m.userData.v=new V3(Math.random()-.5,Math.random()-.5,0).normalize().multiplyScalar(.03);dots.push(m);}
+  fxCap('The change here is in the gut\'s chemistry, not its shape: in many dairying peoples the enzyme lactase keeps digesting milk sugar into adult life');
+  EV.tick=(dt,t)=>{for(const m of dots){m.position.addScaledVector(m.userData.v,dt);for(const a of ['x','y'])if(m.position[a]<b.min[a]||m.position[a]>b.max[a])m.userData.v[a]*=-1;m.material.opacity=.6+.35*Math.sin(t*3+m.id);}};}};
+function evoFx(key){if(key&&EV.key===key&&EV.sex===st.sex)return;
+  if(EV.key){const u=EV.undo.reverse();EV.undo=[];for(const f of u)try{f();}catch(e){}
+    for(const r of [EV.root,EV.world])if(r){r.traverse(m=>{if(m.geometry&&!m.userData.keep)m.geometry.dispose();if(m.material){if(m.material.map)m.material.map.dispose();m.material.dispose();}});r.parent&&r.parent.remove(r);}
+    EV.root=EV.world=null;EV.tick=null;EV.ph=0;if(!FXS.on)$('fxCap').hidden=true;}
+  EV.key=key||null;EV.sex=st.sex;if(!key||!EVFX[key])return;EV.root=new THREE.Group();bodyRoot.add(EV.root);EV.t=0;
+  try{EVFX[key]();}catch(e){console.warn('evolution effect',key,e);}}
 /* ================================================================ add-on packs
    A pack is a piece of code that calls AnatomyPacks.register({...}). It can add a tab, tours and body conditions,
    without changing this file. Built-in packs sit at the end of the page as inert text (<script type="text/x-anatomy-pack">)
@@ -2624,13 +2748,13 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
 const PACKS=new Map(),CONDS=[];let tabOpen=null;
 const packApi={
   // jump to the body and highlight a structure group (or parts whose names match a RegExp) in a system
-  show:async(sys,match,info={})=>{closeTab();stopTour();mixOff();endLesson();if(Q.on)endQuiz();
+  show:async(sys,match,info={})=>{evoFx(null);closeTab();stopTour();mixOff();endLesson();if(Q.on)endQuiz();
     if(!SYS[sys])return;if(SYSTEMS[st.sys].id!==sys){st.sys=SYS[sys].i;clearSel();await refresh(false);}
     for(let n=0;!st.ready&&n<200;n++)await new Promise(r=>setTimeout(r,150));
     const lab=p=>{const g=(p.grp&&p.grp.sys===sys)?p.grp:groupOf(sys,p.name);return g?g.label:'';};
     const list=bodyParts.filter(p=>visibleIn(p,sys)&&(match instanceof RegExp?match.test(p.name):lab(p)===match));
     selectSet(list,{title:info.title||String(match),tag:info.tag||SYSTEMS[st.sys].name,desc:info.text||'',src:list.length?sourceLine(list):''});
-    if(list.length)fit(list);stage.scrollIntoView({behavior:'smooth',block:'center'});},
+    if(list.length)fit(list);evoFx(info.efx||null);stage.scrollIntoView({behavior:'smooth',block:'center'});},
   addLesson:les=>{if(les&&les.name&&Array.isArray(les.steps)){LESSONS.push({tag:'Add-on',...les,steps:les.steps.map(s=>({...s}))});renderLessons();}},
   addCondition:c=>{if(!c||!c.name||!c.sys)return;CONDS.push(c);renderConds();},
   toast:m=>toast(m),
@@ -2790,7 +2914,7 @@ function buildPackSteps(){const t=TR.pack.tour,L=TR.long?t.long:t.short;
 const tourName=()=>TR.pack?TR.pack.name:SYSTEMS[SYS[TR.id].i].name;
 
 async function switchSex(sex){if(st.sex===sex)return;TR.switching=true;$('sexSeg').querySelector(`[data-v="${sex}"]`).click();TR.switching=false;await waitReady();}
-function tourPrep(){stopTour();endLesson('keep');if(Q.on){Q.on=false;$('quizBar').hidden=true;}closeMenus();closeTab();mixOff();
+function tourPrep(){evoFx(null);stopTour();endLesson('keep');if(Q.on){Q.on=false;$('quizBar').hidden=true;}closeMenus();closeTab();mixOff();
   st.mode='isolate';syncView();st.skin=0;st.skinOwn=1;st.peel=0;$('peel').value=0;$('peelTxt').textContent=PEEL_TXT[0];
   if(st.slice!=='off'){$('slice').value='off';$('slice').dispatchEvent(new Event('change'));}skinSlider();apply();}   // redraw now: the tour's system may already be the main one
 async function stepsNow(){if(TR.pack)return buildPackSteps();
@@ -2806,7 +2930,7 @@ async function showTourStep(){const tok=++TR.tok,s=TR.steps[TR.i];if(!s||!TR.on)
   let list=s.parts?s.parts.filter(p=>inScene.has(p)):bodyParts.filter(p=>visibleIn(p,s.sys)&&labOf(p,s.sys)===s.group);
   const n=TR.steps.length,tag=`${tourName()} · ${TR.long?'long':'short'} · ${st.sex==='male'?'male':'female'} body · ${TR.i+1} of ${n}`;
   $('stTag').textContent=tag;$('stTitle').textContent=s.title;$('stText').textContent=s.sub?s.sub:s.text;$('stBar').style.width=((TR.i+1)/n*100)+'%';
-  selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)focusOn(list,s.whole);skinBlock(s.blk||null);
+  selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)focusOn(list,s.whole);skinBlock(s.blk||null);evoFx(TR.pack&&s.efx||null);
   $('stPrev').disabled=TR.i===0;if(TR.paused)return;
   say(s.text,()=>TR.timers.push(setTimeout(()=>{if(tok===TR.tok)nextTourStep();},s.sub?250:700)));}
 function nextTourStep(){if(TR.i<TR.steps.length-1){TR.i++;showTourStep();}else endPhase();}
@@ -2816,12 +2940,12 @@ async function endPhase2(){const tok=++TR.tok;hush();
   else if(VO.loop){TR.phase='male';$('stTitle').textContent='Starting again on the male body…';await switchSex('male');}
   else{finishTour();return;}
   if(tok!==TR.tok||!TR.on)return;TR.steps=await stepsNow();if(tok!==TR.tok||!TR.on)return;TR.i=0;showTourStep();}
-function finishTour(){TR.tok++;hush();skinBlock(null);$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
+function finishTour(){TR.tok++;hush();skinBlock(null);evoFx(null);$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
   const nm=tourName();$('stTag').textContent=`${nm} · tour finished`;$('stTitle').textContent='Ready for the quiz?';
   $('stText').textContent=TR.pack?`Five questions on ${nm.toLowerCase()}. Your best score is saved to Profile.`:`Ten questions: find the ${nm.toLowerCase()} structures on the body. Your best score is saved to Profile.`;
   $('stAns').innerHTML='<button class="btn primary" data-act="quiz">Start the quiz</button><button class="btn" data-act="again">Replay the tour</button><button class="btn" data-act="close">Close</button>';
   say('Tour finished. Ready for the quiz?',()=>{});}
-function closeSysTour(how){if(!TR.on)return;TR.on=false;TR.tok++;hush();skinBlock(null);$('stour').hidden=true;if(how==='drop')VIEW.s=null;else if(how!=='keep')restoreView();}
+function closeSysTour(how){if(!TR.on)return;TR.on=false;TR.tok++;hush();skinBlock(null);evoFx(null);$('stour').hidden=true;if(how==='drop')VIEW.s=null;else if(how!=='keep')restoreView();}
 function syncTourCtl(){$('stMute').setAttribute('aria-pressed',String(VO.muted));$('stMute').textContent=VO.muted?'Unmute':'Mute';
   $('stLoop').setAttribute('aria-pressed',String(VO.loop));$('stRate').value=String(VO.rate);$('stPlay').textContent=TR.paused?'Play':'Pause';}
 $('stPrev').onclick=()=>{if(!TR.busy&&TR.i>0){TR.i--;showTourStep();}};
