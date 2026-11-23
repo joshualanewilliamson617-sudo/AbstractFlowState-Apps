@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: specimen-viewer — instrument panel on the left, lit body on a dark stage on the right; stacks on phones.
+/* Layout: specimen-viewer, one column top to bottom: system buttons, the lit body on a dark stage, the layer controls under it, then everything else.
    Deliberately single dark theme: a lightbox stage for 3D anatomy. */
 :root{
   --void:#0a0f12; --stage:#0d1417; --panel:#11181c; --raise:#162026; --line:#223038;
@@ -17,9 +17,23 @@
 }
 html,body{height:100%}
 body{background:var(--void);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
-#app{display:grid;grid-template-columns:minmax(320px,380px) 1fr;height:100%}
-#panel{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column;gap:18px;
-  padding-block:20px 28px;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:18px;min-width:0}
+/* one column, top to bottom: system buttons, the body, the layer controls, then everything else */
+#app{display:flex;flex-direction:column;min-height:100%}
+.band{padding-inline:max(18px,env(safe-area-inset-left,0px)) max(18px,env(safe-area-inset-right,0px));min-width:0}
+#sysbar{background:var(--panel);border-bottom:1px solid var(--line);padding-block:12px;display:grid;gap:10px}
+.brandrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+.brandrow h1{font-family:var(--display);font-weight:500;font-size:24px;line-height:1.05;margin:0;letter-spacing:-.01em;flex:none}
+.brandrow .cycler{flex:1 1 300px;max-width:520px;padding:6px;grid-template-columns:36px 1fr 36px;gap:8px}
+.brandrow .cycler button{height:36px}
+.brandrow .sysname h2{font-size:19px;margin:0}
+.brandrow .sysname .job{font-size:11.5px;line-height:1.3}
+#sysbar .dial{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+#sysbar .chip{padding:7px 8px}
+#stage{height:clamp(380px,72vh,1000px);flex:none}
+#layers{background:var(--panel);border-block:1px solid var(--line);padding-block:12px 14px;display:grid;gap:10px 22px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));align-items:start}
+#panel{background:var(--void);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:18px 36px;align-items:start;
+  padding-block:20px 28px;max-width:1240px;width:100%;margin-inline:auto;box-sizing:border-box}
+#panel .col{display:flex;flex-direction:column;gap:18px;min-width:0}
 .brand h1{font-family:var(--display);font-weight:500;font-size:30px;line-height:1.05;margin:0;letter-spacing:-.01em}
 .brand p{margin:6px 0 0;color:var(--mute);font-size:12.5px}
 .label{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
@@ -146,91 +160,35 @@ input[type=search]{width:100%;min-width:0}
 @media (max-width:760px){.vitals{width:min(180px,calc(100% - 32px));padding:5px 7px}.vitals .v b{font-size:11px}#ecg{height:24px;max-height:24px}.lesson h3{font-size:19px}.quizbar h3{font-size:19px}}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
 @media (max-width:760px){
-  #app{grid-template-columns:1fr;grid-template-rows:60vh auto;height:auto}
-  #stage{grid-row:1;height:60vh}
-  #panel{grid-row:2;border-right:0;border-top:1px solid var(--line);overflow:visible;padding-right:max(16px,env(safe-area-inset-right,0px));padding-left:max(16px,env(safe-area-inset-left,0px))}
-  .dial{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .band{padding-inline:max(12px,env(safe-area-inset-left,0px)) max(12px,env(safe-area-inset-right,0px))}
+  #sysbar{padding-block:8px;gap:8px}
+  .brandrow h1{font-size:19px}
+  .brandrow .cycler{flex-basis:100%;max-width:none}
+  #sysbar .dial{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+  #sysbar .chip{padding:7px 6px;font-size:12px;gap:6px}
+  #stage{height:62vh;height:62svh;min-height:320px}
+  #layers{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+  #layers .wide{grid-column:1/-1}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <div id="app">
-  <aside id="panel">
-    <header class="brand">
+  <header id="sysbar" class="band">
+    <div class="brandrow">
       <h1>3D Anatomy</h1>
-      <p>Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag to rotate, scroll to zoom, click any structure.</p>
-    </header>
-
-    <section class="cycler" aria-label="System cycler">
-      <button id="prev" aria-label="Previous system">‹</button>
-      <div class="sysname">
-        <div class="idx" id="sysIdx">03 / 11</div>
-        <h2 id="sysTitle">Skeletal</h2>
-        <div class="job" id="sysJob"></div>
-      </div>
-      <button id="next" aria-label="Next system">›</button>
-    </section>
-
-    <div class="dial" id="dial" role="group" aria-label="Organ systems"></div>
-
-    <div class="tour">
-      <button id="tour" aria-pressed="false">Play tour</button>
-      <div class="bar" aria-hidden="true"><b id="tourBar"></b></div>
+      <section class="cycler" aria-label="System cycler">
+        <button id="prev" aria-label="Previous system">‹</button>
+        <div class="sysname">
+          <div class="idx" id="sysIdx">03 / 11</div>
+          <h2 id="sysTitle">Skeletal</h2>
+          <div class="job" id="sysJob"></div>
+        </div>
+        <button id="next" aria-label="Next system">›</button>
+      </section>
     </div>
-
-    <section class="ctrls">
-      <div class="ctl"><span class="label">Body</span>
-        <div class="seg" id="sexSeg"><button data-v="male" aria-pressed="true">Male · 172 cm</button><button data-v="female" aria-pressed="false">Female · 167 cm</button></div></div>
-      <div class="ctl"><span class="label">View</span>
-        <div class="seg" id="modeSeg"><button data-v="isolate" aria-pressed="true">Isolate</button><button data-v="layered" aria-pressed="false">Layered</button><button data-v="all" aria-pressed="false">All systems</button></div></div>
-      <div class="ctl" id="peelCtl" hidden><span class="label">Muscle layers · <span id="peelTxt">all showing</span></span>
-        <div class="rowc"><input type="range" id="peel" min="0" max="3" step="1" value="0" aria-label="Peel muscle layers"></div></div>
-      <div class="ctl"><span class="label">Skin peel</span>
-        <div class="rowc"><input type="range" id="skin" min="0" max="0.6" step="0.01" value="0.1" aria-label="Skin opacity"></div></div>
-      <div class="ctl"><span class="label">Cross-section</span>
-        <div class="rowc"><select id="slice" aria-label="Slice plane"><option value="off">Off</option><option value="sag">Sagittal</option><option value="cor">Coronal</option><option value="tra">Transverse</option></select>
-        <input type="range" id="slicePos" min="-1" max="1" step="0.005" value="0" aria-label="Slice position" disabled></div></div>
-      <label class="check"><input type="checkbox" id="flow" checked> Show flow along vessels and nerves</label>
-      <div class="ctl"><span class="label">Name labels · zoom in to name smaller parts</span>
-        <div class="seg" id="lblSeg"><button data-v="off" aria-pressed="false">Off</button><button data-v="key" aria-pressed="true">Key parts</button><button data-v="dense" aria-pressed="false">As many as fit</button></div></div>
-      <div class="ctl"><span class="label">Body state</span>
-        <div class="seg" id="scnSeg"><button data-v="rest" aria-pressed="true">Rest</button><button data-v="exercise" aria-pressed="false">Exercise</button><button data-v="sleep" aria-pressed="false">Sleep</button></div></div>
-      <div class="ctl"><span class="label">Time</span>
-        <div class="seg" id="spdSeg"><button data-v="1" aria-pressed="true">Real time</button><button data-v="0.25" aria-pressed="false">Slow ×4</button></div>
-        <p class="note" id="pwvNote">The arterial pulse wave travels at its real speed, about 5 m/s.</p></div>
-    </section>
-
-    <section class="ctrls" aria-label="Learn">
-      <div class="ctl"><span class="label">Learn</span>
-        <div class="seg" id="learnSeg"><button data-v="lessons" aria-pressed="true">Guided lessons</button><button data-v="quiz" aria-pressed="false">Quiz</button></div></div>
-      <div id="lessonBox" class="lessons"><div class="lessons" id="lessonList"></div></div>
-      <div id="quizBox" class="ctl" hidden>
-        <p class="note">Ten questions on the current system. Click the structure named at the top of the view; answers are faster for more points, and streaks multiply.</p>
-        <div class="seg" id="qModeSeg"><button data-v="group" aria-pressed="true">Groups</button><button data-v="part" aria-pressed="false">Named structures</button></div>
-        <div class="rowc"><button class="btn primary" id="qStart">Start quiz</button><span class="note" id="qBest"></span></div>
-      </div>
-    </section>
-
-    <section class="info" aria-live="polite">
-      <p id="sysSummary"></p>
-      <dl class="facts" id="facts"></dl>
-      <p class="fillnote" id="fillnote" hidden></p>
-      <div class="ctl"><span class="label">Structure groups · click to locate</span><div class="plist" id="plist"></div></div>
-      <div class="card" id="card" hidden><div class="tag" id="cardTag"></div><h3 id="cardName"></h3><p id="cardDesc"></p><dl class="mf" id="cardFacts" hidden></dl><div class="src" id="cardSrc"></div></div>
-      <div class="ctl"><label class="label" for="q">Find any structure</label>
-        <input type="search" id="q" placeholder="e.g. femur, mitral valve, sciatic" autocomplete="off">
-        <div class="results" id="results"></div></div>
-      <p class="note">Educational reference, not for diagnosis. Keys: ← → cycle systems, space plays the tour, Esc clears the selection.</p>
-    </section>
-
-    <footer class="credits">
-      <span class="label">Model sources</span>
-      <span>Male: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener">BodyParts3D</a>, © The Database Center for Life Science, licensed under CC Attribution 4.0 International.</span>
-      <span>Female: K. Browne and H. Schlehlein, <a href="https://doi.org/10.48539/HBM352.BTSQ.586" target="_blank" rel="noopener">3D Reference Organ Set for Female v1.5</a>, Human Reference Atlas (HuBMAP), CC BY 4.0.</span>
-      <span>Female skin and eyes: <a href="https://github.com/makehumancommunity/makehuman" target="_blank" rel="noopener">MakeHuman</a> base mesh and targets, CC0 1.0.</span>
-      <span>Meshes repacked for the web from <a href="https://github.com/ashemag/human-atlas" target="_blank" rel="noopener">human-atlas</a> (MIT). Coordinates quantized; geometry otherwise unchanged.</span>
-    </footer>
-  </aside>
+      <div class="dial" id="dial" role="group" aria-label="Organ systems"></div>
+  </header>
 
   <main id="stage">
     <svg id="lblSvg" aria-hidden="true"></svg><div id="lbls" aria-label="Structure labels"></div>
@@ -271,6 +229,73 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <div id="tip" hidden></div>
     <div id="err" hidden></div>
   </main>
+
+  <section id="layers" class="band" aria-label="Layers">
+      <div class="ctl wide"><span class="label">View</span>
+        <div class="seg" id="modeSeg"><button data-v="isolate" aria-pressed="true">Isolate</button><button data-v="layered" aria-pressed="false">Layered</button><button data-v="all" aria-pressed="false">All systems</button></div></div>
+      <div class="ctl" id="peelCtl" hidden><span class="label">Muscle layers · <span id="peelTxt">all showing</span></span>
+        <div class="rowc"><input type="range" id="peel" min="0" max="3" step="1" value="0" aria-label="Peel muscle layers"></div></div>
+      <div class="ctl"><span class="label">Skin peel</span>
+        <div class="rowc"><input type="range" id="skin" min="0" max="0.6" step="0.01" value="0.1" aria-label="Skin opacity"></div></div>
+      <div class="ctl wide"><span class="label">Cross-section</span>
+        <div class="rowc"><select id="slice" aria-label="Slice plane"><option value="off">Off</option><option value="sag">Sagittal</option><option value="cor">Coronal</option><option value="tra">Transverse</option></select>
+        <input type="range" id="slicePos" min="-1" max="1" step="0.005" value="0" aria-label="Slice position" disabled></div></div>
+  </section>
+
+  <aside id="panel" class="band">
+    <div class="col">
+    <header class="brand">
+      <p>Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag to rotate, scroll or pinch to zoom, click or tap any structure.</p>
+    </header>
+    <div class="tour">
+      <button id="tour" aria-pressed="false">Play tour</button>
+      <div class="bar" aria-hidden="true"><b id="tourBar"></b></div>
+    </div>
+    <section class="ctrls">
+      <div class="ctl"><span class="label">Body</span>
+        <div class="seg" id="sexSeg"><button data-v="male" aria-pressed="true">Male · 172 cm</button><button data-v="female" aria-pressed="false">Female · 167 cm</button></div></div>
+      <label class="check"><input type="checkbox" id="flow" checked> Show flow along vessels and nerves</label>
+      <div class="ctl"><span class="label">Name labels · zoom in to name smaller parts</span>
+        <div class="seg" id="lblSeg"><button data-v="off" aria-pressed="false">Off</button><button data-v="key" aria-pressed="true">Key parts</button><button data-v="dense" aria-pressed="false">As many as fit</button></div></div>
+      <div class="ctl"><span class="label">Body state</span>
+        <div class="seg" id="scnSeg"><button data-v="rest" aria-pressed="true">Rest</button><button data-v="exercise" aria-pressed="false">Exercise</button><button data-v="sleep" aria-pressed="false">Sleep</button></div></div>
+      <div class="ctl"><span class="label">Time</span>
+        <div class="seg" id="spdSeg"><button data-v="1" aria-pressed="true">Real time</button><button data-v="0.25" aria-pressed="false">Slow ×4</button></div>
+        <p class="note" id="pwvNote">The arterial pulse wave travels at its real speed, about 5 m/s.</p></div>
+    </section>
+    <section class="ctrls" aria-label="Learn">
+      <div class="ctl"><span class="label">Learn</span>
+        <div class="seg" id="learnSeg"><button data-v="lessons" aria-pressed="true">Guided lessons</button><button data-v="quiz" aria-pressed="false">Quiz</button></div></div>
+      <div id="lessonBox" class="lessons"><div class="lessons" id="lessonList"></div></div>
+      <div id="quizBox" class="ctl" hidden>
+        <p class="note">Ten questions on the current system. Click the structure named at the top of the view; answers are faster for more points, and streaks multiply.</p>
+        <div class="seg" id="qModeSeg"><button data-v="group" aria-pressed="true">Groups</button><button data-v="part" aria-pressed="false">Named structures</button></div>
+        <div class="rowc"><button class="btn primary" id="qStart">Start quiz</button><span class="note" id="qBest"></span></div>
+      </div>
+    </section>
+    </div>
+    <div class="col">
+    <section class="info" aria-live="polite">
+      <p id="sysSummary"></p>
+      <dl class="facts" id="facts"></dl>
+      <p class="fillnote" id="fillnote" hidden></p>
+      <div class="ctl"><span class="label">Structure groups · click to locate</span><div class="plist" id="plist"></div></div>
+      <div class="card" id="card" hidden><div class="tag" id="cardTag"></div><h3 id="cardName"></h3><p id="cardDesc"></p><dl class="mf" id="cardFacts" hidden></dl><div class="src" id="cardSrc"></div></div>
+      <div class="ctl"><label class="label" for="q">Find any structure</label>
+        <input type="search" id="q" placeholder="e.g. femur, mitral valve, sciatic" autocomplete="off">
+        <div class="results" id="results"></div></div>
+      <p class="note">Educational reference, not for diagnosis. Keys: ← → cycle systems, space plays the tour, Esc clears the selection.</p>
+    </section>
+
+    <footer class="credits">
+      <span class="label">Model sources</span>
+      <span>Male: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener">BodyParts3D</a>, © The Database Center for Life Science, licensed under CC Attribution 4.0 International.</span>
+      <span>Female: K. Browne and H. Schlehlein, <a href="https://doi.org/10.48539/HBM352.BTSQ.586" target="_blank" rel="noopener">3D Reference Organ Set for Female v1.5</a>, Human Reference Atlas (HuBMAP), CC BY 4.0.</span>
+      <span>Female skin and eyes: <a href="https://github.com/makehumancommunity/makehuman" target="_blank" rel="noopener">MakeHuman</a> base mesh and targets, CC0 1.0.</span>
+      <span>Meshes repacked for the web from <a href="https://github.com/ashemag/human-atlas" target="_blank" rel="noopener">human-atlas</a> (MIT). Coordinates quantized; geometry otherwise unchanged.</span>
+    </footer>
+    </div>
+  </aside>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1495,5 +1520,12 @@ function loop(now){const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
 renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
 refresh(true);requestAnimationFrame(loop);
 })();
+</script>
+<script>
+/* when a control further down changes the body (lesson, quiz, structure group, search result, tour), bring the body back into view */
+document.getElementById("panel").addEventListener("click",e=>{
+  if(!e.target.closest(".lessons button,#qStart,#qAgain,.plist button,.results button,#tour"))return;
+  const r=document.getElementById("stage").getBoundingClientRect();
+  if(r.top<-r.height*.25||r.bottom>innerHeight+r.height*.25)setTimeout(()=>document.getElementById("stage").scrollIntoView({behavior:"smooth",block:"start"}),60);});
 </script>
 </body></html>
