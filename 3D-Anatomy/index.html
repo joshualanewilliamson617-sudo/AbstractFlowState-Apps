@@ -685,7 +685,7 @@ const GROUPS = [
  G('endo','Adrenal glands',/adrenal|suprarenal gland/i,'#a479dc','Caps on the kidneys. The cortex makes cortisol and aldosterone; the medulla releases adrenaline.'),
  G('endo','Pancreas',/pancrea/i,'#c4a0e8','About a million islets scattered through the pancreas release insulin and glucagon to hold blood sugar steady.'),
  G('endo','Gonads',/testis|ovary/i,'#c79bdf','Testes release testosterone; ovaries release estrogen and progesterone.'),
- G('card','Coronary vessels',/coronary|cardiac vein|great vein of heart|vein of left ventricle|oblique vein of left atrium|marginal (artery|vein|branch)|circumflex branch|descending branch|diagonal branch|ventricular branch|interventricular (branch|vein)|conus branch|(anterior|posterior|small|middle) cardiac vein/i,'#c2414a','The heart\'s own blood supply. A blocked coronary artery causes a heart attack.'),
+ G('card','Coronary vessels',/^(?!.*(femoral|colic|colon|callosomarginal|cerebr|humeral|scapular|iliac|genicular|gastric|renal|occipital|cervical|tibial|uterine|thyroid|pericallosal))(?=.*(coronary|cardiac vein|great vein of heart|vein of left ventricle|oblique vein of left atrium|\bmarginal (artery|vein|branch)|circumflex branch|descending branch|diagonal branch|ventricular branch|interventricular (branch|vein)|conus branch|(anterior|posterior|small|middle) cardiac vein))/i,'#c2414a','The heart\'s own blood supply. A blocked coronary artery causes a heart attack.'),
  G('card','Heart',/^(?!.*(third ventricle|fourth ventricle|lateral ventricle|cerebral aqueduct|choroid)).*(?:ventricle|atrium|auricle|valve|septum|papillary|myocard|heart|chorda|trabecula|cusp|leaflet|conus arteriosus|fossa ovalis|crista)/i,'#a1303a','A fist-sized pump with 4 chambers and 4 valves, beating about 100,000 times a day. The right side sends blood to the lungs; the stronger left side sends it to the body.'),
   G('card','Pulmonary vessels',/pulmonary/i,'#7d5bc2','Pulmonary arteries carry oxygen-poor blood to the lungs; pulmonary veins bring oxygen-rich blood back to the left atrium.'),
  G('card','Aorta and great arteries',/aorta|brachiocephalic (artery|trunk)|common carotid|subclavian artery|celiac|common iliac artery/i,'#c8323b','The aorta, about 2.5 cm wide, arches from the left ventricle and runs down the spine, branching to every region.'),
@@ -763,6 +763,7 @@ function fillMatrix(c,reg){
    main nerves are drawn here, in BodyParts3D coordinates, then fitted to the female body. They leave the spinal cord as
    roots, gather into the plexuses, run down the limbs as thick trunks and split into thinner and thinner branches; the
    finger and toe branches follow this body's own hand and foot bones out to the tips. Each named nerve is one part. */
+const NPATH={};
 function drawnNerves(sex,W,hands,mm,namesOnly){
   const parts=[];const part=(name,...branches)=>parts.push({name,branches:branches.filter(b=>b&&b.pts.length>1)});
   const br=(pts,r0,r1)=>({pts:pts.filter(Boolean),r0,r1});
@@ -791,8 +792,8 @@ function drawnNerves(sex,W,hands,mm,namesOnly){
     part(S+' musculocutaneous nerve (drawn)',br([A0,[X(.17),1.3,.005],[X(.19),1.2,.02],[X(.215),1.11,.02],[X(.25),1.0,.02],[X(.27),.92,.015]],.0024,.0011));
     const lun=B(l+' lunate'),cap=B(l+' capitate'),wr=mid(lun,cap)||[X(.25),.875,.019];
     const wM=[wr[0],wr[1],wr[2]+.012],wU=[wr[0]-X(.014),wr[1]+.004,wr[2]+.008],pz=[0,0,.005];
-    part(S+' median nerve (drawn)',br([A0,[X(.178),1.25,0],[X(.2),1.11,.008],[X(.238),1.0,.009],[X(.25),.93,.014],wM],.0034,.0026),
-      digit(wM,l,'first','thumb',pz,.0013,.0006),digit(wM,l,'second','index',pz,.0013,.0006),digit(wM,l,'third','middle',pz,.0013,.0006),digit(wM,l,'fourth','ring',[X(.003),0,.005],.0012,.0006));
+    part(S+' median nerve (drawn)',Object.assign(br([A0,[X(.178),1.25,0],[X(.2),1.11,.008],[X(.238),1.0,.009],[X(.25),.93,.014],wM],.0034,.0026),{tag:'trunk'}),
+      digit(wM,l,'first','thumb',pz,.0013,.0006),Object.assign(digit(wM,l,'second','index',pz,.0013,.0006),{tag:'index'}),digit(wM,l,'third','middle',pz,.0013,.0006),digit(wM,l,'fourth','ring',[X(.003),0,.005],.0012,.0006));
     part(S+' ulnar nerve (drawn)',br([A0,[X(.17),1.25,-.022],[X(.188),1.11,-.036],[X(.208),1.0,-.013],[X(.226),.93,.0],wU],.003,.0023),
       digit(wU,l,'fifth','little',pz,.0012,.0006),digit(wU,l,'fourth','ring',[X(-.003),0,.005],.001,.0005));
     const rS=[X(.28),.905,.004],dz=[0,0,-.007];
@@ -840,6 +841,7 @@ function drawnNerves(sex,W,hands,mm,namesOnly){
     if(W){const o=[0,0,0],x=v.x,y=v.y,z=v.z;warpXYZ(W,x,y,z,o);if(hands&&regionOf([x,y,z])==='arm')handFix(hands,x,y,z,o);v.set(o[0],o[1],o[2]);}return v;};
   for(const p of parts){const P=[],N=[],I=[];
     for(const b of p.branches){const pts=b.pts.map(a=>fitPt(new THREE.Vector3(a[0],a[1],a[2])));
+      if(b.tag&&p.name==='Right median nerve (drawn)')(NPATH[sex]||(NPATH[sex]={}))[b.tag]=pts.map(v=>v.clone());   // the nerve-signal lesson follows this exact nerve from the index fingertip
       const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal'),len=curve.getLength(),segs=Math.max(6,Math.min(90,Math.round(len/.006))),rad=b.r0>.0025?8:5;
       const g=new THREE.TubeGeometry(curve,segs,1,rad,false),nor=g.attributes.normal,V=new THREE.Vector3(),o=P.length/3;
       for(let i=0;i<=segs;i++){curve.getPointAt(i/segs,V);const r=b.r0+(b.r1-b.r0)*i/segs;for(let j=0;j<=rad;j++){const k=i*(rad+1)+j;
@@ -912,13 +914,14 @@ const BUMP=CAN_BUMP?`
 const POSE_GLSL=`
 uniform float uPoseOn;uniform mat4 uRoot;uniform vec3 uJ[6];uniform vec4 uAngL,uAngA;
 vec2 tqR2(vec2 v,float a){float c=cos(a),s=sin(a);return vec2(c*v.x-s*v.y,s*v.x+c*v.y);}
-float tqPose(vec3 p,out vec3 q){q=p;
+float tqPose(vec3 p,float rig,out vec3 q){q=p;   // rig: 0 bends smoothly; on bones (run lesson only) 1 trunk or leg, 2 upper arm, 3 forearm and hand turn as solid pieces
   bool R=p.x<0.0;vec3 r=vec3(R?p.x:-p.x,p.y,p.z);
   float aH=R?uAngL.x:uAngL.z,aK=R?uAngL.y:uAngL.w,aS=R?uAngA.x:uAngA.z,aE=R?uAngA.y:uAngA.w;
   vec3 H=uJ[0],K=uJ[1],A=uJ[2],S=uJ[3],E=uJ[4],T=uJ[5];
   vec3 ab=T-S;float l=length(ab);float t=clamp(dot(r-S,ab)/(l*l),0.0,1.0);float d=distance(r,S+ab*t);
   float rad=mix(0.05,0.088,smoothstep(0.55,0.95,t));float arm=1.0-smoothstep(rad,rad+0.024,d);float al=t*l,el=dot(E-S,ab)/l;
   float wS=arm*smoothstep(0.015,0.09,al),wE=arm*smoothstep(el-0.02,el+0.02,al);
+  if(rig>0.5){wS=rig>1.5?1.0:0.0;wE=rig>2.5?1.0:0.0;if(rig>1.5)arm=1.0;}
   float lx=r.y>K.y?mix(K.x,H.x,clamp((r.y-K.y)/(H.y-K.y),0.0,1.0)):mix(A.x,K.x,clamp((r.y-A.y)/(K.y-A.y),0.0,1.0));
   float leg=(1.0-smoothstep(0.10,0.13,abs(r.x-lx)))*smoothstep(0.0,0.025,-r.x)*(1.0-arm);
   float wH=leg*smoothstep(0.0,0.07,H.y-r.y),wK=leg*smoothstep(-0.02,0.03,K.y-r.y);
@@ -934,10 +937,10 @@ function tissue(mat,o){
     Object.assign(sh.uniforms,{uPeel:U.uPeel,uRootInv:U.uRootInv,uRoot:U.uRoot,uPoseOn:U.uPoseOn,uJ:U.uJ,uAngL:U.uAngL,uAngA:U.uAngA,uPeelOn:{value:o.peel?1:o.musc?2:0},uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
       uFlowKind:{value:o.flow||0},uFlowCol:{value:flowCol},uHasAO:{value:o.ao?1:0},uKind:{value:o.kind||0},uFiber:{value:o.fiber||new THREE.Vector3(0,1,0)},uFibA:{value:o.fiberAttr?1:0},uRim:mat.userData.rim,uSSS:{value:o.sss||new THREE.Color(0,0,0)},uBun:{value:o.bun||new THREE.Vector3()},uFace:{value:o.face||new THREE.Vector4()}});
     sh.uniforms.uBias={value:o.bias!==undefined?o.bias:o.musc?.004:o.flow?.002:0};
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;uniform float uBias;attribute float aAO;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;'+POSE_GLSL)
-      .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nif(uPoseOn>0.5){vec3 tq_q;float tq_a=tqPose((uRootInv*modelMatrix*vec4(position,1.0)).xyz,tq_q);objectNormal.yz=tqR2(objectNormal.yz,tq_a);}')
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;uniform float uBias;attribute float aAO;attribute float aRig;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;'+POSE_GLSL)
+      .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nif(uPoseOn>0.5){vec3 tq_q;float tq_a=tqPose((uRootInv*modelMatrix*vec4(position,1.0)).xyz,aRig,tq_q);objectNormal.yz=tqR2(objectNormal.yz,tq_a);}')
       .replace('#include <project_vertex>','#include <project_vertex>\nvWPos=(uRootInv*modelMatrix*vec4(transformed,1.0)).xyz;vAO=aAO;vFace=aFace;vFib=aFiber;'+
-        'if(uPoseOn>0.5){vec3 tq_q;tqPose(vWPos,tq_q);vec4 tq_w=uRoot*vec4(tq_q,1.0);mvPosition=viewMatrix*tq_w;gl_Position=projectionMatrix*mvPosition;}'+
+        'if(uPoseOn>0.5){vec3 tq_q;tqPose(vWPos,aRig,tq_q);vec4 tq_w=uRoot*vec4(tq_q,1.0);mvPosition=viewMatrix*tq_w;gl_Position=projectionMatrix*mvPosition;}'+
         // layer order: the point is slid a few mm toward the eye along its own line of sight, so it lands on the same pixel
         // but wins against anything just behind it (muscle over vessels and nerves, those over organs and bone)
         'if(uBias>0.0){vec4 tq_b=mvPosition;tq_b.xyz*=max(0.2,1.0-uBias/max(length(tq_b.xyz),1e-4));gl_Position=projectionMatrix*tq_b;}');
@@ -1413,7 +1416,7 @@ function ensure(sex,sysId){
 }
 
 /* ================================================================ state + UI */
-const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:0,skinOwn:1,mixOn:false,mix:new Set(),active:false,hgt:172,wgt:154,flow:true,sel:null,selSet:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
+const st={peel:0,sex:'male',sys:2,mode:'isolate',skin:0,skinOwn:1,mixOn:false,mix:new Set(),active:false,hgt:172,wgt:154,flow:true,sel:null,selSet:[],selPools:[],selEach:[],selGroup:null,tour:false,tourT:0,slice:'off',slicePos:0,ready:false,gen:0};
 let bodyParts=[];const inScene=new Set();
 function attach(list){for(const p of list){if(inScene.has(p))continue;inScene.add(p);bodyRoot.add(p.mesh);bodyParts.push(p);}}
 function detachAll(){for(const p of bodyParts)bodyRoot.remove(p.mesh);inScene.clear();bodyParts=[];}
@@ -1445,7 +1448,7 @@ $('prev').onclick=()=>{stopTour();setSys((st.sys+10)%11);};
 $('next').onclick=()=>{stopTour();setSys((st.sys+1)%11);};
 const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));st[key]=b.dataset.v;fn&&fn();});
-segs('sexSeg','sex',()=>{if(TR.on&&!TR.switching)closeSysTour();clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
+segs('sexSeg','sex',()=>{if(!TR.switching){VIEW.s=null;if(TR.on)closeSysTour('drop');}clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
 // Skin peel: in the skin system it peels the skin off the muscles (full skin at the right); elsewhere it sets how much see-through skin shows
 $('skin').oninput=e=>{const v=+e.target.value;if(actv().has('integ')){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
 function skinSlider(){const own=actv().has('integ'),s=$('skin');s.max=own?1:.6;s.value=own?st.skinOwn:st.skin;
@@ -1501,7 +1504,21 @@ function zoomBy(f){tween=null;const d=camera.position.clone().sub(controls.targe
 $('zoomIn').onclick=()=>zoomBy(.8);$('zoomOut').onclick=()=>zoomBy(1.25);
 function startTour(){closeSysTour();mixOff();$('tourPill').hidden=false;st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
 function stopTour(){if(!st.tour)return;st.tour=false;$('tourPill').hidden=true;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
-function setSys(i){if(TR.on)closeSysTour();if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson();st.sys=i;clearSel();st.tourT=0;refresh(true);}
+function setSys(i){VIEW.s=null;if(TR.on)closeSysTour('drop');if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson('drop');st.sys=i;clearSel();st.tourT=0;refresh(true);}
+/* Tours and guided lessons show one system alone. The view you had before (body, systems, mix, skin, cut, vitals and
+   camera) is kept here and put back when the tour or lesson ends, or after the quiz that follows it. Choosing a
+   system or body yourself during a tour means you took over, so the old view is let go. */
+const VIEW={s:null};
+function saveView(){if(VIEW.s)return;VIEW.s={sex:st.sex,sys:st.sys,mode:st.mode,mixOn:st.mixOn,mix:[...st.mix],skin:st.skin,skinOwn:st.skinOwn,peel:st.peel,
+  slice:st.slice,slicePos:st.slicePos,scn:phys.scn,hgt:st.hgt,wgt:st.wgt,cam:camera.position.clone(),tgt:controls.target.clone()};}
+function restoreView(){const v=VIEW.s;VIEW.s=null;if(!v)return;
+  if(st.sex!==v.sex){TR.switching=true;$('sexSeg').querySelector(`[data-v="${v.sex}"]`).click();TR.switching=false;}
+  if(st.hgt!==v.hgt||st.wgt!==v.wgt){st.hgt=v.hgt;st.wgt=v.wgt;$('hgt').value=v.hgt;$('wgt').value=v.wgt;applyBuild();}
+  Object.assign(st,{sys:v.sys,mode:v.mode,mixOn:v.mixOn,mix:new Set(v.mix),skin:v.skin,skinOwn:v.skinOwn,peel:v.peel});
+  $('peel').value=v.peel;$('peelTxt').textContent=PEEL_TXT[v.peel]||PEEL_TXT[0];
+  st.slice=v.slice;st.slicePos=v.slicePos;$('slice').value=v.slice;$('slicePos').value=v.slicePos;$('slicePos').disabled=v.slice==='off';
+  if(phys.scn!==v.scn){phys.scn=st.scn=v.scn;$('scnSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===v.scn)));}
+  syncView();skinSlider();clearSel();renderCard();renderInfo();refresh(false);updateSlice();flyTo(v.tgt,v.cam,.9);}
 
 async function refresh(fly){
   const gen=++st.gen,sex=st.sex,A=actv();st.ready=false;$('err').hidden=true;
@@ -1519,7 +1536,7 @@ async function refresh(fly){
 const visibleIn=(p,cur)=>p.sys===cur||p.also.includes(cur);
 function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayers();
   U.uPeel.value=99;   // the skin no longer cuts away from the top: it fades (below)
-  const inA=p=>A.has(p.sys)||p.also.some(x=>A.has(x)),peeled=A.has('integ')&&st.skinOwn<1,skinFull=A.has('integ')&&!peeled;
+  const inA=p=>A.has(p.sys)||p.also.some(x=>A.has(x)),peeled=A.has('integ')&&st.skinOwn<1,skinFull=A.has('integ')&&!peeled&&!st.fxOnly;   // (a moving lesson that borrows only the eyes from the skin system does not hide the body)
   const fades=p=>p.sys==='integ'&&p.mat.userData.tissue&&p.mat.userData.tissue.peel;   // skin, hair, lips, breast fat
   let shellOn=false;
   for(const p of bodyParts){let o=0,pick=false;
@@ -1585,8 +1602,15 @@ $('plist').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
 function sourceLine(list){const fill=list.filter(p=>p.fill).length,own=list.length-fill;
   if(!fill||!own)return 'Source: '+list[0].src;return `Source: ${own} from her dataset, ${fill} filled from the male reference`;}
 
-function clearSel(){for(const p of st.selSet){p.mat.emissive.setRGB(0,0,0);useMat(p);}st.selSet=[];st.sel=null;st.selGroup=null;markGroups();}
-function selectSet(list,info){clearSel();st.selSet=list;st.sel=info;renderCard();}
+function clearSel(){for(const m of st.selPools||[])m.emissive.setRGB(0,0,0);for(const p of st.selSet){p.mat.emissive.setRGB(0,0,0);useMat(p);}st.selSet=[];st.selPools=[];st.selEach=[];st.sel=null;st.selGroup=null;markGroups();}
+/* The selection glows. A big set (a whole group in a tour) glows through the shared materials it owns outright,
+   so the phone still draws it with a handful of materials instead of hundreds; the rest glow one by one, up to 60. */
+function selectSet(list,info){clearSel();st.selSet=list;st.sel=info;
+  const use=new Map(),mine=new Map(),each=[];st.selPools=[];
+  for(const p of bodyParts)if(p.pool&&inScene.has(p)&&p.mesh.visible)use.set(p.pool,(use.get(p.pool)||0)+1);
+  for(const p of list)if(p.pool)mine.set(p.pool,(mine.get(p.pool)||0)+1);
+  for(const p of list){if(list.length>1&&p.pool&&mine.get(p.pool)>=(use.get(p.pool)||0)){if(!st.selPools.includes(p.pool))st.selPools.push(p.pool);}else each.push(p);}
+  st.selEach=each.length<=60?each:[];renderCard();}
 function selectPart(p,fly){if(!p){clearSel();renderCard();return;}
   const cur=SYSTEMS[st.sys].id;const g=groupOf(cur,p.name)||p.grp;
   const side=/^left\b/i.test(p.name)?'Left':/^right\b/i.test(p.name)?'Right':'';
@@ -1630,6 +1654,15 @@ function fit(list,az){if(!list.length)return;const b=boxOf(list),c=b.getCenter(n
   const tp=document.getElementById('tutor');if(tOpen){const frac=Math.min(.5,(tp.offsetWidth+24)/Math.max(1,stage.clientWidth)/2);
     const right=new THREE.Vector3().crossVectors(dir,new THREE.Vector3(0,1,0)).normalize().negate(),sh=D*Math.tan(hfov/2)*frac*2;c.addScaledVector(right,sh);pos.addScaledVector(right,sh);}
   flyTo(c,pos);}
+/* Tours: fly to what is being talked about. A left-and-right pair is shown by its right-hand one up close, and the
+   camera turns to the side the part faces (back muscles from behind, an arm from the side), a little above. */
+function focusOn(list,whole){if(!list.length)return;if(whole){fit(list,.38);return;}
+  let sel=list;const b=boxL(list),c0=new V3();
+  if(b.max.x-b.min.x>.2&&list.length<400){const r=list.filter(p=>boxL([p]).getCenter(c0).x<-.012);if(r.length&&r.length<list.length)sel=r;}
+  const c=boxL(sel).getCenter(new V3()),zc=st.sex==='female'?-.06:-.015,dx=c.x,dz=c.z-zc;
+  let az=Math.hypot(dx,dz)<.04?(dz<-.012?Math.PI-.35:-.3):Math.atan2(dx,dz+.06);
+  if(c.y<.12&&Math.abs(az)>2.2)az=-.6;   // feet: from the front, not from under the heel
+  fit(sel,az);}
 function focusSystem(){const A=actv();const list=bodyParts.filter(p=>A.has(p.sys)||p.also.some(x=>A.has(x)));fit(list.length?list:bodyParts,.38);}
 
 /* slicing */
@@ -1781,7 +1814,7 @@ function quizClick(p){if(Q.lock)return;
   else{$('qFb').textContent=`That is ${p.name}. Try again.`;$('qFb').className='qfb bad';}}
 function finishQuiz(){const best=Math.max(getBest(),Q.score);if(Q.score>=getBest())setBest(Q.score);
   $('qEnd').hidden=false;$('qEndTxt').textContent=`${Q.right} of ${Q.items.length} correct · ${Q.score} points · best ${best}`;$('qPrompt').textContent='Quiz complete';$('qFb').textContent='';$('qBest').textContent='Best here: '+best;}
-function endQuiz(){Q.on=false;$('quizBar').hidden=true;clearSel();renderCard();}
+function endQuiz(){Q.on=false;$('quizBar').hidden=true;clearSel();renderCard();if(VIEW.s&&!TR.on&&!L.on)restoreView();}   // a quiz that followed a tour puts the view back too
 $('qStart').onclick=startQuiz;$('qAgain').onclick=startQuiz;$('qExit').onclick=endQuiz;$('qExit2').onclick=endQuiz;
 $('qSkip').onclick=()=>{if(!Q.on||Q.lock)return;Q.streak=0;Q.lock=true;selectSet(Q.target.parts,null);fit(Q.target.parts);$('qFb').textContent=`Here is ${Q.target.label}.`;$('qFb').className='qfb';setTimeout(()=>nextQ(),2200);};
 function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3200);}
@@ -1889,11 +1922,12 @@ function renderLessons(){$('lessonList').innerHTML=LESSONS.map((l,i)=>{const S=s
   <div class="lparts">${S.map((s,j)=>`<button data-i="${i}" data-s="${j}" aria-label="Play part ${j+1}, ${s.title}">▶ ${j+1}. ${s.title}<small>${s.end-s.start+1} stop${s.end>s.start?'s':''} · ${tourLen(s.end-s.start+1)}</small></button>`).join('')}</div></div>`;}).join('');}
 renderLessons();
 $('lessonList').addEventListener('click',e=>{const b=e.target.closest('button');if(b)startLesson(+b.dataset.i,b.dataset.s!==undefined?+b.dataset.s:0);});
-function startLesson(i,sec=0){closeSysTour();stopTour();fxEnd();mixOff();if(Q.on)endQuiz();const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0,speaking:false});
-  st.mode='isolate';syncView();unlockVoice();syncLessonVoice();fxStart(les);
+function startLesson(i,sec=0){saveView();closeSysTour('keep');stopTour();fxEnd();mixOff();st.skin=0;st.skinOwn=1;st.peel=0;skinSlider();if(Q.on){Q.on=false;$('quizBar').hidden=true;}const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0,speaking:false});
+  st.mode='isolate';syncView();apply();unlockVoice();syncLessonVoice();fxStart(les);
   if(les.scn){phys.scn=st.scn=les.scn;$('scnSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===les.scn)));}
   $('lesson').hidden=false;showStep();}
-function endLesson(){if(!L.on)return;L.on=false;L.auto=false;L.speaking=false;TR.tok++;hush();fxEnd();$('lesson').hidden=true;$('lAuto').setAttribute('aria-pressed','false');clearSel();renderCard();}
+function endLesson(how){if(!L.on)return;L.on=false;L.auto=false;L.speaking=false;TR.tok++;hush();fxEnd();$('lesson').hidden=true;$('lAuto').setAttribute('aria-pressed','false');clearSel();renderCard();
+  if(how==='drop')VIEW.s=null;else if(how!=='keep')restoreView();}
 async function showStep(){const les=LESSONS[L.i],stp=les.steps[L.step];const my=++L.gen||(L.gen=1);
   const S=secsOf(les),k=secOf(les,L.step),sec=S[k];
   $('lTitle').textContent=stp.title;$('lText').textContent=stp.text;$('lName').textContent=`${les.name} · part ${k+1} of ${S.length}: ${sec.title}`;
@@ -1907,7 +1941,7 @@ async function showStep(){const les=LESSONS[L.i],stp=les.steps[L.step];const my=
   if(!list.length&&stp.alt){list=await find(stp.alt[0],stp.alt[1]);if(my!==L.gen||!L.on)return;}
   if(!list.length&&typeof stp.match!=='string')list=(await find(stp.sys,'Heart'));
   selectSet(list,{title:stp.title,tag:`Tour · ${les.name} · part ${k+1}, stop ${L.step-sec.start+1} of ${sec.end-sec.start+1}`,desc:stp.text,src:list.length?sourceLine(list):''});
-  if(list.length)fit(list);L.autoT=0;fxStep(stp,list);lessonSay(stp);}
+  if(list.length){if(les.fx==='knee')fit(list);else focusOn(list);}L.autoT=0;fxStep(stp,list);lessonSay(stp);}
 $('lNext').onclick=()=>{const les=LESSONS[L.i];if(L.step>=les.steps.length-1){endLesson();toast('Tour complete. Try the quiz to test yourself.');return;}L.step++;showStep();};
 $('lPrev').onclick=()=>{if(L.step>0){L.step--;showStep();}};
 $('lClose').onclick=endLesson;
@@ -1968,6 +2002,15 @@ function fxCap(txt){const c=$('fxCap');if(!txt){c.hidden=true;return;}if(c.textC
 const fakePart=pts=>{const b=new THREE.Box3();pts.forEach(p=>b.expandByPoint(p.isVector3?p:new V3(p[0],p[1],p[2])));return {mesh:{geometry:{boundingBox:b},userData:{base:new THREE.Matrix4()}}};};
 const partsLike=re=>bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible&&re.test(p.name));
 function setPose(hR=0,kR=0,hL=0,kL=0,sR=0,eR=0,sL=0,eL=0){U.uAngL.value.set(hR,kR,hL,kL);U.uAngA.value.set(sR,eR,sL,eL);}
+/* Bones are solid: in the run, each arm bone turns as one piece about its joint instead of bending along its length.
+   Every bone gets a tag once (a single number per corner point): 1 trunk or leg (the legs keep their usual motion),
+   2 upper arm, 3 forearm and hand. Everything else keeps 0 and bends smoothly as before. */
+function rigBones(){const J=POSE[st.sex],S=new V3(...J.sh),T=new V3(...J.tip),E=new V3(...J.el),ab=T.clone().sub(S),l=ab.length(),el=E.clone().sub(S).dot(ab)/l,c=new V3();
+  for(const p of bodyParts){if(p.sys!=='skel'||!inScene.has(p))continue;const g=p.mesh.geometry;if(g.userData.rig===st.sex)continue;
+    boxL([p]).getCenter(c);c.x=-Math.abs(c.x);const t=THREE.MathUtils.clamp(c.clone().sub(S).dot(ab)/(l*l),0,1),d=c.distanceTo(S.clone().addScaledVector(ab,t));
+    let r=1;if(/humerus/i.test(p.name))r=2;else if(/radius|ulna|carp|finger|thumb|scaphoid|lunate|triquetr|pisiform|trapezi|capitate|hamate|sesamoid.*(hand|thumb|finger)|forearm/i.test(p.name)||(!/scapula|clavicle|rib|sternum|vertebra|costal|pelvi|hip|femur|sacrum|coccyx/i.test(p.name)&&d<.09&&t*l>el))r=3;
+    const n=g.attributes.position.count,a=g.attributes.aRig&&g.attributes.aRig.count===n?g.attributes.aRig:new THREE.BufferAttribute(new Uint8Array(n),1);
+    a.array.fill(r);a.needsUpdate=true;g.setAttribute('aRig',a);g.userData.rig=st.sex;}}
 function poseJoints(){const J=POSE[st.sex];['hip','knee','ank','sh','el','tip'].forEach((k,i)=>U.uJ.value[i].set(J[k][0],J[k][1],J[k][2]));}
 function setBob(y){bodyRoot.position.y=y;bodyRoot.updateMatrix();bodyRoot.updateMatrixWorld(true);U.uRootInv.value.copy(bodyRoot.matrix).invert();U.uRoot.value.copy(bodyRoot.matrix);}
 // a coronal (front-to-back) cut placed through the middle of what this stop shows, so you see inside it
@@ -1975,6 +2018,20 @@ function fxCut(list){if(!list.length)return;const z=boxL(list).getCenter(new V3(
   st.slice='cor';st.slicePos=v;$('slice').value='cor';$('slicePos').value=v;$('slicePos').disabled=false;FXS.cut=true;updateSlice();}
 
 /* each moving lesson: start (build its pieces), step (when a stop opens), tick (every frame) */
+// the adrenal glands sit on top of the kidneys, deep in the back: a pulsing gold marker on each shows where they are through the organs in front
+function runAdr(){const o=FXS.objs;if(o.adr&&o.adr.length)return false;o.adr=[];const ad=partsLike(/adrenal|suprarenal/i);
+  for(const side of [-1,1]){const g=ad.filter(p=>Math.sign(boxL([p]).getCenter(new V3()).x||1)===side);if(!g.length)continue;const d=fxDot('#ffcf4d',.011,true);boxL(g).getCenter(d.position);o.adr.push(d);}
+  return o.adr.length>0;}
+// the adrenal stop looks closely at the glands; the other stops show the whole running body
+function runView(){const o=FXS.objs,s=o.stop,all=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible);
+  if(s&&s.sys==='endo'&&o.adr.length){const b=new THREE.Box3();o.adr.forEach(d=>b.expandByPoint(d.position));b.expandByScalar(.17);fit([fakePart([b.min,b.max])],-.75);}
+  else if(all.length)fit(all,-1.05);}
+// the signal's way up: from the right index fingertip along the drawn median nerve's own branch and trunk to the armpit,
+// then through the brachial plexus into the spinal cord and up to the brain (the hand-made path is kept if the nerves are not built yet)
+function nerveUpPts(){const P=PATHS[st.sex].nerveUp,N=NPATH[st.sex];if(!N||!N.index||!N.trunk)return P;FXS.objs.real=true;
+  const a=v=>[v.x,v.y,v.z],idx=N.index.slice().reverse().map(a),tr=N.trunk.slice().reverse().slice(1).map(a);
+  idx[0].push('Fingertip');idx[idx.length-1].push('Median nerve at the wrist');tr[Math.min(2,tr.length-1)].push('Median nerve');
+  return [...idx,...tr,...P.filter(p=>Math.abs(p[0])<.15)];}
 const FX={
  breath:{start(){const P=PATHS[st.sex],o=FXS.objs,cg=new THREE.ConeGeometry(.0062,.017,10);cg.rotateX(Math.PI/2);o.cg=cg;
     o.paths=[mkPath(P.airR),mkPath(P.airL)];o.arrows=[];o.u=0;
@@ -1998,7 +2055,7 @@ const FX={
     st.fxOnly=p=>p.sys==='skel'||(p.sys==='card'&&p.grp&&p.grp.label==='Heart')||(p.sys==='resp'&&p.grp&&/^(Lungs|Bronchi|Trachea)$/.test(p.grp.label))||
       (p.sys==='endo'&&/adrenal|suprarenal/i.test(p.name))||(p.sys==='dig'&&p.grp&&p.grp.label==='Liver')||!!p.eye;
     st.mixOn=true;['skel','card','resp','endo','dig','integ'].forEach(x=>st.mix.add(x));syncView();renderInfo();refresh(false);},
-  step(){const all=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible);if(all.length)fit(all,-1.05);},
+  step(s){rigBones();const o=FXS.objs;o.stop=s;runAdr();runView();},
   tick(dt){const o=FXS.objs;o.ph=(o.ph||0)+dt*2*Math.PI*1.35;const s=Math.sin(o.ph),c=Math.cos(o.ph);
     const swing=.62*s,kn=(x)=>.25+1.05*Math.max(0,Math.sin(x+1.1));   // the knee folds most as the leg swings forward
     setPose(-swing,kn(o.ph),swing,kn(o.ph+Math.PI),.55*s,-1.25,-.55*s,-1.25);setBob(.012*Math.abs(c));
@@ -2006,8 +2063,10 @@ const FX={
     for(const p of bodyParts){if(!p.mesh.visible)continue;let e=0,col=null;
       if(p.sys==='card'&&p.grp&&p.grp.label==='Heart'){e=g+.15;col='#ff4d4d';}
       else if(p.sys==='resp'){e=b+.08;col='#6fd2ff';}
-      else if(p.sys==='endo'){e=.45+.25*Math.sin(FXS.t*6);col='#ffcf4d';}
+      else if(p.sys==='endo'){e=.8+.35*Math.sin(FXS.t*6);col='#ffcf4d';}
       if(col){p.mat.emissive.set(col).convertSRGBToLinear().multiplyScalar(e);useMat(p);FXS.glow.add(p);}}
+    o.chk=(o.chk||0)+dt;if(o.chk>1&&st.ready){o.chk=0;rigBones();if(runAdr()&&o.stop&&o.stop.sys==='endo')runView();}   // pieces still loading when the stop opened
+    if(o.adr)o.adr.forEach(d=>{const k=.5+.5*Math.sin(FXS.t*6);d.scale.setScalar(.009+.006*k);d.material.opacity=.65+.35*k;});
     fxCap('Running: heart '+Math.round(V.hr)+' beats/min · breathing '+Math.round(V.rr)+'/min · adrenaline released');}},
  knee:{start(){poseJoints();U.uPoseOn.value=1;},
   step(s){if(!s.leg)return;const leg=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible&&boxL([p]).getCenter(new V3()).x<-.02&&boxL([p]).max.y<1.0);if(leg.length)fit(leg,-1.15);},
@@ -2017,12 +2076,18 @@ const FX={
     for(const p of bodyParts){if(!p.mesh.visible||p.sys!=='musc')continue;const q=Qd.test(p.name),h=Hm.test(p.name);if(!q&&!h)continue;
       const on=(h&&bending)||(q&&!bending);p.mat.emissive.set(on?'#ffd24d':'#000000').convertSRGBToLinear().multiplyScalar(on?pulse:0);useMat(p);FXS.glow.add(p);}
     fxCap(bending?'Bending: the hamstrings (glowing) tighten, the quadriceps relax':'Straightening: the quadriceps (glowing) tighten, the hamstrings relax');}},
- nerve:{start(){const P=PATHS[st.sex],o=FXS.objs;o.up=mkPath(P.nerveUp);o.dn=mkPath(P.nerveDown);o.dot=fxDot('#7fd0ff',.011,true);o.trail=[];
+ nerve:{start(){const P=PATHS[st.sex],o=FXS.objs;o.up=mkPath(nerveUpPts());o.dn=mkPath(P.nerveDown);o.dot=fxDot('#7fd0ff',.011,true);o.trail=[];
+    st.skin=.3;apply();   // a faint skin outline, so the hand and the fingertip the signal starts from can be seen
     for(let i=0;i<6;i++){const d=fxDot('#7fd0ff',.009-i*.001);d.material.opacity=.6-i*.09;o.trail.push(d);}o.hist=[];o.t=0;
-    const tipM=fxDot('#ffffff',.009);tipM.position.set(...P.nerveUp[0].slice(0,3));o.tip=tipM;
+    const tipM=fxDot('#ffffff',.006);tipM.position.copy(o.up.P[0]);o.tip=tipM;
+    o.ring=new THREE.Mesh(new THREE.TorusGeometry(1,.12,6,28),fxMat('#ffffff'));o.ring.renderOrder=21;o.ring.position.copy(o.up.P[0]);FXS.root.add(o.ring);   // a touch ring pulsing on the fingertip
     // real timing: about 60 m/s up the sensory nerve, about 150 ms in the brain, about 60 m/s down the motor nerve; travel slowed 120 times
     o.tUp=o.up.L/60*120;o.tBr=1.6;o.tDn=o.dn.L/60*120;o.tEnd=1.6;},
-  step(){const o=FXS.objs,pts=[...o.up.P,...o.dn.P];FXS.view=fakePart(pts);fit([FXS.view],-.5);},
+  step(s){const o=FXS.objs;if(!o.real&&NPATH[st.sex]){o.up=mkPath(nerveUpPts());o.tUp=o.up.L/60*120;o.tip.position.copy(o.up.P[0]);o.ring.position.copy(o.up.P[0]);o.t=0;o.hist.length=0;}
+    if(st.skin!==.3){st.skin=.3;apply();}
+    const k=LESSONS[L.i].steps.indexOf(s);
+    if(k===0){const p=o.up.P[0],b=new THREE.Box3(p.clone(),p.clone());b.expandByScalar(.06);fit([fakePart([b.min,b.max])],-.5);}   // first stop: close up on the fingertip
+    else{const pts=[...o.up.P,...o.dn.P];FXS.view=fakePart(pts);fit([FXS.view],-.5);}},
   tick(dt){const o=FXS.objs;o.t+=dt;const T=o.tUp+o.tBr+o.tDn+o.tEnd;if(o.t>T){o.t=0;o.hist.length=0;}
     const t=o.t,p=new V3();let lab,ms;
     if(t<o.tUp){const i=o.up.at(t/o.tUp,p);lab=o.up.label(i);ms=t/120*1000;o.dot.material.color.set('#7fd0ff').convertSRGBToLinear();}
@@ -2031,7 +2096,7 @@ const FX={
     else{o.dn.at(1,p);lab='The fingers curl';ms=o.tUp/120*1000+150+o.tDn/120*1000;}
     o.dot.position.copy(p);o.dot.scale.setScalar(.011*(1+.25*Math.sin(FXS.t*14)));o.hist.unshift(p.clone());if(o.hist.length>30)o.hist.length=30;
     o.trail.forEach((d,i)=>{const h=o.hist[Math.min(o.hist.length-1,(i+1)*3)];if(h)d.position.copy(h);d.material.color.copy(o.dot.material.color);});
-    o.tip.material.opacity=t<.5?1-t:.0;
+    {const u=(t%1.4)/1.4;o.ring.lookAt(camera.position);o.ring.scale.setScalar(.004+.012*u);o.ring.material.opacity=(1-u)*(t<o.tUp?1:.35);o.tip.material.opacity=1;}
     const spd=t<o.tUp?'sensory nerve about 60 m/s':t<o.tUp+o.tBr?'thinking':t<o.tUp+o.tBr+o.tDn?'motor nerve about 60 m/s':'done';
     fxCap(`${lab} · real time ${ms.toFixed(ms<20?1:0)} ms · ${spd} · travel slowed 120×`);}},
  blood:{start(){const o=FXS.objs;o.path=mkPath(PATHS[st.sex].blood);o.dot=fxDot('#ff3b3b',.017,true);o.trail=[];o.hist=[];
@@ -2042,11 +2107,15 @@ const FX={
     o.dot.position.copy(p);o.dot.material.color.set(col).convertSRGBToLinear();o.hist.unshift(p.clone());if(o.hist.length>40)o.hist.length=40;
     o.trail.forEach((d,k)=>{const h=o.hist[Math.min(o.hist.length-1,(k+1)*4)];if(h)d.position.copy(h);d.material.color.set(col).convertSRGBToLinear();});
     const s=Math.floor(o.t);fxCap(`${lab} · ${blue?'oxygen-poor':'oxygen-rich'} · 0:${String(s).padStart(2,'0')} of 0:24 (a real lap takes about a minute)`);}},
- ear:{start(){buildEar();},step(s,list){const o=FXS.objs;o.focus=s.fxk;
-    const near=['outer','canal','drum','bones','cochlea','hair'].includes(s.fxk),b=o.box.clone();
-    if(near)fit([fakePart([b.min,b.max])],-.35);else fit([fakePart([b.min,b.max,new V3(...PATHS[st.sex].cortexL),new V3(...PATHS[st.sex].head).add(new V3(0,.08,0))])],-.7);},
+ ear:{start(){buildEar();st.skin=.25;apply();},step(s,list){const o=FXS.objs;o.focus=s.fxk;
+    // stop 1: the ear at its real size, in place on the side of the head by the brain; then it moves out, enlarged, and its layers pull apart
+    const k=['outer','canal','drum','bones','cochlea','hair'].indexOf(s.fxk);o.place1=k===0?0:1;o.expl1=k>0?1:0;if(st.skin!==.25){st.skin=.25;apply();}
+    if(k===0){const b=new THREE.Box3(o.E.clone(),o.E.clone());b.expandByScalar(.1);fit([fakePart([b.min,b.max])],-1.15);}
+    else if(k>0){const b=o.box.clone().expandByScalar(.025);fit([fakePart([b.min,b.max])],-.35);}
+    else{const b=o.box;fit([fakePart([b.min,b.max,new V3(...PATHS[st.sex].cortexL),new V3(...PATHS[st.sex].head).add(new V3(0,.08,0))])],-.7);}},
   tick(dt){earTick(dt);}},
- heal:{start(){},step(s){if(!FXS.objs.built){FXS.objs.built=true;buildCallus();}FXS.objs.target=s.fxk||0;const f=FXS.objs.femur;if(f)fit([fakePart([f.c.clone().addScaledVector(f.ax,.13),f.c.clone().addScaledVector(f.ax,-.13)])],-.6);},
+ heal:{start(){},step(s){const o=FXS.objs;if(!o.built){o.built=true;buildCallus();}const k=s.fxk||0;if(k===0&&o.target!==0||o.brkT===undefined)o.brkT=0;o.target=k;   // stop 1 plays the break again
+    const f=o.femur;if(f)fit([fakePart([f.c.clone().addScaledVector(f.ax,.13),f.c.clone().addScaledVector(f.ax,-.13)])],-.6);},
   tick(dt){healTick(dt);}}
 };
 
@@ -2088,14 +2157,24 @@ function buildEar(){const P=PATHS[st.sex],o=FXS.objs,S=3,E=new V3(...P.ear),A=E.
   // sound waves: three rings arriving from the right
   o.rings=[0,1,2].map(()=>{const r=new THREE.Mesh(new THREE.TorusGeometry(.012*S,.0006*S,6,40),fxMat('#9fe6ff'));r.rotation.y=Math.PI/2;r.renderOrder=19;g.add(r);return r;});
   FXS.root.updateMatrixWorld(true);o.box=new THREE.Box3().setFromObject(g);o.box.applyMatrix4(new THREE.Matrix4().copy(bodyRoot.matrixWorld).invert());o.box.expandByPoint(A.clone().add(new V3(-.03,0,0)));o.t=0;
-  o.cortex=[new V3(...P.cortexR),new V3(...P.cortexL)];}
+  o.cortex=[new V3(...P.cortexR),new V3(...P.cortexL)];
+  // start at real size in place on the head (stop 1); earTick moves it out and pulls it apart on the later stops
+  o.E=E;o.A=A;o.place=o.place1=0;o.expl=o.expl1=0;g.position.copy(E);g.scale.setScalar(1/S);
+  for(const k in o.parts)for(const m of o.parts[k])m.userData.p0=m.position.clone();
+  const cr=C0.clone().multiplyScalar(1/S).add(E),nerveR=new THREE.CatmullRomCurve3([cr,cr.clone().lerp(stem,.5).add(new V3(0,-.004,0)),stem]);o.nerveR=nerveR;
+  o.nmR=new THREE.Mesh(new THREE.TubeGeometry(nerveR,30,.0012,8,false),nm.material);FXS.root.add(o.nmR);o.nmB=nm;}
 function earTick(dt){const o=FXS.objs;o.t=(o.t+dt)%4;const t=o.t,S=3,L=.025*S;
+  o.place+=(o.place1-o.place)*Math.min(1,dt*2.2);o.expl+=(o.expl1-o.expl)*Math.min(1,dt*2.2);
+  o.g.position.lerpVectors(o.E,o.A,o.place);o.g.scale.setScalar(THREE.MathUtils.lerp(1/S,1,o.place));
+  const X={outer:-.035,canal:-.012,drum:0,bones:.015,cochlea:.035},ex=k=>X[k]*o.expl;   // how far each layer moves apart
+  for(const k of ['outer','canal','cochlea'])for(const m of o.parts[k])m.position.x=m.userData.p0.x+ex(k);
+  o.nmR.visible=o.place<.5;o.nmB.visible=o.place>=.5&&o.expl<.3;
   // 0–0.9 s waves arrive · 0.7–1.5 drum and bones move · 1.2–2.4 the wave runs up the cochlea · 2.2–4 the signal goes to the brain
   o.rings.forEach((r,i)=>{const u=(t-i*.25)/.9;r.visible=u>0&&u<1;if(r.visible){r.position.x=-.05+u*.05;const s=1-.6*u;r.scale.setScalar(s);r.material.opacity=(1-u)*.9;}});
-  const vib=t>.6&&t<1.6?Math.sin(t*60)*(1-Math.abs(t-1.1)/.5):0;o.drum.position.x=L+.0006*vib;o.oss.position.x=L+.0004*vib;o.oss.rotation.z=.04*vib;
-  const cu=(t-1.2)/1.2;o.wave.visible=cu>0&&cu<1;if(o.wave.visible)o.wave.position.copy(o.coch.getPointAt(Math.min(1,cu)));
+  const vib=t>.6&&t<1.6?Math.sin(t*60)*(1-Math.abs(t-1.1)/.5):0;o.drum.position.x=L+.0006*vib+ex('drum');o.oss.position.x=L+.0004*vib+ex('bones');o.oss.rotation.z=.04*vib;
+  const cu=(t-1.2)/1.2;o.wave.visible=cu>0&&cu<1;if(o.wave.visible){o.wave.position.copy(o.coch.getPointAt(Math.min(1,cu)));o.wave.position.x+=ex('cochlea');}
   const su=(t-2.2)/1.4;o.sig.forEach((d,i)=>{d.visible=su>0&&su<1;if(!d.visible)return;const p=new V3();
-    if(su<.5)p.copy(o.nerve.getPointAt(Math.min(1,su*2*(1-i*.08))));else o.up[i%2].at((su-.5)*2,p);d.position.copy(p);});
+    if(su<.5)p.copy((o.place<.5?o.nerveR:o.nerve).getPointAt(Math.min(1,su*2*(1-i*.08))));else o.up[i%2].at((su-.5)*2,p);d.position.copy(p);});
   const F={outer:'outer',canal:'canal',drum:'drum',bones:'bones',cochlea:'cochlea',hair:'cochlea',nerve:'nerve'}[o.focus];
   for(const k in o.parts)for(const m of o.parts[k]){if(!m.material.emissive)continue;const on=k===F;m.material.emissive.set(on?'#ffbf5a':k==='nerve'?'#3a2a00':'#000000').multiplyScalar(on?.25+.2*Math.sin(FXS.t*5):1);}
   fxCap(t<.9?'Sound waves are funnelled into the ear canal':t<1.5?'The eardrum vibrates and the three tiny bones pass it on':t<2.4?'A wave runs through the fluid of the cochlea; hair cells turn it into nerve signals':'The cochlear nerve carries the signal to the brainstem, then to the hearing cortex on both sides');}
@@ -2117,6 +2196,16 @@ function buildCallus(){const o=FXS.objs,f=partsLike(/^right femur$/i)[0]||partsL
   o.clot=mk(spindle(r*1.9,.032,.08),new THREE.MeshStandardMaterial({color:lin('#7a1018'),roughness:.6,transparent:true,opacity:0}));
   o.soft=mk(spindle(r*1.7,.04,.05),new THREE.MeshStandardMaterial({color:lin('#a7c6d6'),roughness:.5,transparent:true,opacity:0}));
   o.hard=mk(spindle(r*1.6,.042,.12),new THREE.MeshStandardMaterial({color:lin('#e7dcc2'),roughness:.75,transparent:true,opacity:0}));
+  // the break itself: the real femur is hidden and two copies stand in for it, each cut at the fracture line. At the first stop
+  // the bone snaps (a flash and a few chips fly off) and the lower piece shifts and tilts; from the second stop it is set straight again
+  st.fxOnly=p=>p!==f;apply();FXS.root.updateMatrixWorld(true);
+  const M0=new THREE.Matrix4().copy(FXS.root.matrixWorld).invert().multiply(f.mesh.matrixWorld),bm=new THREE.MeshStandardMaterial({color:f.mat.color.clone(),roughness:.7,metalness:0,clippingPlanes:[new THREE.Plane()],clipShadows:true,side:THREE.DoubleSide});
+  const n0=new V3(0,1,0).applyAxisAngle(new V3(1,0,0),.35).applyQuaternion(q);o.brk={M0,n0,up:null,lo:null,perp:new V3().crossVectors(ax,new V3(0,0,1)).normalize()};
+  for(const side of ['up','lo']){const m=new THREE.Mesh(f.mesh.geometry,side==='up'?bm:bm.clone());m.material.clippingPlanes=[new THREE.Plane()];m.matrixAutoUpdate=false;m.matrix.copy(M0);FXS.root.add(m);o.brk[side]=m;}
+  o.brk.up.userData.noDispose=o.brk.lo.userData.noDispose=true;
+  const sg=new THREE.TetrahedronGeometry(.004);o.chips=[];for(let i=0;i<7;i++){const m=new THREE.Mesh(sg,new THREE.MeshStandardMaterial({color:f.mat.color.clone(),roughness:.7,transparent:true}));m.position.copy(c);m.visible=false;
+    m.userData.v=new V3(Math.random()-.5,Math.random()*.6-.1,Math.random()-.5).normalize().multiplyScalar(.05+Math.random()*.05);FXS.root.add(m);o.chips.push(m);}
+  o.disp=0;
   o.level=0;o.target=0;}
 function healTick(dt){const o=FXS.objs;if(!o.femur)return;o.level+=(o.target-o.level)*Math.min(1,dt*1.6);const L=o.level,sm=(a,b)=>THREE.MathUtils.smoothstep(L,a,b);
   o.crack.material.opacity=1-sm(2.2,3.2);o.crack.visible=o.crack.material.opacity>.02;
@@ -2124,12 +2213,22 @@ function healTick(dt){const o=FXS.objs;if(!o.femur)return;o.level+=(o.target-o.l
   o.soft.material.opacity=sm(1.3,2)*(1-sm(2.6,3.2))*.8;
   const h=sm(2.4,3)*(1-sm(4.6,5));o.hard.material.opacity=h;o.hard.material.transparent=h<.99;
   const rem=sm(3.5,4.8);o.hard.scale.set(1-.33*rem,1-.2*rem,1-.33*rem);
+  if(o.brk){o.brkT=(o.brkT||0)+dt;const B=o.brk,snap=1.2,tg=o.target===0?(o.brkT>snap?1:0):0;
+    o.disp+=(tg-o.disp)*Math.min(1,dt*(tg>o.disp?10:1.4));const d=o.disp,c=o.femur.c;
+    const D=new THREE.Matrix4().makeTranslation(c.x,c.y,c.z).multiply(new THREE.Matrix4().makeRotationAxis(B.perp,.2*d)).multiply(new THREE.Matrix4().makeTranslation(-c.x,-c.y,-c.z))
+      .premultiply(new THREE.Matrix4().makeTranslation(B.perp.x*.014*d,B.perp.y*.014*d-.008*d,B.perp.z*.014*d));   // the lower piece tilts, slides sideways and rides up past the upper one
+    B.lo.matrix.copy(D).multiply(B.M0);B.lo.matrixWorldNeedsUpdate=true;
+    const W=FXS.root.matrixWorld,pl=new THREE.Plane().setFromNormalAndCoplanarPoint(B.n0,c);
+    B.up.material.clippingPlanes[0].copy(pl).applyMatrix4(W);B.lo.material.clippingPlanes[0].copy(pl).negate().applyMatrix4(new THREE.Matrix4().multiplyMatrices(W,D));
+    const ft=o.brkT-snap,fl=o.target===0&&ft>0&&ft<.35?1-ft/.35:0;B.up.material.emissive.setRGB(fl*.9,fl*.5,fl*.2);B.lo.material.emissive.copy(B.up.material.emissive);   // a flash as it snaps
+    o.chips.forEach(m=>{const on=o.target===0&&ft>0&&ft<1.1;m.visible=on;if(!on)return;m.position.copy(c).addScaledVector(m.userData.v,ft).add(new V3(0,-.12*ft*ft,0));m.rotation.x+=dt*9;m.rotation.y+=dt*7;m.material.opacity=1-ft/1.1;});
+    o.crack.material.opacity*=o.target>0||o.brkT>snap?1:0;o.crack.visible=o.crack.material.opacity>.02;}
   [o.clot,o.soft,o.hard].forEach(m=>m.visible=m.material.opacity>.02);}
 
 function fxStart(les){fxEnd();if(!les.fx||!FX[les.fx])return;FXS.on=true;FXS.les=les;FXS.kind=les.fx;FXS.sex=st.sex;FXS.t=0;FXS.objs={};FXS.glow=new Set();FXS.capHold=0;
   FXS.root=new THREE.Group();bodyRoot.add(FXS.root);FX[les.fx].start();}
 function fxEnd(){$('fxCap').hidden=true;if(!FXS.on)return;FXS.on=false;
-  FXS.root.traverse(m=>{if(m.geometry&&m.geometry!==FXS.objs.dotG)m.geometry.dispose();if(m.material)m.material.dispose();});if(FXS.objs.dotG)FXS.objs.dotG.dispose();bodyRoot.remove(FXS.root);FXS.root=null;
+  FXS.root.traverse(m=>{if(m.geometry&&m.geometry!==FXS.objs.dotG&&!m.userData.noDispose)m.geometry.dispose();if(m.material)m.material.dispose();});if(FXS.objs.dotG)FXS.objs.dotG.dispose();bodyRoot.remove(FXS.root);FXS.root=null;
   for(const p of FXS.glow){p.mat.emissive.set(0);useMat(p);}FXS.glow=new Set();
   U.uPoseOn.value=0;setPose();setBob(0);if(FXS.prev.speed!==undefined){phys.speed=FXS.prev.speed;delete FXS.prev.speed;}
   if(FXS.cut){FXS.cut=false;$('slice').value='off';$('slice').dispatchEvent(new Event('change'));}
@@ -2513,7 +2612,7 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
   if(st.tour&&st.ready&&!queue.active.size){st.tourT+=dt;$('tourBar').style.width=Math.min(100,st.tourT/TOUR_SEC*100)+'%';if(st.tourT>=TOUR_SEC)setSys((st.sys+1)%11);}
   if(L.on&&L.auto&&!queue.active.size&&!L.speaking){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
   if(!reduce){stepPhysio(dt);drawECG();}drawVitals(dt);
-  if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const p of st.selSet){p.mat.emissive.copy(selCol);useMat(p);}}
+  if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const m of st.selPools)m.emissive.copy(selCol);for(const p of st.selEach){p.mat.emissive.copy(selCol);useMat(p);}}
   if(FXS.on)fxTick(dt);
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);drawScene();tunePR(now||performance.now());requestAnimationFrame(loop);}
 
@@ -2617,15 +2716,73 @@ const TJUNK=/^segment|impression|surface of|cavity of|enthesis|^set of|\(drawn\)
 const partKey=n=>n.replace(/\s*\((left|right)\)/ig,'').replace(/\b(left|right)\s+/ig,'').replace(/\s+of\s+(left|right)\b/ig,'').replace(/\s+/g,' ').trim();
 const labOf=(p,sys)=>{const g=(p.grp&&p.grp.sys===sys)?p.grp:groupOf(sys,p.name);return g?g.label:'Other';};
 const groupsOf=sys=>[...new Map(GROUPS.filter(g=>g.sys===sys).map(g=>[g.label,g])).values()];
+/* The skin tour's cut-out block: a piece of skin and what lies under it, enlarged about 12 times (the thin layers more
+   than that, so they can be seen), floating beside the body. Its layers are see-through so the hair roots, sweat glands,
+   nerves and vessels inside show; each stop lights up one layer. Built only while those stops are open. */
+const SKIN_BLOCK_STEPS=[
+ {blk:'all',title:'Skin up close',text:'Here is a block of skin cut out and enlarged, with what lies under it. From the top: the epidermis, the dermis, the fat layer and then muscle. The thin top layers are drawn thicker than true scale so you can see them.'},
+ {blk:'epi',title:'Epidermis',text:'The epidermis is the thin outer layer, about 0.1 millimetres on most of the body and up to about 1.5 millimetres on the soles. New cells form at its base and take about four weeks to rise, flatten and flake off. It has no blood vessels of its own; the brown cells at its base make melanin, the pigment that colours skin.'},
+ {blk:'derm',title:'Dermis',text:'The dermis is thicker, about 1 to 4 millimetres, and made of tough, stretchy collagen and elastin fibres. It holds the hair roots, the coiled sweat glands with ducts running up to the surface, tiny blood vessels that feed the skin and release heat, and nerve endings that sense touch, pressure, heat and pain.'},
+ {blk:'fat',title:'Fat layer',text:'Under the dermis lies the fat layer, also called the hypodermis or subcutaneous fat. Clusters of fat cells store energy, cushion knocks and keep heat in. Its thickness varies a lot between people and body areas. Larger arteries, veins and nerves run through it, and deep pressure sensors sit here.'},
+ {blk:'musc',title:'Muscle underneath',text:'Below the fat, a tough sheet of connective tissue called fascia wraps the muscle, whose long fibres pull when they contract. Skin, fat and muscle are joined, but can slide over each other as you move.'}];
+const SKB={g:null,sex:null,lay:null,mats:[],labs:{}};
+function txtSprite(t,h,col){const cv=document.createElement('canvas'),x=cv.getContext('2d'),f=44,font=`600 ${f}px system-ui,-apple-system,Segoe UI,sans-serif`;x.font=font;
+  const w=Math.ceil(x.measureText(t).width)+28;cv.width=w;cv.height=f+22;x.font=font;x.fillStyle='rgba(8,12,14,.8)';x.fillRect(0,0,w,cv.height);x.fillStyle=col||'#ffffff';x.textBaseline='middle';x.fillText(t,14,cv.height/2+2);
+  const tx=new THREE.CanvasTexture(cv);tx.encoding=THREE.sRGBEncoding;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  s.scale.set(h*w/cv.height,h,1);s.renderOrder=30;return s;}
+function buildSkinBlock(){const g=new THREE.Group(),W=.1,D=.08,lay={epi:[],derm:[],fat:[],musc:[]},labs={all:[],epi:[],derm:[],fat:[],musc:[]};
+  const mat=(c,o={})=>{const m=new THREE.MeshStandardMaterial(Object.assign({color:lin(c),roughness:.6,metalness:0,transparent:true},o));SKB.mats.push(m);return m;};
+  const add=(k,geo,m,x=0,y=0,z=0)=>{const me=new THREE.Mesh(geo,m);me.position.set(x,y,z);g.add(me);lay[k].push(me);return me;};
+  const tube=(k,pts,r,c)=>add(k,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=>new V3(p[0],p[1],p[2]))),Math.max(12,pts.length*8),r,6,false),mat(c));
+  // the four layers, top to bottom (block top at y = 0)
+  const Y={epi:[0,-.008],derm:[-.008,-.034],fat:[-.034,-.064],musc:[-.064,-.086]},col={epi:'#e9c2a6',derm:'#dc9a90',fat:'#f0d27e',musc:'#a63a33'};
+  for(const k in Y){const h=Y[k][0]-Y[k][1],m=add(k,new THREE.BoxGeometry(W,h,D),mat(col[k],{depthWrite:false,side:THREE.DoubleSide}),0,(Y[k][0]+Y[k][1])/2,0);m.userData.box=true;m.renderOrder=1;}
+  // epidermis: the pigment cells along its base
+  add('epi',new THREE.BoxGeometry(W*.98,.0012,D*.98),mat('#7a4a2e'),0,-.0074,0);
+  // dermis: three hairs with their roots, two sweat glands with ducts, capillary loops, nerve endings
+  for(const [x,z] of [[-.032,.012],[.004,-.01],[.03,.018]]){tube('derm',[[x+.008,.024,z],[x+.004,0,z],[x,-.03,z]],.0011,'#2d1f17');
+    add('derm',new THREE.SphereGeometry(.0034,12,10),mat('#b5654e'),x-.0004,-.031,z);   // hair bulb (the root)
+    add('derm',new THREE.CylinderGeometry(.0022,.0026,.03,10,1,true),mat('#f3d2c2',{opacity:.55,side:THREE.DoubleSide}),x+.002,-.016,z).rotation.z=.13;}   // follicle sheath
+  for(const [cx,cz] of [[-.014,.022],[.022,-.018]]){const coil=[];for(let i=0;i<=60;i++){const t=i/60;coil.push([cx+Math.cos(t*Math.PI*8)*.004,-.03+Math.sin(t*Math.PI*14)*.0018,cz+Math.sin(t*Math.PI*8)*.004]);}
+    tube('derm',coil,.0011,'#d7b8e8');const duct=[];for(let i=0;i<=12;i++){const t=i/12;duct.push([cx+.004+Math.sin(t*Math.PI*5)*.0015,-.028+t*.028,cz+Math.cos(t*Math.PI*5)*.0015]);}tube('derm',duct,.0006,'#d7b8e8');}
+  for(const x of [-.04,-.016,.014,.04]){tube('derm',[[x-.004,-.027,.03],[x-.003,-.012,.03],[x,-.0095,.03],[x+.003,-.012,.03],[x+.004,-.027,.03]],.0008,x<0?'#d23a3a':'#d23a3a');
+    tube('derm',[[x+.004,-.027,.03],[x+.006,-.03,.03]],.0008,'#3a62c8');}
+  tube('fat',[[-.05,-.05,.016],[-.02,-.049,.017],[.02,-.051,.016],[.05,-.05,.016]],.0016,'#e8c84a');   // a nerve running through the fat...
+  for(const [x,y] of [[-.026,-.0105],[.006,-.011],[.032,-.0105]]){tube('derm',[[x-.006,-.0495,.016],[x-.003,-.03,.014],[x,y,.012]],.0007,'#e8c84a');add('derm',new THREE.SphereGeometry(.0017,10,8),mat('#ffe27a'),x,y,.012);}   // ...sending branches up to endings under the epidermis
+  // fat layer: lobules of fat cells, an artery and a vein, and a deep pressure sensor (an onion-like Pacinian corpuscle)
+  const lob=new THREE.SphereGeometry(.0066,10,8),lm=mat('#f6dc8a',{opacity:.75});
+  for(let i=0;i<5;i++)for(let j=0;j<4;j++)for(const y of [-.042,-.057])add('fat',lob,lm,-.04+i*.02+(j%2)*.005,y+(i%2)*.002,-.03+j*.02);
+  tube('fat',[[-.05,-.058,-.008],[-.01,-.056,-.01],[.05,-.059,-.008]],.0024,'#cf2f2f');tube('fat',[[-.05,-.059,.004],[.01,-.061,.003],[.05,-.058,.004]],.0028,'#3456b8');
+  const pac=new THREE.SphereGeometry(1,14,10);pac.scale(.0032,.0045,.0032);add('fat',pac,mat('#f4efe4',{opacity:.9}),.03,-.046,.024);
+  // muscle: a sheet of fascia, then long fibres
+  add('musc',new THREE.BoxGeometry(W*.995,.0012,D*.995),mat('#f1ece4',{opacity:.85}),0,-.0646,0);
+  const fib=new THREE.CylinderGeometry(.0032,.0032,W*.97,8);fib.rotateZ(Math.PI/2);const fm=mat('#b8403a');for(let i=0;i<3;i++)for(let j=0;j<9;j++)add('musc',fib,fm,0,-.069-i*.0065,-.036+j*.009);
+  // labels: the layer names to the left, details to the right
+  const L=(k,t,x,y,z,right,col)=>{const s=txtSprite(t,right?.0058:.0072,col);s.center.set(right?0:1,.5);s.position.set(x,y,z);g.add(s);labs[k].push(s);return s;};
+  for(const [k,t] of [['epi','Epidermis'],['derm','Dermis'],['fat','Fat layer'],['musc','Muscle']]){const y=(Y[k][0]+Y[k][1])/2;const s=L(k,t,-W/2-.006,y,D/2);labs.all.push(s);}
+  L('derm','Hair root',W/2+.006,-.03,D/2,true,'#ffd7c2');L('derm','Sweat gland',W/2+.006,-.022,D/2,true,'#e8d2ff');L('derm','Nerve endings',W/2+.006,-.014,D/2,true,'#ffe27a');L('derm','Capillaries',W/2+.006,-.006,D/2,true,'#ffb0b0');
+  L('epi','Pigment cells',W/2+.006,-.0074,D/2,true,'#e0b08c');L('fat','Fat cells',W/2+.006,-.04,D/2,true,'#ffe9a8');L('fat','Artery and vein',W/2+.006,-.05,D/2,true,'#ffb0b0');L('fat','Pressure sensor',W/2+.006,-.06,D/2,true,'#f4efe4');
+  L('musc','Fascia',W/2+.006,-.0646,D/2,true,'#f1ece4');L('musc','Muscle fibres',W/2+.006,-.076,D/2,true,'#ffb0a8');
+  bodyRoot.add(g);SKB.g=g;SKB.lay=lay;SKB.labs=labs;}
+function skinBlock(k){
+  if(!k){if(SKB.g){bodyRoot.remove(SKB.g);SKB.g.traverse(m=>{if(m.geometry)m.geometry.dispose();if(m.material){if(m.material.map)m.material.map.dispose();m.material.dispose();}});SKB.g=null;SKB.mats=[];}return;}
+  if(!SKB.g)buildSkinBlock();const g=SKB.g;g.position.set(st.sex==='female'?-.5:-.43,1.22,.05);g.updateMatrixWorld(true);
+  for(const key in SKB.lay){const on=k==='all'||k===key;for(const m of SKB.lay[key]){const base=m.userData.box?(on?(k==='all'?.6:.5):.1):(on?1:.18);
+    if(m.userData.o0===undefined)m.userData.o0=m.material.opacity;m.material.opacity=Math.min(m.userData.o0,base)*(m.userData.box?1:1);
+    if(m.material.emissive)m.material.emissive.set(on&&k!=='all'&&m.userData.box?m.material.color:0).multiplyScalar(on&&k!=='all'?.25:0);}}
+  for(const key in SKB.labs)for(const s of SKB.labs[key])s.visible=key==='all'||k==='all'?(key==='all'):key===k;
+  for(const s of SKB.labs.all)s.visible=true;   // the layer names always show
+  const b=new THREE.Box3().setFromObject(g);b.applyMatrix4(new THREE.Matrix4().copy(bodyRoot.matrixWorld).invert());fit([fakePart([b.min,b.max])],-.3);}
 function buildSysSteps(sys,long){const S=SYSTEMS[SYS[sys].i],nm=S.name.toLowerCase(),mine=bodyParts.filter(p=>visibleIn(p,sys)),steps=[];
-  steps.push({sys,title:S.name+' system',text:`The ${nm} system. ${S.summary}`,parts:mine});
+  steps.push({sys,title:S.name+' system',text:`The ${nm} system. ${S.summary}`,parts:mine,whole:true});
   for(const g of [...groupsOf(sys),{label:'Other',desc:'Smaller structures that belong to this system.'}]){const gp=mine.filter(p=>labOf(p,sys)===g.label);if(!gp.length)continue;
     steps.push({sys,title:g.label==='Other'?'Other structures':g.label,text:`${g.label==='Other'?'Other structures':g.label}. ${g.desc}`,parts:gp});
     if(!long)continue;const m=new Map();
     for(const p of gp){if(TJUNK.test(p.name))continue;const k=partKey(p.name),kk=k.toLowerCase();if(!m.has(kk))m.set(kk,{label:k.charAt(0).toUpperCase()+k.slice(1),parts:[]});m.get(kk).parts.push(p);}
     [...m.values()].map(x=>Object.assign(x,{y:boxL(x.parts).max.y})).sort((a,b)=>b.y-a.y)       // top of the body to the bottom
       .forEach(x=>steps.push({sys,title:x.label,text:x.label+'.',parts:x.parts,sub:g.label}));}
-  steps.push({sys,title:'End of the tour',text:TR.phase==='male'?`That was the ${nm} system on the male body. Next, the same tour on the female body.`:`That was the ${nm} system on the female body.`,parts:mine});
+  if(sys==='integ'){let k=steps.length;for(let i=steps.length-1;i>0;i--)if(steps[i].title==='Skin'||steps[i].sub==='Skin'){k=i+1;break;}steps.splice(k,0,...SKIN_BLOCK_STEPS.map(b=>Object.assign({sys,parts:[]},b)));}   // the cut-out block follows the skin
+  steps.push({sys,title:'End of the tour',text:TR.phase==='male'?`That was the ${nm} system on the male body. Next, the same tour on the female body.`:`That was the ${nm} system on the female body.`,parts:mine,whole:true});
   return steps;}
 function buildPackSteps(){const t=TR.pack.tour,L=TR.long?t.long:t.short;
   return [{sys:L[0].sys,group:L[0].group,title:TR.pack.name,text:t.intro},...L,
@@ -2633,21 +2790,23 @@ function buildPackSteps(){const t=TR.pack.tour,L=TR.long?t.long:t.short;
 const tourName=()=>TR.pack?TR.pack.name:SYSTEMS[SYS[TR.id].i].name;
 
 async function switchSex(sex){if(st.sex===sex)return;TR.switching=true;$('sexSeg').querySelector(`[data-v="${sex}"]`).click();TR.switching=false;await waitReady();}
-function tourPrep(){stopTour();endLesson();if(Q.on)endQuiz();closeMenus();closeTab();mixOff();
+function tourPrep(){stopTour();endLesson('keep');if(Q.on){Q.on=false;$('quizBar').hidden=true;}closeMenus();closeTab();mixOff();
   st.mode='isolate';syncView();st.skin=0;st.skinOwn=1;st.peel=0;$('peel').value=0;$('peelTxt').textContent=PEEL_TXT[0];
-  if(st.slice!=='off'){$('slice').value='off';$('slice').dispatchEvent(new Event('change'));}skinSlider();}
+  if(st.slice!=='off'){$('slice').value='off';$('slice').dispatchEvent(new Event('change'));}skinSlider();apply();}   // redraw now: the tour's system may already be the main one
 async function stepsNow(){if(TR.pack)return buildPackSteps();
   if(SYSTEMS[st.sys].id!==TR.id){st.sys=SYS[TR.id].i;clearSel();refresh(true);}await waitReady();return buildSysSteps(TR.id,TR.long);}
-async function startSysTour(id,long){TR.busy=false;tourPrep();const pk=SYS[id]?null:ensurePack(id);if(!SYS[id]&&!(pk&&pk.tour))return;
+async function startSysTour(id,long){TR.busy=false;saveView();tourPrep();const pk=SYS[id]?null:ensurePack(id);if(!SYS[id]&&!(pk&&pk.tour))return;
   Object.assign(TR,{on:true,id,long,pack:pk,i:0,paused:false,phase:'male',mcq:null,steps:[]});TR.tok++;
   $('stour').hidden=false;$('stCtl').hidden=false;$('stAns').hidden=true;$('stTitle').textContent='Getting the body ready…';$('stText').textContent='';syncTourCtl();
-  await switchSex('male');if(!TR.on)return;TR.steps=await stepsNow();if(!TR.on)return;TR.i=0;showTourStep();}
+  await switchSex('male');if(!TR.on)return;TR.steps=await stepsNow();if(!TR.on)return;TR.i=0;showTourStep();
+  // get the female body ready while the male half plays, so the switch does not stall (the muscles take longest to build)
+  if(!pk)setTimeout(()=>{if(TR.on&&TR.id===id&&TR.phase==='male'){ensure('female','integ').catch(()=>{});ensure('female',id).catch(()=>{});}},2500);}
 async function showTourStep(){const tok=++TR.tok,s=TR.steps[TR.i];if(!s||!TR.on)return;hush();
   if(SYSTEMS[st.sys].id!==s.sys){st.sys=SYS[s.sys].i;clearSel();refresh(false);}await waitReady();if(tok!==TR.tok||!TR.on)return;
   let list=s.parts?s.parts.filter(p=>inScene.has(p)):bodyParts.filter(p=>visibleIn(p,s.sys)&&labOf(p,s.sys)===s.group);
   const n=TR.steps.length,tag=`${tourName()} · ${TR.long?'long':'short'} · ${st.sex==='male'?'male':'female'} body · ${TR.i+1} of ${n}`;
   $('stTag').textContent=tag;$('stTitle').textContent=s.title;$('stText').textContent=s.sub?s.sub:s.text;$('stBar').style.width=((TR.i+1)/n*100)+'%';
-  selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)fit(list);
+  selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)focusOn(list,s.whole);skinBlock(s.blk||null);
   $('stPrev').disabled=TR.i===0;if(TR.paused)return;
   say(s.text,()=>TR.timers.push(setTimeout(()=>{if(tok===TR.tok)nextTourStep();},s.sub?250:700)));}
 function nextTourStep(){if(TR.i<TR.steps.length-1){TR.i++;showTourStep();}else endPhase();}
@@ -2657,12 +2816,12 @@ async function endPhase2(){const tok=++TR.tok;hush();
   else if(VO.loop){TR.phase='male';$('stTitle').textContent='Starting again on the male body…';await switchSex('male');}
   else{finishTour();return;}
   if(tok!==TR.tok||!TR.on)return;TR.steps=await stepsNow();if(tok!==TR.tok||!TR.on)return;TR.i=0;showTourStep();}
-function finishTour(){TR.tok++;hush();$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
+function finishTour(){TR.tok++;hush();skinBlock(null);$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
   const nm=tourName();$('stTag').textContent=`${nm} · tour finished`;$('stTitle').textContent='Ready for the quiz?';
   $('stText').textContent=TR.pack?`Five questions on ${nm.toLowerCase()}. Your best score is saved to Profile.`:`Ten questions: find the ${nm.toLowerCase()} structures on the body. Your best score is saved to Profile.`;
   $('stAns').innerHTML='<button class="btn primary" data-act="quiz">Start the quiz</button><button class="btn" data-act="again">Replay the tour</button><button class="btn" data-act="close">Close</button>';
   say('Tour finished. Ready for the quiz?',()=>{});}
-function closeSysTour(){if(!TR.on)return;TR.on=false;TR.tok++;hush();$('stour').hidden=true;}
+function closeSysTour(how){if(!TR.on)return;TR.on=false;TR.tok++;hush();skinBlock(null);$('stour').hidden=true;if(how==='drop')VIEW.s=null;else if(how!=='keep')restoreView();}
 function syncTourCtl(){$('stMute').setAttribute('aria-pressed',String(VO.muted));$('stMute').textContent=VO.muted?'Unmute':'Mute';
   $('stLoop').setAttribute('aria-pressed',String(VO.loop));$('stRate').value=String(VO.rate);$('stPlay').textContent=TR.paused?'Play':'Pause';}
 $('stPrev').onclick=()=>{if(!TR.busy&&TR.i>0){TR.i--;showTourStep();}};
@@ -2671,14 +2830,14 @@ $('stPlay').onclick=()=>{TR.paused=!TR.paused;syncTourCtl();if(TR.paused){TR.tok
 $('stMute').onclick=()=>{VO.muted=!VO.muted;saveVO();syncTourCtl();if(!TR.paused&&TR.on&&$('stAns').hidden){unlockVoice();showTourStep();}};
 $('stRate').onchange=e=>{VO.rate=+e.target.value||1;saveVO();};
 $('stLoop').onclick=()=>{VO.loop=!VO.loop;saveVO();syncTourCtl();};
-$('stClose').onclick=closeSysTour;
+$('stClose').onclick=()=>closeSysTour();
 addEventListener('keydown',e=>{if(e.key==='Escape'&&TR.on&&!openMenu){e.stopImmediatePropagation();closeSysTour();}},true);
 /* the quiz after a tour: body systems use the find-it quiz (groups after a short tour, named parts after a long one);
    Evolution and Gut use five multiple-choice questions */
 $('stAns').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.act==='close'){closeSysTour();return;}
   if(b.dataset.act==='again'){startSysTour(TR.id,TR.long);return;}
-  if(b.dataset.act==='quiz'){hush();if(TR.pack){startMCQ();return;}const mode=TR.long?'part':'group';closeSysTour();
+  if(b.dataset.act==='quiz'){hush();if(TR.pack){startMCQ();return;}const mode=TR.long?'part':'group';closeSysTour('keep');
     st.qmode=Q.mode=mode;$('qModeSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===mode)));startQuiz();return;}
   if(b.dataset.k!==undefined)answerMCQ(+b.dataset.k,b);});
 function startMCQ(){const qs=TR.pack.quiz.slice();for(let i=qs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[qs[i],qs[j]]=[qs[j],qs[i]];}TR.mcq={qs,i:0,score:0,lock:false};showMCQ();}
