@@ -21,6 +21,7 @@ Notes for whoever works on this app next (mostly Claude). Read this first, then 
 - 2026-11-22: phone lag fix; top-to-bottom layout; info card under the body.
 - 2026-11-22: round 1 (one skin layer, peel shows muscles, female hands, cut undo, shared materials). Round 2 (mix systems, tap-to-turn mode, tours in parts plus 5 new tours). Round 3 (height and weight, Evolution and Gut tabs, add-on packs).
 - 2026-11-23: new 3-round request started (eyes, skin, desktop controls, menu layout; spoken system tours; moving tours). See below.
+- 2026-11-23: second 3-round request (skin layering, real eyes, face muscles, real nerves; tours fixed; Evolution eras change the body). See the last section.
 
 ## Unfinished / ideas
 - The body files have no inner ear; since Round 3 of 2026-11-23 the hearing lesson uses a built ear model (`buildEar`).
@@ -66,3 +67,35 @@ Notes for whoever works on this app next (mostly Claude). Read this first, then 
 - Breathing arrows could split into smaller bronchi; the blood drop could take a second lap through the arm or brain.
 - The ear model is built from simple shapes; a more detailed pinna would look better from close up.
 - Labels don't follow bent limbs while a moving lesson plays (they use the resting pose).
+
+## 2026-11-23 Second request, 3 rounds (commits fae8885, e8a8547, f5bb449)
+Owner said keep exactly as is: the respiratory system, How a Muscle Moves, the stomach cut, the leg motion in the run, the top menus.
+
+Round 1, the body (fae8885)
+- Skin layering: the skin shell and the eyes draw on camera layer 1 after a depth clear (`drawScene`, `skinLayerOn`), so with the skin fully on nothing under it can show through. Skin peel now fades the skin out and the muscles in (`st.skinOwn`); `uPeel` is kept at 99. Depth nudge in `tissue()` (`uBias`): muscle 4 mm, vessels and nerves 2 mm toward the eye, so the stack order is right without changing any sizes.
+- Eyes: wet white with a soft shine, coloured iris, dark pupil (`eyeMaterial`).
+- Height and weight: sliders start at the average, fit build (male 172 cm / 154 lb, female 167 cm / 137 lb); `resetBuild()` at boot and on back-navigation; range inputs have `autocomplete=off`.
+- Face and scalp muscles (`FACE_M`, `headMap`, `faceMuscles`): 18 thin sheets laid on the head skin, from frontalis to the scalp's epicranial aponeurosis. Facts in `MFACTS`, searchable.
+- Nerves (`drawnNerves`): a branching tree (brain, cord, plexuses, named nerves) that thins toward fingers and toes, following each body's own bone centres.
+
+Round 2, tours (e8a8547)
+- Every tour and guided lesson shows only its own system and puts the view back afterwards (`saveView`/`restoreView`, `VIEW`). Changing system or body by hand drops the saved view.
+- Camera flies to each part (`focusOn`): the right-hand one of a pair, from the side it faces.
+- The muscular tour stalled because hundreds of muscles glowed one by one and her muscles were built at the switch. Now the glow goes through shared materials (`st.selPools`, at most 60 single parts) and her body is built during the male half.
+- Skin tour: cut-out block (`SKIN_BLOCK_STEPS`, `buildSkinBlock`, `skinBlock`) after the Skin stop: epidermis, dermis (hair roots, sweat glands, nerve endings, capillaries), fat layer, muscle with fascia.
+- One heartbeat: the Coronary vessels group no longer catches brain, leg and gut arteries with "marginal" or "descending branch" in their names.
+- Fight or flight: arm bones turn as solid pieces (`rigBones`, `aRig` attribute: 1 trunk/leg, 2 upper arm, 3 forearm and hand); legs unchanged. Gold markers on the adrenal glands (`runAdr`) and a close-up at that stop. Fixed: since Round 1 the lesson showed only the eyes (skin-full rule now skips moving lessons).
+- Nerve signal: starts at the right index fingertip and follows the drawn median nerve (`NPATH`, `nerveUpPts`), with a faint skin outline and a touch ring.
+- Hearing: the ear starts at real size in place on the head, then moves out (×3) and its parts pull apart (`o.place`, `o.expl`); back together for the nerve stops.
+- How bones heal: the femur snaps (two clipped copies, flash, chips, the lower piece shifts) and is set straight from stop 2.
+
+Round 3, Evolution (f5bb449)
+- Before: every era showed the same modern body with one part lit, so nothing changed (proof sheet r3-before). Now `EVFX.era0…era13` + `evoFx(key)` change the body for each stop and undo it when the stop closes: fish fin, jaw bones into the ear, overlapping eye views, opening under the skull, Lucy's height (110 cm), big toe into line, longer thumb and stone tool, Homo erectus grows and runs, colon shrinks, brain grows (600→1,350 cm³), long low erectus skull, voice box drops, ancestral tail, milk digestion.
+- The Evolution tab's "See it on the body" plays the same effect (`info.efx`).
+- Fixed: the Hand bones group caught little-toe bones. Early primates now shows the eyes; Stone tools shows the hand bones.
+
+Unfinished / ideas
+- The body has no separate voice-box cartilages; era 11 draws one on top of the windpipe.
+- The skin block's layers are drawn thicker than true scale (said in the narration).
+- Evolution effects could get a short spoken line of their own; the fish fin could swing into the arm shape.
+- Labels still don't follow bent limbs during moving lessons.
