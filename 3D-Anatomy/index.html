@@ -104,7 +104,7 @@ input[type=search]{width:100%;min-width:0}
 .credits{font-size:11px;color:var(--faint);border-top:1px solid var(--line);padding-top:12px;display:grid;gap:4px}
 .credits a{color:var(--mute)}
 #stage{position:relative;min-width:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 38%,#18252b 0%,var(--stage) 45%,var(--void) 100%)}
-/* scroll mode: a finger on the body scrolls the page; active mode (tap the body): the finger turns it, two fingers zoom */
+/* scroll mode: one finger on the body scrolls the page, two fingers turn and zoom it; spin mode (double-tap the body): one finger spins it */
 #stage canvas{display:block;width:100%;height:100%;touch-action:pan-x pan-y}
 #stage.active canvas{touch-action:none}
 #stage::after{content:"";position:absolute;inset:0;pointer-events:none;border:2px solid transparent;transition:border-color .2s}
@@ -325,6 +325,10 @@ body.tabbed{overflow:hidden}
 @media (hover:hover) and (pointer:fine){.zoombtns{display:flex}}
 /* with a mouse the body is always ready to turn, so the scroll/active badge and outline are only for touch */
 .mouse .turnbtn{display:none}
+/* first-time touch hint, over the body */
+.ghint{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:6;background:rgba(10,15,18,.88);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.5;color:var(--ink);text-align:center;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:min(300px,84vw);animation:ghin .3s ease-out}
+.ghint b{color:var(--sys);font-weight:600}
+@keyframes ghin{from{opacity:0;transform:translate(-50%,-40%)}}
 .mouse #stage.active::after{border-color:transparent}
 @media (max-width:600px){
   .menus{gap:4px}
@@ -455,7 +459,7 @@ body.tabbed{overflow:hidden}
 });</pre></details></div>
         <div class="ctl about"><span class="label">About 3D Anatomy</span>
           <p class="note">Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag the body to turn it; tap or click any structure.</p>
-          <p class="note">On a phone, tap the body first to turn it, and pinch to zoom; tap outside it to scroll again. With a mouse, drag to turn, use + and − to zoom, and the wheel scrolls the page.</p>
+          <p class="note">On a phone, one finger scrolls the page; two fingers on the body turn it (slide) and zoom (pinch); tap a part for its card. Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll. With a mouse, drag to turn, use + and − to zoom, and the wheel scrolls the page.</p>
           <p class="note">Keys: ← → change system, + − zoom, space plays the systems tour, Esc closes menus and clears the selection. Educational reference, not for diagnosis.</p>
           <footer class="credits">
             <span class="label">Model sources</span>
@@ -481,11 +485,12 @@ body.tabbed{overflow:hidden}
         <div class="v"><b id="vO2">98</b><span>SpO₂ %</span></div>
       </div>
       <canvas id="ecg" aria-label="ECG trace, lead II"></canvas>
-      <button class="turnbtn" id="turnBtn" aria-pressed="false"><i></i><span id="turnTxt">Scroll mode · tap the body to turn it</span></button>
+      <button class="turnbtn" id="turnBtn" aria-pressed="false"><i></i><span id="turnTxt">Two fingers turn and zoom · double-tap for one-finger spin</span></button>
     </div>
     <div class="zoombtns" id="zoomBtns"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
     <div class="tourpill" id="tourPill" hidden><button id="tour" aria-pressed="false">Play tour</button><div class="bar" aria-hidden="true"><b id="tourBar"></b></div></div>
     <div class="fxcap" id="fxCap" hidden aria-live="polite"></div>
+    <div class="ghint" id="gHint" hidden role="status"><b>Two fingers:</b> turn and pinch to zoom<br><b>Double-tap:</b> one-finger spin (double-tap again to scroll)</div>
     <div class="quizbar" id="quizBar" hidden>
       <div class="find"><span id="qProg">1 / 10</span><span>Find</span><span><span id="qScore">0</span> pts <span id="qStreak"></span></span></div>
       <h3 id="qPrompt">—</h3>
@@ -1629,7 +1634,7 @@ function learnBtn(){let lab='Learn',val;
   $('sysTours').querySelectorAll('button[data-t]').forEach(b=>{const on=TR.on&&TR.id===b.dataset.t&&TR.long===(b.dataset.l==='1');if((b.getAttribute('aria-current')==='true')!==on)b.setAttribute('aria-current',String(on));});
   $('lessonList').querySelectorAll('button[data-i]').forEach(b=>{const on=L.on&&L.i===+b.dataset.i&&(b.classList.contains('lstart')||(b.dataset.s!==undefined&&secsOf(LESSONS[L.i])[+b.dataset.s]&&secsOf(LESSONS[L.i])[+b.dataset.s].start<=L.step&&secsOf(LESSONS[L.i])[+b.dataset.s].end>=L.step));
     if((b.getAttribute('aria-current')==='true')!==on)b.setAttribute('aria-current',String(on));});}
-let menuT=0;function menuTick(now){if(now-menuT<400)return;menuT=now;try{sectionBtn();learnBtn();vitTick();}catch(e){}}
+let menuT=0;function menuTick(now){if(now-menuT<400)return;menuT=now;try{sectionBtn();learnBtn();vitTick();if(st.ready&&!HINT.tried){HINT.tried=true;hintShow();}}catch(e){}}
 for(const [b,m] of Object.entries(MENUS))$(b).onclick=()=>setMenu(openMenu===m?null:m);
 document.addEventListener('pointerdown',e=>{if(openMenu&&!e.target.closest('#topbar'))closeMenus();},true);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&openMenu){e.stopImmediatePropagation();closeMenus();}},true);
@@ -1652,7 +1657,9 @@ function renderScores(){const rows=[];
   $('scoreList').innerHTML=rows.length?rows.map(r=>`<div><span>${r.sys} · ${r.sex} · ${r.mode}</span><b>${r.of?r.v+' / '+r.of:r.v+' pts'}</b></div>`).join('')
     :'<p class="note">No quiz scores yet. Finish a quiz under Learn › Quizzes and your best score for each system shows here.</p>';}
 /* Mouse and trackpad: the body is always ready, so dragging turns it straight away and the wheel scrolls the page.
-   Zoom with the + and − buttons or keys. Touch keeps tap-to-turn and pinch to zoom. */
+   Zoom with the + and − buttons or keys.
+   Touch: one finger scrolls the page; two fingers turn the body (slide) and zoom (pinch); a tap opens a part.
+   Double-tap the body for spin mode (one finger spins, two fingers zoom and slide the body); double-tap again to scroll. */
 if(matchMedia('(hover:hover) and (pointer:fine)').matches)document.body.classList.add('mouse');
 renderer.domElement.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'){document.body.classList.add('mouse');controls.enabled=true;controls.enableZoom=false;}
@@ -1864,16 +1871,38 @@ renderer.domElement.addEventListener('pointerleave',()=>{$('tip').hidden=true;ho
 renderer.domElement.addEventListener('pointerdown',e=>{downAt=[e.clientX,e.clientY];$('tip').hidden=true;});
 renderer.domElement.addEventListener('pointercancel',()=>{downAt=null;});   // the page scrolled instead (scroll mode)
 renderer.domElement.addEventListener('pointerup',e=>{if(!downAt)return;const moved=Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1]);downAt=null;if(moved>5)return;
-  if(!st.active&&e.pointerType!=='mouse'){setActive(true);return;}   // touch: the first tap only wakes the body up
-  if(Q.on){quizClick(pickAt(e.clientX,e.clientY));return;}stopTour();selectPart(pickAt(e.clientX,e.clientY),false);});
+  if(e.pointerType==='mouse'){bodyTap(e.clientX,e.clientY);return;}
+  if(TT.multi)return;hintDone();   // the lift of a two-finger turn or pinch is not a tap
+  // touch: a second tap soon after, close by, is a double tap (spin mode on or off); a single tap opens the part after a short wait
+  const now=performance.now(),x=e.clientX,y=e.clientY;
+  if(TAP.t&&now-TAP.t<320&&Math.hypot(x-TAP.x,y-TAP.y)<40){clearTimeout(TAP.h);TAP.t=0;setActive(!st.active);return;}
+  TAP.t=now;TAP.x=x;TAP.y=y;clearTimeout(TAP.h);TAP.h=setTimeout(()=>{TAP.t=0;bodyTap(x,y);},300);});
+const TAP={t:0,x:0,y:0,h:0};
+function bodyTap(x,y){if(Q.on){quizClick(pickAt(x,y));return;}stopTour();selectPart(pickAt(x,y),false);}
+/* Two fingers on the body while scrolling is on: slide to turn it, pinch to zoom. One finger is left to the page. */
+const TT={multi:false,mid:null,d:0},tSph=new THREE.Spherical();
+const tMid=t=>[(t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2],tDist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+function orbitBy(dTh,dPh){tween=null;const off=camera.position.clone().sub(controls.target);tSph.setFromVector3(off);tSph.theta+=dTh;tSph.phi=THREE.MathUtils.clamp(tSph.phi+dPh,.02,Math.PI-.02);
+  off.setFromSpherical(tSph);camera.position.copy(controls.target).add(off);camera.lookAt(controls.target);controls.update();}
+renderer.domElement.addEventListener('touchstart',e=>{hintDone();if(e.touches.length<2)return;TT.multi=true;downAt=null;clearTimeout(TAP.h);TAP.t=0;
+  if(!st.active){TT.mid=tMid(e.touches);TT.d=tDist(e.touches);stopTour();}},{passive:true});
+renderer.domElement.addEventListener('touchmove',e=>{if(st.active||e.touches.length<2||!TT.mid)return;if(e.cancelable)e.preventDefault();
+  const m=tMid(e.touches),d=tDist(e.touches),h=renderer.domElement.clientHeight||1;
+  orbitBy(-2*Math.PI*(m[0]-TT.mid[0])/h,-2*Math.PI*(m[1]-TT.mid[1])/h);if(TT.d>8&&d>8)zoomBy(TT.d/d);TT.mid=m;TT.d=d;},{passive:false});
+const tEnd=e=>{if(e.touches.length<2)TT.mid=null;if(!e.touches.length)setTimeout(()=>{TT.multi=false;},0);};
+renderer.domElement.addEventListener('touchend',tEnd,{passive:true});renderer.domElement.addEventListener('touchcancel',tEnd,{passive:true});
+/* the first time on a touch screen, a short hint over the body says how to turn it */
+const HINT={on:false,h:0};
+function hintShow(){let seen=false;try{seen=!!localStorage.getItem('ca-touchhint');}catch(e){}if(seen||!PHONE||HINT.on)return;HINT.on=true;$('gHint').hidden=false;
+  try{localStorage.setItem('ca-touchhint','1');}catch(e){}HINT.h=setTimeout(hintDone,7000);}
+function hintDone(){if(!HINT.on)return;HINT.on=false;clearTimeout(HINT.h);$('gHint').hidden=true;}
 controls.addEventListener('start',()=>{tween=null;});
-/* Active / scroll mode. Scroll mode (the start): a finger on the body scrolls the page and nothing zooms.
-   Tap or click the body to make it active: drag turns it, pinch or the mouse wheel zooms, taps pick parts.
-   Tapping anywhere outside the body, the mode button, or Esc goes back to scroll mode. */
+/* Spin / scroll mode on touch. Scroll mode (the start): one finger on the body scrolls the page, two fingers turn and zoom it.
+   Double-tap the body (or the mode button) for spin mode: one finger spins it, two fingers zoom and slide it.
+   Double-tap again, the mode button, tapping outside the body, or Esc goes back to scroll mode. */
 function setActive(on){st.active=on;controls.enabled=on;stage.classList.toggle('active',on);renderer.domElement.style.touchAction=on?'none':'pan-x pan-y';
   $('turnBtn').setAttribute('aria-pressed',String(on));
-  $('turnTxt').textContent=on?(PHONE?'Active · drag to turn, pinch to zoom · tap outside to scroll':'Active · drag to turn, wheel to zoom · click outside or Esc to stop')
-    :(PHONE?'Scroll mode · tap the body to turn it':'Scroll mode · click the body to turn it');}
+  $('turnTxt').textContent=on?'Spin mode · one finger spins · double-tap to scroll':'Two fingers turn and zoom · double-tap for one-finger spin';}
 $('turnBtn').onclick=e=>{e.stopPropagation();setActive(!st.active);};
 document.addEventListener('pointerdown',e=>{if(st.active&&!stage.contains(e.target))setActive(false);},true);
 function doHover(now){if(!hoverPending||now-lastHover<80)return;lastHover=now;const [x,y]=hoverPending;hoverPending=null;const p=pickAt(x,y),tip=$('tip');
@@ -1977,7 +2006,7 @@ function quizPool(){const cur=SYSTEMS[st.sys].id;
     const r=p.mesh.geometry.boundingSphere.radius*p.mesh.userData.base.getMaxScaleOnAxis();if(r<.008)continue;
     const k=p.name.toLowerCase();if(seen.has(k))continue;seen.add(k);out.push({label:p.name.charAt(0).toUpperCase()+p.name.slice(1),parts:bodyParts.filter(q=>q.name.toLowerCase()===k&&visibleIn(q,cur))});}
   return out;}
-function startQuiz(){evoFx(null);spReset();mixOff();setActive(true);stopTour();endLesson();clearSel();renderCard();const pool=quizPool();
+function startQuiz(){evoFx(null);spReset();mixOff();stopTour();endLesson();clearSel();renderCard();const pool=quizPool();
   if(pool.length<3){toast('Not enough structures loaded for a quiz in this system yet.');return;}
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   Object.assign(Q,{on:true,items:pool.slice(0,10),i:0,score:0,streak:0,right:0});$('quizBar').hidden=false;$('qEnd').hidden=true;$('tip').hidden=true;nextQ(true);}
