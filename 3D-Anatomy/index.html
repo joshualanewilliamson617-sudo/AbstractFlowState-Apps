@@ -296,6 +296,20 @@ body.tabbed{overflow:hidden}
   .chip::after{content:"";position:absolute;inset:-3px}
   input[type=range]{min-height:32px}
 }
+/* spoken tours */
+.stour{display:grid;gap:8px}
+.stprog{height:3px;background:var(--line);border-radius:2px;overflow:hidden}.stprog b{display:block;height:100%;width:0;background:var(--sys);transition:width .3s}
+.stctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.stopts{display:flex;gap:6px;margin-left:auto;align-items:center}
+.stctl select{min-height:32px}
+.stans{justify-content:flex-start}
+.stans .btn{text-align:left}.stans .btn.good{border-color:var(--good);color:var(--good)}.stans .btn.bad{border-color:var(--bad);color:var(--bad)}
+.tlist{display:grid;gap:4px}
+.trow{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;font-size:13px}
+.trow>span{display:flex;align-items:center;gap:8px;min-width:0}.trow>span i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.trow button{border:1px solid var(--line);background:var(--raise);color:var(--ink);border-radius:8px;padding:6px 9px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;min-height:34px}
+.trow button:hover{border-color:var(--sys)}.trow button small{color:var(--mute)}
+@media (max-width:600px){.stopts{margin-left:0}}
 </style>
 
 <div id="app">
@@ -339,6 +353,10 @@ body.tabbed{overflow:hidden}
     <div class="menu" id="mLearn" hidden role="dialog" aria-label="Learn">
       <div class="seg" id="learnSeg"><button data-v="tours" aria-pressed="true">Tours</button><button data-v="lessons" aria-pressed="false">Guided lessons</button><button data-v="quiz" aria-pressed="false">Quizzes</button></div>
       <div id="tourBox" class="ctl">
+        <div class="ctl"><span class="label">Spoken tours · male body first, then female</span>
+          <p class="note">Each tour is read aloud by this device's built-in voice. Short covers each group of structures; Long also names every part. Mute, speed and Loop are on the tour bar. A quiz follows each tour.</p>
+          <div class="tlist" id="sysTours"></div></div>
+        <span class="label">Systems tour</span>
         <p class="note">The systems tour turns the body slowly and moves through all 11 systems, about 10 seconds each.</p>
         <div class="rowc"><button class="btn primary" id="tourStart">Play the systems tour</button></div>
       </div>
@@ -427,6 +445,18 @@ body.tabbed{overflow:hidden}
       <div class="foot"><div class="dots" id="lDots"></div>
         <div class="qbtns"><button class="btn" id="lPrev">Back</button><button class="btn" id="lAuto" aria-pressed="false">Auto-play</button><button class="btn primary" id="lNext">Next</button></div></div>
     </div>
+    <div class="lesson stour" id="stour" hidden aria-live="polite">
+      <div class="lname"><span id="stTag"></span><button class="closex" id="stClose" aria-label="Close tour">×</button></div>
+      <h3 id="stTitle"></h3>
+      <p id="stText"></p>
+      <div class="stprog" aria-hidden="true"><b id="stBar"></b></div>
+      <div class="stctl" id="stCtl">
+        <button class="btn" id="stPrev">Back</button><button class="btn primary" id="stPlay">Pause</button><button class="btn" id="stNext">Next</button>
+        <span class="stopts"><button class="btn" id="stMute" aria-pressed="false">Mute</button>
+        <select id="stRate" aria-label="Speaking speed"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+        <button class="btn" id="stLoop" aria-pressed="false">Loop</button></span></div>
+      <div class="qbtns stans" id="stAns" hidden></div>
+    </div>
     <button class="tutorbtn" id="tutorBtn" hidden><i></i>Ask the tutor</button>
     <section class="tutor" id="tutor" hidden aria-label="Anatomy tutor">
       <header><div><b>Anatomy tutor</b><small id="tutorCtx">—</small></div><button class="closex" id="tutorClose" aria-label="Close tutor">×</button></header>
@@ -468,7 +498,6 @@ body.tabbed{overflow:hidden}
 </section>
 <script type="text/x-anatomy-pack" data-id="evolution" data-name="Evolution of the human body" data-tab="Evolution">
 /* Built-in pack: Evolution of the human body. Runs only when its tab is first opened. */
-AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tab:{title:'Evolution',build(el,api){
   const ERAS=[
    {t:'~375 million years ago',h:'Fish come ashore',p:'Lobe-finned fish such as Tiktaalik had fin bones in the same pattern as our arm: one bone (humerus), then two (radius and ulna), then many small ones. Your arm and hand still follow that plan.',see:['skel','Arm bones','Arm bones']},
    {t:'~200 million years ago',h:'Early mammals',p:'Small, warm-blooded mammals appear. Two bones that once formed the reptile jaw joint shrank and moved into the ear, becoming the malleus and incus, two of the three tiny hearing bones.',see:['skel','Skull','Skull and ear bones']},
@@ -484,6 +513,17 @@ AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tab:{ti
    {t:'Speech',h:'A voice box set low',p:'In adults the larynx sits lower in the throat than in other apes, giving a long vocal tract for clear vowel sounds. The cost: we are more prone to choking.',see:['resp','Pharynx and larynx','The larynx']},
    {t:'Leftovers',h:'Traces of the past',p:'Some parts carry history: the coccyx is all that remains of a tail; goosebumps come from tiny muscles that once fluffed up fur; wisdom teeth often lack room in our shorter jaws. The appendix, once called useless, may store helpful gut bacteria.',see:['skel','Spine','The coccyx (tailbone)']},
    {t:'Last 10,000 years',h:'Still changing',p:'Evolution has not stopped. Since farming began, the ability to digest milk as an adult spread in several dairying peoples, and skin colour, height and resistance to some diseases have shifted with diet, sunlight and germs.',see:['dig','Small intestine','Where milk is digested']}];
+  // spoken tour (Learn › Tours) and its quiz
+  const EVO_STEP=e=>({sys:e.see[0],group:e.see[1],title:e.h,text:(e.t.charAt(0)==='~'?'About '+e.t.slice(1):e.t)+'. '+e.h+'. '+e.p});
+  const EVO_TOUR={intro:'Evolution of the human body: how parts of your own body came to be, from fish fins to a walking, talking ape.',
+    short:[0,1,4,6,7,9,10].map(i=>EVO_STEP(ERAS[i])),long:ERAS.map(EVO_STEP)};
+  const EVO_QUIZ=[
+    {q:'Which fossil fish had fin bones in the same pattern as your arm?',a:['Tiktaalik','Lucy','Sahelanthropus'],c:0},
+    {q:'Two of the tiny bones in your middle ear, the malleus and incus, evolved from bones that once formed…',a:['part of the jaw joint','a gill cover','the first rib'],c:0},
+    {q:'About how old is the famous Australopithecus skeleton called Lucy?',a:['About 3.2 million years','About 300,000 years','About 55 million years'],c:0},
+    {q:'Where were the oldest known Homo sapiens fossils found?',a:['Jebel Irhoud, Morocco','Laetoli, Tanzania','Lascaux, France'],c:0},
+    {q:'Which organ uses about 20 percent of the body\'s energy at only 2 percent of its weight?',a:['The brain','The liver','The heart'],c:0}];
+AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tour:EVO_TOUR,quiz:EVO_QUIZ,tab:{title:'Evolution',build(el,api){
   el.innerHTML=`<p class="tv-lead">From fish fins to a walking, talking ape: how parts of your own body came to be. Tap <b>See it on the body</b> on any step to jump to that part in 3D.</p>
    <ol class="tv-time">${ERAS.map((e,i)=>`<li><span class="tv-t">${e.t}</span><h3>${e.h}</h3><p>${e.p}</p><button class="tv-see" data-i="${i}">See it on the body ›</button></li>`).join('')}</ol>
    <p class="tv-note">Dates are approximate and are revised as new fossils are found.</p>`;
@@ -492,7 +532,6 @@ AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tab:{ti
 </script>
 <script type="text/x-anatomy-pack" data-id="microbiome" data-name="The gut microbiome" data-tab="Gut microbiome">
 /* Built-in pack: the gut microbiome, its history and its jobs. Runs only when its tab is first opened. */
-AnatomyPacks.register({id:'microbiome',name:'The gut microbiome',tab:{title:'Gut microbiome',build(el,api){
   const WHERE=[
    {n:'Stomach',g:'Stomach',e:2,d:'Acid kills most microbes. A few hardy ones survive, such as Lactobacillus and Helicobacter pylori, which can cause ulcers.'},
    {n:'Duodenum and jejunum',g:'Small intestine',e:3,d:'Bile, enzymes and a fast flow keep numbers low in the first part of the small intestine.'},
@@ -518,6 +557,22 @@ AnatomyPacks.register({id:'microbiome',name:'The gut microbiome',tab:{title:'Gut
   const WHO=[['Bacillota (Firmicutes)','Many fibre fermenters and butyrate makers, such as Faecalibacterium.'],['Bacteroidota','Experts at breaking down complex plant sugars, such as Bacteroides.'],
    ['Actinomycetota','Includes Bifidobacterium, common in babies.'],['Pseudomonadota','Includes E. coli; usually only a small share.'],['Verrucomicrobiota','Includes Akkermansia, which lives in the gut\'s mucus layer.'],
    ['Not only bacteria','Archaea such as Methanobrevibacter (they make methane), yeasts and other fungi, and huge numbers of viruses that infect bacteria (phages).']];
+  // spoken tour (Learn › Tours) and its quiz
+  const GUT_STEP=w=>({sys:'dig',group:w.g,title:w.n,text:w.n+'. '+w.d});
+  const JOB_STEP=j=>({sys:j[2],group:j[3],title:j[0],text:j[0]+'. '+j[1]});
+  const GUT_TOUR={intro:'The gut microbiome. Trillions of microbes live in your gut, mostly in the colon, and they do jobs your own body cannot do alone.',
+    short:[...WHERE.map(GUT_STEP),...JOBS.slice(0,3).map(JOB_STEP)],
+    long:[...WHERE.map(GUT_STEP),...JOBS.map(JOB_STEP),
+      {sys:'dig',group:'Large intestine',title:'Who lives there',text:'Who lives there. '+WHO.map(w=>w[0]+'. '+w[1]).join(' ')},
+      {sys:'dig',group:'Large intestine',title:'A lifetime of microbes',text:'A lifetime of microbes. Babies pick up their first microbes at birth. Breast milk contains sugars that feed Bifidobacterium. By about age three the gut community looks much like an adult\'s, and after that diet, antibiotics, illness and age keep shaping it.'},
+      {sys:'dig',group:'Large intestine',title:'How we found out',text:'How we found out. '+HIST.map(h=>h[0].replace(/ to /g,' to ')+'. '+h[1]).join(' ')}]};
+  const GUT_QUIZ=[
+    {q:'Where in the gut do most microbes live?',a:['The colon (large intestine)','The stomach','The first part of the small intestine'],c:0},
+    {q:'Which substance made by gut bacteria is the main fuel for the cells lining the colon?',a:['Butyrate','Pepsin','Bile'],c:0},
+    {q:'Who first described microbes from his own mouth and stool, in the 1670s and 1680s?',a:['Antonie van Leeuwenhoek','Louis Pasteur','Élie Metchnikoff'],c:0},
+    {q:'A 2016 recount estimated how many bacteria live in a typical body?',a:['About 38 trillion','About 38 million','About 3.8 quadrillion'],c:0},
+    {q:'Which vitamin can some gut bacteria make?',a:['Vitamin K','Vitamin C','Vitamin D'],c:0}];
+AnatomyPacks.register({id:'microbiome',name:'The gut microbiome',tour:GUT_TOUR,quiz:GUT_QUIZ,tab:{title:'Gut microbiome',build(el,api){
   el.innerHTML=`<p class="tv-lead">Trillions of microbes live in your gut, mostly in the colon. Together they weigh roughly 0.2 kg and carry far more genes than you do. Tap <b>See it on the body</b> to jump to the part in 3D.</p>
    <h3 class="tv-h">Where they live</h3><p class="tv-sub">Microbes per gram or millilitre of gut contents (each step on the bar is ten times more).</p>
    <div class="tv-bars">${WHERE.map((w,i)=>`<div class="tv-bar"><div class="tv-row"><b>${w.n}</b><span>about 10<sup>${String(w.e).replace('.5','')}</sup>${w.e%1?' to 10<sup>12</sup>':''}</span></div>
@@ -1209,7 +1264,7 @@ $('prev').onclick=()=>{stopTour();setSys((st.sys+10)%11);};
 $('next').onclick=()=>{stopTour();setSys((st.sys+1)%11);};
 const segs=(id,key,fn)=>$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   $(id).querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));st[key]=b.dataset.v;fn&&fn();});
-segs('sexSeg','sex',()=>{clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
+segs('sexSeg','sex',()=>{if(TR.on&&!TR.switching)closeSysTour();clearSel();detachAll();resetBuild();$('results').innerHTML='';refresh(true);if($('q').value)doSearch();});
 // Skin peel: in the skin system it peels the skin off the muscles (full skin at the right); elsewhere it sets how much see-through skin shows
 $('skin').oninput=e=>{const v=+e.target.value;if(actv().has('integ')){st.skinOwn=v;if(v<1)loadPeelMuscles();}else st.skin=v;apply();};
 function skinSlider(){const own=actv().has('integ'),s=$('skin');s.max=own?1:.6;s.value=own?st.skinOwn:st.skin;
@@ -1223,7 +1278,7 @@ $('slice').onchange=e=>{st.slice=e.target.value;$('slicePos').disabled=st.slice=
 $('slicePos').oninput=e=>{st.slicePos=+e.target.value;updateSlice();};
 $('tour').onclick=()=>st.tour?stopTour():startTour();
 $('tourStart').onclick=()=>{closeMenus();startTour();};
-addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea'))return;
+addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,select,textarea'))return;
   if(e.key==='ArrowRight'){stopTour();setSys((st.sys+1)%11);}else if(e.key==='ArrowLeft'){stopTour();setSys((st.sys+10)%11);}
   else if(e.key==='+'||e.key==='='){zoomBy(.8);}else if(e.key==='-'||e.key==='_'){zoomBy(1.25);}
   else if(e.key===' '){e.preventDefault();st.tour?stopTour():startTour();}else if(e.key==='Escape'){if(st.active)setActive(false);else if(Q.on)endQuiz();else if(L.on)endLesson();else{clearSel();renderCard();}}});
@@ -1250,8 +1305,9 @@ $('moreSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(
 function renderScores(){const rows=[];
   try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),m=/^ca-best-(male|female)-([a-z]+)-(group|part)$/.exec(k||'');
     if(m&&SYS[m[2]])rows.push({sys:SYSTEMS[SYS[m[2]].i].name,sex:m[1]==='male'?'Male':'Female',mode:m[3]==='group'?'groups':'named structures',v:+localStorage.getItem(k)||0});}}catch(e){}
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),m=/^ca-best-tour-(.+)$/.exec(k||'');if(m){const pk=PACKS.get(m[1]);rows.push({sys:pk?(pk.tab&&pk.tab.title)||pk.name:m[1],sex:'tour quiz',mode:'5 questions',v:+localStorage.getItem(k)||0,of:5});}}}catch(e){}
   rows.sort((a,b)=>a.sys.localeCompare(b.sys)||a.sex.localeCompare(b.sex)||a.mode.localeCompare(b.mode));
-  $('scoreList').innerHTML=rows.length?rows.map(r=>`<div><span>${r.sys} · ${r.sex} · ${r.mode}</span><b>${r.v} pts</b></div>`).join('')
+  $('scoreList').innerHTML=rows.length?rows.map(r=>`<div><span>${r.sys} · ${r.sex} · ${r.mode}</span><b>${r.of?r.v+' / '+r.of:r.v+' pts'}</b></div>`).join('')
     :'<p class="note">No quiz scores yet. Finish a quiz under Learn › Quizzes and your best score for each system shows here.</p>';}
 /* Mouse and trackpad: the body is always ready, so dragging turns it straight away and the wheel scrolls the page.
    Zoom with the + and − buttons or keys. Touch keeps tap-to-turn and pinch to zoom. */
@@ -1262,9 +1318,9 @@ renderer.domElement.addEventListener('pointerdown',e=>{
 function zoomBy(f){tween=null;const d=camera.position.clone().sub(controls.target),L=THREE.MathUtils.clamp(d.length()*f,controls.minDistance,controls.maxDistance);
   camera.position.copy(controls.target).addScaledVector(d.normalize(),L);controls.update();}
 $('zoomIn').onclick=()=>zoomBy(.8);$('zoomOut').onclick=()=>zoomBy(1.25);
-function startTour(){mixOff();$('tourPill').hidden=false;st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
+function startTour(){closeSysTour();mixOff();$('tourPill').hidden=false;st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
 function stopTour(){if(!st.tour)return;st.tour=false;$('tourPill').hidden=true;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
-function setSys(i){if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson();st.sys=i;clearSel();st.tourT=0;refresh(true);}
+function setSys(i){if(TR.on)closeSysTour();if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson();st.sys=i;clearSel();st.tourT=0;refresh(true);}
 
 async function refresh(fly){
   const gen=++st.gen,sex=st.sex,A=actv();st.ready=false;$('err').hidden=true;
@@ -1642,7 +1698,7 @@ function renderLessons(){$('lessonList').innerHTML=LESSONS.map((l,i)=>{const S=s
   <div class="lparts">${S.map((s,j)=>`<button data-i="${i}" data-s="${j}" aria-label="Play part ${j+1}, ${s.title}">▶ ${j+1}. ${s.title}<small>${s.end-s.start+1} stop${s.end>s.start?'s':''} · ${tourLen(s.end-s.start+1)}</small></button>`).join('')}</div></div>`;}).join('');}
 renderLessons();
 $('lessonList').addEventListener('click',e=>{const b=e.target.closest('button');if(b)startLesson(+b.dataset.i,b.dataset.s!==undefined?+b.dataset.s:0);});
-function startLesson(i,sec=0){stopTour();mixOff();if(Q.on)endQuiz();const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0});
+function startLesson(i,sec=0){closeSysTour();stopTour();mixOff();if(Q.on)endQuiz();const les=LESSONS[i];Object.assign(L,{on:true,i,step:secsOf(les)[sec].start,autoT:0});
   if(les.scn){phys.scn=st.scn=les.scn;$('scnSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===les.scn)));}
   $('lesson').hidden=false;showStep();}
 function endLesson(){if(!L.on)return;L.on=false;L.auto=false;$('lesson').hidden=true;$('lAuto').setAttribute('aria-pressed','false');clearSel();renderCard();}
@@ -2091,6 +2147,129 @@ $('packForm').onsubmit=async e=>{e.preventDefault();const url=$('packUrl').value
   catch(err){toast('That pack could not load. Check the address.');}};
 function bootPacks(){const q=new URLSearchParams(location.search).getAll('pack');
   for(const u of [...savedPacks(),...q])loadPackUrl(u).catch(()=>toast('An add-on pack did not load: '+u));renderPackList();}
+/* ================================================================ spoken tours
+   One tour per body system (short: each group of structures; long: also every named part), plus the Evolution and
+   Gut microbiome tours from their packs. Each plays on the male body, then the female body, then stops (or starts
+   again with Loop on), and ends with a quiz. Only the system being explained is shown: no skin, no other layers.
+   The voice is the browser's own (speechSynthesis), read one sentence at a time because some browsers cut off long
+   speech; if there's no voice, or it's muted, each stop is timed to its reading length instead. */
+const VO=(()=>{const d={muted:false,rate:1,loop:false};try{return Object.assign(d,JSON.parse(localStorage.getItem('ca-voice')||'{}'));}catch(e){return d;}})();
+const saveVO=()=>{try{localStorage.setItem('ca-voice',JSON.stringify(VO));}catch(e){}};
+const HAS_TTS='speechSynthesis' in window&&'SpeechSynthesisUtterance' in window;
+const TR={on:false,id:null,long:false,pack:null,steps:[],i:0,tok:0,paused:false,phase:'male',timers:[],switching:false,mcq:null};
+const wordsOf=t=>t.split(/\s+/).filter(Boolean).length,secsFor=t=>wordsOf(t)/2.6+.45;   // reading time at 1×
+const waitReady=async()=>{for(let n=0;!st.ready&&n<400;n++)await new Promise(r=>setTimeout(r,150));};
+function pickVoice(){if(!HAS_TTS)return null;const vs=speechSynthesis.getVoices();
+  return vs.find(v=>/^en[-_](US|GB)/i.test(v.lang)&&/natural|google|samantha|daniel|aria|jenny|guy/i.test(v.name))||vs.find(v=>/^en[-_]/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}
+function hush(){TR.timers.forEach(clearTimeout);TR.timers=[];if(HAS_TTS)speechSynthesis.cancel();}
+function say(text,done){const tok=TR.tok;hush();const fin=()=>{if(tok===TR.tok)done();};
+  if(VO.muted||!HAS_TTS){TR.timers.push(setTimeout(fin,secsFor(text)/VO.rate*1000+250));return;}
+  const parts=(text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g)||[text]).map(s=>s.trim()).filter(Boolean),v=pickVoice();let k=0;
+  const next=()=>{if(tok!==TR.tok)return;if(k>=parts.length){fin();return;}
+    const u=new SpeechSynthesisUtterance(parts[k++]);u.rate=VO.rate;if(v){u.voice=v;u.lang=v.lang;}else u.lang='en-US';
+    let ended=false;const end=()=>{if(ended)return;ended=true;next();};u.onend=end;u.onerror=end;
+    TR.timers.push(setTimeout(end,(secsFor(u.text)/VO.rate+4)*1000));   // some phones never report the end of speech
+    speechSynthesis.speak(u);};
+  next();}
+function unlockVoice(){if(!HAS_TTS||VO.muted)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch(e){}}   // iPhone: speech must start from a tap
+function ensurePack(id){const pk=PACKS.get(id);if(pk&&!pk.loaded&&pk.code){try{new Function('AnatomyPacks',pk.code)(window.AnatomyPacks);}catch(e){console.error(e);}}return PACKS.get(id);}
+
+const TJUNK=/^segment|impression|surface of|cavity of|enthesis|^set of|\(drawn\)/i;
+const partKey=n=>n.replace(/\s*\((left|right)\)/ig,'').replace(/\b(left|right)\s+/ig,'').replace(/\s+of\s+(left|right)\b/ig,'').replace(/\s+/g,' ').trim();
+const labOf=(p,sys)=>{const g=(p.grp&&p.grp.sys===sys)?p.grp:groupOf(sys,p.name);return g?g.label:'Other';};
+const groupsOf=sys=>[...new Map(GROUPS.filter(g=>g.sys===sys).map(g=>[g.label,g])).values()];
+function buildSysSteps(sys,long){const S=SYSTEMS[SYS[sys].i],nm=S.name.toLowerCase(),mine=bodyParts.filter(p=>visibleIn(p,sys)),steps=[];
+  steps.push({sys,title:S.name+' system',text:`The ${nm} system. ${S.summary}`,parts:mine});
+  for(const g of [...groupsOf(sys),{label:'Other',desc:'Smaller structures that belong to this system.'}]){const gp=mine.filter(p=>labOf(p,sys)===g.label);if(!gp.length)continue;
+    steps.push({sys,title:g.label==='Other'?'Other structures':g.label,text:`${g.label==='Other'?'Other structures':g.label}. ${g.desc}`,parts:gp});
+    if(!long)continue;const m=new Map();
+    for(const p of gp){if(TJUNK.test(p.name))continue;const k=partKey(p.name),kk=k.toLowerCase();if(!m.has(kk))m.set(kk,{label:k.charAt(0).toUpperCase()+k.slice(1),parts:[]});m.get(kk).parts.push(p);}
+    [...m.values()].map(x=>Object.assign(x,{y:boxL(x.parts).max.y})).sort((a,b)=>b.y-a.y)       // top of the body to the bottom
+      .forEach(x=>steps.push({sys,title:x.label,text:x.label+'.',parts:x.parts,sub:g.label}));}
+  steps.push({sys,title:'End of the tour',text:TR.phase==='male'?`That was the ${nm} system on the male body. Next, the same tour on the female body.`:`That was the ${nm} system on the female body.`,parts:mine});
+  return steps;}
+function buildPackSteps(){const t=TR.pack.tour,L=TR.long?t.long:t.short;
+  return [{sys:L[0].sys,group:L[0].group,title:TR.pack.name,text:t.intro},...L,
+    {sys:L[L.length-1].sys,group:L[L.length-1].group,title:'End of the tour',text:TR.phase==='male'?'That was the male body. Next, the same tour on the female body.':'That was the female body.'}];}
+const tourName=()=>TR.pack?TR.pack.name:SYSTEMS[SYS[TR.id].i].name;
+
+async function switchSex(sex){if(st.sex===sex)return;TR.switching=true;$('sexSeg').querySelector(`[data-v="${sex}"]`).click();TR.switching=false;await waitReady();}
+function tourPrep(){stopTour();endLesson();if(Q.on)endQuiz();closeMenus();closeTab();mixOff();
+  st.mode='isolate';syncView();st.skin=0;st.skinOwn=1;st.peel=0;$('peel').value=0;$('peelTxt').textContent=PEEL_TXT[0];
+  if(st.slice!=='off'){$('slice').value='off';$('slice').dispatchEvent(new Event('change'));}skinSlider();}
+async function stepsNow(){if(TR.pack)return buildPackSteps();
+  if(SYSTEMS[st.sys].id!==TR.id){st.sys=SYS[TR.id].i;clearSel();refresh(true);}await waitReady();return buildSysSteps(TR.id,TR.long);}
+async function startSysTour(id,long){TR.busy=false;tourPrep();const pk=SYS[id]?null:ensurePack(id);if(!SYS[id]&&!(pk&&pk.tour))return;
+  Object.assign(TR,{on:true,id,long,pack:pk,i:0,paused:false,phase:'male',mcq:null,steps:[]});TR.tok++;
+  $('stour').hidden=false;$('stCtl').hidden=false;$('stAns').hidden=true;$('stTitle').textContent='Getting the body ready…';$('stText').textContent='';syncTourCtl();
+  await switchSex('male');if(!TR.on)return;TR.steps=await stepsNow();if(!TR.on)return;TR.i=0;showTourStep();}
+async function showTourStep(){const tok=++TR.tok,s=TR.steps[TR.i];if(!s||!TR.on)return;hush();
+  if(SYSTEMS[st.sys].id!==s.sys){st.sys=SYS[s.sys].i;clearSel();refresh(false);}await waitReady();if(tok!==TR.tok||!TR.on)return;
+  let list=s.parts?s.parts.filter(p=>inScene.has(p)):bodyParts.filter(p=>visibleIn(p,s.sys)&&labOf(p,s.sys)===s.group);
+  const n=TR.steps.length,tag=`${tourName()} · ${TR.long?'long':'short'} · ${st.sex==='male'?'male':'female'} body · ${TR.i+1} of ${n}`;
+  $('stTag').textContent=tag;$('stTitle').textContent=s.title;$('stText').textContent=s.sub?s.sub:s.text;$('stBar').style.width=((TR.i+1)/n*100)+'%';
+  selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)fit(list);
+  $('stPrev').disabled=TR.i===0;if(TR.paused)return;
+  say(s.text,()=>TR.timers.push(setTimeout(()=>{if(tok===TR.tok)nextTourStep();},s.sub?250:700)));}
+function nextTourStep(){if(TR.i<TR.steps.length-1){TR.i++;showTourStep();}else endPhase();}
+async function endPhase(){if(TR.busy)return;TR.busy=true;try{await endPhase2();}finally{TR.busy=false;}}
+async function endPhase2(){const tok=++TR.tok;hush();
+  if(TR.phase==='male'){TR.phase='female';$('stTitle').textContent='Switching to the female body…';await switchSex('female');}
+  else if(VO.loop){TR.phase='male';$('stTitle').textContent='Starting again on the male body…';await switchSex('male');}
+  else{finishTour();return;}
+  if(tok!==TR.tok||!TR.on)return;TR.steps=await stepsNow();if(tok!==TR.tok||!TR.on)return;TR.i=0;showTourStep();}
+function finishTour(){TR.tok++;hush();$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
+  const nm=tourName();$('stTag').textContent=`${nm} · tour finished`;$('stTitle').textContent='Ready for the quiz?';
+  $('stText').textContent=TR.pack?`Five questions on ${nm.toLowerCase()}. Your best score is saved to Profile.`:`Ten questions: find the ${nm.toLowerCase()} structures on the body. Your best score is saved to Profile.`;
+  $('stAns').innerHTML='<button class="btn primary" data-act="quiz">Start the quiz</button><button class="btn" data-act="again">Replay the tour</button><button class="btn" data-act="close">Close</button>';
+  say('Tour finished. Ready for the quiz?',()=>{});}
+function closeSysTour(){if(!TR.on)return;TR.on=false;TR.tok++;hush();$('stour').hidden=true;}
+function syncTourCtl(){$('stMute').setAttribute('aria-pressed',String(VO.muted));$('stMute').textContent=VO.muted?'Unmute':'Mute';
+  $('stLoop').setAttribute('aria-pressed',String(VO.loop));$('stRate').value=String(VO.rate);$('stPlay').textContent=TR.paused?'Play':'Pause';}
+$('stPrev').onclick=()=>{if(!TR.busy&&TR.i>0){TR.i--;showTourStep();}};
+$('stNext').onclick=()=>{if(!TR.busy)nextTourStep();};
+$('stPlay').onclick=()=>{TR.paused=!TR.paused;syncTourCtl();if(TR.paused){TR.tok++;hush();}else{unlockVoice();showTourStep();}};
+$('stMute').onclick=()=>{VO.muted=!VO.muted;saveVO();syncTourCtl();if(!TR.paused&&TR.on&&$('stAns').hidden){unlockVoice();showTourStep();}};
+$('stRate').onchange=e=>{VO.rate=+e.target.value||1;saveVO();};
+$('stLoop').onclick=()=>{VO.loop=!VO.loop;saveVO();syncTourCtl();};
+$('stClose').onclick=closeSysTour;
+addEventListener('keydown',e=>{if(e.key==='Escape'&&TR.on&&!openMenu){e.stopImmediatePropagation();closeSysTour();}},true);
+/* the quiz after a tour: body systems use the find-it quiz (groups after a short tour, named parts after a long one);
+   Evolution and Gut use five multiple-choice questions */
+$('stAns').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.act==='close'){closeSysTour();return;}
+  if(b.dataset.act==='again'){startSysTour(TR.id,TR.long);return;}
+  if(b.dataset.act==='quiz'){hush();if(TR.pack){startMCQ();return;}const mode=TR.long?'part':'group';closeSysTour();
+    st.qmode=Q.mode=mode;$('qModeSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===mode)));startQuiz();return;}
+  if(b.dataset.k!==undefined)answerMCQ(+b.dataset.k,b);});
+function startMCQ(){const qs=TR.pack.quiz.slice();for(let i=qs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[qs[i],qs[j]]=[qs[j],qs[i]];}TR.mcq={qs,i:0,score:0,lock:false};showMCQ();}
+function showMCQ(){const M=TR.mcq,q=M.qs[M.i],ord=q.a.map((_,k)=>k).sort(()=>Math.random()-.5);M.lock=false;
+  $('stTag').textContent=`${tourName()} quiz · question ${M.i+1} of ${M.qs.length} · score ${M.score}`;$('stTitle').textContent=q.q;$('stText').textContent='Tap an answer.';
+  $('stAns').innerHTML=ord.map(k=>`<button class="btn" data-k="${k}">${esc(q.a[k])}</button>`).join('');}
+function answerMCQ(k,b){const M=TR.mcq;if(!M||M.lock)return;M.lock=true;const q=M.qs[M.i],ok=k===q.c;if(ok)M.score++;
+  b.classList.add(ok?'good':'bad');if(!ok)$('stAns').querySelector(`[data-k="${q.c}"]`).classList.add('good');
+  $('stText').textContent=ok?'Right.':'Not quite: the answer is '+q.a[q.c]+'.';
+  setTimeout(()=>{if(TR.mcq!==M)return;M.i++;if(M.i<M.qs.length){showMCQ();return;}
+    const key='ca-best-tour-'+TR.pack.id;let best=0;try{best=+localStorage.getItem(key)||0;if(M.score>best)localStorage.setItem(key,String(M.score));}catch(e){}
+    $('stTag').textContent=`${tourName()} quiz · done`;$('stTitle').textContent=`You scored ${M.score} out of ${M.qs.length}`;
+    $('stText').textContent=M.score>best?'A new best. It is saved to Profile.':`Your best is ${Math.max(best,M.score)} out of ${M.qs.length}.`;TR.mcq=null;
+    $('stAns').innerHTML='<button class="btn primary" data-act="again">Replay the tour</button><button class="btn" data-act="close">Close</button>';},ok?900:1800);}
+
+/* the tour list in Learn › Tours, with each tour's length worked out before it starts */
+const fmtLen=s=>s<90?'about 1 min':'about '+Math.round(s/60)+' min';
+async function renderTourList(){const box=$('sysTours');let man=null;try{man=await manifest(st.sex);}catch(e){}
+  const rows=SYSTEMS.map(S=>{const gs=groupsOf(S.id);let short=secsFor(S.summary)+4;gs.forEach(g=>short+=secsFor(g.label+'. '+g.desc)+.7);
+    let long=short;if(man){const names=new Set();for(const r of man.parts){if((r[2]===S.id||(r[3]&&r[3].split(',').includes(S.id)))&&!TJUNK.test(r[0]))names.add(partKey(r[0]).toLowerCase());}long+=names.size*1.25;}
+    return {id:S.id,name:S.name,c:S.color,short:short*2,long:long*2};});
+  for(const id of ['evolution','microbiome']){const pk=ensurePack(id);if(!pk||!pk.tour)continue;const t=pk.tour,len=L=>(secsFor(t.intro)+L.reduce((a,s)=>a+secsFor(s.text)+.7,0)+4)*2;
+    rows.push({id,name:pk.tab&&pk.tab.title||pk.name,c:'var(--sys)',short:len(t.short),long:len(t.long)});}
+  box.innerHTML=rows.map(r=>`<div class="trow"><span><i style="--c:${r.c}"></i>${esc(r.name)}</span>`+
+    `<button data-t="${r.id}" data-l="0" aria-label="${esc(r.name)} short tour, ${fmtLen(r.short/VO.rate)}">Short <small>${fmtLen(r.short/VO.rate)}</small></button>`+
+    `<button data-t="${r.id}" data-l="1" aria-label="${esc(r.name)} long tour, ${fmtLen(r.long/VO.rate)}">Long <small>${fmtLen(r.long/VO.rate)}</small></button></div>`).join('');}
+$('sysTours').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;unlockVoice();closeMenus();startSysTour(b.dataset.t,b.dataset.l==='1');
+  const r=stage.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight)stage.scrollIntoView({behavior:'smooth',block:'start'});});
+$('mbLearn').addEventListener('click',()=>{if(!$('mLearn').hidden)renderTourList();});
+if(HAS_TTS)speechSynthesis.onvoiceschanged=()=>{};   // makes some browsers load their voice list early
 /* boot */
 setActive(false);buildTxt();renderInfo();resize();camera.position.set(Math.sin(.38)*4.4,1.2,Math.cos(.38)*4.4);
 refresh(true).then(()=>setTimeout(bootPacks,1500));requestAnimationFrame(loop);

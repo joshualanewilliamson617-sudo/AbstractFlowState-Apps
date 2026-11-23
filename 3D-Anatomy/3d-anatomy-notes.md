@@ -34,3 +34,12 @@ Notes for whoever works on this app next (mostly Claude). Read this first, then 
 - Mouse: drag turns at once, wheel scrolls the page, + and − buttons/keys zoom (`zoomBy`). Touch keeps tap-to-turn and pinch.
 - Fixed: shader positions are body-local (`uRootInv`) and motion centres use `boxL()`, so heartbeat/breathing and face details stay right after height/weight changes.
 - Test harness note: if the Edge test window stalls, delete the `edgewin-run` profile folder in the scratchpad.
+
+## 2026-11-23 Round 2 (done, commit "3D-Anatomy: spoken tours for every system, Evolution and Gut")
+- Learn › Tours lists 13 spoken tours (11 systems, Evolution, Gut microbiome), each Short and Long with its length worked out first (`renderTourList`, estimate ≈ 2.6 words/s, ×2 for both bodies).
+- Engine (`TR`, `startSysTour`, `showTourStep`, `endPhase`, `finishTour`): male body first, then female; stops at the end unless Loop. Next/Back are ignored while the body switches (`TR.busy`).
+- Short = intro + each structure group. Long = also every named part (left/right merged by `partKey`, ordered head to toe).
+- Voice: `speechSynthesis`, one sentence per utterance with a watchdog timer; muted/no voice = timed. Mute, speed (0.75–2×) and Loop are saved in `ca-voice`.
+- During a tour: Single view, skin outline off, peel reset, muscle layers reset, cut off, menus/tabs closed. Changing system or body by hand ends the tour.
+- Quiz after each tour: systems use the find-it quiz (groups after Short, named parts after Long); Evolution and Gut use 5 multiple-choice questions saved as `ca-best-tour-<id>`. Profile lists both kinds.
+- Pack data (ERAS, WHERE, JOBS, …) now sits outside `build()` so the packs can also register `tour` and `quiz`. `ensurePack(id)` runs a pack's code without opening its tab.
