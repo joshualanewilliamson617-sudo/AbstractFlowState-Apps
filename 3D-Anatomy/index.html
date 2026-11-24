@@ -173,6 +173,27 @@ input[type=search]{width:100%;min-width:0}
 .lesson.collapsed .cmin{transform:rotate(180deg)}
 .lesson .lscroll{overflow-y:auto;max-height:var(--lmax,none)}
 @media (max-width:600px){.lesson{padding:11px 13px;gap:6px}.lesson p{font-size:13px}#stText,#lText{max-height:22vh;max-height:22svh;overflow-y:auto}}
+/* Tour readout: a panel beside the body on desktop and tablet, under the body on a phone, so it never covers the body.
+   The curved arrow (#tArrow) runs from the readout to the parts being talked about. */
+.stour.side{left:auto;right:max(16px,env(safe-area-inset-right,0px));top:16px;bottom:auto;transform:none;width:clamp(280px,30vw,380px);max-height:calc(100% - 32px);overflow-y:auto;z-index:4}
+.stour.side,.stour.below{grid-template-columns:minmax(0,1fr);overflow-x:hidden}
+.stour.side.collapsed{width:min(300px,calc(100% - 32px))}
+.stour.below{position:relative;left:auto;bottom:auto;transform:none;width:auto;margin:10px max(12px,env(safe-area-inset-left,0px)) 0;border-radius:12px}
+.stour.below #stText{max-height:none;overflow:visible}
+body.tourbelow #stage{height:clamp(300px,52vh,1000px);height:clamp(300px,52svh,1000px)}
+.tarrow{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:8;overflow:visible}
+.tarrow path{fill:none;stroke:var(--sys);stroke-width:2.5;stroke-linecap:round;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+.tarrow circle{fill:var(--sys);stroke:rgba(10,15,18,.8);stroke-width:1.5}
+/* Desktop: bigger, easier text; a label or card grows a little under the mouse */
+@media (hover:hover) and (pointer:fine){
+  .stour h3{font-size:27px}.stour p{font-size:17px;line-height:1.55}.stour .lname{font-size:12px}
+  .card h3{font-size:23px}.card p{font-size:15.5px;line-height:1.55}.card .tag{font-size:12px}.card .src{font-size:12px}
+  .card .mf div{font-size:14.5px;grid-template-columns:96px 1fr}.card .mf dt{font-size:11.5px}
+  .card{transition:transform .15s ease,box-shadow .15s ease;transform-origin:center top}
+  .card:hover{transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,.35);position:relative;z-index:2}
+  #lbls button{font-size:13.5px;transition:opacity .25s,transform .12s ease}
+  #lbls button.r{transform-origin:left center}#lbls button.l{transform-origin:right center}
+  #lbls button:hover{transform:translateY(-50%) scale(1.3);z-index:3;max-width:none}}
 .lessons{display:grid;gap:6px}
 .lessons button{display:grid;gap:1px;text-align:left;border:1px solid var(--line);background:var(--raise);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit;cursor:pointer}
 .lessons button:hover{border-color:var(--sys)}.lessons button b{font-weight:500;font-size:13px}.lessons button span{font-size:11.5px;color:var(--mute)}
@@ -319,10 +340,6 @@ body.tabbed{overflow:hidden}
 .tourpill{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;width:min(320px,calc(100% - 32px));
   background:rgba(8,13,15,.85);border:1px solid var(--sys);border-radius:999px;padding:4px 12px 4px 4px;z-index:4}
 .tourpill button{flex:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:inherit;font-weight:500;cursor:pointer}
-.zoombtns{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:62px;display:none;flex-direction:column;gap:6px;z-index:3}
-.zoombtns button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:rgba(10,15,18,.7);color:var(--ink);font:inherit;font-size:18px;line-height:1;cursor:pointer}
-.zoombtns button:hover{border-color:var(--sys)}
-@media (hover:hover) and (pointer:fine){.zoombtns{display:flex}}
 /* with a mouse the body is always ready to turn, so the scroll/active badge and outline are only for touch */
 .mouse .turnbtn{display:none}
 /* first-time touch hint, over the body */
@@ -478,7 +495,7 @@ body.tabbed{overflow:hidden}
           <div class="seg"><button id="tutReplay" aria-pressed="false">Replay tutorial</button></div></div>
         <div class="ctl about"><span class="label">About 3D Anatomy</span>
           <p class="note">Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag the body to turn it; tap or click any structure.</p>
-          <p class="note">On a phone, one finger scrolls the page; two fingers on the body turn it (slide) and zoom (pinch); tap a part for its card. Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll. With a mouse, drag to turn, use + and − to zoom, and the wheel scrolls the page.</p>
+          <p class="note">On a phone, one finger scrolls the page; two fingers on the body turn it (slide) and zoom (pinch); tap a part for its card. Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll. With a mouse, drag to turn; hold Ctrl and turn the wheel (or press + and −) to zoom; the wheel on its own scrolls the page.</p>
           <p class="note">Keys: ← → change system, + − zoom, space plays the systems tour, Esc closes menus and clears the selection. Educational reference, not for diagnosis.</p>
           <footer class="credits">
             <span class="label">Model sources</span>
@@ -506,7 +523,6 @@ body.tabbed{overflow:hidden}
       <canvas id="ecg" aria-label="ECG trace, lead II"></canvas>
       <button class="turnbtn" id="turnBtn" aria-pressed="false"><i></i><span id="turnTxt">Two fingers turn and zoom · double-tap for one-finger spin</span></button>
     </div>
-    <div class="zoombtns" id="zoomBtns"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
     <div class="tourpill" id="tourPill" hidden><button id="tour" aria-pressed="false">Play tour</button><div class="bar" aria-hidden="true"><b id="tourBar"></b></div></div>
     <div class="fxcap" id="fxCap" hidden aria-live="polite"></div>
     <div class="ghint" id="gHint" hidden role="status"><b>Two fingers:</b> turn and pinch to zoom<br><b>Double-tap:</b> one-finger spin (double-tap again to scroll)</div>
@@ -580,9 +596,9 @@ body.tabbed{overflow:hidden}
 /* Built-in pack: Evolution of the human body. Runs only when its tab is first opened. */
   const ERAS=[
    {t:'~375 million years ago',h:'Fish come ashore',p:'Lobe-finned fish such as Tiktaalik had fin bones in the same pattern as our arm: one bone (humerus), then two (radius and ulna), then many small ones. Your arm and hand still follow that plan.',see:['skel','Arm bones','Arm bones']},
-   {t:'~200 million years ago',h:'Early mammals',p:'Small, warm-blooded mammals appear. Two bones that once formed the reptile jaw joint shrank and moved into the ear, becoming the malleus and incus, two of the three tiny hearing bones.',see:['skel','Skull','Skull and ear bones']},
+   {t:'~200 million years ago',h:'Early mammals',p:'Small, warm-blooded mammals appear. Two bones that once formed the reptile jaw joint shrank and moved into the ear, becoming the malleus and incus, two of the three tiny hearing bones.',see:['skel','Skull','Skull and ear bones'],re:/mandible|temporal bone/i},
    {t:'~55 million years ago',h:'Early primates',p:'Life in trees favoured grasping hands with nails instead of claws, forward-facing eyes for judging depth, and good colour vision for spotting ripe fruit.',see:['nerv','Eye','Forward-facing eyes']},
-   {t:'~7 to 6 million years ago',h:'Our line splits from chimpanzees',p:'Sahelanthropus, among the earliest known members of the human line, has a skull opening that suggests it may have held its head over an upright spine.',see:['skel','Spine','The spine under the skull']},
+   {t:'~7 to 6 million years ago',h:'Our line splits from chimpanzees',p:'Sahelanthropus, among the earliest known members of the human line, has a skull opening that suggests it may have held its head over an upright spine.',see:['skel','Spine','The spine under the skull'],re:/^atlas|^axis|cervical vertebra(?! )|^(second|third|fourth|fifth|sixth|seventh) cervical vertebra$/i},
    {t:'~3.7 to 3 million years ago',h:'Walking upright',p:'Australopithecus ("Lucy", about 3.2 million years old) had a short, bowl-shaped pelvis and knees angled inward under the body, much like ours, but a brain about the size of a chimpanzee\'s. Footprints at Laetoli, about 3.66 million years old, show a fully upright walk.',see:['skel','Pelvis','A pelvis for walking']},
    {t:'~3.7 million years ago',h:'The arched foot',p:'The big toe moved in line with the others and the foot gained arches, turning a grasping foot into a springy lever for walking and later running.',see:['skel','Foot bones','The arched foot']},
    {t:'~3.3 to 2.6 million years ago',h:'Stone tools',p:'The oldest known stone tools are about 3.3 million years old. A longer, stronger thumb that could press against each fingertip made precise grips possible.',see:['skel','Hand bones','A thumb for a precise grip']},
@@ -591,10 +607,10 @@ body.tabbed{overflow:hidden}
    {t:'~800,000 to 300,000 years ago',h:'A growing brain',p:'Brain size climbed from roughly 600 to 900 cm³ in early Homo erectus toward about 1,300 to 1,400 cm³. The cortex, the folded outer layer used for planning and language, expanded the most.',see:['nerv','Cerebrum','The cerebrum']},
    {t:'~300,000 years ago',h:'Homo sapiens',p:'The oldest Homo sapiens fossils, from Jebel Irhoud in Morocco, are about 300,000 years old. Our species has a rounded skull, a flat face, a chin and smaller teeth.',see:['skel','Skull','The modern skull']},
    {t:'Speech',h:'A voice box set low',p:'In adults the larynx sits lower in the throat than in other apes, giving a long vocal tract for clear vowel sounds. The cost: we are more prone to choking.',see:['resp','Pharynx and larynx','The larynx']},
-   {t:'Leftovers',h:'Traces of the past',p:'Some parts carry history: the coccyx is all that remains of a tail; goosebumps come from tiny muscles that once fluffed up fur; wisdom teeth often lack room in our shorter jaws. The appendix, once called useless, may store helpful gut bacteria.',see:['skel','Spine','The coccyx (tailbone)']},
+   {t:'Leftovers',h:'Traces of the past',p:'Some parts carry history: the coccyx is all that remains of a tail; goosebumps come from tiny muscles that once fluffed up fur; wisdom teeth often lack room in our shorter jaws. The appendix, once called useless, may store helpful gut bacteria.',see:['skel','Spine','The coccyx (tailbone)'],re:/coccyx|^sacrum$|^fused sacrum$/i},
    {t:'Last 10,000 years',h:'Still changing',p:'Evolution has not stopped. Since farming began, the ability to digest milk as an adult spread in several dairying peoples, and skin colour, height and resistance to some diseases have shifted with diet, sunlight and germs.',see:['dig','Small intestine','Where milk is digested']}];
   // spoken tour (Learn › Tours) and its quiz
-  const EVO_STEP=e=>({sys:e.see[0],group:e.see[1],efx:'era'+ERAS.indexOf(e),title:e.h,text:(e.t.charAt(0)==='~'?'About '+e.t.slice(1):e.t)+'. '+e.h+'. '+e.p});
+  const EVO_STEP=e=>({sys:e.see[0],group:e.see[1],re:e.re,efx:'era'+ERAS.indexOf(e),title:e.h,text:(e.t.charAt(0)==='~'?'About '+e.t.slice(1):e.t)+'. '+e.h+'. '+e.p});
   const EVO_TOUR={intro:'Evolution of the human body: how parts of your own body came to be, from fish fins to a walking, talking ape.',
     short:[0,1,4,6,7,9,10].map(i=>EVO_STEP(ERAS[i])),long:ERAS.map(EVO_STEP)};
   const EVO_QUIZ=[
@@ -614,8 +630,8 @@ AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tour:EV
 /* Built-in pack: the gut microbiome, its history and its jobs. Runs only when its tab is first opened. */
   const WHERE=[
    {n:'Stomach',g:'Stomach',e:2,d:'Acid kills most microbes. A few hardy ones survive, such as Lactobacillus and Helicobacter pylori, which can cause ulcers.'},
-   {n:'Duodenum and jejunum',g:'Small intestine',e:3,d:'Bile, enzymes and a fast flow keep numbers low in the first part of the small intestine.'},
-   {n:'Ileum',g:'Small intestine',e:8,d:'Numbers climb toward the end of the small intestine as the flow slows.'},
+   {n:'Duodenum and jejunum',g:'Small intestine',re:/^(?!.*(ligament|impression|ampulla)).*(duoden|jejun)/i,e:3,d:'Bile, enzymes and a fast flow keep numbers low in the first part of the small intestine.'},
+   {n:'Ileum',g:'Small intestine',re:/ileum/i,e:8,d:'Numbers climb toward the end of the small intestine as the flow slows.'},
    {n:'Colon',g:'Large intestine',e:11.5,d:'Home to almost all gut microbes: up to about 100 billion per gram of contents, from hundreds of species. Slow transit and plenty of undigested fibre let them thrive.'}];
   const HIST=[
    ['1670s to 1680s','Antonie van Leeuwenhoek, using his own microscopes, describes tiny "animalcules" from his mouth and his own stool: the first look at human microbes.'],
@@ -633,13 +649,13 @@ AnatomyPacks.register({id:'evolution',name:'Evolution of the human body',tour:EV
    ['Train the immune system','Much of the immune system sits in and around the gut wall. Early contact with microbes helps it learn what to attack and what to ignore.','lymph','Spleen'],
    ['Guard against germs','Resident microbes take up space and food and make substances that keep harmful bacteria out. Antibiotics can upset this balance.','dig','Small intestine'],
    ['Recycle bile','Bacteria change bile acids made by the liver, which affects how fat is digested and how much bile is reused.','dig','Liver'],
-   ['Talk to the brain','The gut and brain signal each other through the vagus nerve, hormones and immune messengers, the "gut–brain axis". About 90 percent of the body\'s serotonin is made in the gut, and microbes influence how much.','nerv','Cranial nerves']];
+   ['Talk to the brain','The gut and brain signal each other through the vagus nerve, hormones and immune messengers, the "gut–brain axis". About 90 percent of the body\'s serotonin is made in the gut, and microbes influence how much.','nerv','Cranial nerves',/vagus/i]];
   const WHO=[['Bacillota (Firmicutes)','Many fibre fermenters and butyrate makers, such as Faecalibacterium.'],['Bacteroidota','Experts at breaking down complex plant sugars, such as Bacteroides.'],
    ['Actinomycetota','Includes Bifidobacterium, common in babies.'],['Pseudomonadota','Includes E. coli; usually only a small share.'],['Verrucomicrobiota','Includes Akkermansia, which lives in the gut\'s mucus layer.'],
    ['Not only bacteria','Archaea such as Methanobrevibacter (they make methane), yeasts and other fungi, and huge numbers of viruses that infect bacteria (phages).']];
   // spoken tour (Learn › Tours) and its quiz
-  const GUT_STEP=w=>({sys:'dig',group:w.g,title:w.n,text:w.n+'. '+w.d});
-  const JOB_STEP=j=>({sys:j[2],group:j[3],title:j[0],text:j[0]+'. '+j[1]});
+  const GUT_STEP=w=>({sys:'dig',group:w.g,re:w.re,title:w.n,text:w.n+'. '+w.d});
+  const JOB_STEP=j=>({sys:j[2],group:j[3],re:j[4],title:j[0],text:j[0]+'. '+j[1]});
   const GUT_TOUR={intro:'The gut microbiome. Trillions of microbes live in your gut, mostly in the colon, and they do jobs your own body cannot do alone.',
     short:[...WHERE.map(GUT_STEP),...JOBS.slice(0,3).map(JOB_STEP)],
     long:[...WHERE.map(GUT_STEP),...JOBS.map(JOB_STEP),
@@ -854,7 +870,8 @@ const FILL={
   musc:r=>!/rectus femoris|quadriceps|(medial|lateral|superior|inferior) rectus$|superior oblique$|inferior oblique$/i.test(r[0]),
   card:(r,reg,c)=>(reg==='arm'||(reg==='leg'&&c[1]<.9&&!/iliac/i.test(r[0]))||c[1]>1.47)&&!/pulmonary|coronary|aorta|vena cava|cardiac|ventric|atri|valve|ophthalm|retinal|ciliary/i.test(r[0]),
   endo:()=>true,
-  resp:r=>/nasal cartilage|nasal concha/i.test(r[0])
+  resp:r=>/nasal cartilage|nasal concha/i.test(r[0]),
+  dig:r=>/^stomach$/i.test(r[0])   // her source data has no stomach
 };
 /* Male gaps (BodyParts3D has airways but no lung surfaces, and only the caudate lobe of the liver): filled from the female organs */
 const MFILL={resp:r=>/lung|bronchopulmonary|lingula|hil(us|um)/i.test(r[0])&&!/bronch(?!opulmonary)|artery|vein/i.test(r[0]),
@@ -1650,7 +1667,8 @@ addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,sele
   else if(e.key===' '){e.preventDefault();st.tour?stopTour():startTour();}else if(e.key==='Escape'){if(st.active)setActive(false);else if(Q.on)endQuiz();else if(L.on)endLesson();else{clearSel();renderCard();}}});
 /* Top-bar menus: one panel open at a time; tapping outside the bar or Esc closes it. */
 const MENUS={mbSection:'mSection',mbSystems:'mSystems',mbLearn:'mLearn',mbMore:'mMore'};let openMenu=null;
-function setMenu(id){openMenu=id;for(const [b,m] of Object.entries(MENUS)){const on=m===id;$(m).hidden=!on;$(b).setAttribute('aria-expanded',String(on));
+function setMenu(id){if(id){if(TR.on)closeSysTour();if(L.on)endLesson();}   // opening any menu stops a running tour or lesson and its voice
+  openMenu=id;for(const [b,m] of Object.entries(MENUS)){const on=m===id;$(m).hidden=!on;$(b).setAttribute('aria-expanded',String(on));
   if(on&&id==='mMore'&&!$('profileBox').hidden)renderScores();
   if(on&&innerWidth>600){const bl=$(b).offsetLeft;$(m).style.setProperty('--ml',Math.max(12,Math.min(bl,innerWidth-452))+'px');}}}
 function closeMenus(){if(openMenu)setMenu(null);}
@@ -1703,7 +1721,8 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   else{controls.enabled=st.active;controls.enableZoom=true;}},true);
 function zoomBy(f){tween=null;const d=camera.position.clone().sub(controls.target),L=THREE.MathUtils.clamp(d.length()*f,controls.minDistance,controls.maxDistance);
   camera.position.copy(controls.target).addScaledVector(d.normalize(),L);controls.update();}
-$('zoomIn').onclick=()=>zoomBy(.8);$('zoomOut').onclick=()=>zoomBy(1.25);
+// Ctrl + mouse wheel (and a laptop pinch, which arrives the same way) zooms the body; the wheel alone still scrolls the page
+renderer.domElement.addEventListener('wheel',e=>{if(!e.ctrlKey)return;e.preventDefault();zoomBy(Math.exp(Math.max(-120,Math.min(120,e.deltaY))*.0025));},{passive:false});
 function startTour(){closeSysTour();mixOff();$('tourPill').hidden=false;st.tour=true;st.tourT=0;$('tour').textContent='Pause tour';$('tour').setAttribute('aria-pressed','true');controls.autoRotate=true;}
 function stopTour(){if(!st.tour)return;st.tour=false;$('tourPill').hidden=true;$('tour').textContent='Play tour';$('tour').setAttribute('aria-pressed','false');controls.autoRotate=false;$('tourBar').style.width='0';}
 function setSys(i){evoFx(null);VIEW.s=null;if(TR.on)closeSysTour('drop');if(Q.on)endQuiz();if(L.on&&!st.tour)endLesson('drop');st.sys=i;clearSel();st.tourT=0;refresh(true);}
@@ -1750,6 +1769,7 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
     else if(st.mode==='layered')o=.07;
     if(skinFull&&!(p.sys==='integ'&&(p.shell||p.eye))){o=0;pick=false;}   // the skin is fully on: nothing under it is drawn at all
     if(st.fxOnly&&o>0&&inA(p)&&!st.fxOnly(p)){o=0;pick=false;}   // a moving lesson can show just the pieces it needs
+    if(st.spot&&o>0&&!st.spot.has(p)&&!p.shell&&!p.eye){o=Math.min(o,.07);pick=false;}   // tour spotlight: what the stop is not about fades to a faint outline
     const m=p.mat,tr=o<.999;if(m.transparent!==tr){m.transparent=tr;m.needsUpdate=true;}m.opacity=o;m.depthWrite=!tr;
     p.mesh.visible=o>.004;p.mesh.userData.pick=pick;if(p.mesh.visible)tris+=p.tris;if((p.shell||p.eye)&&p.mesh.visible)shellOn=true;
     if(p.pre)p.pre.visible=tr&&p.mesh.visible;if(p.shell)m.userData.rim.value=tr?.5:0;useMat(p);}
@@ -1809,7 +1829,7 @@ function clearSel(){for(const m of st.selPools||[])m.emissive.setRGB(0,0,0);for(
    so the phone still draws it with a handful of materials instead of hundreds; the rest glow one by one, up to 60. */
 function selectSet(list,info){clearSel();st.selSet=list;st.sel=info;
   const use=new Map(),mine=new Map(),each=[];st.selPools=[];
-  for(const p of bodyParts)if(p.pool&&inScene.has(p)&&p.mesh.visible)use.set(p.pool,(use.get(p.pool)||0)+1);
+  for(const p of bodyParts)if(p.pool&&inScene.has(p)&&p.mesh.visible&&!p.mat.transparent)use.set(p.pool,(use.get(p.pool)||0)+1);   // faded parts draw with their own material, not the shared one
   for(const p of list)if(p.pool)mine.set(p.pool,(mine.get(p.pool)||0)+1);
   for(const p of list){if(list.length>1&&p.pool&&mine.get(p.pool)>=(use.get(p.pool)||0)){if(!st.selPools.includes(p.pool))st.selPools.push(p.pool);}else each.push(p);}
   st.selEach=each.length<=60?each:[];renderCard();}
@@ -1848,15 +1868,19 @@ let tween=null;const tmpBox=new THREE.Box3(),tmpB2=new THREE.Box3();
 /* Whatever covers the bottom of the body (the tour or lesson card, the quiz bar) is left out of the view: the camera's
    picture is shifted up so the part it is aimed at sits in the middle of the free space above the card, and fit()
    frames it to that space. The shift eases in and out when a card opens, shrinks or closes. */
-const VOFF={c:0,t:0};
+const VOFF={c:0,t:0,x:0,xt:0};   // c/t: height covered at the bottom; x/xt: width taken by the tour panel at the right
 function coverNow(){const sr=stage.getBoundingClientRect();if(!sr.height)return 0;let c=0;
-  for(const id of ['stour','lesson','quizBar']){const el=$(id);if(!el||el.hidden)continue;const r=el.getBoundingClientRect();if(r.height)c=Math.max(c,sr.bottom-r.top+10);}
+  for(const id of ['stour','lesson','quizBar']){const el=$(id);if(!el||el.hidden||el.classList.contains('side')||el.classList.contains('below'))continue;const r=el.getBoundingClientRect();if(r.height)c=Math.max(c,sr.bottom-r.top+10);}
   return Math.min(c,sr.height*.62);}
-function applyVOff(){const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;if(VOFF.c>.5)camera.setViewOffset(w,h,0,VOFF.c/2,w,h);else camera.clearViewOffset();}
-const coverRO=new ResizeObserver(()=>{VOFF.t=coverNow();});['stour','lesson','quizBar'].forEach(id=>coverRO.observe($(id)));
-function vOffTick(dt){if(Math.abs(VOFF.c-VOFF.t)<=.5)return;VOFF.c+=(VOFF.t-VOFF.c)*Math.min(1,dt*7);if(Math.abs(VOFF.c-VOFF.t)<=.5)VOFF.c=VOFF.t;applyVOff();}
+function sideNow(){const el=$('stour');if(el.hidden||!el.classList.contains('side')||el.classList.contains('collapsed'))return 0;const sr=stage.getBoundingClientRect(),r=el.getBoundingClientRect();
+  return r.width?Math.min(sr.width*.5,sr.right-r.left+12):0;}
+function applyVOff(){const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;if(VOFF.c>.5||VOFF.x>.5)camera.setViewOffset(w,h,VOFF.x/2,VOFF.c/2,w,h);else camera.clearViewOffset();}
+const coverRO=new ResizeObserver(()=>{VOFF.t=coverNow();VOFF.xt=sideNow();});['stour','lesson','quizBar'].forEach(id=>coverRO.observe($(id)));
+function vOffTick(dt){const k=Math.min(1,dt*7);let ch=false;
+  for(const [a,b] of [['c','t'],['x','xt']]){if(Math.abs(VOFF[a]-VOFF[b])<=.5)continue;VOFF[a]+=(VOFF[b]-VOFF[a])*k;if(Math.abs(VOFF[a]-VOFF[b])<=.5)VOFF[a]=VOFF[b];ch=true;}
+  if(ch)applyVOff();}
 function setCollapsed(id,on){const el=$(id),b=el.querySelector('.cmin');el.classList.toggle('collapsed',on);b.setAttribute('aria-expanded',String(!on));b.title=on?'Open':'Shrink';
-  b.setAttribute('aria-label',on?'Open the card again':id==='stour'?'Shrink the tour card':'Shrink the lesson card');VOFF.t=coverNow();}
+  b.setAttribute('aria-label',on?'Open the card again':id==='stour'?'Shrink the tour card':'Shrink the lesson card');VOFF.t=coverNow();VOFF.xt=sideNow();}
 $('stMin').onclick=e=>{e.stopPropagation();setCollapsed('stour',!$('stour').classList.contains('collapsed'));};
 $('lMin').onclick=e=>{e.stopPropagation();setCollapsed('lesson',!$('lesson').classList.contains('collapsed'));};
 for(const id of ['stour','lesson'])$(id).addEventListener('click',e=>{if($(id).classList.contains('collapsed')&&!e.target.closest('.closex:not(.cmin)'))setCollapsed(id,false);});
@@ -1865,8 +1889,8 @@ function flyTo(target,pos,dur=1.1){tween={t:0,dur,t0:controls.target.clone(),p0:
 function boxL(list){tmpBox.makeEmpty();for(const p of list){tmpB2.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.userData.base);tmpBox.union(tmpB2);}return tmpBox.clone();}
 function boxOf(list){tmpBox.makeEmpty();for(const p of list){tmpB2.copy(p.mesh.geometry.boundingBox).applyMatrix4(p.mesh.userData.base);tmpBox.union(tmpB2);}return tmpBox.clone().applyMatrix4(bodyRoot.matrix);}
 function fit(list,az){if(!list.length)return;const b=boxOf(list),c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
-  const fov=camera.fov*Math.PI/180,hfov=2*Math.atan(Math.tan(fov/2)*camera.aspect);VOFF.t=coverNow();const fr=Math.max(.38,1-VOFF.t/Math.max(1,stage.clientHeight));   // fr: the part of the view a card leaves free
-  const dist=Math.max((sz.y/2)/Math.tan(fov/2)/fr,(Math.max(sz.x,sz.z)/2)/Math.tan(hfov/2))*1.18+Math.max(sz.x,sz.z)*.5;
+  const fov=camera.fov*Math.PI/180,hfov=2*Math.atan(Math.tan(fov/2)*camera.aspect);VOFF.t=coverNow();VOFF.xt=sideNow();const fr=Math.max(.38,1-VOFF.t/Math.max(1,stage.clientHeight)),frx=Math.max(.45,1-VOFF.xt/Math.max(1,stage.clientWidth));   // fr, frx: the part of the view a card or the tour panel leaves free
+  const dist=Math.max((sz.y/2)/Math.tan(fov/2)/fr,(Math.max(sz.x,sz.z)/2)/Math.tan(hfov/2)/frx)*1.18+Math.max(sz.x,sz.z)*.5;
   const dir=az!==undefined?new THREE.Vector3(Math.sin(az),.1,Math.cos(az)).normalize():camera.position.clone().sub(controls.target).normalize();
   const tOpen=!document.getElementById('tutor').hidden,D=Math.max(controls.minDistance*1.5,dist)*(tOpen?1.3:1),pos=c.clone().addScaledVector(dir,D);
   // with the tutor panel open on the right, aim so the target sits in the open space to its left
@@ -1875,13 +1899,13 @@ function fit(list,az){if(!list.length)return;const b=boxOf(list),c=b.getCenter(n
   flyTo(c,pos);}
 /* Tours: fly to what is being talked about. A left-and-right pair is shown by its right-hand one up close, and the
    camera turns to the side the part faces (back muscles from behind, an arm from the side), a little above. */
-function focusOn(list,whole){if(!list.length)return;if(whole){fit(list,.38);return;}
+function focusOn(list,whole){if(!list.length)return;if(whole){TARR.aim=list;fit(list,.38);return;}
   let sel=list;const b=boxL(list),c0=new V3();
   if(b.max.x-b.min.x>.2&&list.length<400){const r=list.filter(p=>boxL([p]).getCenter(c0).x<-.012);if(r.length&&r.length<list.length)sel=r;}
   const c=boxL(sel).getCenter(new V3()),zc=st.sex==='female'?-.06:-.015,dx=c.x,dz=c.z-zc;
   let az=Math.hypot(dx,dz)<.04?(dz<-.012?Math.PI-.35:-.3):Math.atan2(dx,dz+.06);
   if(c.y<.12&&Math.abs(az)>2.2)az=-.6;   // feet: from the front, not from under the heel
-  fit(sel,az);}
+  TARR.aim=sel;fit(sel,az);}
 function focusSystem(){const A=actv();const list=bodyParts.filter(p=>A.has(p.sys)||p.also.some(x=>A.has(x)));fit(list.length?list:bodyParts,.38);}
 
 /* slicing */
@@ -1947,8 +1971,8 @@ const TUT_STEPS=[
  {q:'#slice',up:'.ctl',t:'Cross section',p:'Pick a cutting direction (front to back, side to side, or across), then slide to move the cut through the body and look inside.'},
  {q:'#hgt',up:'.ctl',t:'Height and weight',p:'Slide to make the body taller, shorter, lighter or heavier. Reset puts it back.'},
  {q:'#stage',t:'Tap a part',p:'Tap any part of the body to open its card under the body, with its name and what it does.'},
- {q:'#turnBtn',mq:'#zoomBtns',t:'Moving the body',p:'One finger scrolls the page. Two fingers on the body turn it (slide) and zoom (pinch). Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll.',
-  pm:'Drag the body to turn it, and use the + and − buttons (or the + and − keys) to zoom. The mouse wheel scrolls the page.'},
+ {q:'#turnBtn',mq:'#stage',t:'Moving the body',p:'One finger scrolls the page. Two fingers on the body turn it (slide) and zoom (pinch). Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll.',
+  pm:'Drag the body to turn it. Hold Ctrl and turn the mouse wheel to zoom, or press the + and − keys. The wheel on its own scrolls the page.'},
  {t:'You\'re ready',p:'You can replay this tutorial any time: three-dot menu › Settings › Replay tutorial.'}];
 function tutSeen(){try{return !!localStorage.getItem('ca-tutorial');}catch(e){return false;}}
 function tutAuto(){if(!tutSeen())setTimeout(()=>{if(!GUIDE.on&&!tutSeen()&&!TR.on&&!L.on&&!Q.on)tutStart();},700);}
@@ -2851,12 +2875,12 @@ const lblSvg=document.getElementById('lblSvg'),lblBox=document.getElementById('l
 function labelLayout(){
   const show=LBL.on&&!Q.on&&st.ready&&LBL.items.length;lblBox.hidden=lblSvg.style.display=show?'':'none';
   if(!show){lblBox.innerHTML='';lblSvg.innerHTML='';lblBox._sig='';return;}lblBox.hidden=false;
-  const W=stage.clientWidth,H=stage.clientHeight,v=new THREE.Vector3();
-  const pts=LBL.items.map(it=>{v.copy(it.w).project(camera);return {it,x:(v.x+1)/2*W,y:(1-v.y)/2*H,z:v.z};}).filter(q=>q.z<1&&q.x>-20&&q.x<W+20&&q.y>-20&&q.y<H+20);
+  const W=stage.clientWidth,H=stage.clientHeight,v=new THREE.Vector3(),Wf=W-Math.round(VOFF.x);   // Wf: the width left free beside the tour panel
+  const pts=LBL.items.map(it=>{v.copy(it.w).project(camera);return {it,x:(v.x+1)/2*W,y:(1-v.y)/2*H,z:v.z};}).filter(q=>q.z<1&&q.x>-20&&q.x<Wf+20&&q.y>-20&&q.y<H+20);
   if(!pts.length){lblBox.innerHTML='';lblSvg.innerHTML='';return;}
   let x0=1e9,x1=-1e9;pts.forEach(q=>{x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);});const cx=(x0+x1)/2;
   const vr=document.querySelector('.vitals').getBoundingClientRect(),sr=stage.getBoundingClientRect(),vBot=vr.bottom-sr.top+10,vRight=vr.right-sr.left;
-  const ROW=17,top=40,bot=H-36,colL=Math.max(Math.min(170,W*.3),Math.min(x0-34,W*.5-60)),colR=Math.min(W-Math.min(170,W*.3),Math.max(x1+34,W*.5+60));
+  const ROW=17,top=40,bot=H-36,colL=Math.max(Math.min(170,Wf*.3),Math.min(x0-34,Wf*.5-60)),colR=Math.min(Wf-Math.min(170,Wf*.3),Math.max(x1+34,Wf*.5+60));
   // each name once (the larger of a left/right pair), then split by side of the body
   const seen=new Map();pts.sort((a,b)=>b.it.area-a.it.area).forEach(q=>{if(!seen.has(q.it.text))seen.set(q.it.text,q);});
   const uniq=[...seen.values()];const sides=[[],[]];uniq.forEach(q=>sides[q.x<cx?0:1].push(q));
@@ -2871,7 +2895,7 @@ function labelLayout(){
   else lblBox._placed=placed;
   const btns=lblBox.children;let d='',dots='';
   placed.forEach((q,i)=>{const b=btns[i];if(!b)return;const sel=st.selSet.includes(q.it.p);b.classList.toggle('on',sel||LBL.hot===q.it.p);
-    if(q.side)b.style.left=q.lx+'px',b.style.right='';else b.style.right=(W-q.lx)+'px',b.style.left='';b.style.top=q.ly+'px';b.style.maxWidth=Math.max(60,q.side?W-q.lx-8:q.lx-8)+'px';
+    if(q.side)b.style.left=q.lx+'px',b.style.right='';else b.style.right=(W-q.lx)+'px',b.style.left='';b.style.top=q.ly+'px';b.style.maxWidth=Math.max(60,q.side?Wf-q.lx-8:q.lx-8)+'px';
     const ex=q.side?q.lx-4:q.lx+4,ey=q.ly,mx=q.side?ex-10:ex+10;d+=`M${q.x.toFixed(1)},${q.y.toFixed(1)}L${mx.toFixed(1)},${ey.toFixed(1)}L${ex.toFixed(1)},${ey.toFixed(1)}`;
     dots+=`<circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="2"/>`;});
   lblSvg.innerHTML=`<path d="${d}"/>${dots}`;lblBox.classList.toggle('fade',LBL.moving);}
@@ -2971,7 +2995,7 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
   if(L.on&&L.auto&&!queue.active.size&&!L.speaking){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
   if(!reduce){stepPhysio(dt);if(!vitHidden())drawECG();}if(!vitHidden())drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const m of st.selPools)m.emissive.copy(selCol);for(const p of st.selEach){p.mat.emissive.copy(selCol);useMat(p);}}
-  if(FXS.on)fxTick(dt);moTick(dt);segTick(dt);vOffTick(dt);menuTick(now||0);if(EV.key){EV.t+=dt;if(EV.cam&&EV.t>4.6)evCamBack();if(EV.tick)EV.tick(dt,EV.t);}
+  if(FXS.on)fxTick(dt);moTick(dt);segTick(dt);vOffTick(dt);tArrowTick();menuTick(now||0);if(EV.key){EV.t+=dt;if(EV.cam&&EV.t>4.6)evCamBack();if(EV.tick)EV.tick(dt,EV.t);}
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);drawScene();tunePR(now||performance.now());requestAnimationFrame(loop);}
 
 /* ================================================================ Evolution: what changed in each era
@@ -3341,7 +3365,8 @@ function buildSkinBlock(){const g=new THREE.Group(),W=.1,D=.08,lay={epi:[],derm:
   add('musc',new THREE.BoxGeometry(W*.995,.0012,D*.995),mat('#f1ece4',{opacity:.85}),0,-.0646,0);
   const fib=new THREE.CylinderGeometry(.0032,.0032,W*.97,8);fib.rotateZ(Math.PI/2);const fm=mat('#b8403a');for(let i=0;i<3;i++)for(let j=0;j<9;j++)add('musc',fib,fm,0,-.069-i*.0065,-.036+j*.009);
   // labels: the layer names to the left, details to the right
-  const L=(k,t,x,y,z,right,col)=>{const s=txtSprite(t,right?.0058:.0072,col);s.center.set(right?0:1,.5);s.position.set(x,y,z);g.add(s);labs[k].push(s);return s;};
+  const L=(k,t,x,y,z,right,col)=>{const s=txtSprite(t,(right?.0058:.0072)*(PHONE?1:1.3),col);   // bigger on a computer screen
+   s.center.set(right?0:1,.5);s.position.set(x,y,z);g.add(s);labs[k].push(s);return s;};
   for(const [k,t] of [['epi','Epidermis'],['derm','Dermis'],['fat','Fat layer'],['musc','Muscle']]){const y=(Y[k][0]+Y[k][1])/2;const s=L(k,t,-W/2-.006,y,D/2);labs.all.push(s);}
   L('derm','Hair root',W/2+.006,-.03,D/2,true,'#ffd7c2');L('derm','Sweat gland',W/2+.006,-.022,D/2,true,'#e8d2ff');L('derm','Nerve endings',W/2+.006,-.014,D/2,true,'#ffe27a');L('derm','Capillaries',W/2+.006,-.006,D/2,true,'#ffb0b0');
   L('epi','Pigment cells',W/2+.006,-.0074,D/2,true,'#e0b08c');L('fat','Fat cells',W/2+.006,-.04,D/2,true,'#ffe9a8');L('fat','Artery and vein',W/2+.006,-.05,D/2,true,'#ffb0b0');L('fat','Pressure sensor',W/2+.006,-.06,D/2,true,'#f4efe4');
@@ -3380,31 +3405,68 @@ async function stepsNow(){if(TR.pack)return buildPackSteps();
   if(SYSTEMS[st.sys].id!==TR.id){st.sys=SYS[TR.id].i;clearSel();refresh(true);}await waitReady();return buildSysSteps(TR.id,TR.long);}
 async function startSysTour(id,long){TR.busy=false;saveView();tourPrep();const pk=SYS[id]?null:ensurePack(id);if(!SYS[id]&&!(pk&&pk.tour))return;
   Object.assign(TR,{on:true,id,long,pack:pk,i:0,paused:false,phase:'male',mcq:null,steps:[]});TR.tok++;
-  $('stour').hidden=false;$('stCtl').hidden=false;$('stAns').hidden=true;$('stTitle').textContent='Getting the body ready…';$('stText').textContent='';syncTourCtl();
+  $('stour').hidden=false;tourLayout();$('stCtl').hidden=false;$('stAns').hidden=true;$('stTitle').textContent='Getting the body ready…';$('stText').textContent='';syncTourCtl();
   await switchSex('male');if(!TR.on)return;TR.steps=await stepsNow();if(!TR.on)return;TR.i=0;showTourStep();
   // get the female body ready while the male half plays, so the switch does not stall (the muscles take longest to build)
   if(!pk)setTimeout(()=>{if(TR.on&&TR.id===id&&TR.phase==='male'){ensure('female','integ').catch(()=>{});ensure('female',id).catch(()=>{});}},2500);}
 async function showTourStep(){const tok=++TR.tok,s=TR.steps[TR.i];if(!s||!TR.on)return;hush();
   if(SYSTEMS[st.sys].id!==s.sys){st.sys=SYS[s.sys].i;clearSel();refresh(false);}await waitReady();if(tok!==TR.tok||!TR.on)return;
-  let list=s.parts?s.parts.filter(p=>inScene.has(p)):bodyParts.filter(p=>visibleIn(p,s.sys)&&labOf(p,s.sys)===s.group);
+  let list=s.parts?s.parts.filter(p=>inScene.has(p)):bodyParts.filter(p=>visibleIn(p,s.sys)&&(s.re?s.re.test(p.name):labOf(p,s.sys)===s.group));
+  if(s.re&&!list.length)list=bodyParts.filter(p=>visibleIn(p,s.sys)&&labOf(p,s.sys)===s.group);   // a pack stop can name just the parts it talks about (re), with its group as the fallback
   const n=TR.steps.length,tag=`${tourName()} · ${TR.long?'long':'short'} · ${st.sex==='male'?'male':'female'} body · ${TR.i+1} of ${n}`;
   $('stTag').textContent=tag;$('stTitle').textContent=s.title;$('stText').textContent=s.sub?s.sub:s.text;$('stBar').style.width=((TR.i+1)/n*100)+'%';
-  selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)focusOn(list,s.whole);skinBlock(s.blk||null);evoFx(TR.pack&&s.efx||null);
+  tourSpot(list);selectSet(list,{title:s.title,tag:`Tour · ${s.sub||tourName()}`,desc:s.text,src:list.length?sourceLine(list):''});if(list.length)focusOn(list,s.whole);skinBlock(s.blk||null);evoFx(TR.pack&&s.efx||null);
   $('stPrev').disabled=TR.i===0;if(TR.paused)return;
   say(s.text,()=>TR.timers.push(setTimeout(()=>{if(tok===TR.tok)nextTourStep();},s.sub?250:700)));}
 function nextTourStep(){if(TR.i<TR.steps.length-1){TR.i++;showTourStep();}else endPhase();}
 async function endPhase(){if(TR.busy)return;TR.busy=true;try{await endPhase2();}finally{TR.busy=false;}}
-async function endPhase2(){const tok=++TR.tok;hush();
+async function endPhase2(){const tok=++TR.tok;hush();tourSpotOff();
   if(TR.phase==='male'){TR.phase='female';$('stTitle').textContent='Switching to the female body…';await switchSex('female');}
   else if(VO.loop){TR.phase='male';$('stTitle').textContent='Starting again on the male body…';await switchSex('male');}
   else{finishTour();return;}
   if(tok!==TR.tok||!TR.on)return;TR.steps=await stepsNow();if(tok!==TR.tok||!TR.on)return;TR.i=0;showTourStep();}
-function finishTour(){TR.tok++;setCollapsed('stour',false);hush();skinBlock(null);evoFx(null);$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
+function finishTour(){TR.tok++;setCollapsed('stour',false);hush();tourSpotOff();skinBlock(null);evoFx(null);$('stCtl').hidden=true;$('stAns').hidden=false;$('stBar').style.width='100%';
   const nm=tourName();$('stTag').textContent=`${nm} · tour finished`;$('stTitle').textContent='Ready for the quiz?';
   $('stText').textContent=TR.pack?`Five questions on ${nm.toLowerCase()}. Your best score is saved to Profile.`:`Ten questions: find the ${nm.toLowerCase()} structures on the body. Your best score is saved to Profile.`;
   $('stAns').innerHTML='<button class="btn primary" data-act="quiz">Start the quiz</button><button class="btn" data-act="again">Replay the tour</button><button class="btn" data-act="close">Close</button>';
   say('Tour finished. Ready for the quiz?',()=>{});}
-function closeSysTour(how){if(!TR.on)return;TR.on=false;TR.tok++;hush();skinBlock(null);evoFx(null);$('stour').hidden=true;if(how==='drop')VIEW.s=null;else if(how!=='keep')restoreView();}
+/* Tour readout placement: beside the body on wide screens (the camera shifts left so the panel never covers the body),
+   under the body on a phone (moved out of the stage into the page, and the stage gets a little shorter so both fit). */
+const TOUR_SIDE=matchMedia('(min-width:760px)');
+function tourLayout(){const el=$('stour'),side=TOUR_SIDE.matches,on=!el.hidden;
+  el.classList.toggle('side',side);el.classList.toggle('below',!side);
+  if(side&&el.parentNode!==stage)stage.append(el);else if(!side&&el.parentNode===stage)stage.after(el);
+  document.body.classList.toggle('tourbelow',on&&!side);VOFF.t=coverNow();VOFF.xt=sideNow();}
+TOUR_SIDE.addEventListener('change',()=>{if(TR.on)tourLayout();});
+/* Spotlight: the parts a stop talks about stay solid and glow; the rest of the system fades to a faint outline. */
+function tourSpot(list){st.spot=null;apply();if(!list.length){TARR.aim=null;return;}
+  const n=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible&&!p.shell&&!p.eye).length;if(list.length<n*.95){st.spot=new Set(list);apply();}}
+function tourSpotOff(){if(!st.spot&&!TARR.aim)return;st.spot=null;TARR.aim=null;apply();}
+/* The curved arrow from the readout to the parts being talked about. Redrawn each frame while a tour runs, so it follows
+   the camera; hidden when the parts are off screen, the panel is shrunk or scrolled away. */
+const TARR={aim:null,last:null,c:new V3(),svg:null};
+function tArrowTick(){if(!TR.on&&!TARR.svg)return;
+  if(!TARR.svg){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('class','tarrow');s.setAttribute('aria-hidden','true');
+    s.innerHTML='<defs><marker id="tarrH" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sys);stroke:none;filter:none"/></marker></defs><path id="tarrP" marker-end="url(#tarrH)"/><circle id="tarrC" r="5"/>';
+    document.body.append(s);TARR.svg=s;}
+  const el=$('stour'),s=TARR.svg;
+  const show=TR.on&&TARR.aim&&TARR.aim.length&&!el.hidden&&!el.classList.contains('collapsed')&&$('stAns').hidden&&!GUIDE.on;
+  if(!show){if(s.style.display!=='none')s.style.display='none';return;}
+  if(TARR.last!==TARR.aim){TARR.last=TARR.aim;boxL(TARR.aim).getCenter(TARR.c);}
+  const w=(MO.on?morphPt(TARR.c,MO.cur):TARR.c.clone()).applyMatrix4(bodyRoot.matrixWorld);   // follows the Evolution body shapes too
+  const sr=stage.getBoundingClientRect(),v=w.project(camera),x=sr.left+(v.x+1)/2*sr.width,y=sr.top+(1-v.y)/2*sr.height;
+  const pr=el.getBoundingClientRect(),tr=$('stTitle').getBoundingClientRect();let ax,ay;
+  if(el.classList.contains('side')){ax=pr.left-3;ay=Math.min(pr.bottom-14,Math.max(pr.top+14,tr.top+tr.height/2));}
+  else{ax=Math.min(pr.right-28,Math.max(pr.left+28,x+(x<pr.left+pr.width/2?60:-60)));ay=pr.top-3;}
+  const inStage=v.z<1&&x>sr.left+4&&x<sr.right-4&&y>Math.max(sr.top,0)+4&&y<Math.min(sr.bottom,innerHeight)-4;
+  if(!inStage||ay<0||ay>innerHeight||ax<0||ax>innerWidth||Math.hypot(x-ax,y-ay)<40){if(s.style.display!=='none')s.style.display='none';return;}
+  if(s.style.display==='none')s.style.display='';
+  // a gentle curve that bows upward; it stops just short of the target, where a ring marks the spot
+  const mx=(ax+x)/2,my=(ay+y)/2,dx=x-ax,dy=y-ay,L=Math.hypot(dx,dy),k=Math.min(90,L*.28),nx=-dy/L,ny=dx/L,sg=ny<0?1:-1,cx=mx+nx*k*sg,cy=my+ny*k*sg;
+  const ex=x-(x-cx)/Math.hypot(x-cx,y-cy)*12,ey=y-(y-cy)/Math.hypot(x-cx,y-cy)*12;
+  $('tarrP').setAttribute('d',`M${ax.toFixed(1)},${ay.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`);
+  const c=$('tarrC');c.setAttribute('cx',x.toFixed(1));c.setAttribute('cy',y.toFixed(1));}
+function closeSysTour(how){if(!TR.on)return;TR.on=false;TR.tok++;hush();tourSpotOff();skinBlock(null);evoFx(null);$('stour').hidden=true;tourLayout();if(how==='drop')VIEW.s=null;else if(how!=='keep')restoreView();}
 function syncTourCtl(){$('stMute').setAttribute('aria-pressed',String(VO.muted));$('stMute').textContent=VO.muted?'Unmute':'Mute';
   $('stLoop').setAttribute('aria-pressed',String(VO.loop));$('stRate').value=String(VO.rate);$('stPlay').textContent=TR.paused?'Play':'Pause';}
 $('stPrev').onclick=()=>{if(!TR.busy&&TR.i>0){TR.i--;showTourStep();}};
