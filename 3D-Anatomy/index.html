@@ -329,6 +329,23 @@ body.tabbed{overflow:hidden}
 .ghint{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:6;background:rgba(10,15,18,.88);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.5;color:var(--ink);text-align:center;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:min(300px,84vw);animation:ghin .3s ease-out}
 .ghint b{color:var(--sys);font-weight:600}
 @keyframes ghin{from{opacity:0;transform:translate(-50%,-40%)}}
+/* first-run tutorial: a spotlight on one control at a time, with a speech bubble */
+.tut{position:fixed;inset:0;z-index:90;touch-action:none}
+.tut-hole{position:fixed;border-radius:12px;box-shadow:0 0 0 200vmax rgba(0,0,0,.66);outline:2px solid var(--bone);pointer-events:none;transition:left .25s,top .25s,width .25s,height .25s}
+.tut-hole.none{outline:0}
+.tut-bub{position:fixed;width:min(320px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px 10px;color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:14px;line-height:1.45;animation:ghin2 .25s ease-out}
+.tut-bub h4{margin:0 0 4px;font-size:15px;color:var(--bone)}
+.tut-bub p{margin:0 0 10px}
+.tut-bub .tut-n{font-size:11px;color:var(--mute);margin-bottom:2px}
+.tut-bub::before{content:'';position:absolute;left:var(--ax,50%);width:12px;height:12px;background:var(--panel);border:1px solid var(--line);transform:translateX(-50%) rotate(45deg)}
+.tut-bub.below::before{top:-7px;border-right:0;border-bottom:0}
+.tut-bub.above::before{bottom:-7px;border-left:0;border-top:0}
+.tut-bub.mid::before{display:none}
+.tut-row{display:flex;gap:8px;align-items:center}
+.tut-row button{font:inherit;font-size:13px;border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid var(--line);background:var(--raise);color:var(--ink)}
+.tut-row .tut-next{background:var(--bone);color:#111;border-color:var(--bone);font-weight:600}
+.tut-row .tut-skip{margin-right:auto;background:none;border-color:transparent;color:var(--mute);text-decoration:underline;padding-left:0}
+@keyframes ghin2{from{opacity:0;transform:translateY(6px)}}
 .mouse #stage.active::after{border-color:transparent}
 @media (max-width:600px){
   .menus{gap:4px}
@@ -457,6 +474,8 @@ body.tabbed{overflow:hidden}
   tab: { title: 'My tab',
     build(el, api) { el.innerHTML = '...'; } }
 });</pre></details></div>
+        <div class="ctl"><span class="label">How to use this app</span>
+          <div class="seg"><button id="tutReplay" aria-pressed="false">Replay tutorial</button></div></div>
         <div class="ctl about"><span class="label">About 3D Anatomy</span>
           <p class="note">Eleven organ systems on scan-derived male and female bodies, about 3,100 named structures, with a live heartbeat, breathing, lessons and quizzes. Drag the body to turn it; tap or click any structure.</p>
           <p class="note">On a phone, one finger scrolls the page; two fingers on the body turn it (slide) and zoom (pinch); tap a part for its card. Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll. With a mouse, drag to turn, use + and − to zoom, and the wheel scrolls the page.</p>
@@ -1652,7 +1671,7 @@ function learnBtn(){let lab='Learn',val;
   $('sysTours').querySelectorAll('button[data-t]').forEach(b=>{const on=TR.on&&TR.id===b.dataset.t&&TR.long===(b.dataset.l==='1');if((b.getAttribute('aria-current')==='true')!==on)b.setAttribute('aria-current',String(on));});
   $('lessonList').querySelectorAll('button[data-i]').forEach(b=>{const on=L.on&&L.i===+b.dataset.i&&(b.classList.contains('lstart')||(b.dataset.s!==undefined&&secsOf(LESSONS[L.i])[+b.dataset.s]&&secsOf(LESSONS[L.i])[+b.dataset.s].start<=L.step&&secsOf(LESSONS[L.i])[+b.dataset.s].end>=L.step));
     if((b.getAttribute('aria-current')==='true')!==on)b.setAttribute('aria-current',String(on));});}
-let menuT=0;function menuTick(now){if(now-menuT<400)return;menuT=now;try{sectionBtn();learnBtn();vitTick();if(st.ready&&!HINT.tried){HINT.tried=true;hintShow();}}catch(e){}}
+let menuT=0;function menuTick(now){if(now-menuT<400)return;menuT=now;try{sectionBtn();learnBtn();vitTick();if(st.ready&&!HINT.tried&&!TR.on&&!L.on&&!Q.on){HINT.tried=true;tutAuto();}}catch(e){}}
 for(const [b,m] of Object.entries(MENUS))$(b).onclick=()=>setMenu(openMenu===m?null:m);
 document.addEventListener('pointerdown',e=>{if(openMenu&&!e.target.closest('#topbar'))closeMenus();},true);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&openMenu){e.stopImmediatePropagation();closeMenus();}},true);
@@ -1914,6 +1933,57 @@ const HINT={on:false,h:0};
 function hintShow(){let seen=false;try{seen=!!localStorage.getItem('ca-touchhint');}catch(e){}if(seen||!PHONE||HINT.on)return;HINT.on=true;$('gHint').hidden=false;
   try{localStorage.setItem('ca-touchhint','1');}catch(e){}HINT.h=setTimeout(hintDone,7000);}
 function hintDone(){if(!HINT.on)return;HINT.on=false;clearTimeout(HINT.h);$('gHint').hidden=true;}
+/* First-run tutorial. A spotlight lights one control at a time while the rest of the screen dims, and a bubble explains it.
+   Shown once, after the body has loaded (Skip ends it); Settings › Replay tutorial shows it again. It also covers the touch
+   controls, so anyone who has seen or skipped it does not get the separate touch hint as well. */
+const GUIDE={on:false,i:0,el:null};
+const TUT_STEPS=[
+ {t:'Welcome to 3D Anatomy',p:'A one-minute tour of the menus and controls. Tap Next to go on, or Skip to start exploring.'},
+ {q:'#mbSection',t:'Section',p:'Choose the male or female body, step back through human evolution to earlier species, or open extra sections such as Evolution and the Gut microbiome.'},
+ {q:'#mbSystems',t:'Systems',p:'Pick which body system to show: bones, muscles, nerves, heart and vessels, organs and more. You can also search for any part by name here.'},
+ {q:'#mbLearn',t:'Learn',p:'Spoken tours of each system, guided lessons that move (a breath, a heartbeat, a meal), and quizzes to test yourself.'},
+ {q:'#mbMore',t:'The three-dot menu',p:'Your saved quiz scores, and Settings: light or dark look, name labels, body state, and a button to replay this tutorial.'},
+ {q:'#skin',up:'.ctl',t:'Skin peel',p:'With the skin showing, slide to fade it away and see what lies underneath. In the other systems, the same slider shows the outline of the skin over them.'},
+ {q:'#slice',up:'.ctl',t:'Cross section',p:'Pick a cutting direction (front to back, side to side, or across), then slide to move the cut through the body and look inside.'},
+ {q:'#hgt',up:'.ctl',t:'Height and weight',p:'Slide to make the body taller, shorter, lighter or heavier. Reset puts it back.'},
+ {q:'#stage',t:'Tap a part',p:'Tap any part of the body to open its card under the body, with its name and what it does.'},
+ {q:'#turnBtn',mq:'#zoomBtns',t:'Moving the body',p:'One finger scrolls the page. Two fingers on the body turn it (slide) and zoom (pinch). Double-tap the body for spin mode, where one finger spins it; double-tap again to scroll.',
+  pm:'Drag the body to turn it, and use the + and − buttons (or the + and − keys) to zoom. The mouse wheel scrolls the page.'},
+ {t:'You\'re ready',p:'You can replay this tutorial any time: three-dot menu › Settings › Replay tutorial.'}];
+function tutSeen(){try{return !!localStorage.getItem('ca-tutorial');}catch(e){return false;}}
+function tutAuto(){if(!tutSeen())setTimeout(()=>{if(!GUIDE.on&&!tutSeen()&&!TR.on&&!L.on&&!Q.on)tutStart();},700);}
+function tutStart(){closeMenus();hintDone();
+  try{localStorage.setItem('ca-tutorial','1');localStorage.setItem('ca-touchhint','1');}catch(e){}
+  if(!GUIDE.el){const d=document.createElement('div');d.className='tut';d.hidden=true;d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-label','How to use 3D Anatomy');
+    d.innerHTML='<div class="tut-hole"></div><div class="tut-bub" aria-live="polite"><div class="tut-n"></div><h4></h4><p></p><div class="tut-row"><button class="tut-skip">Skip</button><button class="tut-back">Back</button><button class="tut-next">Next</button></div></div>';
+    document.body.append(d);GUIDE.el=d;
+    d.querySelector('.tut-skip').onclick=tutEnd;d.querySelector('.tut-back').onclick=()=>tutGo(GUIDE.i-1);d.querySelector('.tut-next').onclick=()=>tutGo(GUIDE.i+1);
+    // the dimmed screen swallows taps and gestures, so nothing changes behind it by accident
+    for(const ev of ['pointerdown','touchstart','touchmove','wheel'])d.addEventListener(ev,e=>{if(!e.target.closest('.tut-bub'))e.preventDefault();},{passive:false});
+    addEventListener('resize',()=>GUIDE.on&&tutPlace());addEventListener('scroll',()=>GUIDE.on&&tutPlace(),{passive:true});
+    addEventListener('keydown',e=>{if(!GUIDE.on)return;if(e.key==='Escape')tutEnd();else if(e.key==='ArrowRight')tutGo(GUIDE.i+1);else if(e.key==='ArrowLeft')tutGo(GUIDE.i-1);else return;e.preventDefault();e.stopPropagation();},true);}
+  GUIDE.on=true;GUIDE.el.hidden=false;tutGo(0);}
+function tutTarget(s){if(!s.q)return null;let e=document.querySelector(PHONE||!s.mq?s.q:s.mq);if(e&&s.up)e=e.closest(s.up)||e;
+  if(!e||!e.getClientRects().length){e=s.mq?document.querySelector(s.mq):null;}return e&&e.getClientRects().length?e:null;}
+function tutGo(i){if(i<0)return;if(i>=TUT_STEPS.length){tutEnd();return;}GUIDE.i=i;const s=TUT_STEPS[i],b=GUIDE.el.querySelector('.tut-bub');
+  b.querySelector('.tut-n').textContent=(i+1)+' of '+TUT_STEPS.length;b.querySelector('h4').textContent=s.t;b.querySelector('p').textContent=!PHONE&&s.pm?s.pm:s.p;
+  GUIDE.el.querySelector('.tut-back').hidden=i===0;GUIDE.el.querySelector('.tut-next').textContent=i===TUT_STEPS.length-1?'Done':'Next';
+  GUIDE.el.querySelector('.tut-skip').hidden=i===TUT_STEPS.length-1;
+  const e=tutTarget(s);if(e){const r=e.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight)e.scrollIntoView({block:r.height>innerHeight*.6?'start':'center'});}
+  b.style.animation='none';void b.offsetWidth;b.style.animation='';
+  requestAnimationFrame(tutPlace);GUIDE.el.querySelector('.tut-next').focus({preventScroll:true});}
+function tutPlace(){const s=TUT_STEPS[GUIDE.i],e=tutTarget(s),h=GUIDE.el.querySelector('.tut-hole'),b=GUIDE.el.querySelector('.tut-bub'),W=innerWidth,Hh=innerHeight,pad=6,gap=12,m=16;
+  const bh=b.offsetHeight,bw=b.offsetWidth;b.classList.remove('below','above','mid');
+  if(!e){Object.assign(h.style,{left:W/2+'px',top:Hh/2+'px',width:'0px',height:'0px'});h.classList.add('none');b.classList.add('mid');
+    b.style.left=(W-bw)/2+'px';b.style.top=Math.max(m,(Hh-bh)/2)+'px';return;}
+  h.classList.remove('none');const r=e.getBoundingClientRect(),x0=Math.max(2,r.left-pad),y0=Math.max(2,r.top-pad),x1=Math.min(W-2,r.right+pad),y1=Math.min(Hh-2,r.bottom+pad);
+  Object.assign(h.style,{left:x0+'px',top:y0+'px',width:(x1-x0)+'px',height:(y1-y0)+'px'});
+  const cx=(x0+x1)/2,left=Math.min(W-m-bw,Math.max(m,cx-bw/2));b.style.left=left+'px';b.style.setProperty('--ax',Math.min(bw-18,Math.max(18,cx-left))+'px');
+  if(Hh-y1>=bh+gap+m){b.classList.add('below');b.style.top=(y1+gap)+'px';}
+  else if(y0>=bh+gap+m){b.classList.add('above');b.style.top=(y0-gap-bh)+'px';}
+  else{b.classList.add('mid');b.style.top=Math.max(m,Math.min(Hh-bh-m,y1-bh-m))+'px';}}   // a target taller than the screen (the body): the bubble sits inside it, near its bottom
+function tutEnd(){if(!GUIDE.on)return;GUIDE.on=false;GUIDE.el.hidden=true;}
+$('tutReplay').addEventListener('click',()=>{closeMenus();scrollTo(0,0);setTimeout(tutStart,150);});
 controls.addEventListener('start',()=>{tween=null;});
 /* Spin / scroll mode on touch. Scroll mode (the start): one finger on the body scrolls the page, two fingers turn and zoom it.
    Double-tap the body (or the mode button) for spin mode: one finger spins it, two fingers zoom and slide it.
