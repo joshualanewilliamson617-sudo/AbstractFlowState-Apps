@@ -116,3 +116,33 @@ Unfinished / ideas
 - Tapping the body while reshaped hits the un-reshaped shape; name labels are hidden while reshaped.
 - Neanderthal is in the picker only (no Evolution stop of its own).
 - Headless Edge won't go below ~490 px wide; phone checks were done in a 390×844 frame.
+
+## 2026-11-23 Fourth request, 4 rounds (commits 6755c09, 013b80f, 832bdca, fd557b6)
+The owner started this one away and then came back: before each round, explain the plan in plain words, ask one question at a time, and wait for the answer.
+
+Round 1, every layer follows the bones (6755c09)
+- New per-vertex attribute `aSeg` (arm, leg), worked out once per body by `segGrid`/`segPart`/`segTick`. The skin is turned into 1 cm cubes, its inside is found, and trunk, arm and leg lines are grown through the inside only. Used by `tqPose` and `tqMorph` instead of the distance guess (0 = not worked out yet, so the shader falls back). Takes about half a second per body while a pose or reshape is on.
+- Elbows: an upper-arm and forearm tuck (`uTuck`, `uTuck0`) keeps them at the sides. Toe skin follows the big toe (`uToe`, `uToeT`). The pelvis reshape applies to the skin too.
+- Fixed the black blotches on the female skin: the skin's depth copy sits a hair behind (polygonOffset +1/+4).
+- Skulls measured: the erectus skull is long and low (H/L 0.46) and ours is taller and rounder (0.60). These match the real data, so they were left unchanged.
+
+Round 2, phone controls (013b80f)
+- No tap-to-activate. One finger scrolls the page; two fingers turn the body (slide) and zoom (pinch). Double-tap the body to switch to one-finger spin mode, and double-tap again to switch back (`TAP`, `TT`, `orbitBy`). A single tap opens a part after 300 ms, so a double tap doesn't open one.
+
+Round 3, accuracy check (832bdca)
+- All ~2,300 part names, every tour, lesson, quiz and muscle fact were checked.
+- `FIXN`/`fixNames` rewrites source names as each manifest loads (HTH → hypothalamus, amygdala nuclei, Atlas/Axis, vertebra names, permanent teeth, liver and lung segments, …). Add new name fixes there.
+- The male brain ventricles (were in male-card.bin) and lacrimal bones (were in male-nerv.bin) were copied into male-nerv.bin and male-skel.bin, and their manifest rows were repointed (scratchpad script move.ps1). Old bytes are still in the old files, unused.
+- Group patterns were widened so every part has a group. New muscle group: "Tongue, throat and voice box". The papillary muscles stay without a group (a stop for them showed only the chest wall).
+- Female has six lumbar vertebrae in her source model. Hiding the sixth left a gap, so the owner chose to keep it as "Sixth lumbar vertebra (a variation)", with card lines on L5 and L6.
+- The wrist flexor retinacula stay hidden (an older rule in `ensure`).
+
+Round 4, first-run tutorial (fd557b6)
+- `GUIDE` / `TUT_STEPS` / `tutStart` / `tutGo` / `tutPlace` / `tutEnd`: spotlight (dims everything but one control) with a bubble, Next/Back/Skip, Esc and arrow keys. There are 11 steps, and the "Moving the body" step has touch wording on phones and mouse wording on desktop.
+- It runs once after the body loads (localStorage `ca-tutorial`), but not while a tour, lesson or quiz is running. Settings › How to use this app › Replay tutorial runs it again.
+- The owner chose that the old first-time touch hint (`hintShow`) no longer shows, because the tutorial covers it.
+- Note: the AI tutor already uses the name `TUT`. Don't reuse it.
+
+Unfinished / ideas
+- The Neanderthal skull is about 1 cm long compared with real data. This was offered to the owner, who hasn't answered yet.
+- The female "dura mater" pieces have no group.
