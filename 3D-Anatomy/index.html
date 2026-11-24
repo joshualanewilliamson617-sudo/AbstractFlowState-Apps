@@ -772,7 +772,7 @@ const G = (sys,label,re,color,desc)=>({sys,label,re,color,desc});
 const GROUPS = [
  G('integ','Skin',/^skin/i,'#c99a7c','Epidermis, dermis and fatty hypodermis: a waterproof, self-renewing barrier with sweat glands for cooling, oil glands, and receptors for touch, pressure, heat and pain.'),
  G('integ','Hair',/hair|eyebrow|ponytail/i,'#3a2a20','Keratin strands growing from follicles in the dermis. Hair shields from sun and holds or sheds heat; each follicle has a tiny muscle that raises it.'),
- G('integ','Lips',/^lip/i,'#b8676a','Thin skin over the orbicularis oris muscle, rich in blood vessels and touch receptors.'),
+ G('integ','Lips',/^lip/i,'#b07a70','Thin skin over the orbicularis oris muscle, rich in blood vessels and touch receptors.'),
  G('integ','Eyes',/sclera|^iris|^pupil|eyeball/i,'#ece6df','The visible eye: white sclera, the coloured iris that sizes the pupil, and the pupil itself, an opening that lets light reach the retina.'),
  G('integ','Breast fat and ligaments',/adipose|suspensory ligament of .*breast/i,'#e8c79c','Fat that shapes the breast, and suspensory (Cooper\'s) ligaments that support the gland tissue.'),
  G('musc','Eye muscles',/(medial|lateral|superior|inferior) rectus$|superior oblique$|inferior oblique$|levator palpebrae/i,'#b54840','Six muscles per eye aim the gaze; levator palpebrae lifts the upper lid.'),
@@ -1148,7 +1148,7 @@ float tissueH(vec3 p){
     float brow=(1.0-smoothstep(bt*0.5,bt,abs(bv-bc)))*smoothstep(-0.0165,-0.0115,bu)*(1.0-smoothstep(0.021,0.027,bu))*smoothstep(uFace.z+0.002,uFace.z+0.008,vWPos.z);
     float strand=0.8+0.2*sin(bu*4100.0-bv*2300.0+sin(bv*1400.0)*1.5);
     diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.07,0.042,0.028),brow*strand*0.82);
-    float lip=smoothstep(0.2,0.75,vFace.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.56,0.24,0.23),lip*0.55);
+    float lip=smoothstep(0.12,0.85,vFace.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.55,0.3,0.28),lip*0.45);   // lips fade softly into the skin
     // pigment (her own skin only): areolae above the waist, pubic hair below
     float pig=vFace.x;
     if(vWPos.y>1.0){ float an=0.85+0.15*sin(vWPos.x*2900.0+vWPos.y*2300.0);
@@ -1466,6 +1466,7 @@ function useMat(p){if(!p.pool)return;const e=p.mat.emissive,m=p.mat.transparent|
    the scalp no longer pile up as extra layers. */
 const SHELL=/^(skin|hair|ponytail|eyebrow|lip|pubic hair)/i;
 function skinShell(p){if(!SHELL.test(p.name))return;const m=p.mat;
+  if(/^lip/i.test(p.name)){m.color.set('#b07a70').convertSRGBToLinear();m.roughness=.62;if('clearcoat' in m)m.clearcoat=0;if('sheen' in m)m.sheen=0;}   // lips: a muted rose close to the skin with a soft, matte surface, so they do not look painted on
   // the depth-only copy sits a hair behind the skin, so tiny rounding differences between the two never punch dark holes in it
   const dm=new THREE.MeshBasicMaterial({colorWrite:false,transparent:true,polygonOffset:true,polygonOffsetFactor:(m.polygonOffset?m.polygonOffsetFactor:0)+1,polygonOffsetUnits:(m.polygonOffset?m.polygonOffsetUnits:0)+4});
   // the depth-only copy bends and reshapes exactly like the skin it stands in for
@@ -1489,7 +1490,7 @@ function eyeGeometry(){if(eyeGeo)return eyeGeo;const R=EYE_R,g=new THREE.SphereG
   for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i);const th=Math.acos(THREE.MathUtils.clamp(v.z/R,-1,1));
     if(th<.62){v.multiplyScalar(1+.085*Math.pow(1-th/.62,2));pa.setXYZ(i,v.x,v.y,v.z);}}   // the cornea's bulge
   g.computeVertexNormals();g.computeBoundingSphere();g.computeBoundingBox();return eyeGeo=g;}
-function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.4,metalness:0,clearcoat:.6,clearcoatRoughness:.1,envMapIntensity:.5});
+function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.45,metalness:0,clearcoat:.4,clearcoatRoughness:.22,envMapIntensity:.4});   // a soft, moist shine rather than a glassy one
   const ic=new THREE.Color(iris).convertSRGBToLinear();
   mat.onBeforeCompile=sh=>{sh.uniforms.uIris={value:ic};
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vEP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvEP=normalize(position);');
@@ -1501,9 +1502,11 @@ function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xfff
   float r=th/IR, fib=0.72+0.28*sin(ph*70.0+sin(ph*9.0)*2.5)*sin(r*18.0+ph*5.0);
   vec3 ir=uIris*fib*mix(1.5,0.8,smoothstep(0.3,1.0,r));
   ir=mix(ir,uIris*1.7+vec3(0.04,0.03,0.0),(1.0-smoothstep(PR/IR,PR/IR+0.22,r))*0.55);
-  c=mix(c,ir,1.0-smoothstep(IR-0.012,IR+0.012,th));
-  c=mix(c,vec3(0.03,0.025,0.02),smoothstep(IR-0.08,IR-0.01,th)*(1.0-smoothstep(IR-0.01,IR+0.02,th))*0.7);
-  c=mix(c,vec3(0.006),1.0-smoothstep(PR-0.01,PR+0.01,th));
+  c=mix(c,ir,1.0-smoothstep(IR-0.035,IR+0.03,th));   // the iris blends into the white instead of ending in a hard edge
+  c=mix(c,vec3(0.05,0.04,0.035),smoothstep(IR-0.11,IR-0.02,th)*(1.0-smoothstep(IR-0.02,IR+0.04,th))*0.42);   // a soft limbal ring
+  c*=mix(1.0,0.62,smoothstep(0.12,0.5,vEP.y))*mix(1.0,0.85,smoothstep(0.2,0.6,-vEP.y));   // the upper lid shades the top of the eye, the lower lid a little
+  c=mix(c,c*vec3(1.0,0.93,0.9),smoothstep(0.75,1.3,th));   // the white warms toward the corners
+  c=mix(c,vec3(0.006),1.0-smoothstep(PR-0.018,PR+0.018,th));
   diffuseColor.rgb=c;`);};
   mat.customProgramCacheKey=()=>'eyeball';return mat;}
 function buildEyes(sex){const E=EYES[sex],g=eyeGeometry();
@@ -1519,10 +1522,10 @@ function buildEyes(sex){const E=EYES[sex],g=eyeGeometry();
    in all, built once per body. */
 const FACE_M=[ // name, shape, shape data, depth under the skin (m), belly thickness (m), sides (2 = left and right)
  ['frontalis','quad',[[-.6,13],[-.6,54],[52,50],[48,10]],.0045,.0022,2],
- ['occipitalis','quad',[[126,-6],[130,30],[180.6,32],[180.6,-6]],.005,.0022,2],
+ ['occipitalis','quad',[[128,-4],[132,26],[168,28],[166,-4]],.005,.0022,2],   // the two bellies stay apart at the midline
  ['temporalis','quad',[[50,-8],[48,46],[128,36],[72,-8]],.006,.0042,2,{arc:6}],
- ['masseter','quad',[[50,-18],[52,-56],[80,-56],[78,-18]],.0065,.0055,2],
- ['buccinator','quad',[[30,-30],[30,-44],[50,-44],[50,-30]],.011,.003,2],
+ ['masseter','quad',[[48,-17],[56,-56],[84,-53],[78,-17]],.0065,.0055,2],   // slants down and back to the angle of the jaw
+ ['buccinator','quad',[[22,-31],[52,-28],[52,-46],[22,-40]],.011,.003,2],   // fibres run back from the corner of the mouth
  ['orbicularis oculi','ring',{c:[19.5,-1],i:[9.5,5.2],o:[20,15]},.0035,.0016,2],
  ['procerus','quad',[[-4,-2],[-4,13],[4,13],[4,-2]],.004,.0014,1],
  ['nasalis','band',{a:[5,-11],b:[9,-22],w:[4,5]},.003,.0012,2],
@@ -1590,7 +1593,7 @@ function faceMuscles(sex,skinParts){
     const topt={flow:0,ao:false,kind:ten?0:1,fiber:null,fiberAttr:!ten,sss:new THREE.Color('#4a0a06'),musc:true};tissue(mat,topt);
     const pool=poolMat(mat,topt),mesh=new THREE.Mesh(g,pool);mesh.matrixAutoUpdate=false;mesh.userData.base=new THREE.Matrix4();
     const p={name:name.charAt(0).toUpperCase()+name.slice(1),concept:'modelled',sys:'musc',also:[],grp,mesh,mat,pool,fill:false,
-      src:'Modelled for this view under this body\'s own skin; the source datasets do not include the face and scalp muscles',tris:idx.length/3,skin:false,drawn:true};
+      src:'Modelled for this view under this body\'s own skin; the source datasets do not include the face and scalp muscles',tris:idx.length/3,skin:false,drawn:true,faceSheet:true};
     mesh.userData.part=p;out.push(p);}
   return out;}
 const FACE_NAMES=FACE_M.flatMap(m=>m[5]>1?['Left '+m[0],'Right '+m[0]]:[m[0].charAt(0).toUpperCase()+m[0].slice(1)]);
@@ -1769,6 +1772,7 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
     else if(st.mode==='layered')o=.07;
     if(skinFull&&!(p.sys==='integ'&&(p.shell||p.eye))){o=0;pick=false;}   // the skin is fully on: nothing under it is drawn at all
     if(st.fxOnly&&o>0&&inA(p)&&!st.fxOnly(p)){o=0;pick=false;}   // a moving lesson can show just the pieces it needs
+    if(st.spot&&st.spotEye&&p.faceSheet&&!st.spot.has(p)){o=0;pick=false;}   // eye-muscle stops: the face muscles in front of the eye are taken away so the muscles in the socket show
     if(st.spot&&o>0&&!st.spot.has(p)&&!p.shell&&!p.eye){o=Math.min(o,.07);pick=false;}   // tour spotlight: what the stop is not about fades to a faint outline
     const m=p.mat,tr=o<.999;if(m.transparent!==tr){m.transparent=tr;m.needsUpdate=true;}m.opacity=o;m.depthWrite=!tr;
     p.mesh.visible=o>.004;p.mesh.userData.pick=pick;if(p.mesh.visible)tris+=p.tris;if((p.shell||p.eye)&&p.mesh.visible)shellOn=true;
@@ -3439,9 +3443,10 @@ function tourLayout(){const el=$('stour'),side=TOUR_SIDE.matches,on=!el.hidden;
   document.body.classList.toggle('tourbelow',on&&!side);VOFF.t=coverNow();VOFF.xt=sideNow();}
 TOUR_SIDE.addEventListener('change',()=>{if(TR.on)tourLayout();});
 /* Spotlight: the parts a stop talks about stay solid and glow; the rest of the system fades to a faint outline. */
-function tourSpot(list){st.spot=null;apply();if(!list.length){TARR.aim=null;return;}
+const EYE_M_RE=/(medial|lateral|superior|inferior) rectus$|superior oblique$|inferior oblique$|levator palpebrae/i;
+function tourSpot(list){st.spot=null;st.spotEye=list.some(p=>EYE_M_RE.test(p.name));apply();if(!list.length){TARR.aim=null;return;}
   const n=bodyParts.filter(p=>inScene.has(p)&&p.mesh.visible&&!p.shell&&!p.eye).length;if(list.length<n*.95){st.spot=new Set(list);apply();}}
-function tourSpotOff(){if(!st.spot&&!TARR.aim)return;st.spot=null;TARR.aim=null;apply();}
+function tourSpotOff(){if(!st.spot&&!TARR.aim)return;st.spot=null;st.spotEye=false;TARR.aim=null;apply();}
 /* The curved arrow from the readout to the parts being talked about. Redrawn each frame while a tour runs, so it follows
    the camera; hidden when the parts are off screen, the panel is shrunk or scrolled away. */
 const TARR={aim:null,last:null,c:new V3(),svg:null};
