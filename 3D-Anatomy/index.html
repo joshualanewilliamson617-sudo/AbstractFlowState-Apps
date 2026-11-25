@@ -385,9 +385,10 @@ body.tabbed{overflow:hidden}
 .stctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .stopts{display:flex;gap:6px;margin-left:auto;align-items:center}
 .lopts{margin-left:0;flex-wrap:wrap}.lopts .lrate{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}.lopts select{font:inherit;font-size:13px;min-height:34px;border-radius:8px;border:1px solid var(--line);background:rgba(10,15,18,.7);color:var(--ink);padding:0 6px}
-.fxcap{position:absolute;top:max(14px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:max-content;max-width:min(440px,calc(100% - 480px));background:rgba(8,13,15,.86);border:1px solid var(--line);border-left:3px solid var(--sys);border-radius:10px;padding:7px 12px;font-size:13px;line-height:1.35;color:var(--ink);text-align:center;pointer-events:none;z-index:3}
+.fxcap{position:absolute;top:max(14px,env(safe-area-inset-top,0px));left:calc(50% - var(--voff,0px) / 2);transform:translateX(-50%);width:max-content;max-width:min(440px,calc(100% - 480px));background:rgba(8,13,15,.86);border:1px solid var(--line);border-left:3px solid var(--sys);border-radius:10px;padding:7px 12px;font-size:13px;line-height:1.35;color:var(--ink);text-align:center;pointer-events:none;z-index:3}
 @media (max-width:900px){.fxcap{left:max(16px,env(safe-area-inset-left,0px));right:16px;transform:none;width:auto;max-width:none;top:calc(max(14px,env(safe-area-inset-top,0px)) + 92px);font-size:12px;padding:6px 10px}}
 @media (max-width:900px) and (hover:hover) and (pointer:fine){.fxcap{right:62px}}
+body.tourbelow .fxcap{top:auto;bottom:30px}   /* phone tour: the caption sits under the picture so it never covers what the stop shows */
 .stctl select{min-height:32px}
 .stans{justify-content:flex-start}
 .stans .btn{text-align:left}.stans .btn.good{border-color:var(--good);color:var(--good)}.stans .btn.bad{border-color:var(--bad);color:var(--bad)}
@@ -1034,7 +1035,7 @@ const bodyRoot=new THREE.Group();scene.add(bodyRoot);   // every body part lives
   const m=new THREE.Mesh(new THREE.PlaneGeometry(4.267,4.267),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.y=.001;scene.add(m);})();
 
 /* tissue shader: baked crease shadows, wet translucent surfaces, fine surface detail, and flow along vessels and nerves */
-const U={uPeel:{value:99},uRootInv:{value:new THREE.Matrix4()},uRoot:{value:new THREE.Matrix4()},uPoseOn:{value:0},uJ:{value:[0,1,2,3,4,5].map(()=>new THREE.Vector3())},uAngL:{value:new THREE.Vector4()},uAngA:{value:new THREE.Vector4()},uTuck:{value:new THREE.Vector4()},uTuck0:{value:new THREE.Vector2()},uTime:{value:0},uOn:{value:1},uHeart:{value:new THREE.Vector3(0,1.25,0)},uBrain:{value:new THREE.Vector3(0,1.6,-.02)},uBeat:{value:1},uPWV:{value:5}};
+const U={uCoat:{value:0},uCoatA:{value:new THREE.Vector4()},uCoatB:{value:new THREE.Vector4()},uBr:{value:new THREE.Vector4()},uPeel:{value:99},uRootInv:{value:new THREE.Matrix4()},uRoot:{value:new THREE.Matrix4()},uPoseOn:{value:0},uJ:{value:[0,1,2,3,4,5].map(()=>new THREE.Vector3())},uAngL:{value:new THREE.Vector4()},uAngA:{value:new THREE.Vector4()},uTuck:{value:new THREE.Vector4()},uTuck0:{value:new THREE.Vector2()},uTime:{value:0},uOn:{value:1},uHeart:{value:new THREE.Vector3(0,1.25,0)},uBrain:{value:new THREE.Vector3(0,1.6,-.02)},uBeat:{value:1},uPWV:{value:5}};
 const CAN_BUMP=renderer.capabilities.isWebGL2;
 const BUMP=CAN_BUMP?`
   if(uKind>0.5){ float tq_lam=uKind<1.5?0.0012:uKind<2.5?0.007:uKind<3.5?0.004:uKind<4.5?0.0015:uKind<5.5?0.0015:0.0024; float tq_fw=length(fwidth(vWPos)); float tq_fade=1.0-smoothstep(0.25*tq_lam,0.7*tq_lam,tq_fw);
@@ -1070,10 +1071,11 @@ float tqPose(vec3 p,float rig,vec2 seg,out vec3 q){q=p;   // rig: 0 bends smooth
 Object.assign(U,{uMorph:{value:0},uToe:{value:new THREE.Vector4()},uToeT:{value:new THREE.Vector3()},uMo0:{value:new THREE.Vector4(1,1,0,0)},uMo1:{value:new THREE.Vector4(1,1,1,0)},uMo2:{value:new THREE.Vector4(1,0,0,0)},uMo3:{value:new THREE.Vector4(1,1,0,1)},
   uML:{value:[0,1,2,3,4,5,6,7].map(()=>new THREE.Vector3())}});
 const MORPH_GLSL=`
-uniform float uMorph,uBone;uniform vec4 uMo0,uMo1,uMo2,uMo3,uToe;uniform vec3 uML[8],uToeT;
+uniform float uMorph,uBone;uniform vec4 uMo0,uMo1,uMo2,uMo3,uToe,uBr;uniform vec3 uML[8],uToeT;
 float tqS(float a,float b,float x){float t=clamp((x-a)/(b-a),0.0,1.0);return t*t*(3.0-2.0*t);}
 vec3 tqMorph(vec3 p,vec2 seg,out float ang){ang=0.0;   // uMo0 arm, leg, lean, crouch · uMo1 braincase height, length, width, face forward · uMo2 jaw, brow, chin, head tilt · uMo3 pelvis width, height, drop, scale
   float sx=p.x<0.0?1.0:-1.0;vec3 r=vec3(-abs(p.x),p.y,p.z);
+  if(uBr.w>0.0&&uBone<0.5){float bd=length(vec2((r.x+uBr.x)/0.11,(r.y-uBr.y)/0.1));r.z-=max(0.0,r.z-uBr.z)*0.97*uBr.w*(1.0-tqS(0.75,1.2,bd));}   // neutral chimpanzee: the breasts flatten to the chest
   if(uToe.w!=0.0&&uBone<0.5){vec3 tb=uToeT-uToe.xyz;float tl=length(tb),ta=dot(r-uToe.xyz,tb)/tl;float td=distance(r,uToe.xyz+tb*clamp(ta/tl,0.0,1.0));   // Arched Foot: skin and muscle of the big toe swing with its bones
     float tw=(1.0-tqS(0.016,0.026,td))*tqS(-0.01,0.015,ta);if(tw>0.0){float c=cos(uToe.w*tw),s=sin(uToe.w*tw);vec2 v=r.xz-uToe.xz;r.xz=uToe.xz+vec2(c*v.x+s*v.y,-s*v.x+c*v.y);}}
   vec3 H=uML[0],K=uML[1],A=uML[2],S=uML[3],T=uML[4],EY=uML[5],HC=uML[6],NK=uML[7];
@@ -1104,13 +1106,13 @@ vec3 tqMorph(vec3 p,vec2 seg,out float ang){ang=0.0;   // uMo0 arm, leg, lean, c
     float wU=max(tqS(H.y-0.06,H.y+0.12,r.y)*(1.0-wH),arm);q.yz=H.yz+tqR2(q.yz-H.yz,le*wU);ang+=le*(wU-1.1*wa);}
   q.x*=sx;q.y+=uMo3.z;return q*uMo3.w;}
 `;
-const MORPH_U=()=>({uToe:U.uToe,uToeT:U.uToeT,uMorph:U.uMorph,uMo0:U.uMo0,uMo1:U.uMo1,uMo2:U.uMo2,uMo3:U.uMo3,uML:U.uML});
+const MORPH_U=()=>({uBr:U.uBr,uToe:U.uToe,uToeT:U.uToeT,uMorph:U.uMorph,uMo0:U.uMo0,uMo1:U.uMo1,uMo2:U.uMo2,uMo3:U.uMo3,uML:U.uML});
 function tissue(mat,o){
   const flowCol=o.flow===1?new THREE.Color('#ff6a48'):o.flow===-1?new THREE.Color('#9cc3ff'):new THREE.Color('#fff1a0');
   mat.userData.rim={value:0};mat.userData.tissue=o;   // rim: edge glow for see-through skin; tissue options kept so a shared copy can be made
   mat.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,{uPeel:U.uPeel,uRootInv:U.uRootInv,uRoot:U.uRoot,uPoseOn:U.uPoseOn,uJ:U.uJ,uAngL:U.uAngL,uAngA:U.uAngA,uTuck:U.uTuck,uTuck0:U.uTuck0,uPeelOn:{value:o.peel?1:o.musc?2:0},uTime:U.uTime,uOn:U.uOn,uBeat:U.uBeat,uPWV:U.uPWV,uOrigin:o.flow===2?U.uBrain:U.uHeart,
-      uFlowKind:{value:o.flow||0},uFlowCol:{value:flowCol},uHasAO:{value:o.ao?1:0},uKind:{value:o.kind||0},uFiber:{value:o.fiber||new THREE.Vector3(0,1,0)},uFibA:{value:o.fiberAttr?1:0},uRim:mat.userData.rim,uSSS:{value:o.sss||new THREE.Color(0,0,0)},uBun:{value:o.bun||new THREE.Vector3()},uFace:{value:o.face||new THREE.Vector4()}});
+      uFlowKind:{value:o.flow||0},uFlowCol:{value:flowCol},uHasAO:{value:o.ao?1:0},uKind:{value:o.kind||0},uFiber:{value:o.fiber||new THREE.Vector3(0,1,0)},uFibA:{value:o.fiberAttr?1:0},uRim:mat.userData.rim,uSSS:{value:o.sss||new THREE.Color(0,0,0)},uBun:{value:o.bun||new THREE.Vector3()},uFace:{value:o.face||new THREE.Vector4()},uCoat:U.uCoat,uCoatA:U.uCoatA,uCoatB:U.uCoatB});
     sh.uniforms.uBias={value:o.bias!==undefined?o.bias:o.musc?.004:o.flow?.002:0};Object.assign(sh.uniforms,MORPH_U(),{uBone:{value:o.kind===2?1:0}});
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform mat4 uRootInv;uniform float uBias;attribute float aAO;attribute float aRig;attribute vec2 aSeg;attribute vec4 aFace;attribute vec3 aFiber;varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;'+POSE_GLSL+MORPH_GLSL)
       .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nif(uPoseOn>0.5){vec3 tq_q;float tq_a=tqPose((uRootInv*modelMatrix*vec4(position,1.0)).xyz,aRig,aSeg,tq_q);objectNormal.yz=tqR2(objectNormal.yz,tq_a);}'+
@@ -1121,7 +1123,7 @@ function tissue(mat,o){
         // but wins against anything just behind it (muscle over vessels and nerves, those over organs and bone)
         'if(uBias>0.0){vec4 tq_b=mvPosition;tq_b.xyz*=max(0.2,1.0-uBias/max(length(tq_b.xyz),1e-4));gl_Position=projectionMatrix*tq_b;}');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
-varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;uniform float uPeel,uPeelOn,uTime,uOn,uBeat,uPWV,uFlowKind,uHasAO,uKind,uFibA,uRim;uniform vec3 uOrigin,uFlowCol,uFiber,uSSS,uBun;uniform vec4 uFace;
+varying float vAO;varying vec3 vWPos;varying vec4 vFace;varying vec3 vFib;uniform float uCoat;uniform vec4 uCoatA,uCoatB;uniform float uPeel,uPeelOn,uTime,uOn,uBeat,uPWV,uFlowKind,uHasAO,uKind,uFibA,uRim;uniform vec3 uOrigin,uFlowCol,uFiber,uSSS,uBun;uniform vec4 uFace;
 float tH=0.0;vec3 tFib=vec3(0.0,1.0,0.0);
 float tissueH(vec3 p){
   if(uKind<0.5) return 0.0;
@@ -1157,14 +1159,22 @@ float tissueH(vec3 p){
     else { vec2 hp=vec2(vWPos.x*3600.0,vWPos.y*3600.0); float curl=sin(hp.x+3.0*sin(hp.y*0.7+sin(hp.x*0.45)*2.0))*sin(hp.y*1.3+2.5*sin(hp.x*0.6));
       float edge=0.5+0.5*sin(vWPos.x*900.0+sin(vWPos.y*700.0)*2.0)*sin(vWPos.y*800.0+vWPos.x*300.0);
       float hairy=smoothstep(0.25,0.85,pig+0.22*curl*(1.0-pig)+0.18*(edge-0.5)); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.085,0.052,0.036)*(0.7+0.45*max(curl,0.0)),hairy*0.88); }
-    float lash=smoothstep(0.3,0.9,vFace.z); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.05,0.03,0.022),lash*0.8); }`)
+    float lash=smoothstep(0.3,0.9,vFace.z); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.05,0.03,0.022),lash*0.8); }
+  float tq_coat=0.0;
+  if(uCoat>0.001&&uPeelOn>0.5&&uPeelOn<1.5){ tq_coat=uCoat; // chimpanzee coat: dark hair everywhere but the face, hands and feet (uCoatA: wrist height, hand reach, ankle height; uCoatB: eyes, neck, head centre)
+    vec3 cp=vWPos; float cax=abs(cp.x);
+    float bare=max(max((1.0-smoothstep(uCoatA.x-0.01,uCoatA.x+0.02,cp.y))*smoothstep(uCoatA.y-0.02,uCoatA.y+0.01,cax),1.0-smoothstep(uCoatA.z-0.01,uCoatA.z+0.03,cp.y)),
+      smoothstep(uCoatB.y,uCoatB.y+0.02,cp.y)*(1.0-smoothstep(uCoatB.x+0.012,uCoatB.x+0.035,cp.y))*smoothstep(uCoatB.z+0.03,uCoatB.z+0.06,cp.z));
+    float cst=0.5+0.5*sin(cp.y*1900.0+sin(cp.x*700.0+cp.z*500.0)*2.6)*sin(cp.x*1300.0-cp.z*900.0+cp.y*300.0);
+    diffuseColor.rgb=mix(diffuseColor.rgb,mix(vec3(0.03,0.022,0.018)*(0.6+0.7*cst),vec3(0.085,0.062,0.05),bare),uCoat); }`)
      .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>'+BUMP)
      .replace('#include <aomap_fragment>',`#include <aomap_fragment>
   float tq_aoV=uHasAO>0.5?pow(clamp((vAO-0.2)/0.8,0.0,1.0),1.5):1.0;
   reflectedLight.indirectDiffuse*=tq_aoV; reflectedLight.indirectSpecular*=mix(1.0,tq_aoV,0.8);
   reflectedLight.directDiffuse*=mix(1.0,tq_aoV,0.7); reflectedLight.directSpecular*=mix(1.0,tq_aoV,0.5);
   float tq_rim=pow(1.0-clamp(abs(dot(normal,normalize(vViewPosition))),0.0,1.0),2.5);
-  reflectedLight.indirectDiffuse+=uSSS*tq_rim*0.55*tq_aoV;`)
+  reflectedLight.indirectDiffuse+=uSSS*tq_rim*0.55*tq_aoV*(1.0-tq_coat);
+  reflectedLight.directSpecular*=1.0-0.75*tq_coat; reflectedLight.indirectSpecular*=1.0-0.75*tq_coat;   // hair is matte`)
      .replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
   if(uFlowKind!=0.0&&uOn>0.5){ float tq_band=0.0;
     if(uFlowKind>1.5){ float tq_fd=vWPos.y>uOrigin.y?distance(vWPos,uOrigin):length(vWPos.xz-uOrigin.xz)*1.6+(uOrigin.y-vWPos.y)*0.35; tq_band=pow(max(0.0,sin(tq_fd*48.0-uTime*4.2)),14.0)*0.8; }
@@ -1508,7 +1518,7 @@ function eyeMaterial(iris){const mat=new THREE.MeshPhysicalMaterial({color:0xfff
   c=mix(c,c*vec3(1.0,0.93,0.9),smoothstep(0.75,1.3,th));   // the white warms toward the corners
   c=mix(c,vec3(0.006),1.0-smoothstep(PR-0.018,PR+0.018,th));
   diffuseColor.rgb=c;`);};
-  mat.customProgramCacheKey=()=>'eyeball';return mat;}
+  mat.userData.iris=ic;mat.userData.irisBase=ic.clone();mat.customProgramCacheKey=()=>'eyeball';return mat;}
 function buildEyes(sex){const E=EYES[sex],g=eyeGeometry();
   return E.c.map(c=>{const mat=eyeMaterial(E.iris),mesh=new THREE.Mesh(g,mat);mesh.matrixAutoUpdate=false;mesh.layers.set(1);   // drawn with the skin, so the eyelids and socket sit right around it
     mesh.userData.base=new THREE.Matrix4().makeTranslation(c[0],c[1],c[2]);mesh.matrix.copy(mesh.userData.base);
@@ -1772,6 +1782,7 @@ function apply(){const A=actv();let tris=0;if(st.peel&&A.has('musc'))muscleLayer
     else if(st.mode==='layered')o=.07;
     if(skinFull&&!(p.sys==='integ'&&(p.shell||p.eye))){o=0;pick=false;}   // the skin is fully on: nothing under it is drawn at all
     if(st.fxOnly&&o>0&&inA(p)&&!st.fxOnly(p)){o=0;pick=false;}   // a moving lesson can show just the pieces it needs
+    if(COAT.on&&/^(hair|ponytail|eyebrow|pubic hair)/i.test(p.name)){o=0;pick=false;}   // the chimpanzee has its own coat
     if(st.spot&&st.spotEye&&p.faceSheet&&!st.spot.has(p)){o=0;pick=false;}   // eye-muscle stops: the face muscles in front of the eye are taken away so the muscles in the socket show
     if(st.spot&&o>0&&!st.spot.has(p)&&!p.shell&&!p.eye){o=Math.min(o,.07);pick=false;}   // tour spotlight: what the stop is not about fades to a faint outline
     const m=p.mat,tr=o<.999;if(m.transparent!==tr){m.transparent=tr;m.needsUpdate=true;}m.opacity=o;m.depthWrite=!tr;
@@ -1880,7 +1891,18 @@ function sideNow(){const el=$('stour');if(el.hidden||!el.classList.contains('sid
   return r.width?Math.min(sr.width*.5,sr.right-r.left+12):0;}
 function applyVOff(){const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;if(VOFF.c>.5||VOFF.x>.5)camera.setViewOffset(w,h,VOFF.x/2,VOFF.c/2,w,h);else camera.clearViewOffset();}
 const coverRO=new ResizeObserver(()=>{VOFF.t=coverNow();VOFF.xt=sideNow();});['stour','lesson','quizBar'].forEach(id=>coverRO.observe($(id)));
-function vOffTick(dt){const k=Math.min(1,dt*7);let ch=false;
+/* Chimpanzee shape (picker or Evolution stop): one neutral build on either body. A dark coat covers the skin except the
+   face, hands and feet, the human hair and brows are hidden, and on the female body the breasts flatten to the chest. */
+const COAT={on:false,BR:{female:[.109,1.206,.022]},brown:new THREE.Color('#5a3a1e').convertSRGBToLinear()};
+const coatWanted=()=>EV.shape?(EV.shape==='chimp'&&EV.whole):st.species==='chimp';
+function coatTick(dt){const want=coatWanted();if(want!==COAT.on){COAT.on=want;apply();}
+  const v=U.uCoat.value,to=want?1:0;U.uCoat.value=Math.abs(v-to)<.01?to:v+(to-v)*Math.min(1,dt*2.5);
+  const J=POSE[st.sex],M=LMK[st.sex],wy=J.el[1]+(J.tip[1]-J.el[1])*.58,b=COAT.BR[st.sex];
+  U.uCoatA.value.set(wy,Math.abs(J.tip[0])-.09,J.ank[1]+.03,0);U.uCoatB.value.set(M.EY[1],M.NK[1],M.HC[2],0);
+  if(b)U.uBr.value.set(b[0],b[1],b[2],U.uCoat.value);else U.uBr.value.set(0,0,0,0);
+  for(const p of bodyParts)if(p.eye&&p.mat.userData.iris)p.mat.userData.iris.copy(p.mat.userData.irisBase).lerp(COAT.brown,U.uCoat.value);}   // chimpanzee eyes are brown
+function vOffTick(dt){const k=Math.min(1,dt*7);let ch=false;stage.style.setProperty("--voff",Math.round(VOFF.x)+"px");   // the caption box stays centred in the space left of the tour panel
+
   for(const [a,b] of [['c','t'],['x','xt']]){if(Math.abs(VOFF[a]-VOFF[b])<=.5)continue;VOFF[a]+=(VOFF[b]-VOFF[a])*k;if(Math.abs(VOFF[a]-VOFF[b])<=.5)VOFF[a]=VOFF[b];ch=true;}
   if(ch)applyVOff();}
 function setCollapsed(id,on){const el=$(id),b=el.querySelector('.cmin');el.classList.toggle('collapsed',on);b.setAttribute('aria-expanded',String(!on));b.title=on?'Open':'Shrink';
@@ -2880,7 +2902,7 @@ function labelLayout(){
   const show=LBL.on&&!Q.on&&st.ready&&LBL.items.length;lblBox.hidden=lblSvg.style.display=show?'':'none';
   if(!show){lblBox.innerHTML='';lblSvg.innerHTML='';lblBox._sig='';return;}lblBox.hidden=false;
   const W=stage.clientWidth,H=stage.clientHeight,v=new THREE.Vector3(),Wf=W-Math.round(VOFF.x);   // Wf: the width left free beside the tour panel
-  const pts=LBL.items.map(it=>{v.copy(it.w).project(camera);return {it,x:(v.x+1)/2*W,y:(1-v.y)/2*H,z:v.z};}).filter(q=>q.z<1&&q.x>-20&&q.x<Wf+20&&q.y>-20&&q.y<H+20);
+  const pts=LBL.items.map(it=>{v.copy(it.w).project(camera);return {it,x:(v.x+1)/2*W,y:(1-v.y)/2*H,z:v.z};}).filter(q=>!EV.noLbl&&q.z<1&&q.x>-20&&q.x<Wf+20&&q.y>-20&&q.y<H+20);   // a stop with its own labels (the fish) turns the name labels off
   if(!pts.length){lblBox.innerHTML='';lblSvg.innerHTML='';return;}
   let x0=1e9,x1=-1e9;pts.forEach(q=>{x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);});const cx=(x0+x1)/2;
   const vr=document.querySelector('.vitals').getBoundingClientRect(),sr=stage.getBoundingClientRect(),vBot=vr.bottom-sr.top+10,vRight=vr.right-sr.left;
@@ -2999,7 +3021,7 @@ function loop(now){if(st.paused){requestAnimationFrame(loop);return;}   // a tab
   if(L.on&&L.auto&&!queue.active.size&&!L.speaking){L.autoT+=dt;if(L.autoT>AUTO_SEC){L.autoT=0;lessonAuto();}}
   if(!reduce){stepPhysio(dt);if(!vitHidden())drawECG();}if(!vitHidden())drawVitals(dt);
   if(st.selSet.length){selCol.set(SYSTEMS[st.sys].color).convertSRGBToLinear().multiplyScalar(.22+.16*Math.sin(t*4));for(const m of st.selPools)m.emissive.copy(selCol);for(const p of st.selEach){p.mat.emissive.copy(selCol);useMat(p);}}
-  if(FXS.on)fxTick(dt);moTick(dt);segTick(dt);vOffTick(dt);tArrowTick();menuTick(now||0);if(EV.key){EV.t+=dt;if(EV.cam&&EV.t>4.6)evCamBack();if(EV.tick)EV.tick(dt,EV.t);}
+  if(FXS.on)fxTick(dt);moTick(dt);coatTick(dt);segTick(dt);vOffTick(dt);tArrowTick();menuTick(now||0);if(EV.key){EV.t+=dt;if(EV.cam&&EV.t>4.6)evCamBack();if(EV.tick)EV.tick(dt,EV.t);}
   if(!Q.on)doHover(now||0);controls.update();labelsFrame(now||0);drawScene();tunePR(now||performance.now());requestAnimationFrame(loop);}
 
 /* ================================================================ Evolution: what changed in each era
@@ -3113,19 +3135,48 @@ function moNow(P){MO.cur=Object.assign({},P);MO.to=Object.assign({},P);MO.from=O
 function evCamBack(){const c=EV.cam;EV.cam=null;if(!c)return;const inv=new THREE.Matrix4().copy(bodyRoot.matrixWorld).invert(),P=MO.to;
   const t=morphPt(c.t1.clone().applyMatrix4(inv),P).applyMatrix4(bodyRoot.matrixWorld);flyTo(t,t.clone().add(c.p1.clone().sub(c.t1).multiplyScalar(Math.max(.45,P.sc))),1.4);}
 const EVFX={
- era0(){clearSel();const S=st.sex==='female',J=POSE[st.sex],sh=new V3(...J.sh);
+ era0(){clearSel();const S=st.sex==='female',J=POSE[st.sex],sh=new V3(...J.sh),el=new V3(...J.el),tp=new V3(...J.tip),wr=el.clone().lerp(tp,.58);
+  /* Tiktaalik's skeleton, seen from the side, lying level at shoulder height beside the body. Its front fin is turned down and
+     drawn as long as your arm, so its one bone, two bones and many small bones sit level with your humerus, forearm and hand. */
   const hum=partsLike(/humerus/i),fa=partsLike(/radius|\bulna\b/i),hand=partsLike(/carpal|metacarp|finger|thumb|scaphoid|lunate|triquetr|pisiform|trapezi|capitate|hamate/i).filter(p=>p.sys==='skel');
   const g=[evGlow(hum,'#ffb83a'),evGlow(fa,'#2fd3c0'),evGlow(hand,'#b08cff')];
-  const x0=sh.x-(S?.31:.23),top=sh.y+.02,F=1.5,P=(dx,dy)=>new V3(x0+dx*F,top+dy*F,sh.z);
-  const rod=(a,b,r,c)=>{r*=F;const v=b.clone().sub(a),m=evAdd(new THREE.CylinderGeometry(r*.8,r,v.length(),10),evMat(c,{emissive:lin(c),emissiveIntensity:.35}),a.clone().addScaledVector(v,.5));m.quaternion.setFromUnitVectors(new V3(0,1,0),v.normalize());};
-  rod(P(0,0),P(0,-.11),.009,'#ffb83a');rod(P(-.009,-.116),P(-.015,-.2),.006,'#2fd3c0');rod(P(.009,-.116),P(.015,-.2),.0055,'#2fd3c0');
-  for(let i=0;i<6;i++){const a=-.55+i*.22,b=P(-.022+i*.009,-.206);rod(b,b.clone().add(new V3(Math.sin(a)*.035,-.032,0)),.0028,'#b08cff');}
-  evAdd(new THREE.CircleGeometry(.1*F,28,Math.PI*1.2,Math.PI*.6),evMat('#7fa7c8',{opacity:.25,side:THREE.DoubleSide,depthWrite:false}),P(0,-.17));
-  evLab('Fish fin (Tiktaalik)',P(0,.04),.012);evLab('1 bone',P(.03,-.055),.009,'#ffcf7a','r');evLab('2 bones',P(.03,-.16),.009,'#7ff0e0','r');evLab('many bones',P(.04,-.235),.009,'#d4bcff','r');
-  evLab('Your arm',new V3(...J.el).add(new V3(0,.03,.07)),.012);
-  evFit([P(-.09,.06),P(.06,-.3),new V3(...J.tip),sh.clone().add(new V3(.02,0,0))],-.15);
+  const s=sh.x<0?1:-1,R=sh.clone().add(new V3(-s*(S?.32:.27),0,0)),P=(a,b,z=0)=>new V3(R.x+s*a,R.y+b,R.z+z),off=R.clone().sub(sh),A=v=>v.clone().add(off);
+  const bone=evMat('#e6dcc6',{roughness:.62}),dark=evMat('#27303a',{roughness:.4}),fin=c=>evMat(c,{emissive:lin(c),emissiveIntensity:.35,roughness:.45});
+  const rod=(a,b,r,m,r2)=>{const v=b.clone().sub(a),L=v.length();if(L<1e-4)return;const o=evAdd(new THREE.CylinderGeometry(r2===undefined?r*.85:r2,r,L,8),m,a.clone().addScaledVector(v,.5));o.quaternion.setFromUnitVectors(new V3(0,1,0),v.normalize());return o;};
+  const ell=(p,rx,ry,rz,m,rot=0)=>{const o=evAdd(new THREE.SphereGeometry(1,20,14),m,p);o.scale.set(rx,ry,rz);o.rotation.z=rot*s;return o;};
+  const knob=(p,r,m)=>evAdd(new THREE.SphereGeometry(r,10,8),m,p);
+  // head: a flat, crocodile-like skull with eyes on top, a lower jaw and a bony gill cover behind
+  ell(P(.1,.052),.095,.026,.05,bone,-.06);ell(P(.1,.024),.088,.011,.042,bone,.05);ell(P(.03,.04),.03,.028,.045,bone);
+  for(const z of [-.022,.022])knob(P(.13,.07,z),.011,dark);
+  for(let i=0;i<9;i++){const a=.17-i*.016;rod(P(a,.034),P(a-.002,.027),.0016,bone,.0005);}   // a row of small teeth
+  // shoulder girdle behind the head, where the fin attaches
+  rod(P(.0,.085),P(-.012,.035),.006,bone);rod(P(-.012,.035),P(.006,-.004),.006,bone);
+  // backbone: vertebrae that get smaller toward the tail, with spines above and ribs below
+  const N=32,c=i=>P(-.01-i*.021,.06+.008*Math.sin(i*.2)-.0004*i);
+  for(let i=0;i<N;i++){const k=1-i/N*.7,p=c(i),q=c(i+.62);rod(p,q,.0105*k,bone,.0105*k);
+    rod(p,p.clone().add(new V3(-s*.008,.03*k,0)),.0018*k+.0006,bone,.0005);
+    if(i>0&&i<17)for(const z of [-.012,.012]){const m=p.clone().add(new V3(-s*.004,-.035*k,z*1.8)),e=p.clone().add(new V3(-s*.014,-.068*k*(1-i/22),z));rod(p,m,.0019,bone,.0017);rod(m,e,.0017,bone,.0007);}
+    else if(i>=19)rod(p,p.clone().add(new V3(-s*.008,-.024*k,0)),.0016,bone,.0005);}
+  // tail fin: rays fanning out from the last vertebrae, over a faint membrane
+  const Te=c(N-.4);for(let k=0;k<11;k++){const a=-.8+k*.16,L=.15-.04*Math.abs(a);rod(Te,Te.clone().add(new V3(-s*Math.cos(a)*L,Math.sin(a)*L,0)),.0016,bone,.0006);}
+  const memb=evMat('#8fb4d0',{opacity:.16,side:THREE.DoubleSide,depthWrite:false});
+  evAdd(new THREE.CircleGeometry(.145,24,(s>0?Math.PI:0)-.82,1.64),memb,Te);
+  for(let k=0;k<4;k++){const b=c(15);rod(b.clone().add(new V3(0,-.05,0)),b.clone().add(new V3(-s*(.02+k*.012),-.1+k*.008,0)),.0015,bone,.0005);}         // pelvic fin
+  // the front fin, turned down beside your arm: one bone, two bones, many small bones, then a fringe of fin rays
+  const H=fin('#ffb83a'),F=fin('#2fd3c0'),M=fin('#b08cff'),e1=A(el),w1=A(wr),t1=A(tp),dirA=t1.clone().sub(w1).normalize(),side=new V3(-dirA.y,dirA.x,0).multiplyScalar(s);
+  rod(R,e1,.013,H,.011);knob(R,.016,H);knob(e1,.014,H);
+  rod(e1.clone().addScaledVector(side,-.009),w1.clone().addScaledVector(side,-.014),.0085,F,.007);rod(e1.clone().addScaledVector(side,.009),w1.clone().addScaledVector(side,.014),.0075,F,.006);
+  const ends=[];for(let j=0;j<5;j++){const sp=(j-2)*.032,a=w1.clone().addScaledVector(side,sp*.6);let p=a;
+    for(let k=1;k<=3;k++){const q=w1.clone().addScaledVector(dirA,t1.distanceTo(w1)*k/3*(1-Math.abs(j-2)*.08)).addScaledVector(side,sp*(1+k*.45));rod(p,q,.006-k*.0011,M,.005-k*.0011);knob(q,.0058-k*.001,M);p=q;}ends.push(p);}
+  for(let j=0;j<13;j++){const u=j/12,base=w1.clone().lerp(t1,.15+.7*Math.sin(u*Math.PI)).addScaledVector(side,(u-.5)*.17),out=base.clone().sub(w1).normalize();rod(base,base.clone().addScaledVector(out,.07),.0012,bone,.0004);}
+  const lb=PHONE?.03:.024,o=-s*.05;EV.noLbl=true;LBL.dirty=true;
+  evLab('Tiktaalik, a lobe-finned fish',P(-.3,.17),lb*1.25);evLab('about 375 million years ago',P(-.3,.135),lb*.85,'#c9d3dc');
+  evLab('1 bone',R.clone().lerp(e1,.5).add(new V3(o,0,0)),lb,'#ffcf7a','l');evLab('2 bones',e1.clone().lerp(w1,.5).add(new V3(o,0,0)),lb,'#7ff0e0','l');
+  evLab('many bones',w1.clone().lerp(t1,.55).add(new V3(o-s*.04,0,0)),lb,'#d4bcff','l');
+  evLab('Your arm',el.clone().add(new V3(-s*.05,.04,.07)),lb*1.1,undefined,'l');
+  evFit([Te.clone().add(new V3(-s*.16,.12,0)),P(.2,.2),t1.clone().add(new V3(0,-.08,0)),tp,sh.clone().add(new V3(s*.06,.05,0))],-.12);
   fxCap('One bone, then two, then many small ones: the same plan in a fish fin and in your arm');
-  EV.tick=(dt,t)=>{const k=.32+.14*Math.sin(t*3);g.forEach(f=>f(k));};},
+  EV.tick=(dt,t)=>{const k=.32+.14*Math.sin(t*3);g.forEach(f=>f(k));for(const m of [H,F,M])m.emissiveIntensity=k*1.1;};},
  era1(){const E=new V3(...PATHS[st.sex].ear),jaw=E.clone().add(new V3(.012,-.014,.022)),mid=E.clone().add(new V3(.017,.002,-.002));
   const a=evAdd(new THREE.SphereGeometry(.0042,12,10),evXray('#ffcf4d')),b=evAdd(new THREE.SphereGeometry(.0036,12,10),evXray('#ff8f5a'));a.scale.set(1,1.7,1);b.scale.set(1.3,1,1);
   const lJ=evLab('Reptile: jaw joint bones',jaw.clone().add(new V3(-.03,-.022,.035)),.009,'#ffe08a'),lE=evLab('Mammal: hearing bones',mid.clone().add(new V3(-.03,.032,0)),.009,'#ffc08a');
@@ -3221,7 +3272,7 @@ function evoFx(key){if(key&&EV.key===key&&EV.sex===st.sex)return;
   if(EV.key){const u=EV.undo.reverse();EV.undo=[];for(const f of u)try{f();}catch(e){}
     for(const r of [EV.root,EV.world])if(r){r.traverse(m=>{if(m.geometry&&!m.userData.keep)m.geometry.dispose();if(m.material){if(m.material.map)m.material.map.dispose();m.material.dispose();}});r.parent&&r.parent.remove(r);}
     EV.root=EV.world=null;EV.tick=null;EV.ph=0;if(!FXS.on)$('fxCap').hidden=true;}
-  Object.assign(EV,{cam:null,stay:false,whole:false,noFollow:false,shape:null,fitP:null});
+  Object.assign(EV,{cam:null,stay:false,whole:false,noFollow:false,shape:null,fitP:null,noLbl:false});
   EV.key=key||null;EV.sex=st.sex;if(!key||!EVFX[key]){sectionBtn();return;}EV.root=new THREE.Group();bodyRoot.add(EV.root);EV.t=0;
   try{EVFX[key]();}catch(e){console.warn('evolution effect',key,e);}
   // a stop that reshapes the body shows all of it first, then (after about 3 seconds) goes to the part it is about
