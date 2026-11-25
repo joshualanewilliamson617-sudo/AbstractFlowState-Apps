@@ -146,3 +146,29 @@ Round 4, first-run tutorial (fd557b6)
 Unfinished / ideas
 - The Neanderthal skull is about 1 cm long compared with real data. This was offered to the owner, who hasn't answered yet.
 - The female "dura mater" pieces have no group.
+
+## 2026-11-25 Fifth request, 3 rounds (commits 789c21f, 640345e, f0b0f77)
+Same way of working: plan in plain words, one question at a time, test only what changed, push after each round.
+
+Round 1, tours (789c21f)
+- Tour readout: `tourLayout()` moves `#stour` into the stage as a side panel (class `side`, at 760px wide or more) or under the stage (class `below`, and `body.tourbelow` makes the stage 52svh). `sideNow()` + `VOFF.x` shift the camera left with `setViewOffset`, `fit()` uses the free width (`frx`), and `labelPass` keeps labels in `Wf`.
+- Spotlight: `tourSpot(list)` sets `st.spot`. In `apply()`, anything else fades to 0.07 and can't be picked. `tourSpotOff()` clears it in endPhase2/finishTour/closeSysTour. The owner chose "fade to a faint outline" and tours only; lessons keep their own card.
+- Curved arrow: `TARR` + `tArrowTick()` (svg.tarrow) runs from the panel to the centre of the parts, and follows the Evolution shapes through `morphPt`.
+- `setMenu(id)` stops a running tour or lesson (and its voice) when any menu opens.
+- Pack stops can name their own parts with `re:` (with the group as a fallback): Early mammals, Our line splits, Traces of the past, Duodenum and jejunum, Ileum, Talk to the brain (vagus).
+- The female body gets the male stomach, fitted into her (`FILL.dig`), because her source data has none.
+- Desktop text is bigger (in `@media (hover:hover) and (pointer:fine)`), and cards and labels grow on hover. The zoom buttons and their tutorial step are gone. Ctrl + wheel zooms, and + / - still work.
+
+Round 2, face and eyes (640345e)
+- Eye-muscle stops: `st.spotEye` (from `EYE_M_RE`) hides the modelled face sheets (`p.faceSheet`) completely.
+- Face muscles were checked against references. Buccinator fibres now run front to back, masseter slants down and back, and the occipitalis bellies stay apart at the midline. The rest of `FACE_M` was already right.
+- Eyes (`eyeMaterial`): a softer iris edge, a softer limbal ring and pupil edge, an upper-lid shadow and less clearcoat. Lips: male `Lip` is #b07a70 and matte (in `skinShell`), and the female lip mask fades more softly. The owner judges these at normal viewing distance, not close-up.
+
+Round 3, Evolution (f0b0f77)
+- Fish stop `EVFX.era0`: a full Tiktaalik skeleton lying level beside the body at shoulder height, with its front fin hanging parallel to the arm at the arm's length (the owner chose this). `EV.noLbl` turns name labels off for this stop.
+- Chimpanzee: `COAT` / `coatWanted()` / `coatTick()`. It's on for the picker's chimp or an Evolution stop with `EV.shape==='chimp'&&EV.whole`. The uniforms `uCoat`, `uCoatA` (wrist height, hand reach, ankle height) and `uCoatB` (eyes, neck, head centre) give the skin a dark matte coat with a bare face, hands and feet. `uBr` in `tqMorph` flattens her breasts (measured centre ±0.109, 1.206, base z 0.022). Eyes turn brown (`mat.userData.iris`). Hair, ponytail, hair tie, brows and pubic hair are hidden in `apply()`. The male genitals are only covered by the coat, not removed.
+- `.fxcap` centres beside the tour panel (`--voff`), and during phone tours (`body.tourbelow`) it sits at the bottom of the stage.
+
+Test notes
+- The phone test copy needs `const PHONE=true` and only the `if(matchMedia('(hover:hover) and (pointer:fine)')...` line removed. Removing the other `.mouse` line breaks the page.
+- A tour always plays the male body first, so to test the female body, call `evoFx('era0')` or `setSpecies` directly.
