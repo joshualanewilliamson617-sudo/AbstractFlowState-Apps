@@ -6,3 +6,7 @@ zips-backup/
 
 # Stray leftover file, not an app
 System.Drawing.Drawing2D.GraphicsPath
+
+# AirDraw: the hand model downloads itself on first run; settings are personal
+airdraw/hand_landmarker.task
+airdraw/airdraw_settings.json
