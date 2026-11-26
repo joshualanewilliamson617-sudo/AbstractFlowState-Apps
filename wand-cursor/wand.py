@@ -21,6 +21,15 @@ Your normal cursor always comes back:
 
 Why AirDraw still works: AirDraw moves the real Windows mouse, and this
 script only changes what the pointer LOOKS like, so the wand follows it.
+
+Wand on top in Paint (overlay): Windows lets this script swap only the
+standard Windows pointers. Over its canvas Paint shows its OWN pointer
+(brush outline, pencil, eraser square...), which no program can swap, so
+it covered the wand. So over Paint a see-through, click-through window
+draws the wand on top of everything and follows the mouse. It turns on only
+when the pointer is over Paint AND Windows isn't already showing the wand
+there, so you never see two wands. Clicks go straight through it to Paint.
+Turn it on/off in the tray menu ("Wand on top in Paint").
 """
 import atexit
 import ctypes
@@ -104,6 +113,78 @@ kernel32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
 kernel32.OpenProcess.restype = wt.HANDLE
 kernel32.WaitForSingleObject.argtypes = [wt.HANDLE, wt.DWORD]
 
+# --- for the overlay (handles are 64-bit, so every type is spelled out)
+gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+
+
+class CURSORINFO(ctypes.Structure):
+    _fields_ = [("cbSize", wt.DWORD), ("flags", wt.DWORD),
+                ("hCursor", wt.HANDLE), ("ptScreenPos", wt.POINT)]
+
+
+class BITMAPINFOHEADER(ctypes.Structure):
+    _fields_ = [("biSize", wt.DWORD), ("biWidth", wt.LONG),
+                ("biHeight", wt.LONG), ("biPlanes", wt.WORD),
+                ("biBitCount", wt.WORD), ("biCompression", wt.DWORD),
+                ("biSizeImage", wt.DWORD), ("biXPelsPerMeter", wt.LONG),
+                ("biYPelsPerMeter", wt.LONG), ("biClrUsed", wt.DWORD),
+                ("biClrImportant", wt.DWORD)]
+
+
+class BLENDFUNCTION(ctypes.Structure):
+    _fields_ = [("BlendOp", ctypes.c_ubyte), ("BlendFlags", ctypes.c_ubyte),
+                ("SourceConstantAlpha", ctypes.c_ubyte),
+                ("AlphaFormat", ctypes.c_ubyte)]
+
+
+user32.GetCursorInfo.argtypes = [ctypes.POINTER(CURSORINFO)]
+user32.GetCursorPos.argtypes = [ctypes.POINTER(wt.POINT)]
+user32.WindowFromPoint.argtypes = [wt.POINT]
+user32.WindowFromPoint.restype = wt.HWND
+user32.GetAncestor.argtypes = [wt.HWND, wt.UINT]
+user32.GetAncestor.restype = wt.HWND
+user32.GetWindowThreadProcessId.argtypes = [wt.HWND, ctypes.POINTER(wt.DWORD)]
+user32.LoadCursorW.argtypes = [wt.HINSTANCE, wt.LPVOID]
+user32.LoadCursorW.restype = wt.HANDLE
+user32.SetWindowPos.argtypes = [wt.HWND, wt.HWND, ctypes.c_int, ctypes.c_int,
+                                ctypes.c_int, ctypes.c_int, wt.UINT]
+user32.ShowWindow.argtypes = [wt.HWND, ctypes.c_int]
+user32.SetTimer.argtypes = [wt.HWND, ctypes.c_size_t, wt.UINT, wt.LPVOID]
+user32.SetTimer.restype = ctypes.c_size_t
+user32.KillTimer.argtypes = [wt.HWND, ctypes.c_size_t]
+user32.GetDC.argtypes = [wt.HWND]
+user32.GetDC.restype = wt.HDC
+user32.ReleaseDC.argtypes = [wt.HWND, wt.HDC]
+user32.UpdateLayeredWindow.argtypes = [
+    wt.HWND, wt.HDC, ctypes.POINTER(wt.POINT), ctypes.POINTER(wt.SIZE),
+    wt.HDC, ctypes.POINTER(wt.POINT), wt.DWORD,
+    ctypes.POINTER(BLENDFUNCTION), wt.DWORD]
+gdi32.CreateCompatibleDC.argtypes = [wt.HDC]
+gdi32.CreateCompatibleDC.restype = wt.HDC
+gdi32.CreateDIBSection.argtypes = [wt.HDC, ctypes.POINTER(BITMAPINFOHEADER),
+                                   wt.UINT, ctypes.POINTER(ctypes.c_void_p),
+                                   wt.HANDLE, wt.DWORD]
+gdi32.CreateDIBSection.restype = wt.HBITMAP
+gdi32.SelectObject.argtypes = [wt.HDC, wt.HGDIOBJ]
+gdi32.SelectObject.restype = wt.HGDIOBJ
+gdi32.DeleteObject.argtypes = [wt.HGDIOBJ]
+gdi32.DeleteDC.argtypes = [wt.HDC]
+kernel32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD,
+                                                wt.LPWSTR,
+                                                ctypes.POINTER(wt.DWORD)]
+kernel32.CloseHandle.argtypes = [wt.HANDLE]
+
+WS_POPUP = 0x80000000
+WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW = 0x8, 0x20, 0x80
+WS_EX_LAYERED, WS_EX_NOACTIVATE = 0x80000, 0x08000000
+HWND_TOPMOST = wt.HWND(-1)
+SWP_NOSIZE, SWP_NOACTIVATE, SWP_SHOWWINDOW = 0x1, 0x10, 0x40
+WM_TIMER = 0x113
+OVERLAY_TIMER, OVERLAY_MS = 7, 15        # check the pointer ~66 times a second
+GA_ROOT = 2
+CURSOR_SHOWING = 1
+DEFAULT_OVERLAY_APPS = ["mspaint.exe"]   # Windows 11 Paint (and classic Paint)
+
 IMAGE_CURSOR, IMAGE_ICON, LR_LOADFROMFILE = 2, 1, 0x10
 SPI_SETCURSORS = 0x57
 MOD_ALT, MOD_CONTROL, MOD_NOREPEAT = 0x1, 0x2, 0x4000
@@ -148,9 +229,156 @@ def apply_wand(n, scale):
             raise ctypes.WinError(ctypes.get_last_error())
 
 
+def make_dpi_aware():
+    """Real screen pixels, so the overlay wand sits exactly on the pointer
+    even with Windows scaling at 125% / 150%."""
+    try:
+        user32.SetProcessDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+        if user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+            return
+    except Exception:
+        pass
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------- overlay
+class WandOverlay:
+    """A see-through, click-through, always-on-top window showing the wand,
+    used only where an app (Paint) shows its own pointer over the wand."""
+
+    def __init__(self):
+        self.hwnd = None
+        self.size = (0, 0)
+        self.hot = (0, 0)          # where the tip is inside the overlay picture
+        self.shown = False
+        self.pos = None
+        self.ticks = 0
+        self.names = {}            # process id -> exe name
+        self.my_pid = os.getpid()
+        self.apps = set(DEFAULT_OVERLAY_APPS)
+        self.wand_handles = set()
+        self._proc = WNDPROC(lambda h, m, w, l:
+                             user32.DefWindowProcW(h, m, w, l))
+
+    def create(self, hinst):
+        wc = WNDCLASSW()
+        wc.lpfnWndProc = self._proc
+        wc.hInstance = hinst
+        wc.lpszClassName = "WandCursorOverlay"
+        user32.RegisterClassW(ctypes.byref(wc))
+        ex = (WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST |
+              WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)
+        self.hwnd = user32.CreateWindowExW(ex, wc.lpszClassName,
+                                           "Wand overlay", WS_POPUP,
+                                           0, 0, 1, 1, None, None, hinst,
+                                           None)
+        # The swapped Windows pointers keep their handles, so "is Windows
+        # showing the wand right now?" = "is the current pointer one of these?"
+        self.wand_handles = {user32.LoadCursorW(None, ctypes.c_void_p(cid))
+                             for cid in REPLACED_CURSORS}
+
+    def set_wand(self, n, scale):
+        """Draw wand n: a 1-pixel black line with a soft white edge, so it
+        shows on any colour (an overlay can't invert like the real cursor)."""
+        core = set(make_wands.wand_pixels(n, scale))
+        edge = {(x + dx, y + dy) for x, y in core
+                for dx in (-1, 0, 1) for dy in (-1, 0, 1)} - core
+        min_x = min(x for x, _ in edge)
+        min_y = min(y for _, y in edge)
+        w = max(x for x, _ in edge) - min_x + 1
+        h = max(y for _, y in edge) - min_y + 1
+        buf = bytearray(w * h * 4)           # BGRA, premultiplied, top row first
+        for x, y in edge:
+            i = ((y - min_y) * w + (x - min_x)) * 4
+            buf[i:i + 4] = b"\xc8\xc8\xc8\xc8"   # white at 78%
+        for x, y in core:
+            i = ((y - min_y) * w + (x - min_x)) * 4
+            buf[i:i + 4] = b"\x00\x00\x00\xff"   # solid black
+        self.size, self.hot = (w, h), (-min_x, -min_y)
+
+        bmi = BITMAPINFOHEADER(ctypes.sizeof(BITMAPINFOHEADER), w, -h, 1, 32,
+                               0, 0, 0, 0, 0, 0)
+        screen = user32.GetDC(None)
+        mem = gdi32.CreateCompatibleDC(screen)
+        bits = ctypes.c_void_p()
+        bmp = gdi32.CreateDIBSection(screen, ctypes.byref(bmi), 0,
+                                     ctypes.byref(bits), None, 0)
+        ctypes.memmove(bits, bytes(buf), len(buf))
+        old = gdi32.SelectObject(mem, bmp)
+        pt = wt.POINT(*(self.pos or (-10000, -10000)))
+        size = wt.SIZE(w, h)
+        src = wt.POINT(0, 0)
+        blend = BLENDFUNCTION(0, 0, 255, 1)  # use the picture's own alpha
+        user32.UpdateLayeredWindow(self.hwnd, screen, ctypes.byref(pt),
+                                   ctypes.byref(size), mem, ctypes.byref(src),
+                                   0, ctypes.byref(blend), 2)  # ULW_ALPHA
+        gdi32.SelectObject(mem, old)
+        gdi32.DeleteObject(bmp)
+        gdi32.DeleteDC(mem)
+        user32.ReleaseDC(None, screen)
+
+    def proc_name(self, pid):
+        if pid not in self.names:
+            if len(self.names) > 200:
+                self.names.clear()
+            name = ""
+            h = kernel32.OpenProcess(0x1000, False, pid)  # limited query
+            if h:
+                buf = ctypes.create_unicode_buffer(520)
+                n = wt.DWORD(520)
+                if kernel32.QueryFullProcessImageNameW(h, 0, buf,
+                                                       ctypes.byref(n)):
+                    name = os.path.basename(buf.value).lower()
+                kernel32.CloseHandle(h)
+            self.names[pid] = name
+        return self.names[pid]
+
+    def wanted(self, pt):
+        ci = CURSORINFO()
+        ci.cbSize = ctypes.sizeof(ci)
+        if user32.GetCursorInfo(ctypes.byref(ci)):
+            if (ci.flags & CURSOR_SHOWING) and ci.hCursor in self.wand_handles:
+                return False                 # Windows already shows the wand
+        root = user32.GetAncestor(user32.WindowFromPoint(pt), GA_ROOT)
+        if not root:
+            return False
+        pid = wt.DWORD()
+        user32.GetWindowThreadProcessId(root, ctypes.byref(pid))
+        if pid.value == self.my_pid:
+            return self.shown                # pointing at ourselves: no change
+        return self.proc_name(pid.value) in self.apps
+
+    def tick(self):
+        pt = wt.POINT()
+        if not user32.GetCursorPos(ctypes.byref(pt)):
+            return
+        if not self.wanted(pt):
+            self.hide()
+            return
+        self.ticks += 1
+        pos = (pt.x - self.hot[0], pt.y - self.hot[1])
+        # Move only when the pointer moved; re-assert "on top" every ~1 s.
+        if not self.shown or pos != self.pos or self.ticks % 64 == 0:
+            user32.SetWindowPos(self.hwnd, HWND_TOPMOST, pos[0], pos[1], 0, 0,
+                                SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)
+            self.pos, self.shown = pos, True
+
+    def hide(self):
+        if self.shown:
+            user32.ShowWindow(self.hwnd, 0)  # SW_HIDE
+            self.shown = False
+
+
 # ---------------------------------------------------------------- settings
 def load_settings():
-    s = {"wand": 1, "scale": 1.0}
+    s = {"wand": 1, "scale": 1.0, "overlay": True,
+         "overlay_apps": list(DEFAULT_OVERLAY_APPS)}
     try:
         with open(SETTINGS_FILE) as f:
             s.update(json.load(f))
@@ -158,6 +386,10 @@ def load_settings():
         pass
     s["wand"] = s["wand"] if s["wand"] in (0, 1, 2, 3, 4) else 1
     s["scale"] = make_wands.clamp_scale(float(s["scale"]))
+    s["overlay"] = bool(s["overlay"])
+    if not isinstance(s["overlay_apps"], list):
+        s["overlay_apps"] = list(DEFAULT_OVERLAY_APPS)
+    s["overlay_apps"] = [str(a).lower() for a in s["overlay_apps"]]
     return s
 
 
@@ -208,6 +440,8 @@ class WandApp:
         self.icon = None
         self.taskbar_created = user32.RegisterWindowMessageW("TaskbarCreated")
         self._wndproc = WNDPROC(self.wndproc)   # keep a reference alive
+        self.overlay = WandOverlay()
+        self.timer_on = False
 
     # ---- actions
     def do(self, cmd):
@@ -227,6 +461,8 @@ class WandApp:
         elif cmd == 14:
             user32.PostMessageW(self.hwnd, WM_CLOSE, 0, 0)
             return
+        elif cmd == 15:
+            s["overlay"] = not s["overlay"]
         else:
             return
         save_settings(s)
@@ -238,7 +474,28 @@ class WandApp:
             restore_normal_cursor()
         else:
             apply_wand(s["wand"], s["scale"])
+        self.apply_overlay()
         self.update_tray()
+
+    def apply_overlay(self):
+        """Overlay on = redraw it for the current wand and follow the
+        pointer. Off (or normal cursor) = hide it and stop checking."""
+        s = self.settings
+        ov = self.overlay
+        if ov.hwnd is None:
+            return
+        on = s["overlay"] and s["wand"] != 0
+        if on:
+            ov.apps = set(s["overlay_apps"])
+            ov.set_wand(s["wand"], s["scale"])
+            if not self.timer_on:
+                user32.SetTimer(self.hwnd, OVERLAY_TIMER, OVERLAY_MS, None)
+                self.timer_on = True
+        else:
+            if self.timer_on:
+                user32.KillTimer(self.hwnd, OVERLAY_TIMER)
+                self.timer_on = False
+            ov.hide()
 
     def status_text(self):
         s = self.settings
@@ -299,6 +556,8 @@ class WandApp:
         item(13, "Exact drawing length (1.0x)\tCtrl+Alt+Backspace",
              s["scale"] == 1.0)
         user32.AppendMenuW(m, MF_SEPARATOR, 0, None)
+        item(15, "Wand on top in Paint (overlay)", s["overlay"])
+        user32.AppendMenuW(m, MF_SEPARATOR, 0, None)
         item(14, "Quit (normal cursor back)\tCtrl+Alt+Q")
 
         pt = wt.POINT()
@@ -314,6 +573,15 @@ class WandApp:
     # ---- window messages
     def wndproc(self, hwnd, msg, wparam, lparam):
         try:
+            if msg == WM_TIMER and wparam == OVERLAY_TIMER:
+                try:
+                    self.overlay.tick()
+                except Exception:            # overlay trouble: switch it off, keep the wand
+                    log_error("Overlay stopped:\n" + traceback.format_exc())
+                    user32.KillTimer(self.hwnd, OVERLAY_TIMER)
+                    self.timer_on = False
+                    self.overlay.hide()
+                return 0
             if msg == WM_HOTKEY:
                 self.do(int(wparam))
                 return 0
@@ -355,6 +623,11 @@ class WandApp:
         self.icon = user32.LoadImageW(None, ico_path, IMAGE_ICON, 0, 0,
                                       LR_LOADFROMFILE | 0x40)  # LR_DEFAULTSIZE
         self.add_tray()
+        try:
+            self.overlay.create(hinst)
+        except Exception:                    # the wand cursor still works without it
+            self.overlay.hwnd = None
+            log_error("Overlay could not start:\n" + traceback.format_exc())
 
         failed = []
         for hk_id, (vk, label) in HOTKEYS.items():
@@ -397,6 +670,7 @@ def main():
                            "the wand icon by the clock.", "Wand cursor", 0x40)
         return
 
+    make_dpi_aware()
     atexit.register(restore_normal_cursor)
     start_watchdog()
     try:

@@ -51,6 +51,20 @@ the canvas Paint uses the normal Windows pointer, so the wand shows there.
 **Overlay mode was not needed, so it wasn't built.** Paint may still draw its
 own brush-size circle on top of the canvas — that's Paint, not the cursor.
 
+## Overlay added (2026-11-26)
+In real use Paint's own canvas pointer (brush outline / pencil / eraser)
+covered the wand. Those are Paint's private pointers, and Windows only lets
+us swap the standard ones, so `SetSystemCursor` can't reach them. Fix: over
+`mspaint.exe`, a see-through, click-through, always-on-top window draws the
+wand (black 1-px line with a soft white edge — an overlay can't invert
+colours) and follows the pointer ~66×/s. It shows only when Windows is *not*
+already showing the wand there, so there's never a double wand. Tray menu →
+"Wand on top in Paint (overlay)" turns it on/off. `wand_settings.json` keys:
+`overlay` (true/false) and `overlay_apps` (exe names, default
+`["mspaint.exe"]`; add others that hide the wand the same way). If the
+overlay ever fails, it switches itself off, writes `wand_error.log`, and the
+normal wand cursor keeps working. wand.py is now DPI-aware too.
+
 ## Files
 - `make_wands.py` — builds the `.cur` files. `python make_wands.py 1.2` builds
   all 4 at 1.2×. `--from-blueprint "path.png"` re-copies the pixels if you
