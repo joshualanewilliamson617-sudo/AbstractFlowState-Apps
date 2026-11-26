@@ -7,6 +7,7 @@ clock). Right-click the icon for a menu.
 Hotkeys (they work in every window, including Paint and while AirDraw runs):
   Ctrl+Alt+1 .. 4      pick wand 1-4
   Ctrl+Alt+0           your normal cursor
+  Ctrl+Alt+W           wand on / off (back to the last wand you used)
   Ctrl+Alt+Up / Down   longer / shorter wand (0.1x steps, 0.5x - 1.49x)
   Ctrl+Alt+Backspace   back to your exact drawing (1.0x)
   Ctrl+Alt+Q           quit (normal cursor comes back)
@@ -24,11 +25,17 @@ script only changes what the pointer LOOKS like, so the wand follows it.
 
 Wand on top in Paint (overlay): Windows lets this script swap only the
 standard Windows pointers. Over its canvas Paint shows its OWN pointer
-(brush outline, pencil, eraser square...), which no program can swap, so
-it covered the wand. So over Paint a see-through, click-through window
-draws the wand on top of everything and follows the mouse. It turns on only
-when the pointer is over Paint AND Windows isn't already showing the wand
-there, so you never see two wands. Clicks go straight through it to Paint.
+(brush outline, pencil, eraser square...), which no program can swap. So
+over Paint:
+  * a see-through, click-through, always-on-top window draws the wand, with
+    its tip exactly on the mouse's click point;
+  * it moves on every single mouse movement (a mouse hook), not on a timer,
+    so it never trails behind;
+  * Windows' own pointer - and with it Paint's brush pointer - is hidden
+    (the same switch screen magnifiers use), so only ONE pointer shows.
+Leave Paint and the overlay goes away and the normal (wand) pointer is back.
+It decides by "is the pointer over Paint?" only, so it doesn't blink on and
+off at the canvas edge. Clicks go straight through it to Paint.
 Turn it on/off in the tray menu ("Wand on top in Paint").
 """
 import atexit
@@ -174,13 +181,29 @@ kernel32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD,
                                                 ctypes.POINTER(wt.DWORD)]
 kernel32.CloseHandle.argtypes = [wt.HANDLE]
 
+
+class MSLLHOOKSTRUCT(ctypes.Structure):
+    _fields_ = [("pt", wt.POINT), ("mouseData", wt.DWORD), ("flags", wt.DWORD),
+                ("time", wt.DWORD), ("dwExtraInfo", ctypes.c_size_t)]
+
+
+HOOKPROC = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, wt.WPARAM, wt.LPARAM)
+user32.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC, wt.HINSTANCE, wt.DWORD]
+user32.SetWindowsHookExW.restype = ctypes.c_void_p
+user32.CallNextHookEx.argtypes = [ctypes.c_void_p, ctypes.c_int, wt.WPARAM, wt.LPARAM]
+user32.CallNextHookEx.restype = LRESULT
+user32.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
+WH_MOUSE_LL, WM_MOUSEMOVE = 14, 0x200
+
 WS_POPUP = 0x80000000
 WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW = 0x8, 0x20, 0x80
 WS_EX_LAYERED, WS_EX_NOACTIVATE = 0x80000, 0x08000000
 HWND_TOPMOST = wt.HWND(-1)
-SWP_NOSIZE, SWP_NOACTIVATE, SWP_SHOWWINDOW = 0x1, 0x10, 0x40
+SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_SHOWWINDOW = 0x1, 0x4, 0x10, 0x40
 WM_TIMER = 0x113
-OVERLAY_TIMER, OVERLAY_MS = 7, 15        # check the pointer ~66 times a second
+# The mouse hook moves the overlay on every mouse movement. This slow timer
+# only catches changes without movement (Paint closed, a window popped up).
+OVERLAY_TIMER, OVERLAY_MS = 7, 100
 GA_ROOT = 2
 CURSOR_SHOWING = 1
 DEFAULT_OVERLAY_APPS = ["mspaint.exe"]   # Windows 11 Paint (and classic Paint)
@@ -209,9 +232,31 @@ REPLACED_CURSORS = {
 
 
 # ---------------------------------------------------------------- cursors
+_mag = None      # the Magnification library: None = not loaded yet, False = can't be used
+
+
+def system_pointer(show):
+    """Show or hide Windows' own pointer everywhere - including the private
+    pointers apps like Paint draw - with the switch screen magnifiers use.
+    True if it worked."""
+    global _mag
+    try:
+        if _mag is None:
+            _mag = ctypes.WinDLL("Magnification")
+            if not _mag.MagInitialize():
+                _mag = False
+        if _mag:
+            return bool(_mag.MagShowSystemCursor(bool(show)))
+    except Exception:
+        _mag = False
+    return False
+
+
 def restore_normal_cursor():
-    """Reload your own cursor scheme from Windows settings."""
+    """Reload your own cursor scheme from Windows settings, and make sure the
+    pointer isn't hidden."""
     user32.SystemParametersInfoW(SPI_SETCURSORS, 0, None, 0)
+    system_pointer(True)
 
 
 def apply_wand(n, scale):
@@ -250,7 +295,8 @@ def make_dpi_aware():
 # ---------------------------------------------------------------- overlay
 class WandOverlay:
     """A see-through, click-through, always-on-top window showing the wand,
-    used only where an app (Paint) shows its own pointer over the wand."""
+    used only where an app (Paint) shows its own pointer over the wand.
+    While it shows, Windows' pointer is hidden, so there is only one."""
 
     def __init__(self):
         self.hwnd = None
@@ -263,6 +309,7 @@ class WandOverlay:
         self.my_pid = os.getpid()
         self.apps = set(DEFAULT_OVERLAY_APPS)
         self.wand_handles = set()
+        self.hid_pointer = False   # we hid Windows' pointer
         self._proc = WNDPROC(lambda h, m, w, l:
                              user32.DefWindowProcW(h, m, w, l))
 
@@ -340,11 +387,9 @@ class WandOverlay:
         return self.names[pid]
 
     def wanted(self, pt):
-        ci = CURSORINFO()
-        ci.cbSize = ctypes.sizeof(ci)
-        if user32.GetCursorInfo(ctypes.byref(ci)):
-            if (ci.flags & CURSOR_SHOWING) and ci.hCursor in self.wand_handles:
-                return False                 # Windows already shows the wand
+        """Is the pointer over one of the overlay apps (Paint)? Only that -
+        not which pointer Windows shows - so it can't blink at the canvas
+        edge where Paint switches between its pointer and the normal one."""
         root = user32.GetAncestor(user32.WindowFromPoint(pt), GA_ROOT)
         if not root:
             return False
@@ -354,22 +399,37 @@ class WandOverlay:
             return self.shown                # pointing at ourselves: no change
         return self.proc_name(pid.value) in self.apps
 
-    def tick(self):
-        pt = wt.POINT()
-        if not user32.GetCursorPos(ctypes.byref(pt)):
-            return
+    def follow(self, x, y):
+        """The pointer is at (x, y): put the wand's tip exactly there, or
+        hide the overlay if the pointer isn't over Paint. Called by the mouse
+        hook on every movement, so it keeps up with the real pointer."""
+        pt = wt.POINT(x, y)
         if not self.wanted(pt):
             self.hide()
             return
         self.ticks += 1
-        pos = (pt.x - self.hot[0], pt.y - self.hot[1])
-        # Move only when the pointer moved; re-assert "on top" every ~1 s.
-        if not self.shown or pos != self.pos or self.ticks % 64 == 0:
+        # the tip pixel sits at self.hot inside the picture
+        pos = (x - self.hot[0], y - self.hot[1])
+        if not self.shown or self.ticks % 200 == 0:
+            # show it / re-assert "always on top" now and then
             user32.SetWindowPos(self.hwnd, HWND_TOPMOST, pos[0], pos[1], 0, 0,
                                 SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)
-            self.pos, self.shown = pos, True
+        elif pos != self.pos:
+            user32.SetWindowPos(self.hwnd, None, pos[0], pos[1], 0, 0,
+                                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
+        self.pos, self.shown = pos, True
+        if not self.hid_pointer:
+            self.hid_pointer = system_pointer(False)   # only the wand shows now
+
+    def tick(self):
+        pt = wt.POINT()
+        if user32.GetCursorPos(ctypes.byref(pt)):
+            self.follow(pt.x, pt.y)
 
     def hide(self):
+        if self.hid_pointer:
+            system_pointer(True)         # Windows' pointer is back
+            self.hid_pointer = False
         if self.shown:
             user32.ShowWindow(self.hwnd, 0)  # SW_HIDE
             self.shown = False
@@ -377,7 +437,7 @@ class WandOverlay:
 
 # ---------------------------------------------------------------- settings
 def load_settings():
-    s = {"wand": 1, "scale": 1.0, "overlay": True,
+    s = {"wand": 1, "scale": 1.0, "overlay": True, "last_wand": 1,
          "overlay_apps": list(DEFAULT_OVERLAY_APPS)}
     try:
         with open(SETTINGS_FILE) as f:
@@ -385,6 +445,7 @@ def load_settings():
     except (OSError, ValueError):
         pass
     s["wand"] = s["wand"] if s["wand"] in (0, 1, 2, 3, 4) else 1
+    s["last_wand"] = s["last_wand"] if s["last_wand"] in (1, 2, 3, 4) else 1
     s["scale"] = make_wands.clamp_scale(float(s["scale"]))
     s["overlay"] = bool(s["overlay"])
     if not isinstance(s["overlay_apps"], list):
@@ -429,6 +490,7 @@ HOTKEYS = {  # id: (virtual key, label)
     11: (0x26, "Ctrl+Alt+Up"), 12: (0x28, "Ctrl+Alt+Down"),
     13: (0x08, "Ctrl+Alt+Backspace"),
     14: (0x51, "Ctrl+Alt+Q"),
+    16: (0x57, "Ctrl+Alt+W"),
 }
 # tray-menu command ids reuse the hotkey ids so both do the same thing
 
@@ -442,12 +504,22 @@ class WandApp:
         self._wndproc = WNDPROC(self.wndproc)   # keep a reference alive
         self.overlay = WandOverlay()
         self.timer_on = False
+        self.hook = None
+        self._hookproc = HOOKPROC(self.mouse_hook)   # keep a reference alive
+        self.hook_errors = 0
 
     # ---- actions
     def do(self, cmd):
         s = self.settings
         if cmd in (1, 2, 3, 4):
             s["wand"] = cmd
+            s["last_wand"] = cmd
+        elif cmd == 16:   # wand on / off
+            if s["wand"]:
+                s["last_wand"] = s["wand"]   # remembered for switching back on
+                s["wand"] = 0
+            else:
+                s["wand"] = s["last_wand"]
         elif cmd == 10:
             s["wand"] = 0
         elif cmd == 11:   # next 0.1 step up (1.4 -> 1.49 at the top)
@@ -491,11 +563,37 @@ class WandApp:
             if not self.timer_on:
                 user32.SetTimer(self.hwnd, OVERLAY_TIMER, OVERLAY_MS, None)
                 self.timer_on = True
+            if not self.hook:
+                self.hook = user32.SetWindowsHookExW(
+                    WH_MOUSE_LL, self._hookproc, kernel32.GetModuleHandleW(None), 0)
+                if not self.hook:
+                    log_error("Mouse hook could not start; the overlay follows the timer only.")
+            ov.tick()
         else:
-            if self.timer_on:
-                user32.KillTimer(self.hwnd, OVERLAY_TIMER)
-                self.timer_on = False
-            ov.hide()
+            self.stop_overlay()
+
+    def stop_overlay(self):
+        if self.timer_on:
+            user32.KillTimer(self.hwnd, OVERLAY_TIMER)
+            self.timer_on = False
+        if self.hook:
+            user32.UnhookWindowsHookEx(self.hook)
+            self.hook = None
+        self.overlay.hide()                  # also brings Windows' pointer back
+
+    def mouse_hook(self, code, wparam, lparam):
+        """Windows calls this on every mouse event, before the pointer
+        moves: move the wand to where the pointer is going, so it never
+        trails behind. Must be quick - it never blocks the mouse."""
+        if code == 0 and wparam == WM_MOUSEMOVE:
+            try:
+                info = ctypes.cast(lparam, ctypes.POINTER(MSLLHOOKSTRUCT)).contents
+                self.overlay.follow(info.pt.x, info.pt.y)
+            except Exception:
+                self.hook_errors += 1
+                if self.hook_errors == 1:
+                    log_error("Overlay mouse hook:\n" + traceback.format_exc())
+        return user32.CallNextHookEx(None, code, wparam, lparam)
 
     def status_text(self):
         s = self.settings
@@ -550,6 +648,7 @@ class WandApp:
         for n in (1, 2, 3, 4):
             item(n, f"{names[n]}\tCtrl+Alt+{n}", s["wand"] == n)
         item(10, "Normal cursor\tCtrl+Alt+0", s["wand"] == 0)
+        item(16, "Wand on / off\tCtrl+Alt+W")
         user32.AppendMenuW(m, MF_SEPARATOR, 0, None)
         item(11, "Longer\tCtrl+Alt+Up", grayed=s["scale"] >= make_wands.MAX_SCALE)
         item(12, "Shorter\tCtrl+Alt+Down", grayed=s["scale"] <= make_wands.MIN_SCALE)
@@ -578,9 +677,7 @@ class WandApp:
                     self.overlay.tick()
                 except Exception:            # overlay trouble: switch it off, keep the wand
                     log_error("Overlay stopped:\n" + traceback.format_exc())
-                    user32.KillTimer(self.hwnd, OVERLAY_TIMER)
-                    self.timer_on = False
-                    self.overlay.hide()
+                    self.stop_overlay()
                 return 0
             if msg == WM_HOTKEY:
                 self.do(int(wparam))
@@ -648,6 +745,7 @@ class WandApp:
             user32.TranslateMessage(ctypes.byref(msg))
             user32.DispatchMessageW(ctypes.byref(msg))
 
+        self.stop_overlay()                  # unhook, Windows' pointer back
         for hk_id in HOTKEYS:
             user32.UnregisterHotKey(self.hwnd, hk_id)
         self.remove_tray()

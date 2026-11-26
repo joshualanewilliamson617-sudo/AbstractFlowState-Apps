@@ -17,6 +17,7 @@ with it (AirDraw moves the real mouse; this only changes how it looks).
 |---|---|
 | Ctrl+Alt+1 / 2 / 3 / 4 | wand 1 / 2 / 3 / 4 |
 | Ctrl+Alt+0 | normal cursor (script keeps running) |
+| Ctrl+Alt+W | wand on / off (comes back as the last wand you used) |
 | Ctrl+Alt+Up / Down | longer / shorter, 0.1× steps, 0.5×–1.49× |
 | Ctrl+Alt+Backspace | back to your exact drawing (1.0×) |
 | Ctrl+Alt+Q | quit |
@@ -64,6 +65,27 @@ already showing the wand there, so there's never a double wand. Tray menu →
 `["mspaint.exe"]`; add others that hide the wand the same way). If the
 overlay ever fails, it switches itself off, writes `wand_error.log`, and the
 normal wand cursor keeps working. wand.py is now DPI-aware too.
+
+## Flicker / double cursor fixed (2026-11-26)
+Over Paint's canvas you saw two pointers fighting: Paint's own brush/pencil
+pointer sat exactly on the mouse while the overlay wand chased it on a 15 ms
+timer, always a step behind. And the overlay switched on only where Windows
+*wasn't* showing the wand, so at the canvas edge (where Paint flips between
+its pointer and the normal one) it blinked on and off.
+Now:
+- **No lag:** a mouse hook moves the overlay on every single mouse movement
+  (AirDraw's too), to where the pointer is going. Tested: after each move the
+  wand tip and the pointer were on the same pixel.
+- **One pointer:** while the overlay shows, Windows' own pointer is hidden
+  with the switch screen magnifiers use (`MagShowSystemCursor`), and that
+  hides Paint's private pointers too. Leaving Paint, turning the overlay or
+  wand off, quitting, the watchdog and `restore-cursor.bat` all show it again.
+- **No blinking:** the overlay is on exactly when the pointer is over Paint.
+- **Tip on the hotspot:** checked for all 4 wands at 1.0x and 1.3x - the tip
+  pixel lands exactly on the mouse point.
+- **Ctrl+Alt+W** toggles the wand (also in the tray menu).
+- Still Paint's: if Paint draws a brush-size circle *on the canvas itself*,
+  that's part of the picture, not a pointer, so it can't be hidden.
 
 ## Files
 - `make_wands.py` — builds the `.cur` files. `python make_wands.py 1.2` builds
