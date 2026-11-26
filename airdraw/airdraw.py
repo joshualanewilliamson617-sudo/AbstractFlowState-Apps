@@ -9,13 +9,23 @@ AirDraw - draw in MS Paint with your hand.
     Closed FIST             clutch: the cursor freezes, so you can move your
                             hand back to a comfy spot. OPEN hand (all four
                             fingers up) carries on from where the cursor stopped.
-    Hold SPACE              mouse button DOWN at the AirDraw cursor, for as
-                            long as you hold it - move your hand to drag and
-                            draw. Let go = mouse button UP. Works in any window
-                            while armed (Paint doesn't also get the space).
-                            While it's held the cursor moves in short strokes
-                            (Stroke px per small hand move), so lines stay
-                            small and exact.
+    Hold SPACE              in DRAW mode: mouse button DOWN at the AirDraw
+                            cursor, for as long as you hold it - move your
+                            hand to draw. Let go = mouse button UP. While it's
+                            held the cursor moves in short strokes (Stroke px
+                            per small hand move), and with Axis lock on the
+                            line snaps to flat or upright once it has moved
+                            "Lock threshold px".
+                            In CLICK mode: one normal click.
+                            Works in any window while armed (Paint doesn't
+                            also get the space).
+    Draw / click mode       over Paint it follows Paint's tool by itself:
+                            Pencil or any Brush = DRAW, everything else
+                            (shapes, select, text, fill...) = CLICK. Anywhere
+                            else, or if Paint's tool can't be read, the
+                            "Draw mode" setting decides - D toggles it.
+    D                       Draw mode on / off (the fallback when Paint's tool
+                            can't be read)
     P                       pause / carry on
     ESC or Q                quit (closing the window also quits)
 
@@ -34,11 +44,13 @@ it may go past the camera picture's edge). Your settings are saved to
 airdraw_settings.json next to this file and loaded next time.
 
 Only the chosen hand moves the cursor; the other hand is ignored.
-The cursor never goes onto the taskbar.
+The cursor never goes onto the taskbar. Only one AirDraw can run at a time.
+Depth steady: moving your hand toward or away from the camera doesn't move
+the cursor (normally things drift outward as they come closer to a camera).
 Precision mode: the cursor follows how far your hand moves, scaled down, so
 small hand moves give small, exact cursor moves.
 
-REQUIRES:  py -m pip install opencv-python mediapipe pynput pillow
+REQUIRES:  py -m pip install opencv-python mediapipe pynput pillow pywinauto
 RUN:       python airdraw.py
 """
 
@@ -130,6 +142,8 @@ FOLD_GAP = 0.15        # a finger counts as folded this far below "Finger straig
 SMALL_MOVE = 0.10      # a "small hand move" = 10% of your hand size, about 1 cm
 MIN_DOWN_S = 0.04      # mouse button stays down at least this long, so Paint sees the click
 CLUTCH_S = 0.12        # a fist (or an open hand) must last this long to switch the clutch
+DEPTH_REF_S = 20.0     # depth steady: your usual hand size is averaged over this long
+PAINT_POLL_S = 0.2     # how often Paint's selected tool is read
 
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
              "hand_landmarker/float16/1/hand_landmarker.task")
@@ -156,6 +170,10 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "prec_pct": 44,          # precision speed, % of normal
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
+    "draw_mode": True,       # SPACE holds the button (draw) - used when Paint's tool can't be read
+    "axis_lock": True,       # while drawing, snap the line to flat or upright
+    "lock_px": 8,            # ...once it has moved this many px
+    "depth_steady": True,    # hand toward / away from the camera doesn't move the cursor
     "camera": -1,           # camera number 0-9. -1 = not chosen yet: pick Camo automatically
 }
 
@@ -190,6 +208,7 @@ def fix_settings():
     S["up_ratio"] = clamp(float(S["up_ratio"]), 1.0, 1.5)
     S["prec_pct"] = int(clamp(int(S["prec_pct"]), 5, 100))
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
+    S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
 
 
@@ -353,6 +372,24 @@ def cleanup():
 
 atexit.register(cleanup)
 
+# ------------------------------------------------------ one AirDraw only ---
+# A named lock that Windows frees by itself when AirDraw ends (even if it
+# crashes). A second copy finds it taken and stops before touching the camera
+# or the mouse - two copies would both move the cursor.
+
+_instance_lock = None
+
+
+def only_one_airdraw():
+    global _instance_lock
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateMutexW.restype = wintypes.HANDLE
+    _instance_lock = k32.CreateMutexW(None, False, "Local\\AirDraw-one-copy-only")
+    if ctypes.get_last_error() == 183:                  # ERROR_ALREADY_EXISTS
+        sys.exit("AirDraw is already running - this second copy won't start.\n"
+                 "(Use the window that's already open, or close it first.)")
+
+
 # -------------------------------------------------------------- hotkey ------
 
 
@@ -390,7 +427,9 @@ def start_hotkey():
 # so the hook stays fast (Windows drops hooks that dawdle).
 
 SPACE = {"down": False,      # AirDraw is holding the button for SPACE
-         "paused": False}    # mirrors P (pause), set by the frame loop
+         "click": False,     # ...this press was a CLICK-mode single click
+         "paused": False,    # mirrors P (pause), set by the frame loop
+         "d_down": False}    # D is held (so its key-repeat doesn't keep toggling)
 _space_q = queue.Queue()
 
 
@@ -402,6 +441,9 @@ def _space_worker():
                 press()
             elif want == "up" and _held:
                 release()
+            elif want == "click" and not _held:
+                press()
+                release()            # waits MIN_DOWN_S, so Paint sees the click
         except Exception as e:
             print(f"(space click: {e})")
 
@@ -414,28 +456,137 @@ def space_event(down):
         if not S["armed"] or SPACE["paused"]:
             return False
         SPACE["down"] = True
-        _space_q.put("down")
+        SPACE["click"] = not draw_mode_now()
+        _space_q.put("click" if SPACE["click"] else "down")
         return True
     if not SPACE["down"]:
         return False
     SPACE["down"] = False          # let go: always lets the button up, even if disarmed meanwhile
-    _space_q.put("up")
+    if not SPACE["click"]:
+        _space_q.put("up")
     return True
+
+
+def d_event(down):
+    """D went down / up. While armed it toggles Draw mode (and Paint doesn't
+    get the D). True = AirDraw used it."""
+    if not down:
+        was, SPACE["d_down"] = SPACE["d_down"], False
+        return was
+    if SPACE["d_down"]:
+        return True                # key repeat
+    if not S["armed"] or SPACE["paused"]:
+        return False
+    if user32.GetAsyncKeyState(0x11) & 0x8000 or user32.GetAsyncKeyState(0x12) & 0x8000:
+        return False               # Ctrl+D / Alt+D belong to the app in front
+    SPACE["d_down"] = True
+    toggle_draw_mode()
+    return True
+
+
+def toggle_draw_mode():
+    S["draw_mode"] = not S["draw_mode"]
+    changed()
+    print(f"Draw mode {'ON' if S['draw_mode'] else 'off'}")
+
+
+# ---------------------------------------------------- Paint's selected tool ---
+# A helper thread asks Windows UI Automation which tool Paint has selected,
+# 5 times a second, but only while the cursor is over Paint. Paint names its
+# canvas after the tool: "Using Pencil tool on Canvas", "Using Brush tool on
+# Canvas", "Using Text tool on Canvas"... Pencil or any brush = DRAW mode;
+# any other tool = CLICK mode. Not over Paint, or the name can't be read =
+# the "Draw mode" setting decides.
+
+DRAW_WORDS = ("pencil", "brush", "crayon", "marker")   # brush covers airbrush, oil, watercolor...
+PAINT = {"over": False,      # the cursor is over a Paint window
+         "tool": None,       # e.g. "Pencil", or None if it couldn't be read
+         "draw": None}       # True / False from the tool, None = unknown
+
+
+def draw_mode_now():
+    """DRAW (True) or CLICK (False) for a SPACE press right now."""
+    if PAINT["over"] and PAINT["draw"] is not None:
+        return PAINT["draw"]
+    return S["draw_mode"]
+
+
+def mode_words():
+    if PAINT["over"] and PAINT["draw"] is not None:
+        return (f"{'DRAW' if PAINT['draw'] else 'CLICK'} - Paint's tool is {PAINT['tool']}")
+    why = "Paint's tool can't be read" if PAINT["over"] else "not over Paint"
+    return f"{'DRAW' if S['draw_mode'] else 'CLICK'} - Draw mode {'on' if S['draw_mode'] else 'off'} (D), {why}"
+
+
+def _paint_watch():
+    try:
+        # imported here, in this thread: it sets up Windows' COM for this
+        # thread only, away from the camera and the window
+        from pywinauto.uia_defines import IUIA
+    except Exception as e:
+        print(f"(Can't read Paint's tool - {e}. Draw mode (D) decides.)")
+        return
+    ia = IUIA()
+    cond = ia.iuia.CreatePropertyCondition(ia.UIA_dll.UIA_AutomationIdPropertyId, "image")
+    names = {}                                   # process id -> exe name
+    canvas = {}                                  # Paint window -> its canvas element
+    k32 = ctypes.windll.kernel32
+    while True:
+        time.sleep(PAINT_POLL_S)
+        try:
+            pt = wintypes.POINT()
+            user32.GetCursorPos(ctypes.byref(pt))
+            root = user32.GetAncestor(user32.WindowFromPoint(pt), 2)     # GA_ROOT
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(root, ctypes.byref(pid))
+            if pid.value not in names:
+                name = ""
+                h = k32.OpenProcess(0x1000, False, pid.value)          # query limited
+                if h:
+                    buf = ctypes.create_unicode_buffer(512)
+                    size = wintypes.DWORD(512)
+                    if k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                        name = os.path.basename(buf.value).lower()
+                    k32.CloseHandle(h)
+                names[pid.value] = name
+            if names[pid.value] != "mspaint.exe":
+                PAINT.update(over=False, tool=None, draw=None)
+                continue
+            el = canvas.get(root)
+            text = None
+            if el is not None:
+                try:
+                    text = el.CurrentName
+                except Exception:
+                    el = None
+            if el is None:                       # first time, or Paint rebuilt it
+                el = ia.iuia.ElementFromHandle(root).FindFirst(ia.tree_scope["descendants"], cond)
+                canvas[root] = el
+                text = el.CurrentName if el else None
+            tool = None
+            if text and text.startswith("Using ") and " tool" in text:
+                tool = text[len("Using "):text.index(" tool")]
+            PAINT.update(over=True, tool=tool,
+                         draw=None if tool is None else any(w in tool.lower() for w in DRAW_WORDS))
+        except Exception:
+            PAINT.update(tool=None, draw=None)   # unreadable this time: Draw mode decides
 
 
 def start_space_click():
     """Start the any-window SPACE hook. None if pynput isn't there (then
     SPACE only works while the AirDraw window is in front)."""
     threading.Thread(target=_space_worker, name="space-click", daemon=True).start()
+    threading.Thread(target=_paint_watch, name="paint-tool", daemon=True).start()
     if _kb is None:
         return None
     holder = {}
 
     def filt(msg, data):
-        if data.vkCode != 0x20 or data.flags & 0x10:     # not SPACE, or a made-up key
+        if data.vkCode not in (0x20, 0x44) or data.flags & 0x10:   # not SPACE / D, or a made-up key
             return True
         down = msg in (0x0100, 0x0104)                   # WM_KEYDOWN, WM_SYSKEYDOWN
-        if space_event(down):
+        used = space_event(down) if data.vkCode == 0x20 else d_event(down)
+        if used:
             holder["l"].suppress_event()                 # Paint doesn't get it
         return True
 
@@ -710,6 +861,10 @@ SLIDERS = [
     ("Precision speed %", 5, 100, lambda: int(S["prec_pct"]),                 lambda v: _set("prec_pct", int(v))),
     ("Stroke px (0 off)", 0,  40, lambda: int(S["stroke_px"]),                lambda v: _set("stroke_px", int(v))),
     ("Clutch (fist)",     0,   1, lambda: int(S["clutch"]),                   lambda v: _set("clutch", bool(v))),
+    ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
+    ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
+    ("Lock threshold px", 2,  40, lambda: int(S["lock_px"]),                  lambda v: _set("lock_px", int(v))),
+    ("Depth steady",      0,   1, lambda: int(S["depth_steady"]),             lambda v: _set("depth_steady", bool(v))),
     # Camera: shows the one in use; picking one switches live and saves the choice.
     ("Camera",            0,   9, lambda: CAM["want"] if CAM["want"] is not None else CAM["live"],
                                   lambda v: pick_camera(int(v))),
@@ -734,8 +889,9 @@ def pick_camera(i):
 
 SECTIONS = [
     ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
-                "Clutch (fist)", "Fingers up x100"]),
-    ("Movement", ["Smoothing", "Precision", "Precision speed %", "Stroke px (0 off)"]),
+                "Clutch (fist)", "Fingers up x100", "Draw mode (D)"]),
+    ("Movement", ["Smoothing", "Precision", "Precision speed %", "Stroke px (0 off)",
+                  "Axis lock", "Lock threshold px", "Depth steady"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
 ]
 TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
@@ -892,7 +1048,9 @@ def panel_lines():
         ("ARMED - your hand moves the mouse" if S["armed"]
          else "DISARMED - press F8 to take control", (90, 220, 90) if S["armed"] else (150, 150, 150)),
         (f"Hand: {S['hand']}  (other hand ignored)    Flip L/R: {'on' if S['invert'] else 'off'}", (230, 230, 230)),
-        ("Click: hold SPACE = mouse down at the cursor, let go = mouse up", (230, 230, 230)),
+        (f"SPACE: {mode_words()}", (230, 230, 230)),
+        ((f"Axis lock: on - a held line snaps flat or upright after {S['lock_px']} px"
+          if S["axis_lock"] else "Axis lock: off"), (230, 230, 230)),
         ((f"Drawing: short strokes, {S['stroke_px']} px per small hand move (~1 cm)"
           if S["stroke_px"] else "Drawing: full-speed movement (stroke px is 0)"), (230, 230, 230)),
         (("Clutch: ON - closed fist freezes the cursor, open hand resumes"
@@ -987,6 +1145,9 @@ def frame_loop():
     clutched = False           # clutch: closed fist froze the cursor
     fist_since = open_since = None
     clutch_off = [0.0, 0.0]    # clutch, normal mode: shift between hand and cursor
+    depth_ref = None           # depth steady: your usual hand size (camera pixels)
+    lock_start = None          # axis lock: where the held line started
+    lock_axis = None           # "h" (flat) or "v" (upright) once decided
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
     next_frame = time.time()   # the 30 fps cap
@@ -1001,7 +1162,7 @@ def frame_loop():
     print(f"AirDraw running. Screen {SCREEN_W}x{SCREEN_H} ({dpi_report()}). Hand: {S['hand']}.")
     print("DISARMED - press F8 to take control.")
     print("Open hand = move the cursor.  Closed fist = freeze it.  "
-          "Hold SPACE = mouse down, let go = mouse up.  P = pause.  ESC = quit.")
+          "SPACE = draw (held) or click, by Paint's tool or D.  P = pause.  ESC = quit.")
     if not space_hook:
         print("  (SPACE only clicks while the AirDraw window is in front - "
               "install pynput for it to work in Paint:  py -m pip install pynput)")
@@ -1032,7 +1193,7 @@ def frame_loop():
                     fx.reset()
                     fy.reset()
                     spline.clear()
-                    stroke_cur = prec_prev = hand_size = None
+                    stroke_cur = prec_prev = hand_size = depth_ref = None
                     if cap is None:
                         sys.exit("Lost the camera while switching.")
 
@@ -1092,6 +1253,7 @@ def frame_loop():
                 sfx.reset()
                 sfy.reset()
                 pen_started = True
+                lock_start, lock_axis = (start[0], start[1]), None
             else:
                 pen_started = False
             offset_from_stroke = None
@@ -1121,6 +1283,18 @@ def frame_loop():
                 # The cursor follows the middle finger's base knuckle (landmark
                 # 9). It barely moves when you make a fist or open your hand.
                 aim = (p[9][0], p[9][1])
+                # Depth steady: a camera sees everything drift outward from the
+                # middle of the picture as it comes closer, so moving your hand
+                # toward or away from the camera used to slide the cursor. The
+                # hand's size in the picture tells how close it is; scaling the
+                # knuckle's offset from the middle by (usual size / size now)
+                # cancels that drift. The usual size is a slow average, and the
+                # size now is smoothed, so tilting your hand doesn't jolt it.
+                depth_ref = hand_size if depth_ref is None else \
+                    depth_ref + (hand_size - depth_ref) * min(1.0, (now - last) / DEPTH_REF_S)
+                dk = depth_ref / hand_size if S["depth_steady"] else 1.0
+                dk = clamp(dk, 0.6, 1.6)
+                aim = (w / 2 + (aim[0] - w / 2) * dk, h / 2 + (aim[1] - h / 2) * dk)
 
                 # zone -> work area (the screen minus the taskbar)
                 mx = WORK[0] + clamp((aim[0] - x0) / max(x1 - x0, 1), 0, 1) * (WORK[2] - WORK[0] - 1)
@@ -1206,11 +1380,30 @@ def frame_loop():
                             stroke_prev = None
                         nx, ny = sfx(aim[0], now), sfy(aim[1], now)
                         if stroke_prev is not None:
-                            k = S["stroke_px"] / (SMALL_MOVE * hand_size)
+                            # (with depth steady, aim is already in "usual size" pixels)
+                            k = S["stroke_px"] / (SMALL_MOVE * (depth_ref if S["depth_steady"] else hand_size))
                             stroke_cur[0], stroke_cur[1] = keep_in(stroke_cur[0] + (nx - stroke_prev[0]) * k,
                                                                    stroke_cur[1] + (ny - stroke_prev[1]) * k)
                         stroke_prev = (nx, ny)
                         tx, ty = stroke_cur
+
+                    # Axis lock (draw mode): hold still until the line has
+                    # moved "Lock threshold px", then keep it flat (mostly
+                    # left/right) or upright (mostly up/down) until SPACE goes up.
+                    if pen and S["axis_lock"] and not SPACE["click"] and lock_start is not None:
+                        if lock_axis is None:
+                            dx, dy = tx - lock_start[0], ty - lock_start[1]
+                            if math.hypot(dx, dy) >= S["lock_px"]:
+                                lock_axis = "h" if abs(dx) >= abs(dy) else "v"
+                            else:
+                                tx, ty = lock_start
+                        if lock_axis == "h":
+                            ty = lock_start[1]
+                        elif lock_axis == "v":
+                            tx = lock_start[0]
+                        if stroke_cur is not None and lock_axis is not None:
+                            # the held axis stays put inside the stroke too
+                            stroke_cur[0], stroke_cur[1] = tx, ty
 
                     if pen:
                         spline.append((tx, ty))
@@ -1243,7 +1436,7 @@ def frame_loop():
                 # button down (SPACE), purple = clutch (frozen)
                 ring = ((0, 0, 255) if pen else
                         (255, 0, 200) if hold else (0, 255, 255))
-                ax, ay = int(aim[0]), int(aim[1])
+                ax, ay = int(p[9][0]), int(p[9][1])     # drawn on the real knuckle
                 cv2.circle(frame, (ax, ay), 14, (20, 20, 20), 4, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 14, ring, 2, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 4, ring, -1, cv2.LINE_AA)
@@ -1256,9 +1449,10 @@ def frame_loop():
                     status, color = "CLUTCH - cursor frozen, open hand to resume", (255, 0, 200)
                 elif fist_raw:
                     status, color = "fist... (clutch)", (255, 0, 200)
-                elif pen:
-                    status, color = ("DRAWING (SPACE held) - short strokes" if S["stroke_px"]
-                                     else "DRAWING (SPACE held)"), (0, 0, 255)
+                elif pen and not SPACE["click"]:
+                    status, color = ("DRAWING" + (" - locked flat" if lock_axis == "h" else
+                                                  " - locked upright" if lock_axis == "v" else "")
+                                     + (" - short strokes" if S["stroke_px"] else "")), (0, 0, 255)
                 else:
                     status, color = "tracking - hold SPACE to click", (0, 255, 0)
             else:
@@ -1286,6 +1480,13 @@ def frame_loop():
             (tw, _), _ = cv2.getTextSize(ftxt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
             cv2.putText(frame, ftxt, (w - tw - 12, 26), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, (0, 255, 0) if fps >= 20 else (0, 200, 255), 2, cv2.LINE_AA)
+            # draw / click mode, just above the bottom strip
+            mtxt = "SPACE = " + mode_words()
+            cv2.rectangle(frame, (0, h - 70), (w, h - 46), (25, 25, 25), -1)
+            (mw, _), _ = cv2.getTextSize(mtxt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.putText(frame, mtxt, (10, h - 53), cv2.FONT_HERSHEY_SIMPLEX,
+                        min(0.5, 0.5 * (w - 20) / max(mw, 1)),
+                        (0, 0, 255) if draw_mode_now() else (255, 200, 0), 1, cv2.LINE_AA)
             # bottom strip: current settings, then the keys
             cv2.rectangle(frame, (0, h - 46), (w, h), (25, 25, 25), -1)
             strip = (f"{S['hand']} hand   steady {fx.cutoff:.2f}   area "
@@ -1297,7 +1498,7 @@ def frame_loop():
             cv2.putText(frame, strip, (10, h - 28), cv2.FONT_HERSHEY_SIMPLEX,
                         min(0.48, 0.48 * (w - 20) / max(sw, 1)),   # shrink to fit 640 px
                         (200, 200, 200), 1, cv2.LINE_AA)
-            cv2.putText(frame, "F8 arm   SPACE click   P pause   H flip L/R   ESC quit",
+            cv2.putText(frame, "F8 arm  SPACE click  D draw mode  P pause  H flip  ESC quit",
                         (10, h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (230, 230, 230), 1, cv2.LINE_AA)
             yield ("frame", frame)     # the window shows it (cursor already moved)
 
@@ -1307,6 +1508,8 @@ def frame_loop():
             k &= 0xFF
             if k in (27, ord("q")):
                 break
+            elif k in (ord("d"), ord("D")) and space_hook is None:
+                toggle_draw_mode()               # (with the hook, D works in every window)
             elif k in (ord("p"), ord("P")):
                 paused = not paused
                 print("PAUSED" if paused else "carrying on")
@@ -1351,6 +1554,7 @@ def frame_loop():
 
 def main():
     """Build the one window and run the frame loop inside it."""
+    only_one_airdraw()
     try:
         ctypes.windll.winmm.timeBeginPeriod(1)     # 1 ms timers, so waits don't add lag
     except Exception:
@@ -1401,6 +1605,7 @@ def main():
     try:
         root.mainloop()
     finally:
+        loop.close()          # camera released, mouse button up, settings saved - even on Ctrl+C
         try:
             ctypes.windll.winmm.timeEndPeriod(1)
         except Exception:
