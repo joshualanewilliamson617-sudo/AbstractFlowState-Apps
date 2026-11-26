@@ -1,0 +1,8 @@
+# Python's temporary build files
+__pycache__/
+# Personal: which wand and length you last used, and any error log
+wand_settings.json
+wand_error.log
+# Cursors at other lengths are rebuilt on demand; keep only the exact 1.0x wands
+cursors/*
+!cursors/*_x1.00.cur
