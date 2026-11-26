@@ -15,7 +15,9 @@ AirDraw - draw in MS Paint with your hand.
                             held the cursor moves in short strokes (Stroke px
                             per small hand move), and with Axis lock on the
                             line snaps to flat or upright once it has moved
-                            "Lock threshold px".
+                            "Lock threshold px". Turn clearly onto the
+                            other axis and the lock switches there, so
+                            corners and plus signs work in one stroke.
                             In CLICK mode: one normal click.
                             Works in any window while armed (Paint doesn't
                             also get the space).
@@ -143,6 +145,9 @@ SMALL_MOVE = 0.10      # a "small hand move" = 10% of your hand size, about 1 cm
 MIN_DOWN_S = 0.04      # mouse button stays down at least this long, so Paint sees the click
 CLUTCH_S = 0.12        # a fist (or an open hand) must last this long to switch the clutch
 DEPTH_REF_S = 20.0     # depth steady: your usual hand size is averaged over this long
+ACCEL_FROM = 0.25      # accel: hand speeds below this (screen widths a second) stay precise
+ACCEL_K = 3.0          # accel: how fast the speed-up builds at "Accel" 100
+TURN_S = 0.35          # axis switch: "recent movement" = the last ~0.35 s
 PAINT_POLL_S = 0.2     # how often Paint's selected tool is read
 
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
@@ -168,6 +173,8 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "up_ratio": 1.15,        # how straight a finger must be to count as up (open hand / fist)
     "precision": True,       # True = slow, exact cursor
     "prec_pct": 44,          # precision speed, % of normal
+    "accel": 50,             # precision: faster hand = faster cursor. 0 = off
+    "max_speed": 200,        # ...up to this, % of normal (a fast sweep crosses the screen)
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
     "draw_mode": True,       # SPACE holds the button (draw) - used when Paint's tool can't be read
@@ -207,6 +214,8 @@ def fix_settings():
     S["shift_y"] = clamp(float(S["shift_y"]), -0.5, 0.5)
     S["up_ratio"] = clamp(float(S["up_ratio"]), 1.0, 1.5)
     S["prec_pct"] = int(clamp(int(S["prec_pct"]), 5, 100))
+    S["accel"] = int(clamp(int(S["accel"]), 0, 100))
+    S["max_speed"] = int(clamp(int(S["max_speed"]), 100, 400))
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
@@ -859,6 +868,8 @@ SLIDERS = [
     ("Fingers up x100", 100, 150, lambda: int(round(S["up_ratio"] * 100)),    lambda v: _set("up_ratio", v / 100)),
     ("Precision",         0,   1, lambda: int(S["precision"]),                lambda v: _set("precision", bool(v))),
     ("Precision speed %", 5, 100, lambda: int(S["prec_pct"]),                 lambda v: _set("prec_pct", int(v))),
+    ("Accel (0 off)",     0, 100, lambda: int(S["accel"]),                    lambda v: _set("accel", int(v))),
+    ("Max speed %",     100, 400, lambda: int(S["max_speed"]),                lambda v: _set("max_speed", int(v))),
     ("Stroke px (0 off)", 0,  40, lambda: int(S["stroke_px"]),                lambda v: _set("stroke_px", int(v))),
     ("Clutch (fist)",     0,   1, lambda: int(S["clutch"]),                   lambda v: _set("clutch", bool(v))),
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
@@ -890,7 +901,8 @@ def pick_camera(i):
 SECTIONS = [
     ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
                 "Clutch (fist)", "Fingers up x100", "Draw mode (D)"]),
-    ("Movement", ["Smoothing", "Precision", "Precision speed %", "Stroke px (0 off)",
+    ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
+                  "Max speed %", "Stroke px (0 off)",
                   "Axis lock", "Lock threshold px", "Depth steady"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
 ]
@@ -1049,7 +1061,7 @@ def panel_lines():
          else "DISARMED - press F8 to take control", (90, 220, 90) if S["armed"] else (150, 150, 150)),
         (f"Hand: {S['hand']}  (other hand ignored)    Flip L/R: {'on' if S['invert'] else 'off'}", (230, 230, 230)),
         (f"SPACE: {mode_words()}", (230, 230, 230)),
-        ((f"Axis lock: on - a held line snaps flat or upright after {S['lock_px']} px"
+        ((f"Axis lock: on - a held line snaps flat or upright after {S['lock_px']} px, turns switch it"
           if S["axis_lock"] else "Axis lock: off"), (230, 230, 230)),
         ((f"Drawing: short strokes, {S['stroke_px']} px per small hand move (~1 cm)"
           if S["stroke_px"] else "Drawing: full-speed movement (stroke px is 0)"), (230, 230, 230)),
@@ -1059,7 +1071,7 @@ def panel_lines():
          + (f"   (saved choice {S['camera']} not found)" if S["camera"] not in (-1, CAM["live"]) else "")
          + (f"   - {CAM['note']}" if CAM["note"] else ""),
          (0, 165, 255) if CAM["note"] or S["camera"] not in (-1, CAM["live"]) else (230, 230, 230)),
-        (f"Precision: {'ON' if S['precision'] else 'off'} at {S['prec_pct']}% speed    "
+        (f"Precision: {'ON' if S['precision'] else 'off'} at {S['prec_pct']}% speed, accel {S['accel']} to {S['max_speed']}%    "
          f"Zone {1 - 2 * S['margin']:.0%}", (230, 230, 230)),
         (f"Zone moved: {shift_words()}", (230, 230, 230)),
         ("Saved automatically to airdraw_settings.json", (160, 160, 160)),
@@ -1148,6 +1160,10 @@ def frame_loop():
     depth_ref = None           # depth steady: your usual hand size (camera pixels)
     lock_start = None          # axis lock: where the held line started
     lock_axis = None           # "h" (flat) or "v" (upright) once decided
+    lock_ref = None            # axis lock: the hand's (unlocked) point that lock_start matches
+    lock_out = None            # axis lock: where the locked line put the cursor last
+    turn_ref = None            # axis lock: a point trailing the hand by ~TURN_S, to spot a turn
+    acc_v = None               # accel: smoothed hand speed (screen widths a second)
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
     next_frame = time.time()   # the 30 fps cap
@@ -1254,16 +1270,19 @@ def frame_loop():
                 sfy.reset()
                 pen_started = True
                 lock_start, lock_axis = (start[0], start[1]), None
+                lock_ref, lock_out, turn_ref = lock_start, None, None
             else:
                 pen_started = False
             offset_from_stroke = None
             if pen and not down_now and stroke_cur is not None and S["stroke_px"] > 0:
                 # carry on from where the stroke ended (normal mode: then
-                # glide back to where your hand points)
+                # glide back to where your hand points). With axis lock, that's
+                # where the locked line ended.
+                end = list(lock_out) if lock_out is not None else stroke_cur
                 if S["precision"]:
-                    prec_cur = list(stroke_cur)
+                    prec_cur = list(end)
                     prec_prev = None
-                offset_from_stroke = stroke_cur
+                offset_from_stroke = end
             if pen and not down_now:
                 stroke_cur = None
                 spline.clear()
@@ -1352,8 +1371,18 @@ def frame_loop():
                     # a short stroke moves it instead; the clutch stops it
                     if prec_prev is not None and not stroke and not hold:
                         k = S["prec_pct"] / 100.0
-                        prec_cur[0], prec_cur[1] = keep_in(prec_cur[0] + (mx - prec_prev[0]) * k,
-                                                           prec_cur[1] + (my - prec_prev[1]) * k)
+                        ddx, ddy = mx - prec_prev[0], my - prec_prev[1]
+                        # Accel: slow hand = precision speed; the faster the
+                        # hand, the closer the speed gets to "Max speed", so
+                        # one quick open-palm sweep crosses the whole screen.
+                        v = math.hypot(ddx, ddy) / max(WORK[2] - WORK[0], 1) / max(now - last, 1e-3)
+                        acc_v = v if acc_v is None else acc_v + (v - acc_v) * 0.5
+                        if S["accel"] > 0:
+                            top = max(k, S["max_speed"] / 100.0)
+                            k += (top - k) * (1 - math.exp(-S["accel"] / 100 * ACCEL_K
+                                                           * max(0.0, acc_v - ACCEL_FROM)))
+                        prec_cur[0], prec_cur[1] = keep_in(prec_cur[0] + ddx * k,
+                                                           prec_cur[1] + ddy * k)
                     prec_prev = (mx, my)
                     mx, my = prec_cur
                 else:
@@ -1390,20 +1419,38 @@ def frame_loop():
                     # Axis lock (draw mode): hold still until the line has
                     # moved "Lock threshold px", then keep it flat (mostly
                     # left/right) or upright (mostly up/down) until SPACE goes up.
+                    # Turn clearly onto the other axis (recent movement past the
+                    # threshold, at least twice as much that way) and the lock
+                    # switches there, from the corner - for corners and plus
+                    # signs in one stroke. Slow wobble doesn't count: the
+                    # "recent" point trails the hand, so drift never builds up.
+                    # (tx, ty) is the hand's unlocked point; lock_start is the
+                    # current line's start, lock_ref the hand's point there.
                     if pen and S["axis_lock"] and not SPACE["click"] and lock_start is not None:
+                        if turn_ref is None:
+                            turn_ref = [tx, ty]
+                        rdx, rdy = tx - turn_ref[0], ty - turn_ref[1]
+                        a_ = min(1.0, (now - last) / TURN_S)
+                        turn_ref[0] += (tx - turn_ref[0]) * a_
+                        turn_ref[1] += (ty - turn_ref[1]) * a_
+                        lp = S["lock_px"]
                         if lock_axis is None:
-                            dx, dy = tx - lock_start[0], ty - lock_start[1]
-                            if math.hypot(dx, dy) >= S["lock_px"]:
+                            dx, dy = tx - lock_ref[0], ty - lock_ref[1]
+                            if math.hypot(dx, dy) >= lp:
                                 lock_axis = "h" if abs(dx) >= abs(dy) else "v"
-                            else:
-                                tx, ty = lock_start
+                        elif lock_axis == "h" and abs(rdy) >= lp and abs(rdy) >= 2 * abs(rdx):
+                            lock_start = (lock_start[0] + tx - lock_ref[0], lock_start[1])
+                            lock_ref, lock_axis = (tx, ty - rdy), "v"
+                        elif lock_axis == "v" and abs(rdx) >= lp and abs(rdx) >= 2 * abs(rdy):
+                            lock_start = (lock_start[0], lock_start[1] + ty - lock_ref[1])
+                            lock_ref, lock_axis = (tx - rdx, ty), "h"
                         if lock_axis == "h":
-                            ty = lock_start[1]
+                            tx, ty = lock_start[0] + tx - lock_ref[0], lock_start[1]
                         elif lock_axis == "v":
-                            tx = lock_start[0]
-                        if stroke_cur is not None and lock_axis is not None:
-                            # the held axis stays put inside the stroke too
-                            stroke_cur[0], stroke_cur[1] = tx, ty
+                            tx, ty = lock_start[0], lock_start[1] + ty - lock_ref[1]
+                        else:
+                            tx, ty = lock_start
+                        lock_out = (tx, ty)
 
                     if pen:
                         spline.append((tx, ty))
