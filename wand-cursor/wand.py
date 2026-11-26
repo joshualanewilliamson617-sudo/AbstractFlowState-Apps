@@ -12,6 +12,10 @@ Hotkeys (they work in every window, including Paint and while AirDraw runs):
   Ctrl+Alt+Backspace   back to your exact drawing (1.0x)
   Ctrl+Alt+Q           quit (normal cursor comes back)
 
+Starts with Windows: a shortcut in shell:startup runs
+  pythonw wand.py --on
+(--on = start with the wand on, even if you'd switched it off).
+
 Your normal cursor always comes back:
   * when you quit (hotkey or tray menu), log off or shut down,
   * if the script crashes (the error is written to wand_error.log),
@@ -767,6 +771,12 @@ def main():
         user32.MessageBoxW(None, "Wand cursor is already running - look for "
                            "the wand icon by the clock.", "Wand cursor", 0x40)
         return
+
+    if args[:1] == ["--on"]:    # Windows startup shortcut: start with the wand on
+        s = load_settings()
+        if s["wand"] == 0:
+            s["wand"] = s["last_wand"]
+            save_settings(s)
 
     make_dpi_aware()
     atexit.register(restore_normal_cursor)

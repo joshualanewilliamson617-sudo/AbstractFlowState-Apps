@@ -12,6 +12,12 @@ with it (AirDraw moves the real mouse; this only changes how it looks).
 - **Emergency:** double-click `restore-cursor.bat`, end `pythonw.exe` in Task
   Manager, or restart Windows. All of these bring your normal cursor back.
 
+## Starts with Windows (2026-11-26)
+A shortcut `Wand cursor.lnk` in the Startup folder (`shell:startup`) runs
+`pythonw wand.py --on` silently at sign-in. `--on` turns the wand back on
+(your last wand) even if you'd switched it off. Only one copy can run.
+**Undo:** Win+R -> `shell:startup` -> delete `Wand cursor.lnk`.
+
 ## Hotkeys (work in every window)
 | Keys | Does |
 |---|---|
