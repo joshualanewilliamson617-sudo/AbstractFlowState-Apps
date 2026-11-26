@@ -4,48 +4,41 @@ AirDraw - draw in MS Paint with your hand.
 
     F8                      arm / disarm (works from any window, even Paint).
                             Starts DISARMED: the mouse is yours until you press F8.
-    THUMB TAP: touch your   mouse button DOWN the moment the thumb touches
-    thumb tip to an index   (the dot turns red), held for as long as it stays
-    finger knuckle          touching, so you can click-and-drag to draw. UP
-                            when you pull the thumb away. The cursor holds
-                            still for "Tap freeze ms" at the start of each
-                            press, so the first dot lands where you aimed,
-                            then follows your hand in short strokes (about
-                            8 px per small hand move).
-                            "Tap spot" picks which index knuckle the thumb
-                            taps: base (default), middle or upper.
-    Pinch thumb + MIDDLE    quick left click
+    OPEN HAND               moves the cursor (it follows the big knuckle in
+                            the middle of your hand).
     Closed FIST             clutch: the cursor freezes, so you can move your
                             hand back to a comfy spot. OPEN hand (all four
                             fingers up) carries on from where the cursor stopped.
-    ESC or Q                quit (closing the camera window also quits)
+    Hold SPACE              mouse button DOWN at the AirDraw cursor, for as
+                            long as you hold it - move your hand to drag and
+                            draw. Let go = mouse button UP. Works in any window
+                            while armed (Paint doesn't also get the space).
+                            While it's held the cursor moves in short strokes
+                            (Stroke px per small hand move), so lines stay
+                            small and exact.
+    P                       pause / carry on
+    ESC or Q                quit (closing the window also quits)
 
-    SPACE  pause            H  flip left/right (if your camera mixes them up)
+    H      flip left/right (if your camera mixes them up)
     [ ]    steadier / snappier
     - =    smaller / larger hand area
 
-A second window, "AirDraw settings", has live sliders for all of this:
-armed, which hand (left or right), smoothing, zone size, zone left/right and
-up/down (slide the zone to where your arm is comfortable - it may go past the
-camera picture's edge), pinch press and release distance, hold time, release
-time, the "3 fingers up" rule and how straight they must be, auto pinch,
-precision mode, stroke size, the clutch, and which camera (0-9, switches
-live; at startup it lists the cameras that open and, the first time, picks
-Camo or the first camera that isn't the laptop's own). Your settings are
-saved to airdraw_settings.json next to this file and loaded next time.
+One window: the camera picture on the left, the settings on the right
+(a drop-down picks the page: Basics, Movement, Zone). They set armed, which
+hand (left or right), flip left/right, which camera (switches live; at
+startup it lists the cameras that open and, the first time, picks Camo or the
+first camera that isn't the laptop's own), the clutch and how straight a
+finger must be to count as up, smoothing, precision mode, stroke size, and the
+zone's size and position (slide the zone to where your arm is comfortable -
+it may go past the camera picture's edge). Your settings are saved to
+airdraw_settings.json next to this file and loaded next time.
 
 Only the chosen hand moves the cursor; the other hand is ignored.
-The cursor follows the middle finger's base knuckle (the big knuckle in the
-middle of your hand), which stays still while your fingers pinch or curl.
-While a tap or pinch is forming the cursor freezes, and the click lands on
-that frozen spot. After a tap it stays frozen until the thumb is clearly
-away. The cursor never goes onto the taskbar.
-A tap or pinch counts only when it actually touches AND stays touching for
-the hold time, so a near-touch never fires by accident.
+The cursor never goes onto the taskbar.
 Precision mode: the cursor follows how far your hand moves, scaled down, so
 small hand moves give small, exact cursor moves.
 
-REQUIRES:  py -m pip install opencv-python mediapipe pynput
+REQUIRES:  py -m pip install opencv-python mediapipe pynput pillow
 RUN:       python airdraw.py
 """
 
@@ -54,7 +47,9 @@ import ctypes
 import json
 import math
 import os
+import queue
 import sys
+import threading
 import time
 import urllib.request
 from collections import deque
@@ -107,9 +102,12 @@ try:
     import cv2
     import numpy as np
     import mediapipe as mp
+    import tkinter as tk
+    from tkinter import ttk
+    from PIL import Image, ImageTk
 except ImportError as e:
     sys.exit(f"Missing package: {e.name}\n"
-             f"Run:  py -m pip install opencv-python mediapipe pynput")
+             f"Run:  py -m pip install opencv-python mediapipe pynput pillow")
 
 try:
     from pynput import keyboard as _kb      # for the F8 hotkey that works in any window
@@ -128,20 +126,15 @@ INVERT_HANDEDNESS = True
 
 BETA = 0.015           # responsiveness on fast moves
 DRAW_STEADY = 0.55     # extra smoothing while the pen is down
-FOLD_GAP = 0.15        # a raised finger counts as folded this far below "Fingers up"
+FOLD_GAP = 0.15        # a finger counts as folded this far below "Finger straightness"
 SMALL_MOVE = 0.10      # a "small hand move" = 10% of your hand size, about 1 cm
 MIN_DOWN_S = 0.04      # mouse button stays down at least this long, so Paint sees the click
 CLUTCH_S = 0.12        # a fist (or an open hand) must last this long to switch the clutch
-LOCK_BACK_S = 0.08     # the pinch freeze uses where the cursor was this long ago
-UNLOCK_GAP = 0.08      # fingers must open this much past the freeze point to unfreeze
-TAP_ARM = 1.2          # the tap freeze starts at this many times the release distance
-TAP_FREEZE_MAX = 500   # longest "Tap freeze ms": the cursor holds still this long at most
 
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
              "hand_landmarker/float16/1/hand_landmarker.task")
 MODEL_NAME = "hand_landmarker.task"
 WINDOW = "AirDraw  -  ESC to quit"
-SETWIN = "AirDraw settings"
 HERE = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(HERE, "airdraw_settings.json")
 
@@ -151,10 +144,6 @@ CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8),
                (0, 17)]
 
 # ------------------------------------------------------------- settings -----
-# Distances are measured against the size of your hand (wrist to the middle
-# knuckle), so they work at any distance from the camera. 0.16 is about the
-# point where the two fingertips touch.
-
 DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defaults
     "hand": "Right",         # which hand moves the cursor: "Left" or "Right"
     "invert": INVERT_HANDEDNESS,
@@ -162,19 +151,11 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "margin": 0.24,          # unused border around the camera view
     "shift_x": 0.05,        # move the zone right (+) or left (-), fraction of picture width
     "shift_y": 0.0,          # move the zone up (+) or down (-), fraction of picture height
-    "press": 0.23,           # tap / pinch counts below this distance (touching)
-    "release": 0.34,         # tap / pinch lets go above this distance
-    "hold_ms": 100,          # how long a pinch must last before mouse DOWN
-    "release_ms": 60,        # how long it must stay open before mouse UP (stops flicker)
-    "fingers_up": True,      # True = middle, ring and pinky must be raised for mouse down
-    "up_ratio": 1.15,        # how straight "raised" is (fingertip vs middle joint, from the wrist)
-    "auto_pinch": False,     # True = tune press/release to your hand automatically
+    "up_ratio": 1.15,        # how straight a finger must be to count as up (open hand / fist)
     "precision": True,       # True = slow, exact cursor
     "prec_pct": 44,          # precision speed, % of normal
-    "stroke_px": 8,          # while the button is held: px per small hand move. 0 = off
+    "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
-    "tap_freeze_ms": 150,    # cursor holds still this long at the start of a press, then draws
-    "tap_spot": 5,           # index knuckle the thumb taps: 5 base, 6 middle, 7 upper
     "camera": -1,           # camera number 0-9. -1 = not chosen yet: pick Camo automatically
 }
 
@@ -206,17 +187,9 @@ def fix_settings():
     S["margin"] = clamp(float(S["margin"]), 0.0, 0.3)
     S["shift_x"] = clamp(float(S["shift_x"]), -0.5, 0.5)
     S["shift_y"] = clamp(float(S["shift_y"]), -0.5, 0.5)
-    S["press"] = clamp(float(S["press"]), 0.05, 0.40)
-    S["release"] = clamp(float(S["release"]), 0.10, 0.60)
-    if S["release"] < S["press"] + 0.04:
-        S["release"] = round(S["press"] + 0.04, 2)
-    S["hold_ms"] = int(clamp(int(S["hold_ms"]), 0, 400))
-    S["release_ms"] = int(clamp(int(S["release_ms"]), 0, 400))
     S["up_ratio"] = clamp(float(S["up_ratio"]), 1.0, 1.5)
     S["prec_pct"] = int(clamp(int(S["prec_pct"]), 5, 100))
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
-    S["tap_freeze_ms"] = int(clamp(int(S["tap_freeze_ms"]), 0, TAP_FREEZE_MAX))
-    S["tap_spot"] = int(clamp(int(S["tap_spot"]), 5, 7))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
 
 
@@ -353,20 +326,6 @@ def cursor_pos():
     return float(pt.x), float(pt.y)
 
 
-def press_at(x, y):
-    """Mouse button down at (x, y). Moves there first, twice with a pause, so
-    Paint's buttons see the pointer arrive (hover) before the press - Paint
-    ignores a press that arrives with no hover."""
-    global _held, _down_at
-    move(x, y)
-    time.sleep(0.015)
-    move(x, y)
-    time.sleep(0.015)
-    _send(LDOWN | MOVE | ABSOLUTE | VIRTUALDESK, *_abs(x, y))
-    _held = True
-    _down_at = time.time()
-
-
 def press():
     global _held, _down_at
     _send(LDOWN)
@@ -383,11 +342,6 @@ def release():
         time.sleep(wait)
     _send(LUP)
     _held = False
-
-
-def click_at(x, y):
-    press_at(x, y)
-    release()
 
 
 def cleanup():
@@ -427,6 +381,76 @@ def start_hotkey():
               f"F8 works only while the camera window is in front.")
 
 
+# ------------------------------------------------------- space bar click ---
+# Hold SPACE = mouse button down where the AirDraw cursor is; let go = up.
+# A keyboard hook sees SPACE in any window (Paint too), but only uses it
+# while AirDraw is armed and not paused - then it swallows the key, so Paint
+# doesn't also get a space. Otherwise SPACE works as normal.
+# The hook only notes the key; a small helper thread sends the mouse button,
+# so the hook stays fast (Windows drops hooks that dawdle).
+
+SPACE = {"down": False,      # AirDraw is holding the button for SPACE
+         "paused": False}    # mirrors P (pause), set by the frame loop
+_space_q = queue.Queue()
+
+
+def _space_worker():
+    while True:
+        want = _space_q.get()
+        try:
+            if want == "down" and not _held:
+                press()
+            elif want == "up" and _held:
+                release()
+        except Exception as e:
+            print(f"(space click: {e})")
+
+
+def space_event(down):
+    """SPACE went down (True) or up (False). True = AirDraw used it."""
+    if down:
+        if SPACE["down"]:
+            return True            # the key repeating while held: still ours
+        if not S["armed"] or SPACE["paused"]:
+            return False
+        SPACE["down"] = True
+        _space_q.put("down")
+        return True
+    if not SPACE["down"]:
+        return False
+    SPACE["down"] = False          # let go: always lets the button up, even if disarmed meanwhile
+    _space_q.put("up")
+    return True
+
+
+def start_space_click():
+    """Start the any-window SPACE hook. None if pynput isn't there (then
+    SPACE only works while the AirDraw window is in front)."""
+    threading.Thread(target=_space_worker, name="space-click", daemon=True).start()
+    if _kb is None:
+        return None
+    holder = {}
+
+    def filt(msg, data):
+        if data.vkCode != 0x20 or data.flags & 0x10:     # not SPACE, or a made-up key
+            return True
+        down = msg in (0x0100, 0x0104)                   # WM_KEYDOWN, WM_SYSKEYDOWN
+        if space_event(down):
+            holder["l"].suppress_event()                 # Paint doesn't get it
+        return True
+
+    try:
+        listener = _kb.Listener(win32_event_filter=filt)
+        holder["l"] = listener
+        listener.daemon = True
+        listener.start()
+        return listener
+    except Exception as e:
+        print(f"Could not start the SPACE hook ({e}); "
+              f"SPACE only clicks while the AirDraw window is in front.")
+        return None
+
+
 # -------------------------------------------------------------- helpers -----
 
 
@@ -440,33 +464,6 @@ def d3(a, b):
 
 def clamp(v, lo, hi):
     return lo if v < lo else hi if v > hi else v
-
-
-def to_segment(pt, a, b):
-    """3D distance from pt to the line segment a-b, and the nearest point on it."""
-    ab = [b[i] - a[i] for i in range(3)]
-    ll = sum(v * v for v in ab)
-    t = 0.0 if ll < 1e-9 else clamp(sum((pt[i] - a[i]) * ab[i] for i in range(3)) / ll, 0.0, 1.0)
-    q = tuple(a[i] + t * ab[i] for i in range(3))
-    return d3(pt, q), q
-
-
-TAP_SPOTS = {5: "base", 6: "middle", 7: "upper"}   # index knuckles the thumb can tap
-
-
-def thumb_to_index_side(p):
-    """How close the thumb tip (4) is to the index knuckle picked with the
-    "Tap spot" setting: 5 = base, 6 = middle, 7 = upper. The fingertip (8)
-    is never used, so the old tip-to-tip OK sign doesn't count.
-    Returns (distance in camera pixels, the knuckle's position)."""
-    k = p[S["tap_spot"]]
-    return d3(p[4], k), k
-
-
-def tap_freeze_on(pen, now):
-    """True for the first "Tap freeze ms" of a press: the cursor holds still
-    so the first dot lands where you aimed. After that it draws."""
-    return pen and (now - _down_at) * 1000.0 < S["tap_freeze_ms"]
 
 
 class OneEuro:
@@ -496,43 +493,6 @@ class OneEuro:
         a = 1 / (1 + (1 / (2 * math.pi * c)) / dt)
         self.x = a * x + (1 - a) * self.x
         return self.x
-
-
-class Pinch:
-    """A pinch that must stay touching for the hold time before it counts,
-    and must stay open a moment before it lets go."""
-
-    def __init__(self):
-        self.since = None      # when the fingertips started touching
-        self.apart = None      # when they started coming apart
-
-    def reset(self):
-        self.since = self.apart = None
-
-    def progress(self, now):
-        if self.since is None:
-            return 0.0
-        hold = S["hold_ms"] / 1000.0
-        return 1.0 if hold <= 0 else clamp((now - self.since) / hold, 0.0, 1.0)
-
-    def ready(self, r, t_on, now):
-        """True once the fingertips have touched for the full hold time."""
-        if r < t_on:
-            if self.since is None:
-                self.since = now
-            return self.progress(now) >= 1.0
-        self.since = None
-        return False
-
-    def let_go(self, r, t_off, now):
-        """True once the fingertips have stayed apart past the release distance
-        for the release time."""
-        if r > t_off:
-            if self.apart is None:
-                self.apart = now
-            return now - self.apart >= S["release_ms"] / 1000.0
-        self.apart = None
-        return False
 
 
 # -------------------------------------------------------------- cameras -----
@@ -698,14 +658,6 @@ def switch_camera(cap, i):
     return new
 
 
-def lock_spot(recent, now, fallback):
-    """Where the cursor was LOCK_BACK_S ago - before the pinch started to form."""
-    for t, x, y in recent:
-        if t >= now - LOCK_BACK_S:
-            return (x, y)
-    return fallback
-
-
 def get_model():
     path = os.path.join(HERE, MODEL_NAME)
     if os.path.exists(path) and os.path.getsize(path) > 100_000:
@@ -753,21 +705,12 @@ SLIDERS = [
     # you can put it where your arm is comfortable.
     ("Zone left/right",  -50,  50, lambda: int(round(S["shift_x"] * 100)),     lambda v: _set("shift_x", v / 100)),
     ("Zone up/down",     -50,  50, lambda: int(round(S["shift_y"] * 100)),     lambda v: _set("shift_y", v / 100)),
-    ("Press x100",        5,  40, lambda: int(round(S["press"] * 100)),       lambda v: _set("press", v / 100)),
-    ("Release x100",     10,  60, lambda: int(round(S["release"] * 100)),     lambda v: _set("release", v / 100)),
-    ("Hold ms",           0, 400, lambda: int(S["hold_ms"]),                  lambda v: _set("hold_ms", int(v))),
-    ("Release ms",        0, 400, lambda: int(S["release_ms"]),               lambda v: _set("release_ms", int(v))),
-    ("3 fingers up",      0,   1, lambda: int(S["fingers_up"]),               lambda v: _set("fingers_up", bool(v))),
     ("Fingers up x100", 100, 150, lambda: int(round(S["up_ratio"] * 100)),    lambda v: _set("up_ratio", v / 100)),
-    ("Auto pinch",        0,   1, lambda: int(S["auto_pinch"]),               lambda v: _set("auto_pinch", bool(v))),
     ("Precision",         0,   1, lambda: int(S["precision"]),                lambda v: _set("precision", bool(v))),
     ("Precision speed %", 5, 100, lambda: int(S["prec_pct"]),                 lambda v: _set("prec_pct", int(v))),
     ("Stroke px (0 off)", 0,  40, lambda: int(S["stroke_px"]),                lambda v: _set("stroke_px", int(v))),
     ("Clutch (fist)",     0,   1, lambda: int(S["clutch"]),                   lambda v: _set("clutch", bool(v))),
-    ("Tap freeze ms",     0, TAP_FREEZE_MAX, lambda: int(S["tap_freeze_ms"]), lambda v: _set("tap_freeze_ms", int(v))),
-    # 5 = base knuckle, 6 = middle, 7 = upper (the slider's own minimum is 5)
-    ("Tap spot 5/6/7",    5,   7, lambda: int(S["tap_spot"]),                 lambda v: _set("tap_spot", int(v))),
-    # Camera: shows the one in use; moving it switches live and saves the choice.
+    # Camera: shows the one in use; picking one switches live and saves the choice.
     ("Camera",            0,   9, lambda: CAM["want"] if CAM["want"] is not None else CAM["live"],
                                   lambda v: pick_camera(int(v))),
 ]
@@ -777,43 +720,26 @@ def pick_camera(i):
     """Slider moved: remember the choice and ask the main loop to switch."""
     CAM["want"] = i
     _set("camera", i)
-_shown = {}
-_panel_at = 0.0
 
 
-def build_settings_window():
-    """The drop-down settings window (Tkinter) if it starts, otherwise the
-    old OpenCV slider window."""
-    if not _tk_on and _tk_failed is None and start_tk_settings():
-        return
-    build_cv_settings_window()
-
-
-def sync_settings_window(now):
-    if _tk_on:
-        return                  # the drop-down window keeps itself in sync
-    sync_cv_settings_window(now)
-
-
-# -------------------------------------------- drop-down settings window -----
-# A normal Windows settings window. A drop-down at the top picks a page, and
-# only that page's settings show, so nothing ends up off the bottom of the
-# screen. Hand, Tap spot and Camera are drop-downs; on/off settings are tick
-# boxes; numbers are sliders. It runs in its own thread and reads and writes
-# the same settings (S) as everything else, so F8 and the keys show up here
-# too. Closing it only minimises it.
+# ------------------------------------------------------------ the window -----
+# One window: the camera picture on the left, the settings on the right. A
+# drop-down at the top of the settings picks a page, and only that page's
+# settings show, so nothing ends up off the bottom of the screen. Hand, Tap
+# spot and Camera are drop-downs; on/off settings are tick boxes; numbers are
+# sliders. It reads and writes the same settings (S) as everything else, so
+# F8 and the keys show up here too.
+# The frame loop (frame_loop below) runs inside this window: Tkinter's after()
+# asks it for the next frame, so there is only one loop and one window.
 
 SECTIONS = [
-    ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera", "Clutch (fist)"]),
-    ("Tap & click", ["Tap spot 5/6/7", "Press x100", "Release x100", "Hold ms",
-                     "Release ms", "Tap freeze ms", "3 fingers up", "Fingers up x100",
-                     "Auto pinch"]),
+    ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
+                "Clutch (fist)", "Fingers up x100"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Stroke px (0 off)"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
 ]
-TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Tap spot 5/6/7": "Tap spot",
-            "Flip L/R (H)": "Flip left/right (H)", "Press x100": "Press (x100)",
-            "Release x100": "Release (x100)", "Fingers up x100": "Fingers up (x100)",
+TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
+            "Fingers up x100": "Finger straightness (x100)",
             "Stroke px (0 off)": "Stroke px (0 = off)"}
 
 
@@ -825,33 +751,22 @@ def _camera_choices():
 
 TK_CHOICES = {
     "Hand: 0 L  1 R": lambda: [("Left hand", 0), ("Right hand", 1)],
-    "Tap spot 5/6/7": lambda: [("Base knuckle", 5), ("Middle knuckle", 6), ("Upper knuckle", 7)],
     "Camera": _camera_choices,
 }
 
-_tk_on = False          # the drop-down window is running
-_tk_failed = None       # why it couldn't start (then the slider window is used)
-_tk_quit = False        # main loop finished: close the window
+KEYS = deque()          # keys pressed in the window, read by the frame loop
+QUIT = [False]          # the window was closed: the frame loop stops
 
 
-class TkSettings:
-    def __init__(self):
-        import tkinter as tk
-        from tkinter import ttk
-        self.tk = tk
-        self.root = root = tk.Tk()
-        root.title(SETWIN)
-        root.resizable(False, False)
-        root.protocol("WM_DELETE_WINDOW", root.iconify)   # closing just minimises
-        font = ("Segoe UI", 10)
-        root.option_add("*Font", font)
-
+class SettingsPanel:
+    def __init__(self, root, parent):
+        self.root = root
         self.status = tk.StringVar()
-        tk.Label(root, textvariable=self.status, justify="left", anchor="w",
-                  font=("Segoe UI", 9), fg="#444").pack(fill="x", padx=10, pady=(8, 4))
+        tk.Label(parent, textvariable=self.status, justify="left", anchor="w",
+                 font=("Segoe UI", 9), fg="#444").pack(fill="x", pady=(8, 4))
 
-        top = tk.Frame(root)
-        top.pack(fill="x", padx=10, pady=4)
+        top = tk.Frame(parent)
+        top.pack(fill="x", pady=4)
         tk.Label(top, text="Settings page:", font=("Segoe UI", 10, "bold")).pack(side="left")
         self.page = ttk.Combobox(top, state="readonly", width=18,
                                  values=[name for name, _ in SECTIONS])
@@ -862,12 +777,12 @@ class TkSettings:
         self.rows = []      # (kind, slider entry, widget var, combobox / None)
         self.frames = {}
         for section, labels in SECTIONS:
-            fr = tk.Frame(root)
+            fr = tk.Frame(parent)
             self.frames[section] = fr
             for r, label in enumerate(labels):
                 entry = by_name[label]
                 name, lo, hi, get, put = entry
-                tk.Label(fr, text=TK_NAMES.get(name, name), anchor="w", width=20).grid(
+                tk.Label(fr, text=TK_NAMES.get(name, name), anchor="w", width=24).grid(
                     row=r, column=0, sticky="w", padx=(0, 8), pady=3)
                 if name in TK_CHOICES:
                     var = tk.StringVar()
@@ -878,7 +793,8 @@ class TkSettings:
                     self.rows.append(("choice", entry, var, cb))
                 elif lo == 0 and hi == 1:
                     var = tk.IntVar(value=get())
-                    tk.Checkbutton(fr, variable=var,
+                    # takefocus off: SPACE stays the click, it doesn't tick boxes
+                    tk.Checkbutton(fr, variable=var, takefocus=0,
                                    command=lambda v=var, p=put, g=get: (
                                        p(v.get()) if v.get() != g() else None)
                                    ).grid(row=r, column=1, sticky="w")
@@ -886,14 +802,14 @@ class TkSettings:
                 else:
                     var = tk.IntVar(value=clamp(get(), lo, hi))
                     tk.Scale(fr, from_=lo, to=hi, orient="horizontal", length=260,
-                             variable=var, showvalue=True,
+                             variable=var, showvalue=True, takefocus=0,
                              command=lambda s, p=put, g=get: (
                                  p(int(float(s))) if int(float(s)) != g() else None)
                              ).grid(row=r, column=1, sticky="w")
                     self.rows.append(("number", entry, var, None))
 
-        tk.Label(root, text="Saved automatically to airdraw_settings.json",
-                 font=("Segoe UI", 8), fg="#777").pack(side="bottom", anchor="w", padx=10, pady=(4, 8))
+        tk.Label(parent, text="Saved automatically to airdraw_settings.json",
+                 font=("Segoe UI", 8), fg="#777").pack(side="bottom", anchor="w", pady=(4, 8))
         self.current = None
         self.page.set(SECTIONS[0][0])
         self.show(SECTIONS[0][0])
@@ -914,9 +830,6 @@ class TkSettings:
 
     def poll(self):
         """Every 1/4 s: pick up changes made by F8, the keys or the main loop."""
-        if _tk_quit:
-            self.root.destroy()
-            return
         try:
             for kind, (name, lo, hi, get, _put), var, cb in self.rows:
                 want = get()
@@ -939,83 +852,17 @@ class TkSettings:
         self.root.after(250, self.poll)
 
 
-def start_tk_settings():
-    """Start the drop-down window in its own thread. False if it can't."""
-    global _tk_on, _tk_failed
-    import threading
-    ready = threading.Event()
-
-    def run():
-        global _tk_on, _tk_failed
-        try:
-            app = TkSettings()
-        except Exception as e:
-            _tk_failed = str(e) or "unknown error"
-            ready.set()
-            return
-        _tk_on = True
-        ready.set()
-        try:
-            app.root.mainloop()
-        finally:
-            _tk_on = False
-
-    global _tk_thread
-    _tk_thread = threading.Thread(target=run, name="settings-window", daemon=True)
-    _tk_thread.start()
-    ready.wait(5.0)
-    if not _tk_on:
-        _tk_failed = _tk_failed or "didn't start in time"
-        print(f"Drop-down settings window didn't start ({_tk_failed}); "
-              f"using the slider window instead.")
-        return False
-    return True
-
-
-def stop_tk_settings():
-    global _tk_quit
-    _tk_quit = True             # the window closes itself on its next check
-    if _tk_thread is not None:
-        _tk_thread.join(1.0)    # let it close before Python shuts down
-
-
-_tk_thread = None
-
-
-# --------------------------------------------- old slider settings window ---
-# Used only if the drop-down window can't start.
-
-def build_cv_settings_window():
-    _shown.clear()
-    cv2.namedWindow(SETWIN, cv2.WINDOW_AUTOSIZE)
-    cv2.imshow(SETWIN, settings_panel())
-    for name, lo, hi, get, _put in SLIDERS:
-        cv2.createTrackbar(name, SETWIN, clamp(get(), 0, hi), hi, lambda v: None)
-        if lo != 0:                              # the zone sliders go negative
-            cv2.setTrackbarMin(name, SETWIN, lo)
-        v = clamp(get(), lo, hi)
-        cv2.setTrackbarPos(name, SETWIN, v)
-        _shown[name] = v
-
-
-def sync_cv_settings_window(now):
-    global _panel_at
-    try:
-        for name, lo, hi, get, put in SLIDERS:
-            pos = cv2.getTrackbarPos(name, SETWIN)
-            if pos != _shown.get(name):          # you moved the slider
-                put(pos)
-            want = clamp(get(), lo, hi)
-            if want != pos:                      # a key or F8 changed the setting
-                cv2.setTrackbarPos(name, SETWIN, want)
-            _shown[name] = want
-        if cv2.getWindowProperty(SETWIN, cv2.WND_PROP_VISIBLE) < 1:
-            raise cv2.error("settings window closed")
-        if now - _panel_at > 0.25:
-            _panel_at = now
-            cv2.imshow(SETWIN, settings_panel())
-    except cv2.error:
-        build_cv_settings_window()               # closed by accident: bring it back
+def tk_key(event):
+    """A key pressed in the window -> the same codes cv2.waitKeyEx gave."""
+    ks = event.keysym
+    if ks == "Escape":
+        KEYS.append(27)
+    elif ks == "F8":
+        KEYS.append(0x770000)
+    elif ks == "space":
+        pass                       # SPACE is the click (space_event), not a key here
+    elif event.char and len(event.char) == 1:
+        KEYS.append(ord(event.char))
 
 
 def shift_words():
@@ -1039,24 +886,13 @@ def shift_short():
 
 
 def panel_lines():
-    """The settings summary as (text, BGR colour) lines - drawn by the old
-    slider window, shown as plain text in the drop-down settings window."""
-    t_on, t_off = (("auto", "auto") if S["auto_pinch"]
-                   else (f"{S['press']:.2f}", f"{S['release']:.2f}"))
+    """The settings summary as (text, BGR colour) lines, shown as plain text
+    at the top of the settings."""
     lines = [
         ("ARMED - your hand moves the mouse" if S["armed"]
          else "DISARMED - press F8 to take control", (90, 220, 90) if S["armed"] else (150, 150, 150)),
         (f"Hand: {S['hand']}  (other hand ignored)    Flip L/R: {'on' if S['invert'] else 'off'}", (230, 230, 230)),
-        (f"Tap/pinch press {t_on} / release {t_off}    release {S['release_ms']} ms    "
-         f"quick-click hold {S['hold_ms']} ms (the tap presses at once)", (230, 230, 230)),
-        ("  press = thumb touching the index finger's side. Lower = harder.", (160, 160, 160)),
-        ((f"Mouse down: thumb tip on index side, middle/ring/pinky not curled ({S['up_ratio']:.2f})"
-          if S["fingers_up"] else "Mouse down: thumb tip on index side (other fingers any way)"),
-         (230, 230, 230)),
-        (f"Tap spot: {TAP_SPOTS[S['tap_spot']]} knuckle of the index finger "
-         f"(landmark {S['tap_spot']})", (230, 230, 230)),
-        (f"Tap: touch = mouse down (red dot), hold to drag/draw, pull away = up. "
-         f"Still for {S['tap_freeze_ms']} ms first", (230, 230, 230)),
+        ("Click: hold SPACE = mouse down at the cursor, let go = mouse up", (230, 230, 230)),
         ((f"Drawing: short strokes, {S['stroke_px']} px per small hand move (~1 cm)"
           if S["stroke_px"] else "Drawing: full-speed movement (stroke px is 0)"), (230, 230, 230)),
         (("Clutch: ON - closed fist freezes the cursor, open hand resumes"
@@ -1073,14 +909,6 @@ def panel_lines():
     return lines
 
 
-def settings_panel():
-    lines = panel_lines()
-    img = np.full((14 + len(lines) * 27, 560, 3), 24, np.uint8)
-    for i, (txt, col) in enumerate(lines):
-        cv2.putText(img, txt, (12, 26 + i * 27), cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 1, cv2.LINE_AA)
-    return img
-
-
 # ----------------------------------------------------------------- main -----
 
 
@@ -1095,7 +923,12 @@ def pick_hand(res):
     return None
 
 
-def main():
+def frame_loop():
+    """Everything AirDraw does per camera frame. A generator: it pauses
+    (yield) where it used to show the picture or sleep, and the window's
+    after() timer resumes it. Yields ("ready", None) once set up, then
+    ("frame", picture) after each frame and ("wait", seconds) for the 30 fps
+    cap."""
     load_settings()
     model = get_model()
 
@@ -1139,32 +972,21 @@ def main():
 
     fx, fy = OneEuro(S["cutoff"], BETA), OneEuro(S["cutoff"], BETA)
     spline = deque(maxlen=4)
-    pen_pinch, click_pinch = Pinch(), Pinch()
 
-    # Auto pinch (a setting, off by default): watches how wide your hand opens
-    # and sets the thresholds from that.
-    seen = deque(maxlen=240)
-    open_ref = 1.30
-
-    pen = False
-    click_closed = False
-    locked = None
+    pen = False                # the mouse button is down (SPACE held)
     offset = [0.0, 0.0]
     paused = False
     prec_prev = None           # precision mode: last absolute position, for the hand's movement
     prec_cur = None            # precision mode: where the cursor is
-    # Short strokes: while the button is held the cursor moves by the nib's
+    # Short strokes: while the button is held the cursor moves by the hand's
     # movement, measured in hand sizes so it's the same at any camera distance.
     sfx, sfy = OneEuro(S["cutoff"], BETA), OneEuro(S["cutoff"], BETA)
-    pen_spot = None            # where the tap pressed: the cursor stays here while frozen
     stroke_cur = None          # where the cursor is during a short stroke
-    stroke_prev = None         # last smoothed nib position (camera pixels)
+    stroke_prev = None         # last smoothed knuckle position (camera pixels)
     hand_size = None           # smoothed wrist-to-knuckle length (camera pixels)
     clutched = False           # clutch: closed fist froze the cursor
     fist_since = open_since = None
     clutch_off = [0.0, 0.0]    # clutch, normal mode: shift between hand and cursor
-    recent = deque(maxlen=12)  # last few cursor spots (time, x, y), for the pinch freeze
-    unlock_since = None        # when the fingers opened enough to unfreeze
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
     next_frame = time.time()   # the 30 fps cap
@@ -1173,39 +995,36 @@ def main():
     fps = 0.0
     last = time.time()
 
-    cv2.namedWindow(WINDOW, cv2.WINDOW_AUTOSIZE)
-    build_settings_window()
     start_hotkey()
+    space_hook = start_space_click()
 
     print(f"AirDraw running. Screen {SCREEN_W}x{SCREEN_H} ({dpi_report()}). Hand: {S['hand']}.")
     print("DISARMED - press F8 to take control.")
-    print("Thumb tip against the side of your index finger (middle/ring/pinky up) = "
-          "mouse down; pull it away = mouse up.  Thumb+middle = quick click.  "
-          "Fist = clutch.  ESC = quit.\n")
+    print("Open hand = move the cursor.  Closed fist = freeze it.  "
+          "Hold SPACE = mouse down, let go = mouse up.  P = pause.  ESC = quit.")
+    if not space_hook:
+        print("  (SPACE only clicks while the AirDraw window is in front - "
+              "install pynput for it to work in Paint:  py -m pip install pynput)")
+    print()
 
     try:
+        yield ("ready", None)      # set up: the window can be built now
         while True:
-            try:
-                if cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1 \
-                        and fps > 0:
-                    break
-            except cv2.error:
-                pass
+            if QUIT[0]:            # the window was closed
+                break
 
             # 30 fps cap: if we're early, rest instead of grabbing another frame
+            # (the window waits, so it stays responsive meanwhile)
             wait = next_frame - time.time()
-            if wait > 0:
-                time.sleep(wait)
+            if wait > 0.002:
+                yield ("wait", wait)
             next_frame = max(next_frame + 1.0 / MAX_FPS, time.time())
 
-            # Camera slider moved: switch live. Let go of the mouse button and
-            # forget the old hand position, since the new picture is different.
+            # Camera picked in the drop-down: switch live, and forget the old
+            # hand position, since the new picture is different.
             if CAM["want"] is not None:
                 want, CAM["want"] = CAM["want"], None
                 if want != CAM["live"]:
-                    if pen:
-                        release()
-                        pen = False
                     cap = switch_camera(cap, want)
                     if CAM["live"] != want:          # didn't open: don't remember it
                         S["camera"] = CAM["live"]
@@ -1213,21 +1032,17 @@ def main():
                     fx.reset()
                     fy.reset()
                     spline.clear()
-                    locked = stroke_cur = prec_prev = hand_size = None
-                    recent.clear()
-                    pen_pinch.reset()
-                    click_pinch.reset()
-                    click_closed = False
+                    stroke_cur = prec_prev = hand_size = None
                     if cap is None:
                         sys.exit("Lost the camera while switching.")
 
             ok, frame = cap.read()
             if not ok:
-                # No picture (camera busy or unplugged). Keep the windows and
-                # sliders working so you can pick another camera.
-                sync_settings_window(time.time())
-                if cv2.waitKey(30) & 0xFF in (27, ord("q")):
+                # No picture (camera busy or unplugged). Keep the window and
+                # settings working so you can pick another camera.
+                if KEYS and KEYS.popleft() & 0xFF in (27, ord("q")):
                     break
+                yield ("wait", 0.03)
                 continue
             if frame.shape[1] != CAM_W or frame.shape[0] != CAM_H:
                 frame = cv2.resize(frame, (CAM_W, CAM_H))   # always 640x480
@@ -1235,7 +1050,6 @@ def main():
             h, w = frame.shape[:2]
             now = time.time()
 
-            sync_settings_window(now)
             if _dirty_at is not None and now - _dirty_at > 0.8:
                 save_settings()
             if now - work_at > 2.0:              # taskbar moved / resolution changed?
@@ -1245,6 +1059,7 @@ def main():
             sfx.cutoff = sfy.cutoff = S["cutoff"] * DRAW_STEADY
             margin = S["margin"]
             active = S["armed"] and not paused
+            SPACE["paused"] = paused
 
             ms = int((now - t0) * 1000)
             if ms <= last_ms:
@@ -1262,54 +1077,49 @@ def main():
             y0, y1 = margin * h + sy, (1 - margin) * h + sy
 
             status, color = f"no {S['hand'].lower()} hand", (150, 150, 150)
-            tap_info = None            # the live tap readout line, when a hand is seen
             hand = pick_hand(res)
+
+            # --- the mouse button: SPACE (see space_event) ---
+            # The space bar presses and releases the button itself, the moment
+            # you press it. Here we only notice it, to start or end a stroke.
+            down_now = _held
+            if down_now and not pen:
+                start = cursor_pos()             # pressed right where the cursor is
+                spline.clear()
+                spline.append(start)
+                stroke_cur = [start[0], start[1]]
+                stroke_prev = None
+                sfx.reset()
+                sfy.reset()
+                pen_started = True
+            else:
+                pen_started = False
+            offset_from_stroke = None
+            if pen and not down_now and stroke_cur is not None and S["stroke_px"] > 0:
+                # carry on from where the stroke ended (normal mode: then
+                # glide back to where your hand points)
+                if S["precision"]:
+                    prec_cur = list(stroke_cur)
+                    prec_prev = None
+                offset_from_stroke = stroke_cur
+            if pen and not down_now:
+                stroke_cur = None
+                spline.clear()
+            pen = down_now
 
             if hand is not None:
                 p = [(lm.x * w, lm.y * h, lm.z * w) for lm in hand]
                 scale = max(d(p[0], p[9]), 1e-3)
                 hand_size = scale if hand_size is None else 0.85 * hand_size + 0.15 * scale
 
-                # 3D fingertip distances, so tips that only overlap on camera
-                # (one in front of the other) don't count as touching
-                r_middle = d3(p[4], p[12]) / scale
-                # The thumb tap: thumb tip against the side of the index finger
-                side_px, touch = thumb_to_index_side(p)
-                r_tap = side_px / scale
-
-                # Middle, ring, pinky: a finger is up when its tip is clearly
-                # farther from the wrist than its middle joint is, and folded
-                # when it's well below that.
-                # The tap only needs them NOT CURLED IN (fewer than 2 folded).
-                # Pressing the thumb into the index finger relaxes the other
-                # fingers into a half-bend, and the old "all three clearly
-                # straight" rule blocked every tap. A fist still folds them,
-                # so a fist never taps.
+                # Each finger: up when its tip is clearly farther from the
+                # wrist than its middle joint is, folded when well below that.
                 ups = [d3(p[tip], p[0]) / max(d3(p[pip], p[0]), 1e-3)
                        for pip, tip in ((10, 12), (14, 16), (18, 20))]
-                if S["fingers_up"]:
-                    folded = sum(u < S["up_ratio"] - FOLD_GAP for u in ups) >= 2
-                    fingers_ok = not folded
-                else:
-                    fingers_ok, folded = True, False
                 stroke = pen and S["stroke_px"] > 0
 
-                if S["auto_pinch"]:
-                    seen.append(r_tap)
-                    if len(seen) > 45:
-                        open_ref = clamp(float(np.percentile(seen, 90)), 0.9, 2.2)
-                    t_on, t_off = open_ref * 0.26, open_ref * 0.44
-                    t_arm = open_ref * 0.62
-                else:
-                    t_on, t_off = S["press"], S["release"]
-                    t_arm = max(t_off * 1.35, t_on + 0.12)
-                # The tap's freeze starts closer in than the pinch's: a relaxed
-                # thumb rests fairly near the index finger, and shouldn't freeze.
-                t_arm_tap = t_off * TAP_ARM
-
                 # The cursor follows the middle finger's base knuckle (landmark
-                # 9). It barely moves when you tap, pinch or make a fist, so
-                # gestures don't drag the cursor off target.
+                # 9). It barely moves when you make a fist or open your hand.
                 aim = (p[9][0], p[9][1])
 
                 # zone -> work area (the screen minus the taskbar)
@@ -1356,7 +1166,6 @@ def main():
                     else:
                         open_since = None
                 hold = clutched or fist_raw      # frozen (also while a fist is forming)
-                tap_frozen = tap_freeze_on(pen, now)
 
                 if not S["precision"]:
                     mx, my = keep_in(mx + clutch_off[0], my + clutch_off[1])
@@ -1366,10 +1175,8 @@ def main():
                 if S["precision"]:
                     if prec_cur is None:
                         prec_cur = list(cursor_pos())
-                    # a short stroke moves it instead; the clutch, the pinch
-                    # freeze and the tap freeze stop it
-                    if prec_prev is not None and not stroke and not hold and locked is None \
-                            and not tap_frozen:
+                    # a short stroke moves it instead; the clutch stops it
+                    if prec_prev is not None and not stroke and not hold:
                         k = S["prec_pct"] / 100.0
                         prec_cur[0], prec_cur[1] = keep_in(prec_cur[0] + (mx - prec_prev[0]) * k,
                                                            prec_cur[1] + (my - prec_prev[1]) * k)
@@ -1378,129 +1185,34 @@ def main():
                 else:
                     prec_prev = prec_cur = None
 
-                closing = r_tap < t_arm_tap or r_middle < t_arm
-                # What can stop a touch from pressing (the dot shows ORANGE
-                # then, and the strip under the picture says why):
-                #  - a thumb+middle quick click in progress, or the thumb
-                #    nearer the middle fingertip than the knuckle
-                #  - the index finger folded: a fist is forming, so the
-                #    clutch gets it instead of a stray mark
-                #  - "3 fingers up" on and middle/ring/pinky curled in
-                idx_folded = idx_up < S["up_ratio"] - FOLD_GAP
-                tap_ok = (fingers_ok and not idx_folded and not click_closed
-                          and not (r_middle < t_on and r_middle < r_tap))
+                if pen_started:                  # the stroke starts where the cursor is
+                    offset[0], offset[1] = stroke_cur[0] - mx, stroke_cur[1] - my
+                if offset_from_stroke is not None:
+                    offset[0] = offset_from_stroke[0] - mx
+                    offset[1] = offset_from_stroke[1] - my
 
-                # While clutched nothing moves or clicks: the branch below
-                # lets go of the button and leaves the cursor where it is.
+                # While clutched nothing moves: the cursor stays where it is.
                 if active and not hold:
-                    # Freeze the cursor the moment a tap or pinch starts
-                    # forming, at where it was a split second BEFORE (forming
-                    # the gesture nudges the hand), then press/click right
-                    # there. It unfreezes only once the thumb is clearly
-                    # away again for the release time, so it can't flicker.
-                    if closing and locked is None and not pen:
-                        locked = lock_spot(recent, now, (mx + offset[0], my + offset[1]))
-                        unlock_since = None
-                        if S["precision"]:
-                            prec_cur = list(locked)
-                    elif locked is not None and not pen:
-                        if r_tap > t_arm_tap + UNLOCK_GAP and r_middle > t_arm + UNLOCK_GAP:
-                            unlock_since = now if unlock_since is None else unlock_since
-                            if now - unlock_since >= S["release_ms"] / 1000.0:
-                                if not S["precision"]:      # glide, don't jump, back to your hand
-                                    offset[0], offset[1] = locked[0] - mx, locked[1] - my
-                                locked = None
-                                unlock_since = None
-                        else:
-                            unlock_since = None
-
-                    # --- pen = the mouse button, worked by the thumb tap ---
-                    # Down: the moment the thumb touches the knuckle (below
-                    # Press) - no hold wait, so green-means-touching is the
-                    # press itself and the dot goes straight to red.
-                    # Stays down the whole time the thumb keeps touching, so
-                    # you can drag and draw.
-                    # Up: thumb pulled away past Release for the release time
-                    # (a tiny wait so one shaky frame doesn't break a line).
-                    # A fist lets go too (the clutch branch below).
-                    if not pen and tap_ok and r_tap < t_on:
-                        pen_pinch.reset()
-                        start = locked or (mx + offset[0], my + offset[1])
-                        offset[0], offset[1] = start[0] - mx, start[1] - my
-                        press_at(int(start[0]), int(start[1]))
-                        pen = True
-                        pen_spot = (start[0], start[1])
-                        locked = None
-                        spline.clear()
-                        spline.append(start)
-                        pen_pinch.apart = None
-                        stroke_cur = [start[0], start[1]]
-                        stroke_prev = None
-                        sfx.reset()
-                        sfy.reset()
-                    elif pen and pen_pinch.let_go(r_tap, t_off, now):
-                        release()
-                        pen = False
-                        pen_pinch.reset()
-                        spline.clear()
-                        if stroke and stroke_cur is not None:
-                            # carry on from where the short stroke ended
-                            if S["precision"]:
-                                prec_cur = list(stroke_cur)
-                                mx, my = stroke_cur
-                                offset[0] = offset[1] = 0.0
-                            else:      # glides back to where your hand points
-                                offset[0], offset[1] = stroke_cur[0] - mx, stroke_cur[1] - my
-                        stroke_cur = None
-                        pen_spot = None
-                        # Stay frozen where the button went up while the thumb
-                        # pulls away (that nudges the hand too). The freeze
-                        # above lets go once the thumb is clearly away.
-                        locked = keep_in(*cursor_pos())
-                        unlock_since = None
-                        if S["precision"]:
-                            prec_cur = list(locked)
-
-                    # --- click ---
-                    if not pen:
-                        if not click_closed and click_pinch.ready(r_middle, t_on, now):
-                            click_closed = True
-                            q = locked or (mx + offset[0], my + offset[1])
-                            click_at(int(q[0]), int(q[1]))
-                        elif click_closed and click_pinch.let_go(r_middle, t_off, now):
-                            click_closed = False
-                            click_pinch.reset()
-
                     # --- movement ---
-                    tap_frozen = tap_freeze_on(pen, now)
-                    if tap_frozen and pen_spot is not None:
-                        # keep the offset matched to the frozen spot, so when
-                        # a timed freeze ends the cursor doesn't jump
-                        offset[0], offset[1] = pen_spot[0] - mx, pen_spot[1] - my
                     tx, ty = mx + offset[0], my + offset[1]
                     if not pen:
                         offset[0] *= 0.85
                         offset[1] *= 0.85
-                    elif S["stroke_px"] > 0 and stroke_cur is not None:
+                    elif S["stroke_px"] > 0:
                         # Short strokes: follow the knuckle's movement, scaled so
                         # a small hand move (~1 cm) moves the cursor stroke_px.
-                        # Not during the tap freeze.
+                        if stroke_cur is None:          # e.g. the hand came back mid-stroke
+                            stroke_cur = list(cursor_pos())
+                            stroke_prev = None
                         nx, ny = sfx(aim[0], now), sfy(aim[1], now)
-                        if stroke_prev is not None and not tap_frozen:
+                        if stroke_prev is not None:
                             k = S["stroke_px"] / (SMALL_MOVE * hand_size)
                             stroke_cur[0], stroke_cur[1] = keep_in(stroke_cur[0] + (nx - stroke_prev[0]) * k,
                                                                    stroke_cur[1] + (ny - stroke_prev[1]) * k)
                         stroke_prev = (nx, ny)
                         tx, ty = stroke_cur
 
-                    if locked is not None:
-                        move(int(locked[0]), int(locked[1]))
-                    elif tap_frozen and pen_spot is not None:
-                        # tap held: the cursor stays exactly where it pressed
-                        move(int(pen_spot[0]), int(pen_spot[1]))
-                        spline.clear()
-                        spline.append(pen_spot)
-                    elif pen:
+                    if pen:
                         spline.append((tx, ty))
                         if len(spline) == 4:
                             a, b, c2, dd = spline
@@ -1512,130 +1224,53 @@ def main():
                             move(int(tx), int(ty))
                     else:
                         move(int(tx), int(ty))
-                        recent.append((now,) + keep_in(tx, ty))   # for lock_spot
-                else:
-                    if pen:
-                        release()
-                        pen = False
-                    stroke_cur = None
-                    locked = None
-                    click_closed = False
-                    pen_pinch.reset()
-                    click_pinch.reset()
-                    if S["precision"]:      # disarmed or paused: the cursor is yours again
-                        prec_cur = None
+                elif not active and S["precision"]:
+                    prec_cur = None          # disarmed or paused: the cursor is yours again
 
-                # --- overlay: faint hand, clear fingertip, pinch colours ---
+                # --- overlay: faint hand, fingertip dots, cursor ring ---
                 for a, b in CONNECTIONS:
                     cv2.line(frame, (int(p[a][0]), int(p[a][1])),
                              (int(p[b][0]), int(p[b][1])), (150, 150, 150), 1, cv2.LINE_AA)
+                # fingertips: green = up, grey = folded, white = in between.
+                # All four green = open hand (moves / resumes), all grey = fist.
+                for i, u in ((8, idx_up), (12, ups[0]), (16, ups[1]), (20, ups[2])):
+                    col = ((0, 220, 0) if u > S["up_ratio"] else
+                           (120, 120, 120) if u < S["up_ratio"] - FOLD_GAP else (230, 230, 230))
+                    cv2.circle(frame, (int(p[i][0]), int(p[i][1])), 6, col, -1, cv2.LINE_AA)
+                    cv2.circle(frame, (int(p[i][0]), int(p[i][1])), 6, (30, 30, 30), 1, cv2.LINE_AA)
 
-                def tip_col(r, pinch, pressed):
-                    if pressed:
-                        return (0, 0, 255)          # red: pressed
-                    if r < t_on:
-                        return (0, 220, 0)          # green: touching, hold filling
-                    return (230, 230, 230)          # white: apart
-
-                # The tap dot: red = mouse down. Touching but NOT pressed
-                # (blocked - the strip below says why) = orange, so green
-                # never shows without a press. White = apart.
-                c_tap = ((0, 0, 255) if pen else
-                         (0, 165, 255) if r_tap < t_on else (230, 230, 230))
-                c_mid = tip_col(r_middle, click_pinch, click_closed)
-                c_thb = c_tap if (pen or r_tap < t_on) else c_mid
-                for i, col in ((4, c_thb), (12, c_mid)):
-                    cv2.circle(frame, (int(p[i][0]), int(p[i][1])), 7, col, -1, cv2.LINE_AA)
-                    cv2.circle(frame, (int(p[i][0]), int(p[i][1])), 7, (30, 30, 30), 1, cv2.LINE_AA)
-                # the spot on the index finger's side the thumb taps against
-                cv2.circle(frame, (int(touch[0]), int(touch[1])), 6, c_tap, -1, cv2.LINE_AA)
-                cv2.circle(frame, (int(touch[0]), int(touch[1])), 6, (30, 30, 30), 1, cv2.LINE_AA)
-                if S["fingers_up"]:          # ring and pinky: green = fine, grey = curled in
-                    for i, u in ((16, ups[1]), (20, ups[2])):
-                        col = (0, 220, 0) if u >= S["up_ratio"] - FOLD_GAP else (120, 120, 120)
-                        cv2.circle(frame, (int(p[i][0]), int(p[i][1])), 5, col, -1, cv2.LINE_AA)
-
-                # Live thumb-to-dot distance, next to the thumb tip
-                dtxt = f"{r_tap:.2f}"
-                tx0, ty0 = int(p[4][0]) + 12, int(p[4][1]) - 10
-                cv2.putText(frame, dtxt, (tx0, ty0), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                            (20, 20, 20), 4, cv2.LINE_AA)
-                cv2.putText(frame, dtxt, (tx0, ty0), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                            c_tap, 2, cv2.LINE_AA)
-
-                # ...and in a strip, with what (if anything) is stopping the press
-                if pen:
-                    why, wcol = "PRESSED - mouse down, drag to draw", (0, 0, 255)
-                elif r_tap >= t_on:
-                    why, wcol = f"not touching - needs below {t_on:.2f}", (230, 230, 230)
-                elif not S["armed"]:
-                    why, wcol = "blocked: not armed - press F8", (0, 165, 255)
-                elif paused:
-                    why, wcol = "blocked: paused - press SPACE", (0, 165, 255)
-                elif hold:
-                    why, wcol = "blocked: fist = clutch", (255, 0, 200)
-                elif click_closed or (r_middle < t_on and r_middle < r_tap):
-                    why, wcol = "blocked: thumb is on the middle fingertip (quick click)", (0, 165, 255)
-                elif idx_folded:
-                    why, wcol = "blocked: index finger folded (looks like a fist) - straighten it", (0, 165, 255)
-                elif not fingers_ok:
-                    why, wcol = "blocked: middle/ring/pinky curled in - relax them open", (0, 165, 255)
-                else:
-                    why, wcol = "touching - pressing", (0, 220, 0)
-                tap_info = (f"thumb to {TAP_SPOTS[S['tap_spot']]} knuckle {r_tap:.2f}   press {t_on:.2f}   release {t_off:.2f}   "
-                            f"middle tip {r_middle:.2f}   {why}", wcol)
-
-                ring = (0, 0, 255) if pen else (
-                    (255, 200, 0) if locked is not None else (0, 255, 255))
+                # the cursor ring on the knuckle: yellow = moving, red = mouse
+                # button down (SPACE), purple = clutch (frozen)
+                ring = ((0, 0, 255) if pen else
+                        (255, 0, 200) if hold else (0, 255, 255))
                 ax, ay = int(aim[0]), int(aim[1])
                 cv2.circle(frame, (ax, ay), 14, (20, 20, 20), 4, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 14, ring, 2, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 4, ring, -1, cv2.LINE_AA)
-                prog = max(pen_pinch.progress(now) if not pen else 0,
-                           click_pinch.progress(now) if not click_closed else 0)
-                if 0 < prog < 1:                   # the hold filling up around the ring
-                    cv2.ellipse(frame, (ax, ay), (20, 20), -90, 0, 360 * prog,
-                                (0, 220, 0), 3, cv2.LINE_AA)
 
                 if not S["armed"]:
                     status, color = "DISARMED - F8 to take control", (170, 170, 170)
                 elif paused:
-                    status, color = "PAUSED", (0, 165, 255)
+                    status, color = "PAUSED - P to carry on", (0, 165, 255)
                 elif clutched:
                     status, color = "CLUTCH - cursor frozen, open hand to resume", (255, 0, 200)
                 elif fist_raw:
                     status, color = "fist... (clutch)", (255, 0, 200)
-                elif pen and tap_frozen:
-                    status, color = "TAP - button down, cursor frozen", (0, 0, 255)
                 elif pen:
-                    status, color = ("DRAWING - short strokes" if S["stroke_px"] else "DRAWING"), (0, 0, 255)
-                elif r_tap < t_on and idx_folded:
-                    status, color = "straighten your index finger", (0, 165, 255)
-                elif r_tap < t_on and not fingers_ok:
-                    status, color = "relax middle, ring, pinky open", (0, 165, 255)
-                elif locked is not None:
-                    status, color = "frozen - tap / pinch", (255, 200, 0)
+                    status, color = ("DRAWING (SPACE held) - short strokes" if S["stroke_px"]
+                                     else "DRAWING (SPACE held)"), (0, 0, 255)
                 else:
-                    status, color = "tracking", (0, 255, 0)
+                    status, color = "tracking - hold SPACE to click", (0, 255, 0)
             else:
                 fx.reset()
                 fy.reset()
                 spline.clear()
-                locked = None
                 offset[0] = offset[1] = 0.0
                 prec_prev = None
                 hand_size = None
                 fist_since = open_since = None    # a clutch stays on until an open hand comes back
-                recent.clear()
-                unlock_since = None
-                pen_pinch.reset()
-                click_pinch.reset()
-                click_closed = False
-                if pen:
-                    release()
-                    pen = False
-                    if stroke_cur is not None:
-                        prec_cur = None    # precision picks up from where the cursor really is
+                if pen and stroke_cur is not None:
+                    prec_cur = None    # precision picks up from where the cursor really is
                 stroke_cur = None
                 if not S["armed"]:
                     status = f"DISARMED - no {S['hand'].lower()} hand"
@@ -1651,14 +1286,6 @@ def main():
             (tw, _), _ = cv2.getTextSize(ftxt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
             cv2.putText(frame, ftxt, (w - tw - 12, 26), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, (0, 255, 0) if fps >= 20 else (0, 200, 255), 2, cv2.LINE_AA)
-            # tap readout, just above the bottom strip
-            if tap_info is not None:
-                txt, tcol = tap_info
-                cv2.rectangle(frame, (0, h - 70), (w, h - 46), (25, 25, 25), -1)
-                (iw, _), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
-                cv2.putText(frame, txt, (10, h - 53), cv2.FONT_HERSHEY_SIMPLEX,
-                            min(0.45, 0.45 * (w - 20) / max(iw, 1)),   # shrink to fit
-                            tcol, 1, cv2.LINE_AA)
             # bottom strip: current settings, then the keys
             cv2.rectangle(frame, (0, h - 46), (w, h), (25, 25, 25), -1)
             strip = (f"{S['hand']} hand   steady {fx.cutoff:.2f}   area "
@@ -1670,21 +1297,19 @@ def main():
             cv2.putText(frame, strip, (10, h - 28), cv2.FONT_HERSHEY_SIMPLEX,
                         min(0.48, 0.48 * (w - 20) / max(sw, 1)),   # shrink to fit 640 px
                         (200, 200, 200), 1, cv2.LINE_AA)
-            cv2.putText(frame, "F8 arm   H flip L/R   SPACE pause   ESC quit",
+            cv2.putText(frame, "F8 arm   SPACE click   P pause   H flip L/R   ESC quit",
                         (10, h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (230, 230, 230), 1, cv2.LINE_AA)
-            cv2.imshow(WINDOW, frame)
+            yield ("frame", frame)     # the window shows it (cursor already moved)
 
-            k = cv2.waitKeyEx(1)
-            if k == 0x770000 and _hotkey is None:     # F8 in the camera window, only if the any-window hotkey isn't running
+            k = KEYS.popleft() if KEYS else -1
+            if k == 0x770000 and _hotkey is None:     # F8 in the window, only if the any-window hotkey isn't running
                 toggle_armed()
             k &= 0xFF
             if k in (27, ord("q")):
                 break
-            elif k == ord(" "):
+            elif k in (ord("p"), ord("P")):
                 paused = not paused
-                if paused and pen:
-                    release()
-                    pen = False
+                print("PAUSED" if paused else "carrying on")
             elif k in (ord("h"), ord("H")):
                 S["invert"] = not S["invert"]
                 changed()
@@ -1705,20 +1330,83 @@ def main():
     finally:
         cleanup()
         save_settings()
-        stop_tk_settings()
         if _hotkey is not None:
             try:
                 _hotkey.stop()
             except Exception:
                 pass
+        if space_hook is not None:
+            try:
+                space_hook.stop()
+            except Exception:
+                pass
         if cap is not None:
             cap.release()
-        cv2.destroyAllWindows()
         try:
             landmarker.close()
         except Exception:
             pass
         print("Stopped. Camera released. Settings saved.")
+
+
+def main():
+    """Build the one window and run the frame loop inside it."""
+    try:
+        ctypes.windll.winmm.timeBeginPeriod(1)     # 1 ms timers, so waits don't add lag
+    except Exception:
+        pass
+    loop = frame_loop()
+    next(loop)                                     # settings, cameras, hand model
+
+    root = tk.Tk()
+    root.title(WINDOW)
+    root.resizable(False, False)
+    root.option_add("*Font", ("Segoe UI", 10))
+    video = tk.Label(root, bd=0, bg="black")       # the camera picture
+    video.grid(row=0, column=0, sticky="n")
+    side = tk.Frame(root)                          # the settings
+    side.grid(row=0, column=1, sticky="nsew", padx=10)
+    SettingsPanel(root, side)
+    photo = ImageTk.PhotoImage(Image.new("RGB", (CAM_W, CAM_H)))
+    video.configure(image=photo)
+    root.bind_all("<Key>", tk_key)
+    if _kb is None:                                # no any-window hook: SPACE here
+        root.bind_all("<KeyPress-space>", lambda e: space_event(True))
+        root.bind_all("<KeyRelease-space>", lambda e: space_event(False))
+    root.protocol("WM_DELETE_WINDOW", lambda: QUIT.__setitem__(0, True))
+    failed = []
+
+    def finish():
+        loop.close()                               # runs the loop's clean-up
+        root.destroy()
+
+    def step():
+        try:
+            kind, val = next(loop)
+        except StopIteration:                      # ESC, Q or the window closed
+            finish()
+            return
+        except BaseException as e:                 # e.g. lost the camera
+            failed.append(e)
+            finish()
+            return
+        if kind == "frame":
+            # one reused picture, pasted in place - no new image per frame
+            photo.paste(Image.fromarray(cv2.cvtColor(val, cv2.COLOR_BGR2RGB)))
+            root.after(1, step)
+        else:
+            root.after(max(1, int(val * 1000)), step)
+
+    root.after(1, step)
+    try:
+        root.mainloop()
+    finally:
+        try:
+            ctypes.windll.winmm.timeEndPeriod(1)
+        except Exception:
+            pass
+    if failed:
+        raise failed[0]
 
 
 if __name__ == "__main__":
