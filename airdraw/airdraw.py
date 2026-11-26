@@ -28,6 +28,10 @@ AirDraw - draw in MS Paint with your hand.
                             "Draw mode" setting decides - D toggles it.
     D                       Draw mode on / off (the fallback when Paint's tool
                             can't be read)
+    C / V                   previous / next colour in Paint's palette (armed only)
+    1 / 2                   black / white (armed only). Shift+C over Paint's
+                            first swatch and Shift+V over its last saves where
+                            they are, in case Paint's palette can't be read.
     P                       pause / carry on
     ESC or Q                quit (closing the window also quits)
 
@@ -181,6 +185,8 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "axis_lock": True,       # while drawing, snap the line to flat or upright
     "lock_px": 8,            # ...once it has moved this many px
     "depth_steady": True,    # hand toward / away from the camera doesn't move the cursor
+    "swatch_first": [],      # Paint's first colour swatch (Black) on screen, [x, y]
+    "swatch_last": [],       # ...and its last (Lavender). Saved by themselves, or Shift+C / Shift+V
     "camera": -1,           # camera number 0-9. -1 = not chosen yet: pick Camo automatically
 }
 
@@ -219,6 +225,9 @@ def fix_settings():
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
+    for k in ("swatch_first", "swatch_last"):
+        if not (len(S[k]) == 2 and all(isinstance(v, int) for v in S[k])):
+            S[k] = []
 
 
 def save_settings():
@@ -510,7 +519,9 @@ def toggle_draw_mode():
 DRAW_WORDS = ("pencil", "brush", "crayon", "marker")   # brush covers airbrush, oil, watercolor...
 PAINT = {"over": False,      # the cursor is over a Paint window
          "tool": None,       # e.g. "Pencil", or None if it couldn't be read
-         "draw": None}       # True / False from the tool, None = unknown
+         "draw": None,       # True / False from the tool, None = unknown
+         "color": None,      # Paint's colour 1, e.g. "Red", None = not known yet
+         "color_note": ""}   # why a colour key didn't work, shown on screen
 
 
 def draw_mode_now():
@@ -527,11 +538,84 @@ def mode_words():
     return f"{'DRAW' if S['draw_mode'] else 'CLICK'} - Draw mode {'on' if S['draw_mode'] else 'off'} (D), {why}"
 
 
+# --------------------------------------------------------- Paint's colours ---
+# C / V = previous / next swatch in Paint's palette, 1 = black, 2 = white,
+# only while armed. The Paint helper thread does it with UI Automation:
+# "invoking" a swatch is the same as clicking it, without moving the mouse.
+# If the palette can't be read it really clicks at the saved swatch spots.
+
+PALETTE = {                  # Paint's 20 swatches, in order, with their colours (RGB)
+    "Black": (0, 0, 0), "Gray": (127, 127, 127), "Dark red": (136, 0, 21), "Red": (237, 28, 36),
+    "Orange": (255, 127, 39), "Yellow": (255, 242, 0), "Green": (34, 177, 76),
+    "Turquoise": (0, 162, 232), "Indigo": (63, 72, 204), "Purple": (163, 73, 164),
+    "White": (255, 255, 255), "Light gray": (195, 195, 195), "Brown": (185, 122, 87),
+    "Rose": (255, 174, 201), "Gold": (255, 201, 14), "Light yellow": (239, 228, 176),
+    "Lime": (181, 230, 29), "Light turquoise": (153, 217, 234), "Blue-gray": (112, 146, 190),
+    "Lavender": (200, 191, 231)}
+COLOR_KEYS = {0x43: -1, 0x56: 1, 0x31: "Black", 0x32: "White",      # C, V, 1, 2
+              0x61: "Black", 0x62: "White"}                        # number pad 1, 2
+_color_q = queue.Queue()
+_color_down = set()          # colour keys held (so key-repeat doesn't keep stepping)
+
+
+def color_event(vk, down):
+    """C / V / 1 / 2 went down or up. True = AirDraw used it."""
+    if not down:
+        if vk in _color_down:
+            _color_down.discard(vk)
+            return True
+        return False
+    if vk in _color_down:
+        return True                # key repeat
+    if not S["armed"] or SPACE["paused"]:
+        return False
+    if user32.GetAsyncKeyState(0x11) & 0x8000 or user32.GetAsyncKeyState(0x12) & 0x8000:
+        return False               # Ctrl+C / Ctrl+V and so on belong to the app in front
+    _color_down.add(vk)
+    if user32.GetAsyncKeyState(0x10) & 0x8000 and vk in (0x43, 0x56):   # Shift+C / Shift+V
+        k = "swatch_first" if vk == 0x43 else "swatch_last"
+        x, y = cursor_pos()
+        S[k] = [int(x), int(y)]
+        changed()
+        PAINT["color_note"] = f"saved the {'first' if vk == 0x43 else 'last'} swatch at {int(x)}, {int(y)}"
+        return True
+    _color_q.put(COLOR_KEYS[vk])
+    return True
+
+
+def _click_saved_swatch(want):
+    """Fallback: click the swatch at the saved spots (Paint's 2 rows of 10)."""
+    if not (S["swatch_first"] and S["swatch_last"]):
+        PAINT["color_note"] = ("can't read Paint's colours - hover Black and press Shift+C, "
+                               "hover Lavender and press Shift+V")
+        return
+    if _held:
+        PAINT["color_note"] = "let go of SPACE first"
+        return
+    names = list(PALETTE)
+    if isinstance(want, str):
+        i = names.index(want)
+    else:
+        i = names.index(PAINT["color"]) + want if PAINT["color"] in names else 0
+    i %= len(names)
+    (x0, y0), (x1, y1) = S["swatch_first"], S["swatch_last"]
+    x, y = x0 + (x1 - x0) * (i % 10) / 9, y0 + (y1 - y0) * (i // 10)
+    here = cursor_pos()
+    move(x, y)
+    _send(LDOWN)
+    time.sleep(MIN_DOWN_S)
+    _send(LUP)
+    move(*here)
+    PAINT.update(color=names[i], color_note="")
+
+
 def _paint_watch():
     try:
         # imported here, in this thread: it sets up Windows' COM for this
         # thread only, away from the camera and the window
         from pywinauto.uia_defines import IUIA
+        from pywinauto.uia_element_info import UIAElementInfo
+        from pywinauto.controls.uiawrapper import UIAWrapper
     except Exception as e:
         print(f"(Can't read Paint's tool - {e}. Draw mode (D) decides.)")
         return
@@ -540,8 +624,74 @@ def _paint_watch():
     names = {}                                   # process id -> exe name
     canvas = {}                                  # Paint window -> its canvas element
     k32 = ctypes.windll.kernel32
+    U = ia.UIA_dll
+    is_item = ia.iuia.CreatePropertyCondition(U.UIA_ControlTypePropertyId, 50007)    # ListItem
+    is_radio = ia.iuia.CreatePropertyCondition(U.UIA_ControlTypePropertyId, 50013)   # RadioButton
+    is_colors = ia.iuia.CreatePropertyCondition(U.UIA_NamePropertyId, "Colors")
+    groups = {}                                  # Paint window -> its "Colors" group
+    paint_win = [None]                           # the last Paint window the cursor was over
+
+    def colors_group(root):
+        g = groups.get(root)
+        if g is not None:
+            try:
+                g.CurrentName
+                return g
+            except Exception:
+                pass
+        g = ia.iuia.ElementFromHandle(root).FindFirst(ia.tree_scope["descendants"], is_colors)
+        groups[root] = g
+        return g
+
+    def color1(g):
+        """Paint's colour 1 ("Color 1: Red" -> "Red")."""
+        rb = g.FindAll(ia.tree_scope["descendants"], is_radio)
+        for i in range(rb.Length):
+            n = rb.GetElement(i).CurrentName or ""
+            if n.startswith("Color 1:"):
+                return n.split(":", 1)[1].strip()
+        return None
+
+    def set_color(want):
+        root = paint_win[0]
+        if not root or not user32.IsWindow(root):
+            root = user32.FindWindowW("MSPaintApp", None)
+        g = colors_group(root) if root else None
+        items = g.FindAll(ia.tree_scope["descendants"], is_item) if g else None
+        if not items or items.Length == 0:
+            _click_saved_swatch(want)            # can't read the palette: click the saved spots
+            return
+        els = [items.GetElement(i) for i in range(items.Length)]
+        names = [e.CurrentName for e in els]
+        # remember where the first and last swatch are, for the fallback
+        for k, e in (("swatch_first", els[0]), ("swatch_last", els[min(len(els), 20) - 1])):
+            r = e.CurrentBoundingRectangle
+            spot = [(r.left + r.right) // 2, (r.top + r.bottom) // 2]
+            if S[k] != spot:
+                S[k] = spot
+                changed()
+        if isinstance(want, str):
+            i = names.index(want) if want in names else 0
+        else:
+            cur = color1(g)
+            i = (names.index(cur) + want) if cur in names else (0 if want > 0 else -1)
+        UIAWrapper(UIAElementInfo(els[i % len(els)])).invoke()
+        PAINT.update(color=color1(g) or names[i % len(els)], color_note="")
+
     while True:
-        time.sleep(PAINT_POLL_S)
+        try:
+            want = _color_q.get(timeout=PAINT_POLL_S)
+        except queue.Empty:
+            want = None
+        if want is not None:
+            try:
+                set_color(want)
+            except Exception as e:
+                try:
+                    _click_saved_swatch(want)
+                except Exception:
+                    PAINT["color_note"] = f"colour change failed ({e})"
+            continue
         try:
             pt = wintypes.POINT()
             user32.GetCursorPos(ctypes.byref(pt))
@@ -577,6 +727,10 @@ def _paint_watch():
                 tool = text[len("Using "):text.index(" tool")]
             PAINT.update(over=True, tool=tool,
                          draw=None if tool is None else any(w in tool.lower() for w in DRAW_WORDS))
+            paint_win[0] = root
+            g = colors_group(root)
+            if g:
+                PAINT["color"] = color1(g) or PAINT["color"]
         except Exception:
             PAINT.update(tool=None, draw=None)   # unreadable this time: Draw mode decides
 
@@ -591,10 +745,12 @@ def start_space_click():
     holder = {}
 
     def filt(msg, data):
-        if data.vkCode not in (0x20, 0x44) or data.flags & 0x10:   # not SPACE / D, or a made-up key
+        vk = data.vkCode
+        if (vk not in (0x20, 0x44) and vk not in COLOR_KEYS) or data.flags & 0x10:   # not ours, or a made-up key
             return True
         down = msg in (0x0100, 0x0104)                   # WM_KEYDOWN, WM_SYSKEYDOWN
-        used = space_event(down) if data.vkCode == 0x20 else d_event(down)
+        used = (space_event(down) if vk == 0x20 else d_event(down) if vk == 0x44
+                else color_event(vk, down))
         if used:
             holder["l"].suppress_event()                 # Paint doesn't get it
         return True
@@ -1061,6 +1217,9 @@ def panel_lines():
          else "DISARMED - press F8 to take control", (90, 220, 90) if S["armed"] else (150, 150, 150)),
         (f"Hand: {S['hand']}  (other hand ignored)    Flip L/R: {'on' if S['invert'] else 'off'}", (230, 230, 230)),
         (f"SPACE: {mode_words()}", (230, 230, 230)),
+        (f"Colour: {PAINT['color'] or 'not read yet'}   (C / V step, 1 black, 2 white)"
+         + (f" - {PAINT['color_note']}" if PAINT["color_note"] else ""),
+         (0, 165, 255) if PAINT["color_note"] else (230, 230, 230)),
         ((f"Axis lock: on - a held line snaps flat or upright after {S['lock_px']} px, turns switch it"
           if S["axis_lock"] else "Axis lock: off"), (230, 230, 230)),
         ((f"Drawing: short strokes, {S['stroke_px']} px per small hand move (~1 cm)"
@@ -1527,6 +1686,16 @@ def frame_loop():
             (tw, _), _ = cv2.getTextSize(ftxt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
             cv2.putText(frame, ftxt, (w - tw - 12, 26), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, (0, 255, 0) if fps >= 20 else (0, 200, 255), 2, cv2.LINE_AA)
+            # Paint's current colour, top right under the bar
+            ctxt = f"colour: {PAINT['color'] or '?'}"
+            (cw, _), _ = cv2.getTextSize(ctxt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.rectangle(frame, (w - cw - 46, 36), (w, 64), (25, 25, 25), -1)
+            rgb = PALETTE.get(PAINT["color"])
+            if rgb:
+                cv2.rectangle(frame, (w - cw - 40, 41), (w - cw - 22, 59), rgb[::-1], -1)
+            cv2.rectangle(frame, (w - cw - 40, 41), (w - cw - 22, 59), (200, 200, 200), 1)
+            cv2.putText(frame, ctxt, (w - cw - 14, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (0, 165, 255) if PAINT["color_note"] else (230, 230, 230), 1, cv2.LINE_AA)
             # draw / click mode, just above the bottom strip
             mtxt = "SPACE = " + mode_words()
             cv2.rectangle(frame, (0, h - 70), (w, h - 46), (25, 25, 25), -1)
