@@ -181,6 +181,9 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "max_speed": 200,        # ...up to this, % of normal (a fast sweep crosses the screen)
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
+    "tilt": True,            # tilt assist: tilting the palm nudges the cursor that way
+    "tilt_px": 80,           # ...px per second for each 10 degrees past the dead zone
+    "tilt_dz": 15,           # ...tilts smaller than this many degrees do nothing
     "settle_ms": 150,        # clutch: after the hand reopens, ignore movement this long
     "draw_mode": True,       # SPACE holds the button (draw) - used when Paint's tool can't be read
     "axis_lock": True,       # while drawing, snap the line to flat or upright
@@ -226,6 +229,8 @@ def fix_settings():
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
     S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
+    S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
+    S["tilt_dz"] = int(clamp(int(S["tilt_dz"]), 0, 45))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
     for k in ("swatch_first", "swatch_last"):
         if not (len(S[k]) == 2 and all(isinstance(v, int) for v in S[k])):
@@ -1030,6 +1035,9 @@ SLIDERS = [
     ("Max speed %",     100, 400, lambda: int(S["max_speed"]),                lambda v: _set("max_speed", int(v))),
     ("Stroke px (0 off)", 0,  40, lambda: int(S["stroke_px"]),                lambda v: _set("stroke_px", int(v))),
     ("Clutch (fist)",     0,   1, lambda: int(S["clutch"]),                   lambda v: _set("clutch", bool(v))),
+    ("Tilt assist",       0,   1, lambda: int(S["tilt"]),                     lambda v: _set("tilt", bool(v))),
+    ("Tilt strength",     0, 400, lambda: int(S["tilt_px"]),                  lambda v: _set("tilt_px", int(v))),
+    ("Tilt dead zone",    0,  45, lambda: int(S["tilt_dz"]),                  lambda v: _set("tilt_dz", int(v))),
     ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
     ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
@@ -1062,7 +1070,8 @@ SECTIONS = [
                 "Clutch (fist)", "Clutch settle ms", "Fingers up x100", "Draw mode (D)"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
                   "Max speed %", "Stroke px (0 off)",
-                  "Axis lock", "Lock threshold px", "Depth steady"]),
+                  "Axis lock", "Lock threshold px", "Depth steady",
+                  "Tilt assist", "Tilt strength", "Tilt dead zone"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
 ]
 TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
@@ -1328,6 +1337,7 @@ def frame_loop():
     lock_out = None            # axis lock: where the locked line put the cursor last
     turn_ref = None            # axis lock: a point trailing the hand by ~TURN_S, to spot a turn
     acc_v = None               # accel: smoothed hand speed (screen widths a second)
+    tilt_s = None              # tilt assist: smoothed (left/right, up/down) palm tilt, degrees
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
     next_frame = time.time()   # the 30 fps cap
@@ -1537,7 +1547,33 @@ def frame_loop():
                         clutch_off[0], clutch_off[1] = here[0] - mx, here[1] - my
                     offset[0] = offset[1] = 0.0
 
+                # --- tilt assist: the way the palm faces (from the 3D landmarks)
+                # nudges the cursor that way, on top of the hand's movement.
+                # The palm's facing = wrist->index base x wrist->pinky base,
+                # turned toward the camera, so either hand works. Its sideways
+                # part is the left/right roll, its up/down part the pitch. Not
+                # while frozen, and not while SPACE is held (strokes stay straight).
+                nudge = (0.0, 0.0)
+                if S["tilt"]:
+                    va = [p[5][i] - p[0][i] for i in range(3)]
+                    vb = [p[17][i] - p[0][i] for i in range(3)]
+                    n = (va[1] * vb[2] - va[2] * vb[1], va[2] * vb[0] - va[0] * vb[2],
+                         va[0] * vb[1] - va[1] * vb[0])
+                    if n[2] > 0:                     # smaller z = nearer the camera
+                        n = (-n[0], -n[1], -n[2])
+                    raw = (math.degrees(math.atan2(n[0], -n[2])), math.degrees(math.atan2(n[1], -n[2])))
+                    tilt_s = raw if tilt_s is None else tuple(t + (r - t) * 0.3 for t, r in zip(tilt_s, raw))
+                    if active and not hold and not pen:
+                        dt = min(now - last, 0.1)
+                        nudge = tuple(math.copysign(max(0.0, abs(t) - S["tilt_dz"]), t) / 10.0
+                                      * S["tilt_px"] * dt for t in tilt_s)
+                else:
+                    tilt_s = None
+
                 if not S["precision"]:
+                    # the nudge shifts the hand-to-cursor offset, kept on screen
+                    clutch_off[0] = clamp(clutch_off[0] + nudge[0], WORK[0] - mx, WORK[2] - 1 - mx)
+                    clutch_off[1] = clamp(clutch_off[1] + nudge[1], WORK[1] - my, WORK[3] - 1 - my)
                     mx, my = keep_in(mx + clutch_off[0], my + clutch_off[1])
 
                 # Precision mode: move by the hand's movement, scaled down,
@@ -1558,8 +1594,8 @@ def frame_loop():
                             top = max(k, S["max_speed"] / 100.0)
                             k += (top - k) * (1 - math.exp(-S["accel"] / 100 * ACCEL_K
                                                            * max(0.0, acc_v - ACCEL_FROM)))
-                        prec_cur[0], prec_cur[1] = keep_in(prec_cur[0] + ddx * k,
-                                                           prec_cur[1] + ddy * k)
+                        prec_cur[0], prec_cur[1] = keep_in(prec_cur[0] + ddx * k + nudge[0],
+                                                           prec_cur[1] + ddy * k + nudge[1])
                     prec_prev = (mx, my)
                     mx, my = prec_cur
                 else:
@@ -1664,6 +1700,14 @@ def frame_loop():
                 cv2.circle(frame, (ax, ay), 14, (20, 20, 20), 4, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 14, ring, 2, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 4, ring, -1, cv2.LINE_AA)
+                if tilt_s is not None:               # tilt assist: live angles, arrow while nudging
+                    on = nudge != (0.0, 0.0)
+                    cv2.putText(frame, f"tilt {tilt_s[0]:+.0f} {tilt_s[1]:+.0f}", (ax + 18, ay - 16),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255) if on else (200, 200, 200), 1, cv2.LINE_AA)
+                    if on:
+                        ln = math.hypot(*nudge)
+                        cv2.arrowedLine(frame, (ax, ay), (int(ax + nudge[0] / ln * 40), int(ay + nudge[1] / ln * 40)),
+                                        (0, 255, 255), 2, cv2.LINE_AA, tipLength=0.35)
 
                 if not S["armed"]:
                     status, color = "DISARMED - F8 to take control", (170, 170, 170)
