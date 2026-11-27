@@ -34,15 +34,23 @@ AirDraw - draw in MS Paint with your hand.
     R                       reconnect the camera (also a button in the settings)
     M                       pixel magnifier on / off (armed only; the key can be
                             changed on the Magnifier settings page)
-    Hold T                  voice tools (armed only): hold T, say a tool -
-                            line, curve, circle, oval, rectangle, square,
-                            triangle, paint bucket, fill, pencil, brush, spray,
-                            eraser, text, color picker - let go, and AirDraw
-                            clicks that tool's button, then puts the cursor
-                            back. The mic is only on while T is held, and it's
-                            all offline. Teach where the buttons are first:
-                            Voice settings page, "Teach tool spots" (hover
-                            each button, press Enter).
+    Hold T                  voice tools (armed only): hold T, say a tool, let
+                            go, and Paint switches to it. Tools: pencil, fill /
+                            paint bucket, text, eraser, color picker,
+                            magnifier, brush. Every shape: line, curve, oval /
+                            circle, rectangle / square, rounded rectangle,
+                            polygon, triangle, right triangle, diamond,
+                            pentagon, hexagon, right / left / up / down arrow,
+                            four / five / six point star, rounded rectangular
+                            call out, oval call out, cloud call out, heart,
+                            lightning. Brush types: calligraphy brush,
+                            calligraphy pen, airbrush / spray, oil brush,
+                            crayon, marker, natural pencil, watercolor. Paint
+                            is asked for the button by name, so the mouse
+                            doesn't move. The mic is only on while T is held,
+                            and it's all offline. "Teach tool spots" (Voice
+                            settings page) is only the backup for when Paint
+                            can't be read.
     D                       Draw mode on / off (the fallback when Paint's tool
                             can't be read)
     C / V                   previous / next colour in Paint's palette (armed only)
@@ -568,14 +576,37 @@ def mag_event(down):
 # toolbar (Paint always opens maximized, so the spots stay put), then the
 # cursor goes back where it was.
 
-# word -> the button it clicks (circle = the oval tool, and so on)
-VOICE_WORDS = {"line": "line", "curve": "curve", "circle": "oval", "oval": "oval",
-               "rectangle": "rectangle", "square": "rectangle", "triangle": "triangle",
-               "paint bucket": "fill", "fill": "fill", "pencil": "pencil", "brush": "brush",
-               "spray": "spray", "eraser": "eraser", "text": "text", "color picker": "color picker"}
-# the buttons, in the order "Teach tool spots" asks for them
+# what you say -> the button's name in Paint (circle = the oval tool, and so on).
+# Paint is asked for the button by name, so nothing needs teaching; the taught
+# spots are only the backup for when Paint can't be read.
+VOICE_TOOLS = {"pencil": "Pencil", "fill": "Fill", "paint bucket": "Fill", "bucket": "Fill",
+               "text": "Text", "eraser": "Eraser", "color picker": "Color picker",
+               "magnifier": "Magnifier", "brush": "Brushes", "brushes": "Brushes"}
+VOICE_SHAPES = {"line": "Line", "curve": "Curve", "oval": "Oval", "circle": "Oval",
+                "rectangle": "Rectangle", "square": "Rectangle",
+                "rounded rectangle": "Rounded rectangle", "polygon": "Polygon",
+                "triangle": "Triangle", "right triangle": "Right triangle",
+                "diamond": "Diamond", "pentagon": "Pentagon", "hexagon": "Hexagon",
+                "right arrow": "Right arrow", "arrow": "Right arrow", "left arrow": "Left arrow",
+                "up arrow": "Up arrow", "down arrow": "Down arrow",
+                "four point star": "Four-point star", "five point star": "Five-point star",
+                "star": "Five-point star", "six point star": "Six-point star",
+                # the speech model doesn't know "callout", so it's said as two words
+                "rounded rectangular call out": "Rounded rectangular callout",
+                "oval call out": "Oval callout", "cloud call out": "Cloud callout",
+                "heart": "Heart", "lightning": "Lightning"}
+# the brush types inside Paint's Brushes drop-down
+VOICE_BRUSHES = {"calligraphy brush": "Calligraphy brush", "calligraphy pen": "Calligraphy pen",
+                 "airbrush": "Airbrush", "spray": "Airbrush", "oil brush": "Oil brush",
+                 "oil": "Oil brush", "crayon": "Crayon", "marker": "Marker",
+                 "natural pencil": "Natural pencil", "watercolor brush": "Watercolor brush",
+                 "watercolor": "Watercolor brush"}
+VOICE_WORDS = {**VOICE_TOOLS, **VOICE_SHAPES, **VOICE_BRUSHES}
+BRUSH_TYPES = set(VOICE_BRUSHES.values())
+# the buttons, in the order "Teach tool spots" asks for them (the backup)
 TOOL_SPOTS = ["pencil", "fill", "text", "eraser", "color picker", "brush", "spray",
               "line", "curve", "oval", "rectangle", "triangle"]
+SPOT_FOR = {"Brushes": "brush", "Airbrush": "spray", "Color picker": "color picker"}
 VOICE_TAIL_S = 0.15    # keep listening this long after T is let go (the end of the word)
 VOICE_SHOW_S = 3.0     # the heard word stays on the camera picture this long
 VOICE = {"state": "loading",   # "loading", "ready", or why it's off
@@ -644,21 +675,25 @@ def voice_event(down):
 
 
 def _voice_pick(text):
-    """The last tool word in what was heard ("paint bucket" counts as one)."""
+    """The last tool word in what was heard. The longest match wins, so
+    "five point star" is one tool, not "star"."""
     w, out, i = text.split(), None, 0
     while i < len(w):
-        two = " ".join(w[i:i + 2])
-        if two in VOICE_WORDS:
-            out, i = two, i + 2
+        for n in (4, 3, 2, 1):
+            words = " ".join(w[i:i + n])
+            if len(w) - i >= n and words in VOICE_WORDS:
+                out, i = words, i + n
+                break
         else:
-            out, i = (w[i] if w[i] in VOICE_WORDS else out), i + 1
+            i += 1
     return out
 
 
-def _voice_click(word):
-    spot = SPOTS.get(VOICE_WORDS[word])
+def _voice_click(name):
+    """Backup: click the taught spot for Paint's button `name`."""
+    spot = SPOTS.get(SPOT_FOR.get(name, name.lower()))
     if not spot:
-        return "not taught yet - Voice page, Teach tool spots"
+        return "couldn't pick it in Paint, and no taught spot for it"
     if _held:
         return "let go of the click first"
     here = cursor_pos()
@@ -718,8 +753,10 @@ def _voice_worker():
                 rec.AcceptWaveform(audio.get())
             text = json.loads(rec.FinalResult()).get("text", "")
             word = _voice_pick(text)
-            note = _voice_click(word) if word else "didn't catch a tool name"
-            VOICE.update(heard=word or "", note=note, at=time.time())
+            VOICE.update(heard=word or "", note="" if word else "didn't catch a tool name",
+                         at=time.time())
+            if word:
+                _color_q.put(("tool", VOICE_WORDS[word]))   # Paint's own thread picks it
         except Exception as e:
             rec.Reset()
             VOICE.update(heard="", note=f"mic problem ({e})", at=time.time())
@@ -866,7 +903,15 @@ def _paint_watch():
         from pywinauto.controls.uiawrapper import UIAWrapper
     except Exception as e:
         print(f"(Can't read Paint's tool - {e}. Draw mode (D) decides.)")
-        return
+        while True:                              # voice still works, with the taught spots
+            want = _color_q.get()
+            if isinstance(want, tuple):
+                VOICE.update(note=_voice_click(want[1]), at=time.time())
+            else:
+                try:
+                    _click_saved_swatch(want)
+                except Exception:
+                    pass
     ia = IUIA()
     cond = ia.iuia.CreatePropertyCondition(ia.UIA_dll.UIA_AutomationIdPropertyId, "image")
     names = {}                                   # process id -> exe name
@@ -926,11 +971,98 @@ def _paint_watch():
         UIAWrapper(UIAElementInfo(els[i % len(els)])).invoke()
         PAINT.update(color=color1(g) or names[i % len(els)], color_note="")
 
+    is_toggle = ia.iuia.CreatePropertyCondition(U.UIA_ClassNamePropertyId, "ToggleButton")
+    is_brushes = ia.iuia.CreatePropertyCondition(U.UIA_AutomationIdPropertyId, "BrushesSplitButton")
+    buttons = {}                                 # (Paint window, name) -> its button
+
+    def find(root, cond, key):
+        e = buttons.get(key)
+        if e:
+            try:
+                e.CurrentName
+                return e
+            except Exception:
+                pass                             # Paint rebuilt it: look again
+        e = ia.iuia.ElementFromHandle(root).FindFirst(ia.tree_scope["descendants"], cond)
+        buttons[key] = e
+        return e
+
+    def pick_brush(root, name):
+        """Open the Brushes drop-down, pick `name`, close it."""
+        b = find(root, is_brushes, (root, "Brushes"))
+        if not b:
+            raise LookupError("no Brushes button in Paint")
+        split = UIAWrapper(UIAElementInfo(b))
+        split.expand()
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(root, ctypes.byref(pid))
+        mine = ia.iuia.CreatePropertyCondition(U.UIA_ProcessIdPropertyId, pid.value)
+        named = ia.iuia.CreatePropertyCondition(U.UIA_NamePropertyId, name)
+        e, t0 = None, time.time()
+        while not e and time.time() - t0 < 1.0:          # the list takes a moment to appear
+            # the list may be its own little window: look in each of Paint's
+            # windows only (never another app's, and searching the whole
+            # desktop takes seconds)
+            wins = ia.iuia.GetRootElement().FindAll(ia.tree_scope["children"], mine)
+            for k in range(wins.Length):
+                e = wins.GetElement(k).FindFirst(ia.tree_scope["descendants"], named)
+                if e:                            # (nothing found is an empty pointer, not None)
+                    break
+            if not e:
+                time.sleep(0.05)
+        if not e:
+            split.collapse()
+            raise LookupError(f"no {name} in the Brushes list (is Paint on screen?)")
+        w = UIAWrapper(UIAElementInfo(e))
+        for how in ("invoke", "select", "toggle"):
+            try:
+                getattr(w, how)()
+                break
+            except Exception:
+                continue
+        try:
+            if split.get_expand_state() == 1:
+                split.collapse()
+        except Exception:
+            pass
+
+    def pick_tool(name):
+        """Switch Paint to the tool / shape / brush called `name`."""
+        root = paint_win[0]
+        if not root or not user32.IsWindow(root):
+            root = user32.FindWindowW("MSPaintApp", None)
+        if not root:
+            raise LookupError("Paint isn't open")
+        if name in BRUSH_TYPES:
+            pick_brush(root, name)
+        elif name == "Brushes":                  # the brush button itself: the last brush type
+            e = find(root, is_brushes, (root, name))
+            if not e:
+                raise LookupError("no Brushes button in Paint")
+            UIAWrapper(UIAElementInfo(e)).invoke()
+        else:
+            cond = ia.iuia.CreateAndCondition(
+                ia.iuia.CreatePropertyCondition(U.UIA_NamePropertyId, name), is_toggle)
+            e = find(root, cond, (root, name))
+            if not e:
+                raise LookupError(f"no {name} button in Paint")
+            w = UIAWrapper(UIAElementInfo(e))
+            if w.get_toggle_state() != 1:        # already on: toggling would turn it off
+                w.toggle()
+        VOICE.update(note="", at=time.time())
+
     while True:
         try:
             want = _color_q.get(timeout=PAINT_POLL_S)
         except queue.Empty:
             want = None
+        if isinstance(want, tuple):              # ("tool", name) from voice
+            try:
+                pick_tool(want[1])
+            except Exception as e:
+                note = _voice_click(want[1])     # backup: the taught spot
+                VOICE.update(note=note and f"{note} ({e})", at=time.time())
+            continue
         if want is not None:
             try:
                 set_color(want)
@@ -1474,8 +1606,9 @@ class SettingsPanel:
             self.spots.set(
                 (f"TEACHING: hover over {TOOL_SPOTS[TEACH['i']].upper()} in Paint and press Enter "
                  f"(Tab = skip, Esc = stop)" if TEACH["i"] is not None else
-                 "Open Paint (maximized), click Teach tool spots, then hover each button "
-                 "and press Enter.")
+                 "Voice asks Paint for each button by name - no teaching needed. Tool spots "
+                 "are only the backup (Paint maximized, click Teach tool spots, hover each "
+                 "button, press Enter).")
                 + f"\nSaved: {len(SPOTS)} of {len(TOOL_SPOTS)}"
                 + (f" - missing: {', '.join(missing)}" if missing else "")
                 + f"\nVoice: {VOICE['state']}")
