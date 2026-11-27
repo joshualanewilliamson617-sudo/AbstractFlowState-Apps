@@ -26,10 +26,12 @@ AirDraw - draw in MS Paint with your hand.
                             (shapes, select, text, fill...) = CLICK. Anywhere
                             else, or if Paint's tool can't be read, the
                             "Draw mode" setting decides - D toggles it.
-    TWIST                   turn the BACK of your hand to the camera = mouse
-                            button down (draw); turn the palm back = up.
-                            The cursor freezes briefly as the twist starts and
-                            ends, so the press and release land where you aimed.
+    TWIST                   a quarter turn of the wrist, so your hand is edge-on
+                            to the camera (pinky side toward it) = mouse button
+                            down (draw); turn the palm back = up. "Twist angle"
+                            sets how far. The cursor freezes while the hand
+                            turns, so the press and release land where you aimed.
+    R                       reconnect the camera (also a button in the settings)
     D                       Draw mode on / off (the fallback when Paint's tool
                             can't be read)
     C / V                   previous / next colour in Paint's palette (armed only)
@@ -155,8 +157,9 @@ CLUTCH_S = 0.12        # a fist (or an open hand) must last this long to switch 
 DEPTH_REF_S = 20.0     # depth steady: your usual hand size is averaged over this long
 ACCEL_FROM = 0.25      # accel: hand speeds below this (screen widths a second) stay precise
 ACCEL_K = 3.0          # accel: how fast the speed-up builds at "Accel" 100
-TWIST_T0, TWIST_T1 = 0.55, 0.5   # twist: press/release past +-(T0 - T1 * sensitivity / 100)
-TWIST_RATE = 1.5       # twist: turning faster than this (facing change a second) = a twist starting
+TWIST_HYST = 15.0      # twist: press at "Twist angle", release 15 degrees short of it (no flicker)
+TWIST_RATE = 120.0     # twist: turning faster than this (degrees a second) = rotating, freeze
+CAM_STALL_S = 2.0      # camera: no picture (or all black) this long = reopen it, every 2 s
 TWIST_LEARN_S = 1.0    # twist: watch the palm this long first, to learn which side is which
 TWIST_LOST_S = 0.4     # twist: hand gone this long while pressed = let go
 LOCK_DIST = 0.2        # hand lock: stay on the hand within this much of where it was (picture widths)
@@ -191,7 +194,7 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
     "twist": True,           # twist click: back of the hand to the camera = button down
-    "twist_sens": 50,        # ...0-100, higher = a smaller twist does it
+    "twist_angle": 60,       # ...how far to turn (degrees from palm-on, 90 = edge-on) to click
     "twist_settle_ms": 150,  # ...after the hand stops rotating, the cursor waits this long
     "tilt": True,            # tilt assist: tilting the palm nudges the cursor that way
     "tilt_px": 80,           # ...px per second for each 10 degrees past the dead zone
@@ -242,7 +245,7 @@ def fix_settings():
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
     S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
     S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
-    S["twist_sens"] = int(clamp(int(S["twist_sens"]), 0, 100))
+    S["twist_angle"] = int(clamp(int(S["twist_angle"]), 30, 85))
     S["twist_settle_ms"] = int(clamp(int(S["twist_settle_ms"]), 0, 500))
     S["tilt_dz"] = int(clamp(int(S["tilt_dz"]), 0, 45))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
@@ -840,6 +843,8 @@ class OneEuro:
 
 CAM_SCAN = range(10)           # indexes tried at startup, 0-9
 CAM = {"live": 0,              # the camera in use right now
+       "reopen": False,        # R / the Reconnect button: reopen the camera in use
+       "stalled": False,       # no picture for CAM_STALL_S: retrying
        "want": None,           # slider moved: switch to this one
        "names": [],            # DirectShow names, same order as the indexes
        "opened": [],           # indexes that opened at startup
@@ -975,21 +980,16 @@ def open_camera(i):
 
 
 def switch_camera(cap, i):
-    """Swap to camera i. Returns the capture to use (the old one if i fails)."""
-    new = open_camera(i)
-    if new is None and cap is not None:
-        cap.release()                   # some laptops can't run two cameras at once
-        new = open_camera(i)
-        if new is None:
-            print(f"Camera {i} didn't open - going back to camera {CAM['live']}.")
-            CAM["note"] = f"camera {i} didn't open"
-            return open_camera(CAM["live"])
-    elif new is None:
-        print(f"Camera {i} didn't open.")
-        CAM["note"] = f"camera {i} didn't open"
-        return cap
-    elif cap is not None:
+    """Swap to camera i. The old camera is fully released first, so only one
+    camera is ever open. Returns the capture to use (the old camera reopened
+    if i won't open; None if neither does - the frame loop keeps retrying)."""
+    if cap is not None:
         cap.release()
+    new = open_camera(i)
+    if new is None:
+        print(f"Camera {i} didn't open - going back to camera {CAM['live']}.")
+        CAM["note"] = f"camera {i} didn't open"
+        return open_camera(CAM["live"])
     CAM["live"] = i
     CAM["note"] = ""
     return new
@@ -1054,7 +1054,7 @@ SLIDERS = [
     ("Tilt dead zone",    0,  45, lambda: int(S["tilt_dz"]),                  lambda v: _set("tilt_dz", int(v))),
     ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
     ("Twist click",       0,   1, lambda: int(S["twist"]),                    lambda v: _set("twist", bool(v))),
-    ("Twist sensitivity", 0, 100, lambda: int(S["twist_sens"]),               lambda v: _set("twist_sens", int(v))),
+    ("Twist angle",      30,  85, lambda: int(S["twist_angle"]),              lambda v: _set("twist_angle", int(v))),
     ("Twist settle ms",   0, 500, lambda: int(S["twist_settle_ms"]),          lambda v: _set("twist_settle_ms", int(v))),
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
     ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
@@ -1085,7 +1085,7 @@ def pick_camera(i):
 SECTIONS = [
     ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
                 "Clutch (fist)", "Clutch settle ms", "Fingers up x100", "Draw mode (D)",
-                "Twist click", "Twist sensitivity", "Twist settle ms"]),
+                "Twist click", "Twist angle", "Twist settle ms"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
                   "Max speed %", "Stroke px (0 off)",
                   "Axis lock", "Lock threshold px", "Depth steady",
@@ -1098,9 +1098,19 @@ TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
 
 
 def _camera_choices():
-    idx = sorted(set(CAM["opened"]) | set(range(len(CAM["names"]))) | {CAM["live"]})
-    return [(f"{i}: {cam_name(i)}" + ("" if i in CAM["opened"] else "  (didn't open)"), i)
-            for i in idx if 0 <= i <= 9]
+    """Always offers 0 (webcam) and 1 (Camo), plus any other camera found;
+    the one in use is marked ACTIVE."""
+    idx = sorted(set(CAM["opened"]) | set(range(len(CAM["names"]))) | {0, 1, CAM["live"]})
+    out = []
+    for i in idx:
+        if not 0 <= i <= 9:
+            continue
+        name = cam_name(i)
+        if name == "unknown name":
+            name = {0: "webcam", 1: "Camo"}.get(i, name)
+        out.append((f"{i}: {name}" + ("  - ACTIVE" if i == CAM["live"] else
+                                      "" if i in CAM["opened"] else "  (not found at start)"), i))
+    return out
 
 
 TK_CHOICES = {
@@ -1126,6 +1136,8 @@ class SettingsPanel:
                                  values=[name for name, _ in SECTIONS])
         self.page.pack(side="left", padx=8)
         self.page.bind("<<ComboboxSelected>>", lambda e: self.show(self.page.get()))
+        tk.Button(top, text="Reconnect camera (R)", takefocus=0,
+                  command=lambda: CAM.update(reopen=True)).pack(side="left", padx=4)
 
         by_name = {s[0]: s for s in SLIDERS}
         self.rows = []      # (kind, slider entry, widget var, combobox / None)
@@ -1378,6 +1390,7 @@ def frame_loop():
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
     next_frame = time.time()   # the 30 fps cap
+    cam_good = cam_retry = time.time()   # camera: last good picture, last reconnect try
     t0 = time.time()
     last_ms = -1
     fps = 0.0
@@ -1421,15 +1434,42 @@ def frame_loop():
                     fy.reset()
                     spline.clear()
                     stroke_cur = prec_prev = hand_size = depth_ref = None
-                    if cap is None:
-                        sys.exit("Lost the camera while switching.")
 
-            ok, frame = cap.read()
-            if not ok:
-                # No picture (camera busy or unplugged). Keep the window and
-                # settings working so you can pick another camera.
-                if KEYS and KEYS.popleft() & 0xFF in (27, ord("q")):
-                    break
+            # Reconnect: R / the button, or no picture for CAM_STALL_S (then
+            # every CAM_STALL_S): fully release the camera and open it again.
+            tnow = time.time()
+            if CAM["reopen"] or (tnow - cam_good > CAM_STALL_S and tnow - cam_retry > CAM_STALL_S):
+                why = "reconnect asked" if CAM["reopen"] else "no picture"
+                CAM["reopen"] = False
+                cam_retry = tnow
+                if cap is not None:
+                    cap.release()
+                cap = open_camera(CAM["live"])
+                print(f"Camera {CAM['live']} reopened ({why})" if cap is not None
+                      else f"Camera {CAM['live']} didn't reopen ({why}) - retrying in {CAM_STALL_S:.0f} s")
+            ok, frame = cap.read() if cap is not None else (False, None)
+            if ok and frame is not None and frame[::16, ::16].max() < 12:
+                ok = False                       # an all-black picture counts as none
+            if ok:
+                cam_good = time.time()
+                CAM["stalled"] = False
+            else:
+                # No picture (camera busy, unplugged or black). Keep the window
+                # and settings working so you can reconnect or pick another one.
+                if KEYS:
+                    k = KEYS.popleft() & 0xFF
+                    if k in (27, ord("q")):
+                        break
+                    if k in (ord("r"), ord("R")):
+                        CAM["reopen"] = True
+                if time.time() - cam_good > CAM_STALL_S:
+                    CAM["stalled"] = True
+                    img = np.zeros((CAM_H, CAM_W, 3), np.uint8)
+                    cv2.putText(img, "NO CAMERA - retrying", (120, 230), cv2.FONT_HERSHEY_SIMPLEX,
+                                1.0, (0, 0, 255), 2, cv2.LINE_AA)
+                    cv2.putText(img, f"camera {CAM['live']}: {cam_name(CAM['live'])}   (R = reconnect now)",
+                                (120, 270), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (230, 230, 230), 1, cv2.LINE_AA)
+                    yield ("frame", img)
                 yield ("wait", 0.03)
                 continue
             if frame.shape[1] != CAM_W or frame.shape[0] != CAM_H:
@@ -1530,7 +1570,7 @@ def frame_loop():
                 # depends on the camera, so it's learned while the button is up
                 # (your hand is mostly palm-on then). Turning fast = rotating:
                 # the cursor freezes until it's been still "Twist settle ms".
-                face, rotating = None, False
+                face, ang, rotating = None, None, False
                 if S["twist"]:
                     va = [p[5][i] - p[0][i] for i in range(3)]
                     vb = [p[17][i] - p[0][i] for i in range(3)]
@@ -1543,10 +1583,12 @@ def frame_loop():
                         face_seen += dtf
                     if face_seen >= TWIST_LEARN_S and abs(face_cal) > 0.1:
                         face = rawf if face_cal > 0 else -rawf
+                        # the turn: 0 deg = palm on, 90 = edge on (a quarter turn)
+                        ang = math.degrees(math.acos(clamp(face, -1.0, 1.0)))
                         if face_prev is not None:
-                            r = abs(face - face_prev) / max(now - last, 1e-3)
+                            r = abs(ang - face_prev) / max(now - last, 1e-3)
                             face_rate += (r - face_rate) * 0.6
-                        face_prev = face
+                        face_prev = ang
                         if face_rate > TWIST_RATE:
                             rotating = True
                             rot_until = now + S["twist_settle_ms"] / 1000.0
@@ -1589,11 +1631,13 @@ def frame_loop():
                 # four raised. Each must last CLUTCH_S, so a twitch does nothing.
                 idx_up = d3(p[8], p[0]) / max(d3(p[6], p[0]), 1e-3)
                 four = [idx_up] + ups
-                # (the back of the hand can look like curled fingers: while the
-                # twist click is held the clutch is ignored completely)
-                fist_raw = S["clutch"] and not twist_down and all(u < S["up_ratio"] - FOLD_GAP for u in four)
+                # (edge-on and back-of-hand views can look like curled fingers:
+                # while either click is held the clutch is ignored completely,
+                # so the cursor keeps following the hand)
+                held = twist_down or pen         # either click (twist or SPACE) is held
+                fist_raw = S["clutch"] and not held and all(u < S["up_ratio"] - FOLD_GAP for u in four)
                 open_raw = all(u > S["up_ratio"] for u in four)
-                if not S["clutch"] or twist_down:
+                if not S["clutch"] or held:
                     clutched = False
                     fist_since = open_since = None
                 elif not clutched:
@@ -1617,25 +1661,24 @@ def frame_loop():
                 # Frozen as soon as any finger starts to fold (not only once the
                 # fist is complete), and for "Clutch settle ms" after the hand
                 # is fully open again, so the opening/closing wobble never moves it.
-                closing = S["clutch"] and not open_raw and not twist_down
+                closing = S["clutch"] and not open_raw and not held
                 if clutched or closing:
                     settle_until = now + S["settle_ms"] / 1000.0
                 hold = clutched or closing or now < settle_until
-                # --- twist click, part 2: back of the hand past -t = button
-                # down, palm back past +t = up (hysteresis: no flicker in
-                # between). The press and release come mid-rotation, while the
-                # cursor is frozen, so they land where you aimed. Once the hand
-                # stops turning (plus "Twist settle ms") it follows again - also
-                # while the button is held.
-                if face is not None:
-                    t = TWIST_T0 - TWIST_T1 * S["twist_sens"] / 100.0
+                # --- twist click, part 2: turned to "Twist angle" (edge-on is
+                # 90) = button down; turned back past 15 degrees less = up
+                # (hysteresis: no flicker in between). The press and release
+                # come mid-rotation, while the cursor is frozen, so they land
+                # where you aimed. Once the hand stops turning (plus "Twist
+                # settle ms") it follows again - also while the button is held.
+                if ang is not None:
                     if now < rot_until:
                         hold = True
-                    if active and not twist_down and face < -t:
+                    if active and not twist_down and ang >= S["twist_angle"]:
                         twist_down = True
                         SPACE["click"] = False
                         _space_q.put("down")
-                    elif twist_down and face > t:
+                    elif twist_down and ang <= S["twist_angle"] - TWIST_HYST:
                         twist_down = False
                         _space_q.put("up")
                 resume = resume or hold          # any freeze, even a half-close, re-anchors after
@@ -1804,8 +1847,9 @@ def frame_loop():
                 cv2.circle(frame, (ax, ay), 14, (20, 20, 20), 4, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 14, ring, 2, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 4, ring, -1, cv2.LINE_AA)
-                if face is not None:                 # twist click: + palm, - back of the hand
-                    cv2.putText(frame, f"face {face:+.2f}" + ("  DOWN" if twist_down else ""), (ax + 18, ay + 22),
+                if ang is not None:                  # twist click: 0 = palm on, 90 = edge on
+                    cv2.putText(frame, f"twist {ang:.0f}/{S['twist_angle']}" + ("  DOWN" if twist_down else ""),
+                                (ax + 18, ay + 22),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255) if twist_down else (200, 200, 200),
                                 1, cv2.LINE_AA)
                 elif S["twist"]:
@@ -1867,9 +1911,9 @@ def frame_loop():
                         0.8, (0, 255, 0) if fps >= 20 else (0, 200, 255), 2, cv2.LINE_AA)
             # the live cursor position, top left under the bar
             cpx, cpy = cursor_pos()
-            cv2.rectangle(frame, (0, 36), (150, 64), (25, 25, 25), -1)
-            cv2.putText(frame, f"cursor {int(cpx)}, {int(cpy)}", (8, 55), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5, (230, 230, 230), 1, cv2.LINE_AA)
+            cv2.rectangle(frame, (0, 36), (300, 64), (25, 25, 25), -1)
+            cv2.putText(frame, f"cursor {int(cpx)}, {int(cpy)}   cam {CAM['live']}: {cam_name(CAM['live'])[:14]}",
+                        (8, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (230, 230, 230), 1, cv2.LINE_AA)
             # Paint's current colour, top right under the bar
             ctxt = f"colour: {PAINT['color'] or '?'}"
             (cw, _), _ = cv2.getTextSize(ctxt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
@@ -1910,6 +1954,8 @@ def frame_loop():
                 break
             elif k in (ord("d"), ord("D")) and space_hook is None:
                 toggle_draw_mode()               # (with the hook, D works in every window)
+            elif k in (ord("r"), ord("R")):
+                CAM["reopen"] = True             # reconnect the camera
             elif k in (ord("p"), ord("P")):
                 paused = not paused
                 print("PAUSED" if paused else "carrying on")
