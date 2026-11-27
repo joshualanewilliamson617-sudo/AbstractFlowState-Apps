@@ -404,8 +404,8 @@ def _abs(x, y):
 
 
 def move(x, y):
-    if VOICE["clicking"]:
-        return                       # a voice tool click is using the mouse for a moment
+    if VOICE["clicking"] or TEACH["i"] is not None:
+        return                       # a voice tool click is using the mouse, or you're teaching spots with the real mouse
     _send(MOVE | ABSOLUTE | VIRTUALDESK, *_abs(x, y))
 
 
