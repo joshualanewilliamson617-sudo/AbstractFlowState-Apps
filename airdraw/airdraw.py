@@ -32,6 +32,8 @@ AirDraw - draw in MS Paint with your hand.
                             sets how far. The cursor freezes while the hand
                             turns, so the press and release land where you aimed.
     R                       reconnect the camera (also a button in the settings)
+    M                       pixel magnifier on / off (armed only; the key can be
+                            changed on the Magnifier settings page)
     D                       Draw mode on / off (the fallback when Paint's tool
                             can't be read)
     C / V                   previous / next colour in Paint's palette (armed only)
@@ -128,7 +130,7 @@ try:
     import mediapipe as mp
     import tkinter as tk
     from tkinter import ttk
-    from PIL import Image, ImageTk
+    from PIL import Image, ImageDraw, ImageTk
 except ImportError as e:
     sys.exit(f"Missing package: {e.name}\n"
              f"Run:  py -m pip install opencv-python mediapipe pynput pillow")
@@ -193,6 +195,9 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "max_speed": 200,        # ...up to this, % of normal (a fast sweep crosses the screen)
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
+    "mag_key": "M",          # magnifier on / off key (armed only)
+    "mag_zoom": 8,           # magnifier: each screen pixel shown this many times bigger
+    "mag_size": 160,         # magnifier: size of its picture, px
     "twist": True,           # twist click: back of the hand to the camera = button down
     "twist_angle": 60,       # ...how far to turn (degrees from palm-on, 90 = edge-on) to click
     "twist_settle_ms": 150,  # ...after the hand stops rotating, the cursor waits this long
@@ -246,6 +251,9 @@ def fix_settings():
     S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
     S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
     S["twist_angle"] = int(clamp(int(S["twist_angle"]), 30, 85))
+    S["mag_key"] = S["mag_key"] if S["mag_key"] in MAG_KEYS else "M"
+    S["mag_zoom"] = int(clamp(int(S["mag_zoom"]), 2, 16))
+    S["mag_size"] = int(clamp(int(S["mag_size"]), 80, 320))
     S["twist_settle_ms"] = int(clamp(int(S["twist_settle_ms"]), 0, 500))
     S["tilt_dz"] = int(clamp(int(S["tilt_dz"]), 0, 45))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
@@ -506,6 +514,29 @@ def space_event(down):
     SPACE["down"] = False          # let go: always lets the button up, even if disarmed meanwhile
     if not SPACE["click"]:
         _space_q.put("up")
+    return True
+
+
+MAG = {"on": False,          # the magnifier is showing
+       "down": False}        # its key is held (so key-repeat doesn't keep toggling)
+# keys the magnifier may use: never C V B R Z, SPACE, or AirDraw's other keys
+MAG_KEYS = ["M", "N", "G", "J", "K", "L", "T", "U", "Y"]
+
+
+def mag_event(down):
+    """The magnifier key went down / up. While armed it toggles the magnifier
+    (and the app in front doesn't get the key). True = AirDraw used it."""
+    if not down:
+        was, MAG["down"] = MAG["down"], False
+        return was
+    if MAG["down"]:
+        return True                # key repeat
+    if not S["armed"] or SPACE["paused"]:
+        return False
+    if user32.GetAsyncKeyState(0x11) & 0x8000 or user32.GetAsyncKeyState(0x12) & 0x8000:
+        return False               # Ctrl+M / Alt+M belong to the app in front
+    MAG["down"] = True
+    MAG["on"] = not MAG["on"]
     return True
 
 
@@ -770,11 +801,12 @@ def start_space_click():
 
     def filt(msg, data):
         vk = data.vkCode
-        if (vk not in (0x20, 0x44) and vk not in COLOR_KEYS) or data.flags & 0x10:   # not ours, or a made-up key
+        mvk = ord(S["mag_key"])
+        if (vk not in (0x20, 0x44, mvk) and vk not in COLOR_KEYS) or data.flags & 0x10:   # not ours, or a made-up key
             return True
         down = msg in (0x0100, 0x0104)                   # WM_KEYDOWN, WM_SYSKEYDOWN
         used = (space_event(down) if vk == 0x20 else d_event(down) if vk == 0x44
-                else color_event(vk, down))
+                else mag_event(down) if vk == mvk else color_event(vk, down))
         if used:
             holder["l"].suppress_event()                 # Paint doesn't get it
         return True
@@ -1053,6 +1085,9 @@ SLIDERS = [
     ("Tilt strength",     0, 400, lambda: int(S["tilt_px"]),                  lambda v: _set("tilt_px", int(v))),
     ("Tilt dead zone",    0,  45, lambda: int(S["tilt_dz"]),                  lambda v: _set("tilt_dz", int(v))),
     ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
+    ("Magnifier key",     0, 8, lambda: MAG_KEYS.index(S["mag_key"]),         lambda v: _set("mag_key", MAG_KEYS[int(v)])),
+    ("Zoom",              2,  16, lambda: int(S["mag_zoom"]),                 lambda v: _set("mag_zoom", int(v))),
+    ("Magnifier size",   80, 320, lambda: int(S["mag_size"]),                 lambda v: _set("mag_size", int(v))),
     ("Twist click",       0,   1, lambda: int(S["twist"]),                    lambda v: _set("twist", bool(v))),
     ("Twist angle",      30,  85, lambda: int(S["twist_angle"]),              lambda v: _set("twist_angle", int(v))),
     ("Twist settle ms",   0, 500, lambda: int(S["twist_settle_ms"]),          lambda v: _set("twist_settle_ms", int(v))),
@@ -1091,6 +1126,7 @@ SECTIONS = [
                   "Axis lock", "Lock threshold px", "Depth steady",
                   "Tilt assist", "Tilt strength", "Tilt dead zone"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
+    ("Magnifier", ["Magnifier key", "Zoom", "Magnifier size"]),
 ]
 TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
             "Fingers up x100": "Finger straightness (x100)",
@@ -1116,6 +1152,7 @@ def _camera_choices():
 TK_CHOICES = {
     "Hand: 0 L  1 R": lambda: [("Left hand", 0), ("Right hand", 1)],
     "Camera": _camera_choices,
+    "Magnifier key": lambda: [(f"{k}" + ("  (default)" if k == "M" else ""), i) for i, k in enumerate(MAG_KEYS)],
 }
 
 KEYS = deque()          # keys pressed in the window, read by the frame loop
@@ -1218,6 +1255,176 @@ class SettingsPanel:
         self.root.after(250, self.poll)
 
 
+# ------------------------------------------------------------ magnifier -----
+# A small always-on-top window beside the cursor showing the pixels around it
+# zoomed in: sharp square pixels (no smoothing), a thin grid, and a crosshair
+# on the exact pixel under the cursor, with its colour and position. It's
+# see-through to the mouse (it never takes a click) and sits off to the side,
+# so it never covers where you paint. Only a few hundred pixels are copied
+# each time, so it's light. Windows leaves "layered" windows (this one, the
+# wand overlay) and the pointer out of the copy, so it never shows itself.
+# Copying from the screen waits for Windows' next screen refresh (~15 ms),
+# so a helper thread does the copying and zooming; the window only pastes
+# the finished picture, and the camera loop never waits for it.
+
+_g32, _u32 = ctypes.WinDLL("gdi32"), ctypes.WinDLL("user32")     # own copies: own argtypes
+_g32.CreateCompatibleDC.restype = _u32.GetDC.restype = wintypes.HDC
+_g32.CreateCompatibleBitmap.restype = _g32.SelectObject.restype = wintypes.HANDLE
+_g32.CreateCompatibleDC.argtypes = [wintypes.HDC]
+_g32.CreateCompatibleBitmap.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int]
+_g32.SelectObject.argtypes = [wintypes.HDC, wintypes.HANDLE]
+_g32.DeleteObject.argtypes = [wintypes.HANDLE]
+_g32.DeleteDC.argtypes = [wintypes.HDC]
+_g32.BitBlt.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                        wintypes.HDC, ctypes.c_int, ctypes.c_int, wintypes.DWORD]
+_g32.GetDIBits.argtypes = [wintypes.HDC, wintypes.HANDLE, wintypes.UINT, wintypes.UINT,
+                           ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT]
+_u32.GetDC.argtypes = [wintypes.HWND]
+_u32.ReleaseDC.argtypes = [wintypes.HWND, wintypes.HDC]
+_u32.GetParent.argtypes = [wintypes.HWND]
+_u32.GetParent.restype = wintypes.HWND
+_u32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+_u32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+_u32.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_ubyte, wintypes.DWORD]
+_u32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                              ctypes.c_int, ctypes.c_int, wintypes.UINT]
+MAG_GAP = 36           # px between the cursor and the magnifier window
+
+
+def grab_pixels(x0, y0, n):
+    """The n x n screen pixels whose top-left is (x0, y0), as a PIL image."""
+    sdc = _u32.GetDC(None)
+    mdc = _g32.CreateCompatibleDC(sdc)
+    bmp = _g32.CreateCompatibleBitmap(sdc, n, n)
+    old = _g32.SelectObject(mdc, bmp)
+    _g32.BitBlt(mdc, 0, 0, n, n, sdc, x0, y0, 0x00CC0020)          # SRCCOPY (no layered windows)
+    # BITMAPINFOHEADER: 32-bit, top row first
+    bih = (ctypes.c_uint32 * 10)(40, n, (-n) & 0xFFFFFFFF, 1 | (32 << 16), 0, 0, 0, 0, 0, 0)
+    buf = ctypes.create_string_buffer(n * n * 4)
+    _g32.GetDIBits(mdc, bmp, 0, n, buf, bih, 0)
+    _g32.SelectObject(mdc, old)
+    _g32.DeleteObject(bmp)
+    _g32.DeleteDC(mdc)
+    _u32.ReleaseDC(None, sdc)
+    return Image.frombuffer("RGB", (n, n), buf.raw, "raw", "BGRX", 0, 1)
+
+
+class Magnifier:
+    def __init__(self, root):
+        self.root = root
+        self.win = None
+        self.photo = None
+        self.size = None
+        self.latest = None          # (picture, x, y, (r, g, b)) from the helper thread
+        self.shown = None
+        threading.Thread(target=self._render_loop, name="magnifier", daemon=True).start()
+
+    def _render_loop(self):
+        while True:
+            if not MAG["on"]:
+                time.sleep(0.1)
+                continue
+            try:
+                self.latest = self._render()
+            except Exception as e:
+                print(f"(magnifier: {e})")
+                time.sleep(0.5)
+            time.sleep(0.035)       # with the ~15 ms copy: about 20 pictures a second
+
+    def _make(self):
+        w = tk.Toplevel(self.root)
+        w.overrideredirect(True)                   # no title bar
+        w.attributes("-topmost", True)
+        self.pic = tk.Label(w, bd=0, bg="black")
+        self.pic.pack()
+        row = tk.Frame(w, bg="#202020")
+        row.pack(fill="x")
+        self.swatch = tk.Label(row, width=2, bd=1, relief="solid")
+        self.swatch.pack(side="left", padx=3, pady=2)
+        self.info = tk.Label(row, font=("Consolas", 8), bg="#202020", fg="#e6e6e6",
+                             justify="left", anchor="w")
+        self.info.pack(side="left", fill="x")
+        w.update_idletasks()
+        hwnd = _u32.GetParent(w.winfo_id()) or w.winfo_id()
+        ex = _u32.GetWindowLongW(hwnd, -20)
+        # layered + transparent = clicks go straight through; no-activate,
+        # tool window = never takes the focus, not on the taskbar
+        _u32.SetWindowLongW(hwnd, -20, ex | 0x80000 | 0x20 | 0x08000000 | 0x80 | 0x8)
+        _u32.SetLayeredWindowAttributes(hwnd, 0, 255, 2)    # LWA_ALPHA, fully visible
+        self.hwnd = hwnd
+        self.pos = None
+        self.win = w
+
+    def tick(self):
+        try:
+            if MAG["on"]:
+                self.update()
+            elif self.win is not None and self.win.state() != "withdrawn":
+                self.win.withdraw()
+        except Exception as e:                     # never let it break the window
+            print(f"(magnifier: {e})")
+            MAG["on"] = False
+        self.root.after(50, self.tick)             # 20 times a second, only while it's on
+
+    def _render(self):
+        """(helper thread) Copy and zoom the pixels around the cursor."""
+        zoom = S["mag_zoom"]
+        n = max(5, S["mag_size"] // zoom) | 1      # odd, so one pixel is in the middle
+        side = n * zoom
+        x, y = (int(v) for v in cursor_pos())
+        px = grab_pixels(x - n // 2, y - n // 2, n)
+        r, g, b = px.getpixel((n // 2, n // 2))
+        img = px.resize((side, side), Image.NEAREST)          # sharp square pixels
+        dr = ImageDraw.Draw(img)
+        if zoom >= 4:                                         # thin pixel grid
+            for i in range(0, side, zoom):
+                dr.line([(i, 0), (i, side)], fill=(70, 70, 70))
+                dr.line([(0, i), (side, i)], fill=(70, 70, 70))
+        c0 = (n // 2) * zoom                                  # crosshair on the middle pixel
+        mid = c0 + zoom // 2
+        dr.line([(mid, 0), (mid, c0 - 1)], fill=(255, 60, 60))
+        dr.line([(mid, c0 + zoom), (mid, side)], fill=(255, 60, 60))
+        dr.line([(0, mid), (c0 - 1, mid)], fill=(255, 60, 60))
+        dr.line([(c0 + zoom, mid), (side, mid)], fill=(255, 60, 60))
+        dr.rectangle([c0 - 1, c0 - 1, c0 + zoom, c0 + zoom], outline=(255, 255, 255))
+        dr.rectangle([c0 - 2, c0 - 2, c0 + zoom + 1, c0 + zoom + 1], outline=(0, 0, 0))
+        return img, x, y, (r, g, b)
+
+    def update(self):
+        """(window) Show the newest picture beside the cursor."""
+        if self.win is None:
+            self._make()
+        got = self.latest
+        if got is None or got is self.shown:
+            return
+        self.shown = got
+        img, x, y, (r, g, b) = got
+        side = img.size[0]
+        if self.photo is None or self.size != side:
+            self.photo = ImageTk.PhotoImage(img)
+            self.pic.configure(image=self.photo)
+            self.size = side
+        else:
+            self.photo.paste(img)
+        hexc = f"#{r:02X}{g:02X}{b:02X}"
+        self.swatch.configure(bg=hexc)
+        self.info.configure(text=f"X {x}  Y {y}\nRGB {r},{g},{b}  {hexc}")
+        # beside the cursor (down-right), flipped near the screen edges
+        ww, wh = self.win.winfo_reqwidth(), self.win.winfo_reqheight()
+        ox, oy = x + MAG_GAP, y + MAG_GAP
+        if ox + ww > VX + VW:
+            ox = x - MAG_GAP - ww
+        if oy + wh > VY + VH:
+            oy = y - MAG_GAP - wh
+        if self.win.state() == "withdrawn":
+            self.win.geometry(f"+{ox}+{oy}")
+            self.win.deiconify()
+        elif (ox, oy) != self.pos:
+            # moved without waiting for the redraw (Tk's own move waits ~11 ms)
+            _u32.SetWindowPos(self.hwnd, None, ox, oy, 0, 0, 0x1 | 0x4 | 0x10 | 0x4000)
+        self.pos = (ox, oy)
+
+
 def tk_key(event):
     """A key pressed in the window -> the same codes cv2.waitKeyEx gave."""
     ks = event.keysym
@@ -1259,6 +1466,7 @@ def panel_lines():
          else "DISARMED - press F8 to take control", (90, 220, 90) if S["armed"] else (150, 150, 150)),
         (f"Hand: {S['hand']}  (other hand ignored)    Flip L/R: {'on' if S['invert'] else 'off'}", (230, 230, 230)),
         (f"SPACE: {mode_words()}", (230, 230, 230)),
+        (f"Magnifier: {'ON' if MAG['on'] else 'off'} ({S['mag_key']}), zoom {S['mag_zoom']}x", (230, 230, 230)),
         (f"Colour: {PAINT['color'] or 'not read yet'}   (C / V step, 1 black, 2 white)"
          + (f" - {PAINT['color_note']}" if PAINT["color_note"] else ""),
          (0, 165, 255) if PAINT["color_note"] else (230, 230, 230)),
@@ -1954,6 +2162,9 @@ def frame_loop():
                 break
             elif k in (ord("d"), ord("D")) and space_hook is None:
                 toggle_draw_mode()               # (with the hook, D works in every window)
+            elif k in (ord(S["mag_key"].lower()), ord(S["mag_key"])) and space_hook is None:
+                if S["armed"]:
+                    MAG["on"] = not MAG["on"]    # (with the hook, the key works in every window)
             elif k in (ord("r"), ord("R")):
                 CAM["reopen"] = True             # reconnect the camera
             elif k in (ord("p"), ord("P")):
@@ -2017,6 +2228,7 @@ def main():
     side = tk.Frame(root)                          # the settings
     side.grid(row=0, column=1, sticky="nsew", padx=10)
     SettingsPanel(root, side)
+    Magnifier(root).tick()
     photo = ImageTk.PhotoImage(Image.new("RGB", (CAM_W, CAM_H)))
     video.configure(image=photo)
     root.bind_all("<Key>", tk_key)
