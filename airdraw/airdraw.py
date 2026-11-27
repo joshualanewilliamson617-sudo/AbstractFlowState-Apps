@@ -165,6 +165,7 @@ CAM_STALL_S = 2.0      # camera: no picture (or all black) this long = reopen it
 TWIST_LEARN_S = 1.0    # twist: watch the palm this long first, to learn which side is which
 TWIST_LOST_S = 0.4     # twist: hand gone this long while pressed = let go
 LOCK_DIST = 0.2        # hand lock: stay on the hand within this much of where it was (picture widths)
+AXIS_STILL_PX = 3      # axis lock: the hand moving less than this (cursor px) counts as a pause
 TURN_S = 0.35          # axis switch: "recent movement" = the last ~0.35 s
 PAINT_POLL_S = 0.2     # how often Paint's selected tool is read
 
@@ -208,6 +209,7 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "draw_mode": True,       # SPACE holds the button (draw) - used when Paint's tool can't be read
     "axis_lock": True,       # while drawing, snap the line to flat or upright
     "lock_px": 8,            # ...once it has moved this many px
+    "axis_pause_ms": 150,    # ...hand still this long = the line ends; the next move picks a new axis
     "depth_steady": True,    # hand toward / away from the camera doesn't move the cursor
     "swatch_first": [],      # Paint's first colour swatch (Black) on screen, [x, y]
     "swatch_last": [],       # ...and its last (Lavender). Saved by themselves, or Shift+C / Shift+V
@@ -248,6 +250,7 @@ def fix_settings():
     S["max_speed"] = int(clamp(int(S["max_speed"]), 100, 400))
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
+    S["axis_pause_ms"] = int(clamp(int(S["axis_pause_ms"]), 50, 1000))
     S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
     S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
     S["twist_angle"] = int(clamp(int(S["twist_angle"]), 30, 85))
@@ -1094,6 +1097,7 @@ SLIDERS = [
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
     ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
     ("Lock threshold px", 2,  40, lambda: int(S["lock_px"]),                  lambda v: _set("lock_px", int(v))),
+    ("Axis pause ms",    50, 1000, lambda: int(S["axis_pause_ms"]),           lambda v: _set("axis_pause_ms", int(v))),
     ("Depth steady",      0,   1, lambda: int(S["depth_steady"]),             lambda v: _set("depth_steady", bool(v))),
     # Camera: shows the one in use; picking one switches live and saves the choice.
     ("Camera",            0,   9, lambda: CAM["want"] if CAM["want"] is not None else CAM["live"],
@@ -1123,7 +1127,7 @@ SECTIONS = [
                 "Twist click", "Twist angle", "Twist settle ms"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
                   "Max speed %", "Stroke px (0 off)",
-                  "Axis lock", "Lock threshold px", "Depth steady",
+                  "Axis lock", "Lock threshold px", "Axis pause ms", "Depth steady",
                   "Tilt assist", "Tilt strength", "Tilt dead zone"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
     ("Magnifier", ["Magnifier key", "Zoom", "Magnifier size"]),
@@ -1470,7 +1474,8 @@ def panel_lines():
         (f"Colour: {PAINT['color'] or 'not read yet'}   (C / V step, 1 black, 2 white)"
          + (f" - {PAINT['color_note']}" if PAINT["color_note"] else ""),
          (0, 165, 255) if PAINT["color_note"] else (230, 230, 230)),
-        ((f"Axis lock: on - a held line snaps flat or upright after {S['lock_px']} px, turns switch it"
+        ((f"Axis lock: on - a held line snaps flat or upright after {S['lock_px']} px, "
+          f"turns or a {S['axis_pause_ms']} ms pause start a new line"
           if S["axis_lock"] else "Axis lock: off"), (230, 230, 230)),
         ((f"Drawing: short strokes, {S['stroke_px']} px per small hand move (~1 cm)"
           if S["stroke_px"] else "Drawing: full-speed movement (stroke px is 0)"), (230, 230, 230)),
@@ -1585,6 +1590,8 @@ def frame_loop():
     lock_ref = None            # axis lock: the hand's (unlocked) point that lock_start matches
     lock_out = None            # axis lock: where the locked line put the cursor last
     turn_ref = None            # axis lock: a point trailing the hand by ~TURN_S, to spot a turn
+    still_ref, still_t = None, 0.0   # axis lock: where the hand last moved, and when (pause = new line)
+    lock_fix = None            # axis lock: ("h", y) or ("v", x) - that pixel never changes
     acc_v = None               # accel: smoothed hand speed (screen widths a second)
     tilt_s = None              # tilt assist: smoothed (left/right, up/down) palm tilt, degrees
     twist_down = False         # twist click: the twist pressed the button
@@ -1734,8 +1741,9 @@ def frame_loop():
                 sfx.reset()
                 sfy.reset()
                 pen_started = True
-                lock_start, lock_axis = (start[0], start[1]), None
+                lock_start, lock_axis = (round(start[0]), round(start[1])), None
                 lock_ref, lock_out, turn_ref = lock_start, None, None
+                still_ref, still_t, lock_fix = None, now, None
             else:
                 pen_started = False
             offset_from_stroke = None
@@ -2002,23 +2010,44 @@ def frame_loop():
                         turn_ref[0] += (tx - turn_ref[0]) * a_
                         turn_ref[1] += (ty - turn_ref[1]) * a_
                         lp = S["lock_px"]
+                        new_line = False
+                        # a pause ends the line: the next move picks a new axis
+                        if still_ref is None or math.hypot(tx - still_ref[0], ty - still_ref[1]) >= AXIS_STILL_PX:
+                            still_ref, still_t = (tx, ty), now
+                        elif lock_axis is not None and now - still_t >= S["axis_pause_ms"] / 1000.0:
+                            lock_start = lock_out
+                            lock_ref, lock_axis, new_line = (tx, ty), None, True
+                            turn_ref = [tx, ty]
                         if lock_axis is None:
                             dx, dy = tx - lock_ref[0], ty - lock_ref[1]
                             if math.hypot(dx, dy) >= lp:
                                 lock_axis = "h" if abs(dx) >= abs(dy) else "v"
+                                new_line = True
                         elif lock_axis == "h" and abs(rdy) >= lp and abs(rdy) >= 2 * abs(rdx):
-                            lock_start = (lock_start[0] + tx - lock_ref[0], lock_start[1])
-                            lock_ref, lock_axis = (tx, ty - rdy), "v"
+                            lock_start = (round(lock_start[0] + tx - lock_ref[0]), lock_start[1])
+                            lock_ref, lock_axis, new_line = (tx, ty - rdy), "v", True
                         elif lock_axis == "v" and abs(rdx) >= lp and abs(rdx) >= 2 * abs(rdy):
-                            lock_start = (lock_start[0], lock_start[1] + ty - lock_ref[1])
-                            lock_ref, lock_axis = (tx - rdx, ty), "h"
+                            lock_start = (lock_start[0], round(lock_start[1] + ty - lock_ref[1]))
+                            lock_ref, lock_axis, new_line = (tx - rdx, ty), "h", True
                         if lock_axis == "h":
                             tx, ty = lock_start[0] + tx - lock_ref[0], lock_start[1]
                         elif lock_axis == "v":
                             tx, ty = lock_start[0], lock_start[1] + ty - lock_ref[1]
                         else:
                             tx, ty = lock_start
+                        # whole pixels: the held one is exactly lock_start's
+                        tx, ty = round(tx), round(ty)
                         lock_out = (tx, ty)
+                        lock_fix = (("h", lock_start[1]) if lock_axis == "h" else
+                                    ("v", lock_start[0]) if lock_axis == "v" else None)
+                        if new_line:
+                            # a new line (or a corner): start the smoothing
+                            # afresh at its start, so no curve blends two lines
+                            move(*lock_start)
+                            spline.clear()
+                            spline.append(lock_start)
+                    else:
+                        lock_fix = None
 
                     if pen:
                         spline.append((tx, ty))
@@ -2027,7 +2056,14 @@ def frame_loop():
                             steps = int(clamp(d(b, c2) / 4, 1, 24))
                             for i in range(1, steps + 1):
                                 cx, cy = catmull(a, b, c2, dd, i / steps)
-                                move(int(cx), int(cy))
+                                # axis lock, after the smoothing: the held
+                                # pixel never changes (no 1 px drift)
+                                if lock_fix is not None:
+                                    if lock_fix[0] == "h":
+                                        cy = lock_fix[1]
+                                    else:
+                                        cx = lock_fix[1]
+                                move(int(round(cx)), int(round(cy)))
                         else:
                             move(int(tx), int(ty))
                     else:
