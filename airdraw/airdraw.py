@@ -156,7 +156,6 @@ DEPTH_REF_S = 20.0     # depth steady: your usual hand size is averaged over thi
 ACCEL_FROM = 0.25      # accel: hand speeds below this (screen widths a second) stay precise
 ACCEL_K = 3.0          # accel: how fast the speed-up builds at "Accel" 100
 TWIST_T0, TWIST_T1 = 0.55, 0.5   # twist: press/release past +-(T0 - T1 * sensitivity / 100)
-TWIST_BAND = 0.25      # twist: the cursor is frozen while the hand is this near edge-on
 TWIST_RATE = 1.5       # twist: turning faster than this (facing change a second) = a twist starting
 TWIST_LEARN_S = 1.0    # twist: watch the palm this long first, to learn which side is which
 TWIST_LOST_S = 0.4     # twist: hand gone this long while pressed = let go
@@ -193,6 +192,7 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
     "twist": True,           # twist click: back of the hand to the camera = button down
     "twist_sens": 50,        # ...0-100, higher = a smaller twist does it
+    "twist_settle_ms": 150,  # ...after the hand stops rotating, the cursor waits this long
     "tilt": True,            # tilt assist: tilting the palm nudges the cursor that way
     "tilt_px": 80,           # ...px per second for each 10 degrees past the dead zone
     "tilt_dz": 15,           # ...tilts smaller than this many degrees do nothing
@@ -243,6 +243,7 @@ def fix_settings():
     S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
     S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
     S["twist_sens"] = int(clamp(int(S["twist_sens"]), 0, 100))
+    S["twist_settle_ms"] = int(clamp(int(S["twist_settle_ms"]), 0, 500))
     S["tilt_dz"] = int(clamp(int(S["tilt_dz"]), 0, 45))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
     for k in ("swatch_first", "swatch_last"):
@@ -1054,6 +1055,7 @@ SLIDERS = [
     ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
     ("Twist click",       0,   1, lambda: int(S["twist"]),                    lambda v: _set("twist", bool(v))),
     ("Twist sensitivity", 0, 100, lambda: int(S["twist_sens"]),               lambda v: _set("twist_sens", int(v))),
+    ("Twist settle ms",   0, 500, lambda: int(S["twist_settle_ms"]),          lambda v: _set("twist_settle_ms", int(v))),
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
     ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
     ("Lock threshold px", 2,  40, lambda: int(S["lock_px"]),                  lambda v: _set("lock_px", int(v))),
@@ -1083,7 +1085,7 @@ def pick_camera(i):
 SECTIONS = [
     ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
                 "Clutch (fist)", "Clutch settle ms", "Fingers up x100", "Draw mode (D)",
-                "Twist click", "Twist sensitivity"]),
+                "Twist click", "Twist sensitivity", "Twist settle ms"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
                   "Max speed %", "Stroke px (0 off)",
                   "Axis lock", "Lock threshold px", "Depth steady",
@@ -1369,6 +1371,9 @@ def frame_loop():
     face = None                # twist click: +1 palm to the camera ... -1 back of the hand
     face_cal, face_seen = 0.0, 0.0   # twist click: learned "palm" side, and how long it was watched
     face_prev, face_rate = None, 0.0  # twist click: last facing, and how fast it's changing
+    rot_until = 0.0            # twist click: frozen until then (rotating, then "Twist settle ms")
+    use_wrist = False          # twist click: the cursor follows the wrist instead of the palm
+    aim_shift = [0.0, 0.0]     # twist click: added to the followed point, so switching doesn't jump
     track = None               # hand lock: (x, y, time) where the hand last was
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
@@ -1517,6 +1522,47 @@ def frame_loop():
                 palm = (sum(p[i][0] for i in (0, 5, 9, 13, 17)) / 5,
                         sum(p[i][1] for i in (0, 5, 9, 13, 17)) / 5)
                 aim = palm
+                # --- twist click, part 1: which way the palm faces, and is it
+                # turning? Facing = the sign of the cross product of
+                # wrist->index base and wrist->pinky base (its part pointing at
+                # the camera, over its full length: +1 = face on, 0 = edge on,
+                # flipped when the back faces the camera). Which sign is "palm"
+                # depends on the camera, so it's learned while the button is up
+                # (your hand is mostly palm-on then). Turning fast = rotating:
+                # the cursor freezes until it's been still "Twist settle ms".
+                face, rotating = None, False
+                if S["twist"]:
+                    va = [p[5][i] - p[0][i] for i in range(3)]
+                    vb = [p[17][i] - p[0][i] for i in range(3)]
+                    cr = (va[1] * vb[2] - va[2] * vb[1], va[2] * vb[0] - va[0] * vb[2],
+                          va[0] * vb[1] - va[1] * vb[0])
+                    rawf = cr[2] / max(math.sqrt(cr[0] ** 2 + cr[1] ** 2 + cr[2] ** 2), 1e-6)
+                    if not twist_down and abs(rawf) > 0.5:
+                        dtf = min(now - last, 0.1)
+                        face_cal += (rawf - face_cal) * min(1.0, dtf / 5.0)
+                        face_seen += dtf
+                    if face_seen >= TWIST_LEARN_S and abs(face_cal) > 0.1:
+                        face = rawf if face_cal > 0 else -rawf
+                        if face_prev is not None:
+                            r = abs(face - face_prev) / max(now - last, 1e-3)
+                            face_rate += (r - face_rate) * 0.6
+                        face_prev = face
+                        if face_rate > TWIST_RATE:
+                            rotating = True
+                            rot_until = now + S["twist_settle_ms"] / 1000.0
+                # While rotating / settling, and while the twist click is held,
+                # the cursor follows the wrist (landmark 0): it stays put when
+                # the hand rotates, the palm's middle doesn't. On every switch
+                # the new point is shifted onto the old one, so nothing jumps.
+                want_wrist = S["twist"] and (twist_down or now < rot_until)
+                if want_wrist != use_wrist:
+                    old = (palm[0] + aim_shift[0], palm[1] + aim_shift[1]) if want_wrist else \
+                          (p[0][0] + aim_shift[0], p[0][1] + aim_shift[1])
+                    new = (p[0][0], p[0][1]) if want_wrist else palm
+                    aim_shift = [old[0] - new[0], old[1] - new[1]]
+                    use_wrist = want_wrist
+                aim = ((p[0][0] if use_wrist else palm[0]) + aim_shift[0],
+                       (p[0][1] if use_wrist else palm[1]) + aim_shift[1])
                 # Depth steady: a camera sees everything drift outward from the
                 # middle of the picture as it comes closer, so moving your hand
                 # toward or away from the camera used to slide the cursor. The
@@ -1543,9 +1589,11 @@ def frame_loop():
                 # four raised. Each must last CLUTCH_S, so a twitch does nothing.
                 idx_up = d3(p[8], p[0]) / max(d3(p[6], p[0]), 1e-3)
                 four = [idx_up] + ups
-                fist_raw = S["clutch"] and all(u < S["up_ratio"] - FOLD_GAP for u in four)
+                # (the back of the hand can look like curled fingers: while the
+                # twist click is held the clutch is ignored completely)
+                fist_raw = S["clutch"] and not twist_down and all(u < S["up_ratio"] - FOLD_GAP for u in four)
                 open_raw = all(u > S["up_ratio"] for u in four)
-                if not S["clutch"]:
+                if not S["clutch"] or twist_down:
                     clutched = False
                     fist_since = open_since = None
                 elif not clutched:
@@ -1569,50 +1617,27 @@ def frame_loop():
                 # Frozen as soon as any finger starts to fold (not only once the
                 # fist is complete), and for "Clutch settle ms" after the hand
                 # is fully open again, so the opening/closing wobble never moves it.
-                closing = S["clutch"] and not open_raw
+                closing = S["clutch"] and not open_raw and not twist_down
                 if clutched or closing:
                     settle_until = now + S["settle_ms"] / 1000.0
                 hold = clutched or closing or now < settle_until
-                # --- twist click: back of the hand to the camera = button
-                # down, palm back = up. Which way the palm faces = the sign of
-                # the cross product of wrist->index base and wrist->pinky base
-                # (its part pointing at the camera, over its full length: +1 =
-                # face on, 0 = edge on). Which sign is "palm" depends on the
-                # camera, so it's learned while the button is up (your hand is
-                # mostly palm-on then). Near edge-on the cursor freezes, and the
-                # press (past -t) and release (past +t) both happen inside that
-                # frozen band (hysteresis: no flicker), then the settle time
-                # follows - so neither lands where the twist pulled your hand.
-                face = None
-                if S["twist"]:
-                    va = [p[5][i] - p[0][i] for i in range(3)]
-                    vb = [p[17][i] - p[0][i] for i in range(3)]
-                    cr = (va[1] * vb[2] - va[2] * vb[1], va[2] * vb[0] - va[0] * vb[2],
-                          va[0] * vb[1] - va[1] * vb[0])
-                    rawf = cr[2] / max(math.sqrt(cr[0] ** 2 + cr[1] ** 2 + cr[2] ** 2), 1e-6)
-                    if not twist_down and abs(rawf) > 0.5:
-                        dtf = min(now - last, 0.1)
-                        face_cal += (rawf - face_cal) * min(1.0, dtf / 5.0)
-                        face_seen += dtf
-                    if face_seen >= TWIST_LEARN_S and abs(face_cal) > 0.1:
-                        face = rawf if face_cal > 0 else -rawf
-                        t = TWIST_T0 - TWIST_T1 * S["twist_sens"] / 100.0
-                        # turning fast = a twist starting (or ending): freeze
-                        # right away, before the twist drags the hand off target
-                        if face_prev is not None:
-                            r = abs(face - face_prev) / max(now - last, 1e-3)
-                            face_rate += (r - face_rate) * 0.5
-                        face_prev = face
-                        if abs(face) < t + TWIST_BAND or face_rate > TWIST_RATE:
-                            hold = True
-                            settle_until = now + S["settle_ms"] / 1000.0
-                        if active and not twist_down and face < -t:
-                            twist_down = True
-                            SPACE["click"] = False
-                            _space_q.put("down")
-                        elif twist_down and face > t:
-                            twist_down = False
-                            _space_q.put("up")
+                # --- twist click, part 2: back of the hand past -t = button
+                # down, palm back past +t = up (hysteresis: no flicker in
+                # between). The press and release come mid-rotation, while the
+                # cursor is frozen, so they land where you aimed. Once the hand
+                # stops turning (plus "Twist settle ms") it follows again - also
+                # while the button is held.
+                if face is not None:
+                    t = TWIST_T0 - TWIST_T1 * S["twist_sens"] / 100.0
+                    if now < rot_until:
+                        hold = True
+                    if active and not twist_down and face < -t:
+                        twist_down = True
+                        SPACE["click"] = False
+                        _space_q.put("down")
+                    elif twist_down and face > t:
+                        twist_down = False
+                        _space_q.put("up")
                 resume = resume or hold          # any freeze, even a half-close, re-anchors after
                 if resume and not hold:
                     resume = False
@@ -1799,11 +1824,14 @@ def frame_loop():
                     status, color = "DISARMED - F8 to take control", (170, 170, 170)
                 elif paused:
                     status, color = "PAUSED - P to carry on", (0, 165, 255)
+                elif rotating or (S["twist"] and now < rot_until):
+                    status, color = ("ROTATING - frozen" + (" (TWIST HELD)" if twist_down else "")), (255, 0, 200)
+                elif twist_down:
+                    status, color = "TWIST HELD - drawing, following your wrist", (0, 0, 255)
                 elif clutched:
                     status, color = "CLUTCH - cursor frozen, open hand to resume", (255, 0, 200)
                 elif hold:
-                    status, color = ("twisting - frozen" if face is not None and abs(face) < 0.8
-                                     else "hand closing / settling - frozen"), (255, 0, 200)
+                    status, color = "hand closing / settling - frozen", (255, 0, 200)
                 elif pen and not SPACE["click"]:
                     status, color = ("DRAWING" + (" - locked flat" if lock_axis == "h" else
                                                   " - locked upright" if lock_axis == "v" else "")
@@ -1819,6 +1847,7 @@ def frame_loop():
                 prec_prev = None
                 hand_size = None
                 fist_since = open_since = None    # a clutch stays on until an open hand comes back
+                face_prev, face_rate, use_wrist, aim_shift = None, 0.0, False, [0.0, 0.0]
                 if pen and stroke_cur is not None:
                     prec_cur = None    # precision picks up from where the cursor really is
                 stroke_cur = None
@@ -1836,6 +1865,11 @@ def frame_loop():
             (tw, _), _ = cv2.getTextSize(ftxt, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
             cv2.putText(frame, ftxt, (w - tw - 12, 26), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, (0, 255, 0) if fps >= 20 else (0, 200, 255), 2, cv2.LINE_AA)
+            # the live cursor position, top left under the bar
+            cpx, cpy = cursor_pos()
+            cv2.rectangle(frame, (0, 36), (150, 64), (25, 25, 25), -1)
+            cv2.putText(frame, f"cursor {int(cpx)}, {int(cpy)}", (8, 55), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (230, 230, 230), 1, cv2.LINE_AA)
             # Paint's current colour, top right under the bar
             ctxt = f"colour: {PAINT['color'] or '?'}"
             (cw, _), _ = cv2.getTextSize(ctxt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
