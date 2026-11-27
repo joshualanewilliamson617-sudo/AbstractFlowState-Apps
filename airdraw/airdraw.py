@@ -26,6 +26,10 @@ AirDraw - draw in MS Paint with your hand.
                             (shapes, select, text, fill...) = CLICK. Anywhere
                             else, or if Paint's tool can't be read, the
                             "Draw mode" setting decides - D toggles it.
+    TWIST                   turn the BACK of your hand to the camera = mouse
+                            button down (draw); turn the palm back = up.
+                            The cursor freezes briefly as the twist starts and
+                            ends, so the press and release land where you aimed.
     D                       Draw mode on / off (the fallback when Paint's tool
                             can't be read)
     C / V                   previous / next colour in Paint's palette (armed only)
@@ -151,6 +155,12 @@ CLUTCH_S = 0.12        # a fist (or an open hand) must last this long to switch 
 DEPTH_REF_S = 20.0     # depth steady: your usual hand size is averaged over this long
 ACCEL_FROM = 0.25      # accel: hand speeds below this (screen widths a second) stay precise
 ACCEL_K = 3.0          # accel: how fast the speed-up builds at "Accel" 100
+TWIST_T0, TWIST_T1 = 0.55, 0.5   # twist: press/release past +-(T0 - T1 * sensitivity / 100)
+TWIST_BAND = 0.25      # twist: the cursor is frozen while the hand is this near edge-on
+TWIST_RATE = 1.5       # twist: turning faster than this (facing change a second) = a twist starting
+TWIST_LEARN_S = 1.0    # twist: watch the palm this long first, to learn which side is which
+TWIST_LOST_S = 0.4     # twist: hand gone this long while pressed = let go
+LOCK_DIST = 0.2        # hand lock: stay on the hand within this much of where it was (picture widths)
 TURN_S = 0.35          # axis switch: "recent movement" = the last ~0.35 s
 PAINT_POLL_S = 0.2     # how often Paint's selected tool is read
 
@@ -181,6 +191,8 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "max_speed": 200,        # ...up to this, % of normal (a fast sweep crosses the screen)
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
+    "twist": True,           # twist click: back of the hand to the camera = button down
+    "twist_sens": 50,        # ...0-100, higher = a smaller twist does it
     "tilt": True,            # tilt assist: tilting the palm nudges the cursor that way
     "tilt_px": 80,           # ...px per second for each 10 degrees past the dead zone
     "tilt_dz": 15,           # ...tilts smaller than this many degrees do nothing
@@ -230,6 +242,7 @@ def fix_settings():
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
     S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
     S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
+    S["twist_sens"] = int(clamp(int(S["twist_sens"]), 0, 100))
     S["tilt_dz"] = int(clamp(int(S["tilt_dz"]), 0, 45))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
     for k in ("swatch_first", "swatch_last"):
@@ -1039,6 +1052,8 @@ SLIDERS = [
     ("Tilt strength",     0, 400, lambda: int(S["tilt_px"]),                  lambda v: _set("tilt_px", int(v))),
     ("Tilt dead zone",    0,  45, lambda: int(S["tilt_dz"]),                  lambda v: _set("tilt_dz", int(v))),
     ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
+    ("Twist click",       0,   1, lambda: int(S["twist"]),                    lambda v: _set("twist", bool(v))),
+    ("Twist sensitivity", 0, 100, lambda: int(S["twist_sens"]),               lambda v: _set("twist_sens", int(v))),
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
     ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
     ("Lock threshold px", 2,  40, lambda: int(S["lock_px"]),                  lambda v: _set("lock_px", int(v))),
@@ -1067,7 +1082,8 @@ def pick_camera(i):
 
 SECTIONS = [
     ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
-                "Clutch (fist)", "Clutch settle ms", "Fingers up x100", "Draw mode (D)"]),
+                "Clutch (fist)", "Clutch settle ms", "Fingers up x100", "Draw mode (D)",
+                "Twist click", "Twist sensitivity"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
                   "Max speed %", "Stroke px (0 off)",
                   "Axis lock", "Lock threshold px", "Depth steady",
@@ -1253,8 +1269,19 @@ def panel_lines():
 # ----------------------------------------------------------------- main -----
 
 
-def pick_hand(res):
-    """The landmarks of the chosen hand, or None. The other hand is ignored."""
+def pick_hand(res, near=None):
+    """The landmarks of the chosen hand, or None. The other hand is ignored.
+    near = (x, y) where the tracked hand just was (0-1 picture coordinates):
+    then the hand closest to it is kept whatever its label, because MediaPipe
+    can swap left/right when it sees the back of the hand (twist click)."""
+    if near is not None:
+        best, best_d = None, LOCK_DIST
+        for lms in res.hand_landmarks:
+            dd = math.hypot(lms[9].x - near[0], lms[9].y - near[1])
+            if dd < best_d:
+                best, best_d = lms, dd
+        if best is not None:
+            return best
     for lms, hd in zip(res.hand_landmarks, res.handedness):
         name = hd[0].category_name
         if S["invert"]:
@@ -1338,6 +1365,11 @@ def frame_loop():
     turn_ref = None            # axis lock: a point trailing the hand by ~TURN_S, to spot a turn
     acc_v = None               # accel: smoothed hand speed (screen widths a second)
     tilt_s = None              # tilt assist: smoothed (left/right, up/down) palm tilt, degrees
+    twist_down = False         # twist click: the twist pressed the button
+    face = None                # twist click: +1 palm to the camera ... -1 back of the hand
+    face_cal, face_seen = 0.0, 0.0   # twist click: learned "palm" side, and how long it was watched
+    face_prev, face_rate = None, 0.0  # twist click: last facing, and how fast it's changing
+    track = None               # hand lock: (x, y, time) where the hand last was
     work_at = 0.0              # when the taskbar area was last checked
     refresh_work_area()
     next_frame = time.time()   # the 30 fps cap
@@ -1428,7 +1460,13 @@ def frame_loop():
             y0, y1 = margin * h + sy, (1 - margin) * h + sy
 
             status, color = f"no {S['hand'].lower()} hand", (150, 150, 150)
-            hand = pick_hand(res)
+            hand = pick_hand(res, track[:2] if track and now - track[2] < 0.5 else None)
+            if hand is not None:
+                track = (hand[9].x, hand[9].y, now)
+            if twist_down and (not active or not S["twist"] or
+                               (hand is None and (track is None or now - track[2] > TWIST_LOST_S))):
+                twist_down = False               # disarmed, twist off, or the hand is gone: let go
+                _space_q.put("up")
 
             # --- the mouse button: SPACE (see space_event) ---
             # The space bar presses and releases the button itself, the moment
@@ -1535,6 +1573,46 @@ def frame_loop():
                 if clutched or closing:
                     settle_until = now + S["settle_ms"] / 1000.0
                 hold = clutched or closing or now < settle_until
+                # --- twist click: back of the hand to the camera = button
+                # down, palm back = up. Which way the palm faces = the sign of
+                # the cross product of wrist->index base and wrist->pinky base
+                # (its part pointing at the camera, over its full length: +1 =
+                # face on, 0 = edge on). Which sign is "palm" depends on the
+                # camera, so it's learned while the button is up (your hand is
+                # mostly palm-on then). Near edge-on the cursor freezes, and the
+                # press (past -t) and release (past +t) both happen inside that
+                # frozen band (hysteresis: no flicker), then the settle time
+                # follows - so neither lands where the twist pulled your hand.
+                face = None
+                if S["twist"]:
+                    va = [p[5][i] - p[0][i] for i in range(3)]
+                    vb = [p[17][i] - p[0][i] for i in range(3)]
+                    cr = (va[1] * vb[2] - va[2] * vb[1], va[2] * vb[0] - va[0] * vb[2],
+                          va[0] * vb[1] - va[1] * vb[0])
+                    rawf = cr[2] / max(math.sqrt(cr[0] ** 2 + cr[1] ** 2 + cr[2] ** 2), 1e-6)
+                    if not twist_down and abs(rawf) > 0.5:
+                        dtf = min(now - last, 0.1)
+                        face_cal += (rawf - face_cal) * min(1.0, dtf / 5.0)
+                        face_seen += dtf
+                    if face_seen >= TWIST_LEARN_S and abs(face_cal) > 0.1:
+                        face = rawf if face_cal > 0 else -rawf
+                        t = TWIST_T0 - TWIST_T1 * S["twist_sens"] / 100.0
+                        # turning fast = a twist starting (or ending): freeze
+                        # right away, before the twist drags the hand off target
+                        if face_prev is not None:
+                            r = abs(face - face_prev) / max(now - last, 1e-3)
+                            face_rate += (r - face_rate) * 0.5
+                        face_prev = face
+                        if abs(face) < t + TWIST_BAND or face_rate > TWIST_RATE:
+                            hold = True
+                            settle_until = now + S["settle_ms"] / 1000.0
+                        if active and not twist_down and face < -t:
+                            twist_down = True
+                            SPACE["click"] = False
+                            _space_q.put("down")
+                        elif twist_down and face > t:
+                            twist_down = False
+                            _space_q.put("up")
                 resume = resume or hold          # any freeze, even a half-close, re-anchors after
                 if resume and not hold:
                     resume = False
@@ -1639,7 +1717,8 @@ def frame_loop():
                     # "recent" point trails the hand, so drift never builds up.
                     # (tx, ty) is the hand's unlocked point; lock_start is the
                     # current line's start, lock_ref the hand's point there.
-                    if pen and S["axis_lock"] and not SPACE["click"] and lock_start is not None:
+                    if (pen and S["axis_lock"] and not SPACE["click"] and not twist_down
+                            and lock_start is not None):
                         if turn_ref is None:
                             turn_ref = [tx, ty]
                         rdx, rdy = tx - turn_ref[0], ty - turn_ref[1]
@@ -1700,6 +1779,13 @@ def frame_loop():
                 cv2.circle(frame, (ax, ay), 14, (20, 20, 20), 4, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 14, ring, 2, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 4, ring, -1, cv2.LINE_AA)
+                if face is not None:                 # twist click: + palm, - back of the hand
+                    cv2.putText(frame, f"face {face:+.2f}" + ("  DOWN" if twist_down else ""), (ax + 18, ay + 22),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255) if twist_down else (200, 200, 200),
+                                1, cv2.LINE_AA)
+                elif S["twist"]:
+                    cv2.putText(frame, "twist: learning palm...", (ax + 18, ay + 22),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1, cv2.LINE_AA)
                 if tilt_s is not None:               # tilt assist: live angles, arrow while nudging
                     on = nudge != (0.0, 0.0)
                     cv2.putText(frame, f"tilt {tilt_s[0]:+.0f} {tilt_s[1]:+.0f}", (ax + 18, ay - 16),
@@ -1716,13 +1802,15 @@ def frame_loop():
                 elif clutched:
                     status, color = "CLUTCH - cursor frozen, open hand to resume", (255, 0, 200)
                 elif hold:
-                    status, color = "hand closing / settling - frozen", (255, 0, 200)
+                    status, color = ("twisting - frozen" if face is not None and abs(face) < 0.8
+                                     else "hand closing / settling - frozen"), (255, 0, 200)
                 elif pen and not SPACE["click"]:
                     status, color = ("DRAWING" + (" - locked flat" if lock_axis == "h" else
                                                   " - locked upright" if lock_axis == "v" else "")
                                      + (" - short strokes" if S["stroke_px"] else "")), (0, 0, 255)
                 else:
-                    status, color = "tracking - hold SPACE to click", (0, 255, 0)
+                    status, color = ("tracking - hold SPACE" + (" or twist" if S["twist"] else "")
+                                     + " to click"), (0, 255, 0)
             else:
                 fx.reset()
                 fy.reset()
