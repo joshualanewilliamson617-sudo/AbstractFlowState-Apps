@@ -217,7 +217,10 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
     "mag_key": "M",          # magnifier on / off key (armed only)
     "mag_zoom": 8,           # magnifier: each screen pixel shown this many times bigger
-    "mag_size": 160,         # magnifier: size of its picture, px
+    "mag_size": 160,         # magnifier: size of its picture, px (follow-cursor mode)
+    "mag_dock": True,        # magnifier: docked bottom-right like a notification (False = follows the cursor)
+    "mag_dx": 0,             # magnifier: nudge right (+) / left (-), px
+    "mag_dy": 0,             # magnifier: nudge down (+) / up (-), px
     "voice_key": "T",        # voice tools: hold this key and say a tool (armed only)
     "twist": True,           # twist click: back of the hand to the camera = button down
     "twist_angle": 60,       # ...how far to turn (degrees from palm-on, 90 = edge-on) to click
@@ -280,6 +283,8 @@ def fix_settings():
         S["voice_key"] = next(k for k in ("T", "Y", "U") if k != S["mag_key"])
     S["mag_zoom"] = int(clamp(int(S["mag_zoom"]), 2, 16))
     S["mag_size"] = int(clamp(int(S["mag_size"]), 80, 320))
+    S["mag_dx"] = int(clamp(int(S["mag_dx"]), -1500, 1500))
+    S["mag_dy"] = int(clamp(int(S["mag_dy"]), -1000, 1000))
     S["twist_settle_ms"] = int(clamp(int(S["twist_settle_ms"]), 0, 500))
     S["tilt_dz"] = int(clamp(int(S["tilt_dz"]), 0, 45))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
@@ -1431,6 +1436,9 @@ SLIDERS = [
     ("Voice key",         0, 8, lambda: MAG_KEYS.index(S["voice_key"]),       lambda v: _set_key("voice_key", MAG_KEYS[int(v)])),
     ("Zoom",              2,  16, lambda: int(S["mag_zoom"]),                 lambda v: _set("mag_zoom", int(v))),
     ("Magnifier size",   80, 320, lambda: int(S["mag_size"]),                 lambda v: _set("mag_size", int(v))),
+    ("Magnifier position", 0, 1, lambda: int(S["mag_dock"]),                  lambda v: _set("mag_dock", bool(v))),
+    ("Magnifier X offset", -1500, 1500, lambda: int(S["mag_dx"]),             lambda v: _set("mag_dx", int(v))),
+    ("Magnifier Y offset", -1000, 1000, lambda: int(S["mag_dy"]),             lambda v: _set("mag_dy", int(v))),
     ("Twist click",       0,   1, lambda: int(S["twist"]),                    lambda v: _set("twist", bool(v))),
     ("Twist angle",      30,  85, lambda: int(S["twist_angle"]),              lambda v: _set("twist_angle", int(v))),
     ("Twist settle ms",   0, 500, lambda: int(S["twist_settle_ms"]),          lambda v: _set("twist_settle_ms", int(v))),
@@ -1470,12 +1478,14 @@ SECTIONS = [
                   "Axis lock", "Lock threshold px", "Axis pause ms", "Depth steady",
                   "Tilt assist", "Tilt strength", "Tilt dead zone"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
-    ("Magnifier", ["Magnifier key", "Zoom", "Magnifier size"]),
+    ("Magnifier", ["Magnifier key", "Zoom", "Magnifier position", "Magnifier X offset",
+                   "Magnifier Y offset", "Magnifier size"]),
     ("Voice", ["Voice key"]),
 ]
 TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
             "Fingers up x100": "Finger straightness (x100)",
-            "Stroke px (0 off)": "Stroke px (0 = off)"}
+            "Stroke px (0 off)": "Stroke px (0 = off)",
+            "Magnifier size": "Magnifier size (follow mode)"}
 
 
 def _camera_choices():
@@ -1498,6 +1508,7 @@ TK_CHOICES = {
     "Hand: 0 L  1 R": lambda: [("Left hand", 0), ("Right hand", 1)],
     "Camera": _camera_choices,
     "Magnifier key": lambda: [(f"{k}" + ("  (default)" if k == "M" else ""), i) for i, k in enumerate(MAG_KEYS)],
+    "Magnifier position": lambda: [("Docked bottom-right (default)", 1), ("Follow the cursor", 0)],
     "Voice key": lambda: [(f"{k}" + ("  (default)" if k == "T" else ""), i) for i, k in enumerate(MAG_KEYS)],
 }
 
@@ -1652,15 +1663,22 @@ _u32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
 _u32.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_ubyte, wintypes.DWORD]
 _u32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
                               ctypes.c_int, ctypes.c_int, wintypes.UINT]
-MAG_GAP = 36           # px between the cursor and the magnifier window
+MAG_GAP = 36           # px between the cursor and the magnifier window (follow mode)
+# docked: the size of a Windows notification, just left of where they pop up
+# (all in 100%-scale px; multiplied by the display scale)
+DOCK_W, DOCK_H = 360, 120
+TOAST_W, TOAST_EDGE = 364, 16    # a notification's width, and its gap from the screen's right edge
+DOCK_GAP = 12                    # between the magnifier and the notifications
 
 
 _grab = {}             # the copy's buffers, made once per size and reused
 
 
-def grab_pixels(x0, y0, n):
-    """The n x n screen pixels whose top-left is (x0, y0), as a PIL image."""
-    g = _grab.get(n)
+def grab_pixels(x0, y0, n, m=None):
+    """The n wide x m tall (m = n if left out) screen pixels whose top-left is
+    (x0, y0), as a PIL image."""
+    m = n if m is None else m
+    g = _grab.get((n, m))
     if g is None:
         for old in _grab.values():                                  # size changed: free the old one
             _g32.SelectObject(old[1], old[3])
@@ -1670,15 +1688,45 @@ def grab_pixels(x0, y0, n):
         _grab.clear()
         sdc = _u32.GetDC(None)
         mdc = _g32.CreateCompatibleDC(sdc)
-        bmp = _g32.CreateCompatibleBitmap(sdc, n, n)
+        bmp = _g32.CreateCompatibleBitmap(sdc, n, m)
         old = _g32.SelectObject(mdc, bmp)
         # BITMAPINFOHEADER: 32-bit, top row first
-        bih = (ctypes.c_uint32 * 10)(40, n, (-n) & 0xFFFFFFFF, 1 | (32 << 16), 0, 0, 0, 0, 0, 0)
-        g = _grab[n] = (sdc, mdc, bmp, old, bih, ctypes.create_string_buffer(n * n * 4))
+        bih = (ctypes.c_uint32 * 10)(40, n, (-m) & 0xFFFFFFFF, 1 | (32 << 16), 0, 0, 0, 0, 0, 0)
+        g = _grab[(n, m)] = (sdc, mdc, bmp, old, bih, ctypes.create_string_buffer(n * m * 4))
     sdc, mdc, bmp, _old, bih, buf = g
-    _g32.BitBlt(mdc, 0, 0, n, n, sdc, x0, y0, 0x00CC0020)          # SRCCOPY (no layered windows)
-    _g32.GetDIBits(mdc, bmp, 0, n, buf, bih, 0)
-    return Image.frombuffer("RGB", (n, n), buf.raw, "raw", "BGRX", 0, 1)
+    _g32.BitBlt(mdc, 0, 0, n, m, sdc, x0, y0, 0x00CC0020)          # SRCCOPY (no layered windows)
+    _g32.GetDIBits(mdc, bmp, 0, m, buf, bih, 0)
+    return Image.frombuffer("RGB", (n, m), buf.raw, "raw", "BGRX", 0, 1)
+
+
+_taskbar = [0.0, None]           # (when read, its top edge or None)
+
+
+def taskbar_top():
+    """Where the taskbar's top edge is when it's along the bottom, even when
+    it auto-hides (then the work area runs to the screen's edge, but the
+    taskbar still pops up over it). None if it's on another edge. Read once
+    a second."""
+    if time.time() - _taskbar[0] > 1.0:
+        top = None
+        try:
+            sh = ctypes.windll.shell32
+            sh.SHAppBarMessage.restype = ctypes.c_size_t
+            abd = APPBARDATA(cbSize=ctypes.sizeof(APPBARDATA))
+            if sh.SHAppBarMessage(5, ctypes.byref(abd)) and abd.uEdge == 3:   # ABM_GETTASKBARPOS, bottom
+                ht = abd.rc.bottom - abd.rc.top
+                top = SCREEN_H - ht if ht > 0 else None   # its shown spot, even while it's hidden
+        except Exception:
+            pass
+        _taskbar[:] = [time.time(), top]
+    return _taskbar[1]
+
+
+def display_scale():
+    try:
+        return max(1.0, user32.GetDpiForSystem() / 96)
+    except Exception:
+        return 1.0
 
 
 class Magnifier:
@@ -1689,7 +1737,9 @@ class Magnifier:
         self.size = None
         self.latest = None          # (picture, x, y, (r, g, b)) from the helper thread
         self.shown = None
-        self.grid = None            # (zoom, n, overlay): the grid + crosshair, drawn once
+        self.grid = None            # (zoom, cols, rows, overlay): the grid + crosshair, drawn once
+        self.box = None             # docked: the picture's (width, height), set by the window
+        self.docked = None          # how the window is laid out now (True / False / None = not yet)
         threading.Thread(target=self._render_loop, name="magnifier", daemon=True).start()
 
     def _render_loop(self):
@@ -1714,11 +1764,13 @@ class Magnifier:
         self.pic.pack()
         row = tk.Frame(w, bg="#202020")
         row.pack(fill="x")
+        self.row = row
         self.swatch = tk.Label(row, width=2, bd=1, relief="solid")
         self.swatch.pack(side="left", padx=3, pady=2)
         self.info = tk.Label(row, font=("Consolas", 8), bg="#202020", fg="#e6e6e6",
                              justify="left", anchor="w")
         self.info.pack(side="left", fill="x")
+        w.configure(bg="black")
         w.update_idletasks()
         hwnd = _u32.GetParent(w.winfo_id()) or w.winfo_id()
         ex = _u32.GetWindowLongW(hwnd, -20)
@@ -1745,50 +1797,88 @@ class Magnifier:
     def _render(self):
         """(helper thread) Copy and zoom the pixels around the cursor."""
         zoom = S["mag_zoom"]
-        n = max(5, S["mag_size"] // zoom) | 1      # odd, so one pixel is in the middle
-        side = n * zoom
+        box = self.box if S["mag_dock"] else None
+        if box:                                    # docked: fill the wide notification-sized box
+            cols, rows = max(5, box[0] // zoom), max(5, box[1] // zoom)
+        else:
+            cols = rows = max(5, S["mag_size"] // zoom)
+        cols, rows = cols | 1, rows | 1            # odd, so one pixel is exactly in the middle
+        if box:                                    # ...but never bigger than the box
+            cols -= 2 if cols * zoom > box[0] else 0
+            rows -= 2 if rows * zoom > box[1] else 0
         # the cursor's own pixel, read right before the copy, is the middle one
         pt = wintypes.POINT()
         user32.GetCursorPos(ctypes.byref(pt))
         x, y = pt.x, pt.y
-        px = grab_pixels(x - n // 2, y - n // 2, n)
-        r, g, b = px.getpixel((n // 2, n // 2))
-        img = px.resize((side, side), Image.NEAREST)          # sharp square pixels
-        if self.grid is None or self.grid[:2] != (zoom, n):
-            self.grid = (zoom, n, self._overlay(zoom, n))
-        img.paste(self.grid[2], (0, 0), self.grid[2])
+        px = grab_pixels(x - cols // 2, y - rows // 2, cols, rows)
+        r, g, b = px.getpixel((cols // 2, rows // 2))
+        img = px.resize((cols * zoom, rows * zoom), Image.NEAREST)   # sharp square pixels
+        if self.grid is None or self.grid[:3] != (zoom, cols, rows):
+            self.grid = (zoom, cols, rows, self._overlay(zoom, cols, rows))
+        img.paste(self.grid[3], (0, 0), self.grid[3])
         return img, x, y, (r, g, b)
 
     @staticmethod
-    def _overlay(zoom, n):
+    def _overlay(zoom, cols, rows):
         """The grid and crosshair, drawn once on a see-through picture."""
-        side = n * zoom
-        ov = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        wd, ht = cols * zoom, rows * zoom
+        ov = Image.new("RGBA", (wd, ht), (0, 0, 0, 0))
         dr = ImageDraw.Draw(ov)
         if zoom >= 4:                                         # thin pixel grid
-            for i in range(0, side, zoom):
-                dr.line([(i, 0), (i, side)], fill=(70, 70, 70, 255))
-                dr.line([(0, i), (side, i)], fill=(70, 70, 70, 255))
-        c0 = (n // 2) * zoom                                  # crosshair on the middle pixel
-        mid = c0 + zoom // 2
-        dr.line([(mid, 0), (mid, c0 - 1)], fill=(255, 60, 60, 255))
-        dr.line([(mid, c0 + zoom), (mid, side)], fill=(255, 60, 60, 255))
-        dr.line([(0, mid), (c0 - 1, mid)], fill=(255, 60, 60, 255))
-        dr.line([(c0 + zoom, mid), (side, mid)], fill=(255, 60, 60, 255))
-        dr.rectangle([c0 - 1, c0 - 1, c0 + zoom, c0 + zoom], outline=(255, 255, 255, 255))
-        dr.rectangle([c0 - 2, c0 - 2, c0 + zoom + 1, c0 + zoom + 1], outline=(0, 0, 0, 255))
+            for i in range(0, wd, zoom):
+                dr.line([(i, 0), (i, ht)], fill=(70, 70, 70, 255))
+            for i in range(0, ht, zoom):
+                dr.line([(0, i), (wd, i)], fill=(70, 70, 70, 255))
+        cx, cy = (cols // 2) * zoom, (rows // 2) * zoom       # the middle pixel's top-left
+        mx, my = cx + zoom // 2, cy + zoom // 2
+        red = (255, 60, 60, 255)
+        dr.line([(mx, 0), (mx, cy - 3)], fill=red)            # crosshair, with a gap
+        dr.line([(mx, cy + zoom + 2), (mx, ht)], fill=red)    # around the pixel itself
+        dr.line([(0, my), (cx - 3, my)], fill=red)
+        dr.line([(cx + zoom + 2, my), (wd, my)], fill=red)
+        dr.rectangle([cx - 1, cy - 1, cx + zoom, cy + zoom], outline=(255, 255, 255, 255))
+        dr.rectangle([cx - 2, cy - 2, cx + zoom + 1, cy + zoom + 1], outline=(0, 0, 0, 255))
         return ov
+
+    def _dock_spot(self):
+        """(window) Docked: the box's size and top-left - bottom-right, just
+        above the taskbar, just left of where notifications pop up."""
+        sc = display_scale()
+        ww, wh = round(DOCK_W * sc), round(DOCK_H * sc)
+        ox = WORK[2] - round((TOAST_EDGE + TOAST_W + DOCK_GAP) * sc) - ww + S["mag_dx"]
+        bottom = min(WORK[3], taskbar_top() or WORK[3])
+        oy = bottom - round(DOCK_GAP * sc) - wh + S["mag_dy"]
+        ox = int(clamp(ox, VX, VX + VW - ww))      # never off the screen, however it's nudged
+        oy = int(clamp(oy, VY, VY + VH - wh))
+        return ww, wh, ox, oy
+
+    def _layout(self):
+        """(window) Docked: fixed notification-sized box. Follow: fits the picture."""
+        dock = bool(S["mag_dock"])
+        if dock:
+            ww, wh, ox, oy = self._dock_spot()
+            box = (ww, max(20, wh - self.row.winfo_reqheight()))
+            if dock != self.docked or box != self.box or (ox, oy) != self.pos:
+                self.win.geometry(f"{ww}x{wh}+{ox}+{oy}")
+                self.pic.pack_configure(expand=True)
+                self.box, self.pos = box, (ox, oy)
+        elif dock != self.docked:
+            self.win.geometry("")                  # back to fitting the picture
+            self.pic.pack_configure(expand=False)
+            self.box, self.pos = None, None
+        self.docked = dock
 
     def update(self):
         """(window) Show the newest picture beside the cursor."""
         if self.win is None:
             self._make()
+        self._layout()
         got = self.latest
         if got is None or got is self.shown:
             return
         self.shown = got
         img, x, y, (r, g, b) = got
-        side = img.size[0]
+        side = img.size                  # (width, height): the docked one is wide
         if self.photo is None or self.size != side:
             self.photo = ImageTk.PhotoImage(img)
             self.pic.configure(image=self.photo)
@@ -1797,10 +1887,15 @@ class Magnifier:
             self.photo.paste(img)
         hexc = f"#{r:02X}{g:02X}{b:02X}"
         self.swatch.configure(bg=hexc)
-        self.info.configure(text=f"X {x}  Y {y}\nRGB {r},{g},{b}  {hexc}")
-        # beside the cursor (down-right), flipped near the screen edges
+        self.info.configure(text=(f"X {x}  Y {y}   RGB {r},{g},{b}  {hexc}" if self.docked else
+                                  f"X {x}  Y {y}\nRGB {r},{g},{b}  {hexc}"))
+        if self.docked:                            # it stays put: it never follows the cursor
+            if self.win.state() == "withdrawn":
+                self.win.deiconify()
+            return
+        # beside the cursor (down-right), flipped near the screen edges, then nudged
         ww, wh = self.win.winfo_reqwidth(), self.win.winfo_reqheight()
-        ox, oy = x + MAG_GAP, y + MAG_GAP
+        ox, oy = x + MAG_GAP + S["mag_dx"], y + MAG_GAP + S["mag_dy"]
         if ox + ww > VX + VW:
             ox = x - MAG_GAP - ww
         if oy + wh > VY + VH:
