@@ -4,8 +4,8 @@ AirDraw - draw in MS Paint with your hand.
 
     F8                      arm / disarm (works from any window, even Paint).
                             Starts DISARMED: the mouse is yours until you press F8.
-    OPEN HAND               moves the cursor (it follows the big knuckle in
-                            the middle of your hand).
+    OPEN HAND               moves the cursor (it follows the middle of your
+                            palm, which stays put as your fingers curl).
     Closed FIST             clutch: the cursor freezes, so you can move your
                             hand back to a comfy spot. OPEN hand (all four
                             fingers up) carries on from where the cursor stopped.
@@ -181,6 +181,7 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "max_speed": 200,        # ...up to this, % of normal (a fast sweep crosses the screen)
     "stroke_px": 8,          # while SPACE is held: px per small hand move. 0 = off
     "clutch": True,          # closed fist freezes the cursor, open hand resumes
+    "settle_ms": 150,        # clutch: after the hand reopens, ignore movement this long
     "draw_mode": True,       # SPACE holds the button (draw) - used when Paint's tool can't be read
     "axis_lock": True,       # while drawing, snap the line to flat or upright
     "lock_px": 8,            # ...once it has moved this many px
@@ -224,6 +225,7 @@ def fix_settings():
     S["max_speed"] = int(clamp(int(S["max_speed"]), 100, 400))
     S["stroke_px"] = int(clamp(int(S["stroke_px"]), 0, 40))
     S["lock_px"] = int(clamp(int(S["lock_px"]), 2, 40))
+    S["settle_ms"] = int(clamp(int(S["settle_ms"]), 0, 500))
     S["camera"] = int(clamp(int(S["camera"]), -1, 9))
     for k in ("swatch_first", "swatch_last"):
         if not (len(S[k]) == 2 and all(isinstance(v, int) for v in S[k])):
@@ -1028,6 +1030,7 @@ SLIDERS = [
     ("Max speed %",     100, 400, lambda: int(S["max_speed"]),                lambda v: _set("max_speed", int(v))),
     ("Stroke px (0 off)", 0,  40, lambda: int(S["stroke_px"]),                lambda v: _set("stroke_px", int(v))),
     ("Clutch (fist)",     0,   1, lambda: int(S["clutch"]),                   lambda v: _set("clutch", bool(v))),
+    ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
     ("Draw mode (D)",     0,   1, lambda: int(S["draw_mode"]),                lambda v: _set("draw_mode", bool(v))),
     ("Axis lock",         0,   1, lambda: int(S["axis_lock"]),                lambda v: _set("axis_lock", bool(v))),
     ("Lock threshold px", 2,  40, lambda: int(S["lock_px"]),                  lambda v: _set("lock_px", int(v))),
@@ -1056,7 +1059,7 @@ def pick_camera(i):
 
 SECTIONS = [
     ("Basics", ["Armed (F8)", "Hand: 0 L  1 R", "Flip L/R (H)", "Camera",
-                "Clutch (fist)", "Fingers up x100", "Draw mode (D)"]),
+                "Clutch (fist)", "Clutch settle ms", "Fingers up x100", "Draw mode (D)"]),
     ("Movement", ["Smoothing", "Precision", "Precision speed %", "Accel (0 off)",
                   "Max speed %", "Stroke px (0 off)",
                   "Axis lock", "Lock threshold px", "Depth steady"]),
@@ -1315,6 +1318,8 @@ def frame_loop():
     hand_size = None           # smoothed wrist-to-knuckle length (camera pixels)
     clutched = False           # clutch: closed fist froze the cursor
     fist_since = open_since = None
+    settle_until = 0.0         # clutch: frozen until this time (hand closing, or just reopened)
+    resume = False             # clutch released: re-anchor to the cursor once settled
     clutch_off = [0.0, 0.0]    # clutch, normal mode: shift between hand and cursor
     depth_ref = None           # depth steady: your usual hand size (camera pixels)
     lock_start = None          # axis lock: where the held line started
@@ -1458,9 +1463,12 @@ def frame_loop():
                        for pip, tip in ((10, 12), (14, 16), (18, 20))]
                 stroke = pen and S["stroke_px"] > 0
 
-                # The cursor follows the middle finger's base knuckle (landmark
-                # 9). It barely moves when you make a fist or open your hand.
-                aim = (p[9][0], p[9][1])
+                # The cursor follows the palm: the average of the wrist and the
+                # four base knuckles (landmarks 0, 5, 9, 13, 17). Unlike a single
+                # knuckle it stays put when your fingers curl into a fist.
+                palm = (sum(p[i][0] for i in (0, 5, 9, 13, 17)) / 5,
+                        sum(p[i][1] for i in (0, 5, 9, 13, 17)) / 5)
+                aim = palm
                 # Depth steady: a camera sees everything drift outward from the
                 # middle of the picture as it comes closer, so moving your hand
                 # toward or away from the camera used to slide the cursor. The
@@ -1507,17 +1515,26 @@ def frame_loop():
                         if now - open_since >= CLUTCH_S:
                             clutched = False
                             open_since = None
-                            # resume from wherever the cursor really is now
-                            here = cursor_pos()
-                            if S["precision"]:
-                                prec_cur = list(here)
-                                prec_prev = None
-                            else:
-                                clutch_off[0], clutch_off[1] = here[0] - mx, here[1] - my
-                            offset[0] = offset[1] = 0.0
+                            resume = True
                     else:
                         open_since = None
-                hold = clutched or fist_raw      # frozen (also while a fist is forming)
+                # Frozen as soon as any finger starts to fold (not only once the
+                # fist is complete), and for "Clutch settle ms" after the hand
+                # is fully open again, so the opening/closing wobble never moves it.
+                closing = S["clutch"] and not open_raw
+                if clutched or closing:
+                    settle_until = now + S["settle_ms"] / 1000.0
+                hold = clutched or closing or now < settle_until
+                if resume and not hold:
+                    resume = False
+                    # resume from wherever the cursor really is now
+                    here = cursor_pos()
+                    if S["precision"]:
+                        prec_cur = list(here)
+                        prec_prev = None
+                    else:
+                        clutch_off[0], clutch_off[1] = here[0] - mx, here[1] - my
+                    offset[0] = offset[1] = 0.0
 
                 if not S["precision"]:
                     mx, my = keep_in(mx + clutch_off[0], my + clutch_off[1])
@@ -1642,7 +1659,7 @@ def frame_loop():
                 # button down (SPACE), purple = clutch (frozen)
                 ring = ((0, 0, 255) if pen else
                         (255, 0, 200) if hold else (0, 255, 255))
-                ax, ay = int(p[9][0]), int(p[9][1])     # drawn on the real knuckle
+                ax, ay = int(palm[0]), int(palm[1])     # drawn on the tracked palm point
                 cv2.circle(frame, (ax, ay), 14, (20, 20, 20), 4, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 14, ring, 2, cv2.LINE_AA)
                 cv2.circle(frame, (ax, ay), 4, ring, -1, cv2.LINE_AA)
@@ -1653,8 +1670,8 @@ def frame_loop():
                     status, color = "PAUSED - P to carry on", (0, 165, 255)
                 elif clutched:
                     status, color = "CLUTCH - cursor frozen, open hand to resume", (255, 0, 200)
-                elif fist_raw:
-                    status, color = "fist... (clutch)", (255, 0, 200)
+                elif hold:
+                    status, color = "hand closing / settling - frozen", (255, 0, 200)
                 elif pen and not SPACE["click"]:
                     status, color = ("DRAWING" + (" - locked flat" if lock_axis == "h" else
                                                   " - locked upright" if lock_axis == "v" else "")
