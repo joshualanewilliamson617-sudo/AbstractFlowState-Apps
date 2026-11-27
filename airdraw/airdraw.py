@@ -1525,6 +1525,7 @@ def frame_loop():
                 if clutched or closing:
                     settle_until = now + S["settle_ms"] / 1000.0
                 hold = clutched or closing or now < settle_until
+                resume = resume or hold          # any freeze, even a half-close, re-anchors after
                 if resume and not hold:
                     resume = False
                     # resume from wherever the cursor really is now
