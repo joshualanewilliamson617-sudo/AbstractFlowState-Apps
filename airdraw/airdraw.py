@@ -34,6 +34,15 @@ AirDraw - draw in MS Paint with your hand.
     R                       reconnect the camera (also a button in the settings)
     M                       pixel magnifier on / off (armed only; the key can be
                             changed on the Magnifier settings page)
+    Hold T                  voice tools (armed only): hold T, say a tool -
+                            line, curve, circle, oval, rectangle, square,
+                            triangle, paint bucket, fill, pencil, brush, spray,
+                            eraser, text, color picker - let go, and AirDraw
+                            clicks that tool's button, then puts the cursor
+                            back. The mic is only on while T is held, and it's
+                            all offline. Teach where the buttons are first:
+                            Voice settings page, "Teach tool spots" (hover
+                            each button, press Enter).
     D                       Draw mode on / off (the fallback when Paint's tool
                             can't be read)
     C / V                   previous / next colour in Paint's palette (armed only)
@@ -175,6 +184,8 @@ MODEL_NAME = "hand_landmarker.task"
 WINDOW = "AirDraw  -  ESC to quit"
 HERE = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(HERE, "airdraw_settings.json")
+SPOTS_FILE = os.path.join(HERE, "airdraw_tool_spots.json")      # voice: where Paint's buttons are
+VOICE_MODEL = os.path.join(HERE, "vosk-model-small-en-us-0.15")  # voice: the offline speech model
 
 CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8),
                (5, 9), (9, 10), (10, 11), (11, 12), (9, 13), (13, 14),
@@ -199,6 +210,7 @@ DEFAULTS = {                 # your own tuned settings (2026-11-26) are the defa
     "mag_key": "M",          # magnifier on / off key (armed only)
     "mag_zoom": 8,           # magnifier: each screen pixel shown this many times bigger
     "mag_size": 160,         # magnifier: size of its picture, px
+    "voice_key": "T",        # voice tools: hold this key and say a tool (armed only)
     "twist": True,           # twist click: back of the hand to the camera = button down
     "twist_angle": 60,       # ...how far to turn (degrees from palm-on, 90 = edge-on) to click
     "twist_settle_ms": 150,  # ...after the hand stops rotating, the cursor waits this long
@@ -255,6 +267,9 @@ def fix_settings():
     S["tilt_px"] = int(clamp(int(S["tilt_px"]), 0, 400))
     S["twist_angle"] = int(clamp(int(S["twist_angle"]), 30, 85))
     S["mag_key"] = S["mag_key"] if S["mag_key"] in MAG_KEYS else "M"
+    S["voice_key"] = S["voice_key"] if S["voice_key"] in MAG_KEYS else "T"
+    if S["voice_key"] == S["mag_key"]:
+        S["voice_key"] = next(k for k in ("T", "Y", "U") if k != S["mag_key"])
     S["mag_zoom"] = int(clamp(int(S["mag_zoom"]), 2, 16))
     S["mag_size"] = int(clamp(int(S["mag_size"]), 80, 320))
     S["twist_settle_ms"] = int(clamp(int(S["twist_settle_ms"]), 0, 500))
@@ -389,6 +404,8 @@ def _abs(x, y):
 
 
 def move(x, y):
+    if VOICE["clicking"]:
+        return                       # a voice tool click is using the mouse for a moment
     _send(MOVE | ABSOLUTE | VIRTUALDESK, *_abs(x, y))
 
 
@@ -541,6 +558,179 @@ def mag_event(down):
     MAG["down"] = True
     MAG["on"] = not MAG["on"]
     return True
+
+
+# ---------------------------------------------------------- voice tools -----
+# Hold T (armed only) and say a tool. Only while T is held is the mic open and
+# the recogniser fed; let go and it's off again. The model loads once at
+# startup in its own thread (the camera never waits for it), and a fixed word
+# list keeps it fast and accurate. Each word clicks its saved spot on Paint's
+# toolbar (Paint always opens maximized, so the spots stay put), then the
+# cursor goes back where it was.
+
+# word -> the button it clicks (circle = the oval tool, and so on)
+VOICE_WORDS = {"line": "line", "curve": "curve", "circle": "oval", "oval": "oval",
+               "rectangle": "rectangle", "square": "rectangle", "triangle": "triangle",
+               "paint bucket": "fill", "fill": "fill", "pencil": "pencil", "brush": "brush",
+               "spray": "spray", "eraser": "eraser", "text": "text", "color picker": "color picker"}
+# the buttons, in the order "Teach tool spots" asks for them
+TOOL_SPOTS = ["pencil", "fill", "text", "eraser", "color picker", "brush", "spray",
+              "line", "curve", "oval", "rectangle", "triangle"]
+VOICE_TAIL_S = 0.15    # keep listening this long after T is let go (the end of the word)
+VOICE_SHOW_S = 3.0     # the heard word stays on the camera picture this long
+VOICE = {"state": "loading",   # "loading", "ready", or why it's off
+         "down": False,        # T is held
+         "listening": False,   # the mic is open
+         "clicking": False,    # a tool click is using the mouse right now
+         "heard": "", "note": "", "at": 0.0}
+TEACH = {"i": None}            # Teach tool spots: which button is being asked for (None = not teaching)
+SPOTS = {}                     # button -> [x, y] on screen
+_voice_q = queue.Queue()
+
+
+def load_spots():
+    try:
+        with open(SPOTS_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+        SPOTS.update({k: [int(v[0]), int(v[1])] for k, v in saved.items()
+                      if k in TOOL_SPOTS and len(v) == 2})
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"Could not read tool spots ({e}).")
+
+
+def save_spots():
+    try:
+        with open(SPOTS_FILE + ".part", "w", encoding="utf-8") as f:
+            json.dump(SPOTS, f, indent=2)
+        os.replace(SPOTS_FILE + ".part", SPOTS_FILE)
+    except Exception as e:
+        print(f"Could not save tool spots: {e}")
+
+
+def teach_start():
+    TEACH["i"] = 0
+
+
+def teach_event(vk):
+    """While teaching: Enter saves the spot under the cursor, Tab skips, Esc stops."""
+    i = TEACH["i"]
+    if vk == 0x0D:
+        x, y = cursor_pos()
+        SPOTS[TOOL_SPOTS[i]] = [int(x), int(y)]
+        threading.Thread(target=save_spots, daemon=True).start()
+    if vk == 0x1B or i + 1 >= len(TOOL_SPOTS):
+        TEACH["i"] = None
+        VOICE.update(heard="", note=f"{len(SPOTS)} of {len(TOOL_SPOTS)} tool spots saved", at=time.time())
+    else:
+        TEACH["i"] = i + 1
+
+
+def voice_event(down):
+    """The voice key went down / up. True = AirDraw used it."""
+    if not down:
+        was, VOICE["down"] = VOICE["down"], False
+        return was
+    if VOICE["down"]:
+        return True                # key repeat
+    if not S["armed"] or SPACE["paused"] or TEACH["i"] is not None:
+        return False
+    if user32.GetAsyncKeyState(0x11) & 0x8000 or user32.GetAsyncKeyState(0x12) & 0x8000:
+        return False               # Ctrl+T / Alt+T belong to the app in front
+    VOICE["down"] = True
+    _voice_q.put("listen")
+    return True
+
+
+def _voice_pick(text):
+    """The last tool word in what was heard ("paint bucket" counts as one)."""
+    w, out, i = text.split(), None, 0
+    while i < len(w):
+        two = " ".join(w[i:i + 2])
+        if two in VOICE_WORDS:
+            out, i = two, i + 2
+        else:
+            out, i = (w[i] if w[i] in VOICE_WORDS else out), i + 1
+    return out
+
+
+def _voice_click(word):
+    spot = SPOTS.get(VOICE_WORDS[word])
+    if not spot:
+        return "not taught yet - Voice page, Teach tool spots"
+    if _held:
+        return "let go of the click first"
+    here = cursor_pos()
+    VOICE["clicking"] = True        # the hand tracking doesn't move the mouse meanwhile
+    try:
+        _send(MOVE | ABSOLUTE | VIRTUALDESK, *_abs(*spot))
+        time.sleep(0.02)
+        _send(LDOWN)
+        time.sleep(MIN_DOWN_S)
+        _send(LUP)
+        time.sleep(0.02)
+        _send(MOVE | ABSOLUTE | VIRTUALDESK, *_abs(*here))
+    finally:
+        VOICE["clicking"] = False
+    return ""
+
+
+def _voice_worker():
+    """Loads the model once, then listens only while the voice key is held."""
+    try:
+        import vosk                 # imported here: nothing of it loads in the camera's thread
+        vosk.SetLogLevel(-1)
+        if not os.path.isdir(VOICE_MODEL):
+            raise FileNotFoundError(f"no {os.path.basename(VOICE_MODEL)} folder")
+        rec = vosk.KaldiRecognizer(vosk.Model(VOICE_MODEL), 16000,
+                                   json.dumps(list(VOICE_WORDS) + ["[unk]"]))
+        rec.AcceptWaveform(bytes(3200))  # warm up now: the first real answer is then quick
+        rec.FinalResult()
+        import sounddevice as sd
+        VOICE["state"] = "ready"
+    except Exception as e:
+        VOICE["state"] = f"off ({e})"
+        print(f"(Voice tools off - {e})")
+        return
+    while True:
+        _voice_q.get()
+        if not VOICE["down"]:
+            continue
+        audio, mic = queue.Queue(), None
+        try:
+            mic = sd.RawInputStream(samplerate=16000, blocksize=1600, dtype="int16", channels=1,
+                                    callback=lambda data, n, t, st: audio.put(bytes(data)))
+            mic.start()
+            VOICE.update(listening=True, heard="", note="", at=time.time())
+            let_go = None
+            while let_go is None or time.time() - let_go < VOICE_TAIL_S:
+                if let_go is None and not VOICE["down"]:
+                    let_go = time.time()
+                try:
+                    rec.AcceptWaveform(audio.get(timeout=0.03))
+                except queue.Empty:
+                    pass
+            mic.abort()                  # mic off at once (a normal stop waits ~0.1 s)
+            mic.close()
+            mic = None
+            while not audio.empty():
+                rec.AcceptWaveform(audio.get())
+            text = json.loads(rec.FinalResult()).get("text", "")
+            word = _voice_pick(text)
+            note = _voice_click(word) if word else "didn't catch a tool name"
+            VOICE.update(heard=word or "", note=note, at=time.time())
+        except Exception as e:
+            rec.Reset()
+            VOICE.update(heard="", note=f"mic problem ({e})", at=time.time())
+        finally:
+            if mic is not None:
+                try:
+                    mic.abort()
+                    mic.close()
+                except Exception:
+                    pass
+            VOICE["listening"] = False
 
 
 def d_event(down):
@@ -798,18 +988,27 @@ def start_space_click():
     SPACE only works while the AirDraw window is in front)."""
     threading.Thread(target=_space_worker, name="space-click", daemon=True).start()
     threading.Thread(target=_paint_watch, name="paint-tool", daemon=True).start()
+    threading.Thread(target=_voice_worker, name="voice", daemon=True).start()
     if _kb is None:
         return None
     holder = {}
 
     def filt(msg, data):
         vk = data.vkCode
-        mvk = ord(S["mag_key"])
-        if (vk not in (0x20, 0x44, mvk) and vk not in COLOR_KEYS) or data.flags & 0x10:   # not ours, or a made-up key
-            return True
+        mvk, tvk = ord(S["mag_key"]), ord(S["voice_key"])
+        if data.flags & 0x10:
+            return True                                  # a made-up key
         down = msg in (0x0100, 0x0104)                   # WM_KEYDOWN, WM_SYSKEYDOWN
+        if TEACH["i"] is not None and vk in (0x0D, 0x09, 0x1B):    # Enter, Tab, Esc
+            if down:
+                teach_event(vk)
+            holder["l"].suppress_event()
+            return True
+        if vk not in (0x20, 0x44, mvk, tvk) and vk not in COLOR_KEYS:   # not ours
+            return True
         used = (space_event(down) if vk == 0x20 else d_event(down) if vk == 0x44
-                else mag_event(down) if vk == mvk else color_event(vk, down))
+                else mag_event(down) if vk == mvk else voice_event(down) if vk == tvk
+                else color_event(vk, down))
         if used:
             holder["l"].suppress_event()                 # Paint doesn't get it
         return True
@@ -1064,6 +1263,14 @@ def _set(k, v):
         changed()
 
 
+def _set_key(k, v):
+    """Magnifier / voice key: picking the other one's key swaps them."""
+    other = "voice_key" if k == "mag_key" else "mag_key"
+    if S[other] == v:
+        S[other] = S[k]
+    _set(k, v)
+
+
 SLIDERS = [
     # label,            low, high, setting -> slider,                          slider -> setting
     ("Armed (F8)",        0,   1, lambda: int(S["armed"]),                    lambda v: _set("armed", bool(v))),
@@ -1088,7 +1295,8 @@ SLIDERS = [
     ("Tilt strength",     0, 400, lambda: int(S["tilt_px"]),                  lambda v: _set("tilt_px", int(v))),
     ("Tilt dead zone",    0,  45, lambda: int(S["tilt_dz"]),                  lambda v: _set("tilt_dz", int(v))),
     ("Clutch settle ms",  0, 500, lambda: int(S["settle_ms"]),                lambda v: _set("settle_ms", int(v))),
-    ("Magnifier key",     0, 8, lambda: MAG_KEYS.index(S["mag_key"]),         lambda v: _set("mag_key", MAG_KEYS[int(v)])),
+    ("Magnifier key",     0, 8, lambda: MAG_KEYS.index(S["mag_key"]),         lambda v: _set_key("mag_key", MAG_KEYS[int(v)])),
+    ("Voice key",         0, 8, lambda: MAG_KEYS.index(S["voice_key"]),       lambda v: _set_key("voice_key", MAG_KEYS[int(v)])),
     ("Zoom",              2,  16, lambda: int(S["mag_zoom"]),                 lambda v: _set("mag_zoom", int(v))),
     ("Magnifier size",   80, 320, lambda: int(S["mag_size"]),                 lambda v: _set("mag_size", int(v))),
     ("Twist click",       0,   1, lambda: int(S["twist"]),                    lambda v: _set("twist", bool(v))),
@@ -1131,6 +1339,7 @@ SECTIONS = [
                   "Tilt assist", "Tilt strength", "Tilt dead zone"]),
     ("Zone", ["Zone size %", "Zone left/right", "Zone up/down"]),
     ("Magnifier", ["Magnifier key", "Zoom", "Magnifier size"]),
+    ("Voice", ["Voice key"]),
 ]
 TK_NAMES = {"Hand: 0 L  1 R": "Hand", "Flip L/R (H)": "Flip left/right (H)",
             "Fingers up x100": "Finger straightness (x100)",
@@ -1157,6 +1366,7 @@ TK_CHOICES = {
     "Hand: 0 L  1 R": lambda: [("Left hand", 0), ("Right hand", 1)],
     "Camera": _camera_choices,
     "Magnifier key": lambda: [(f"{k}" + ("  (default)" if k == "M" else ""), i) for i, k in enumerate(MAG_KEYS)],
+    "Voice key": lambda: [(f"{k}" + ("  (default)" if k == "T" else ""), i) for i, k in enumerate(MAG_KEYS)],
 }
 
 KEYS = deque()          # keys pressed in the window, read by the frame loop
@@ -1215,6 +1425,14 @@ class SettingsPanel:
                              ).grid(row=r, column=1, sticky="w")
                     self.rows.append(("number", entry, var, None))
 
+        # voice page: teach where Paint's tool buttons are
+        vf = self.frames["Voice"]
+        tk.Button(vf, text="Teach tool spots", takefocus=0, command=teach_start).grid(
+            row=1, column=0, sticky="w", pady=(8, 3))
+        self.spots = tk.StringVar()
+        tk.Label(vf, textvariable=self.spots, justify="left", anchor="w", wraplength=420,
+                 fg="#444").grid(row=2, column=0, columnspan=2, sticky="w")
+
         tk.Label(parent, text="Saved automatically to airdraw_settings.json",
                  font=("Segoe UI", 8), fg="#777").pack(side="bottom", anchor="w", pady=(4, 8))
         self.current = None
@@ -1252,6 +1470,15 @@ class SettingsPanel:
                     want = clamp(want, lo, hi)
                     if var.get() != want:
                         var.set(want)
+            missing = [t for t in TOOL_SPOTS if t not in SPOTS]
+            self.spots.set(
+                (f"TEACHING: hover over {TOOL_SPOTS[TEACH['i']].upper()} in Paint and press Enter "
+                 f"(Tab = skip, Esc = stop)" if TEACH["i"] is not None else
+                 "Open Paint (maximized), click Teach tool spots, then hover each button "
+                 "and press Enter.")
+                + f"\nSaved: {len(SPOTS)} of {len(TOOL_SPOTS)}"
+                + (f" - missing: {', '.join(missing)}" if missing else "")
+                + f"\nVoice: {VOICE['state']}")
             self.status.set("\n".join(t for t, _ in panel_lines()[:2]
                                       + [l for l in panel_lines() if l[0].startswith("Camera")]))
         except Exception as e:          # never let one bad read kill the window
@@ -1295,21 +1522,29 @@ _u32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes
 MAG_GAP = 36           # px between the cursor and the magnifier window
 
 
+_grab = {}             # the copy's buffers, made once per size and reused
+
+
 def grab_pixels(x0, y0, n):
     """The n x n screen pixels whose top-left is (x0, y0), as a PIL image."""
-    sdc = _u32.GetDC(None)
-    mdc = _g32.CreateCompatibleDC(sdc)
-    bmp = _g32.CreateCompatibleBitmap(sdc, n, n)
-    old = _g32.SelectObject(mdc, bmp)
+    g = _grab.get(n)
+    if g is None:
+        for old in _grab.values():                                  # size changed: free the old one
+            _g32.SelectObject(old[1], old[3])
+            _g32.DeleteObject(old[2])
+            _g32.DeleteDC(old[1])
+            _u32.ReleaseDC(None, old[0])
+        _grab.clear()
+        sdc = _u32.GetDC(None)
+        mdc = _g32.CreateCompatibleDC(sdc)
+        bmp = _g32.CreateCompatibleBitmap(sdc, n, n)
+        old = _g32.SelectObject(mdc, bmp)
+        # BITMAPINFOHEADER: 32-bit, top row first
+        bih = (ctypes.c_uint32 * 10)(40, n, (-n) & 0xFFFFFFFF, 1 | (32 << 16), 0, 0, 0, 0, 0, 0)
+        g = _grab[n] = (sdc, mdc, bmp, old, bih, ctypes.create_string_buffer(n * n * 4))
+    sdc, mdc, bmp, _old, bih, buf = g
     _g32.BitBlt(mdc, 0, 0, n, n, sdc, x0, y0, 0x00CC0020)          # SRCCOPY (no layered windows)
-    # BITMAPINFOHEADER: 32-bit, top row first
-    bih = (ctypes.c_uint32 * 10)(40, n, (-n) & 0xFFFFFFFF, 1 | (32 << 16), 0, 0, 0, 0, 0, 0)
-    buf = ctypes.create_string_buffer(n * n * 4)
     _g32.GetDIBits(mdc, bmp, 0, n, buf, bih, 0)
-    _g32.SelectObject(mdc, old)
-    _g32.DeleteObject(bmp)
-    _g32.DeleteDC(mdc)
-    _u32.ReleaseDC(None, sdc)
     return Image.frombuffer("RGB", (n, n), buf.raw, "raw", "BGRX", 0, 1)
 
 
@@ -1321,6 +1556,7 @@ class Magnifier:
         self.size = None
         self.latest = None          # (picture, x, y, (r, g, b)) from the helper thread
         self.shown = None
+        self.grid = None            # (zoom, n, overlay): the grid + crosshair, drawn once
         threading.Thread(target=self._render_loop, name="magnifier", daemon=True).start()
 
     def _render_loop(self):
@@ -1328,12 +1564,14 @@ class Magnifier:
             if not MAG["on"]:
                 time.sleep(0.1)
                 continue
+            t0 = time.time()
             try:
                 self.latest = self._render()
             except Exception as e:
                 print(f"(magnifier: {e})")
                 time.sleep(0.5)
-            time.sleep(0.035)       # with the ~15 ms copy: about 20 pictures a second
+            # about 60 pictures a second (the copy itself waits for the screen)
+            time.sleep(max(0.0, 1 / 60 - (time.time() - t0)))
 
     def _make(self):
         w = tk.Toplevel(self.root)
@@ -1368,31 +1606,45 @@ class Magnifier:
         except Exception as e:                     # never let it break the window
             print(f"(magnifier: {e})")
             MAG["on"] = False
-        self.root.after(50, self.tick)             # 20 times a second, only while it's on
+        # every 10 ms while it's on (a new picture shows at once), 10 a second while off
+        self.root.after(10 if MAG["on"] else 100, self.tick)
 
     def _render(self):
         """(helper thread) Copy and zoom the pixels around the cursor."""
         zoom = S["mag_zoom"]
         n = max(5, S["mag_size"] // zoom) | 1      # odd, so one pixel is in the middle
         side = n * zoom
-        x, y = (int(v) for v in cursor_pos())
+        # the cursor's own pixel, read right before the copy, is the middle one
+        pt = wintypes.POINT()
+        user32.GetCursorPos(ctypes.byref(pt))
+        x, y = pt.x, pt.y
         px = grab_pixels(x - n // 2, y - n // 2, n)
         r, g, b = px.getpixel((n // 2, n // 2))
         img = px.resize((side, side), Image.NEAREST)          # sharp square pixels
-        dr = ImageDraw.Draw(img)
+        if self.grid is None or self.grid[:2] != (zoom, n):
+            self.grid = (zoom, n, self._overlay(zoom, n))
+        img.paste(self.grid[2], (0, 0), self.grid[2])
+        return img, x, y, (r, g, b)
+
+    @staticmethod
+    def _overlay(zoom, n):
+        """The grid and crosshair, drawn once on a see-through picture."""
+        side = n * zoom
+        ov = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        dr = ImageDraw.Draw(ov)
         if zoom >= 4:                                         # thin pixel grid
             for i in range(0, side, zoom):
-                dr.line([(i, 0), (i, side)], fill=(70, 70, 70))
-                dr.line([(0, i), (side, i)], fill=(70, 70, 70))
+                dr.line([(i, 0), (i, side)], fill=(70, 70, 70, 255))
+                dr.line([(0, i), (side, i)], fill=(70, 70, 70, 255))
         c0 = (n // 2) * zoom                                  # crosshair on the middle pixel
         mid = c0 + zoom // 2
-        dr.line([(mid, 0), (mid, c0 - 1)], fill=(255, 60, 60))
-        dr.line([(mid, c0 + zoom), (mid, side)], fill=(255, 60, 60))
-        dr.line([(0, mid), (c0 - 1, mid)], fill=(255, 60, 60))
-        dr.line([(c0 + zoom, mid), (side, mid)], fill=(255, 60, 60))
-        dr.rectangle([c0 - 1, c0 - 1, c0 + zoom, c0 + zoom], outline=(255, 255, 255))
-        dr.rectangle([c0 - 2, c0 - 2, c0 + zoom + 1, c0 + zoom + 1], outline=(0, 0, 0))
-        return img, x, y, (r, g, b)
+        dr.line([(mid, 0), (mid, c0 - 1)], fill=(255, 60, 60, 255))
+        dr.line([(mid, c0 + zoom), (mid, side)], fill=(255, 60, 60, 255))
+        dr.line([(0, mid), (c0 - 1, mid)], fill=(255, 60, 60, 255))
+        dr.line([(c0 + zoom, mid), (side, mid)], fill=(255, 60, 60, 255))
+        dr.rectangle([c0 - 1, c0 - 1, c0 + zoom, c0 + zoom], outline=(255, 255, 255, 255))
+        dr.rectangle([c0 - 2, c0 - 2, c0 + zoom + 1, c0 + zoom + 1], outline=(0, 0, 0, 255))
+        return ov
 
     def update(self):
         """(window) Show the newest picture beside the cursor."""
@@ -1471,6 +1723,8 @@ def panel_lines():
         (f"Hand: {S['hand']}  (other hand ignored)    Flip L/R: {'on' if S['invert'] else 'off'}", (230, 230, 230)),
         (f"SPACE: {mode_words()}", (230, 230, 230)),
         (f"Magnifier: {'ON' if MAG['on'] else 'off'} ({S['mag_key']}), zoom {S['mag_zoom']}x", (230, 230, 230)),
+        (f"Voice: hold {S['voice_key']} and say a tool - {VOICE['state']}, "
+         f"{len(SPOTS)} of {len(TOOL_SPOTS)} spots taught", (230, 230, 230)),
         (f"Colour: {PAINT['color'] or 'not read yet'}   (C / V step, 1 black, 2 white)"
          + (f" - {PAINT['color_note']}" if PAINT["color_note"] else ""),
          (0, 165, 255) if PAINT["color_note"] else (230, 230, 230)),
@@ -1525,6 +1779,7 @@ def frame_loop():
     ("frame", picture) after each frame and ("wait", seconds) for the 30 fps
     cap."""
     load_settings()
+    load_spots()
     model = get_model()
 
     cv2.setNumThreads(1)       # OpenCV's part here is tiny; don't let it grab every core
@@ -2158,6 +2413,23 @@ def frame_loop():
             cv2.rectangle(frame, (0, 36), (300, 64), (25, 25, 25), -1)
             cv2.putText(frame, f"cursor {int(cpx)}, {int(cpy)}   cam {CAM['live']}: {cam_name(CAM['live'])[:14]}",
                         (8, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (230, 230, 230), 1, cv2.LINE_AA)
+            # voice: listening, the heard word, or the teaching prompt
+            vtxt, vcol = None, (230, 230, 230)
+            if TEACH["i"] is not None:
+                vtxt, vcol = (f"TEACH {TEACH['i'] + 1}/{len(TOOL_SPOTS)}: hover {TOOL_SPOTS[TEACH['i']].upper()}, "
+                              f"press Enter (Tab skip, Esc stop)"), (0, 255, 255)
+            elif VOICE["listening"] or VOICE["down"]:
+                vtxt, vcol = (("listening..." if VOICE["state"] == "ready" else
+                               f"voice {VOICE['state']}"), (0, 0, 255))
+            elif now - VOICE["at"] < VOICE_SHOW_S and (VOICE["heard"] or VOICE["note"]):
+                vtxt = (f"heard: {VOICE['heard']}" if VOICE["heard"] else "voice") \
+                    + (f" - {VOICE['note']}" if VOICE["note"] else "")
+                vcol = (0, 165, 255) if VOICE["note"] else (0, 255, 0)
+            if vtxt:
+                (vw, _), _ = cv2.getTextSize(vtxt, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
+                vs = min(0.55, 0.55 * (w - 20) / max(vw, 1))
+                cv2.rectangle(frame, (0, 66), (min(w, int(vw * vs / 0.55) + 20), 94), (25, 25, 25), -1)
+                cv2.putText(frame, vtxt, (8, 86), cv2.FONT_HERSHEY_SIMPLEX, vs, vcol, 1, cv2.LINE_AA)
             # Paint's current colour, top right under the bar
             ctxt = f"colour: {PAINT['color'] or '?'}"
             (cw, _), _ = cv2.getTextSize(ctxt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
@@ -2194,7 +2466,9 @@ def frame_loop():
             if k == 0x770000 and _hotkey is None:     # F8 in the window, only if the any-window hotkey isn't running
                 toggle_armed()
             k &= 0xFF
-            if k in (27, ord("q")):
+            if TEACH["i"] is not None and k in (13, 9, 27):
+                teach_event({13: 0x0D, 9: 0x09, 27: 0x1B}[k])
+            elif k in (27, ord("q")):
                 break
             elif k in (ord("d"), ord("D")) and space_hook is None:
                 toggle_draw_mode()               # (with the hook, D works in every window)

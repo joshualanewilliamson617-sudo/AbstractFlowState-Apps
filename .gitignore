@@ -10,3 +10,6 @@ System.Drawing.Drawing2D.GraphicsPath
 # AirDraw: the hand model downloads itself on first run; settings are personal
 airdraw/hand_landmarker.task
 airdraw/airdraw_settings.json
+airdraw/vosk-model-small-en-us-0.15/
+airdraw/airdraw_tool_spots.json
+__pycache__/
