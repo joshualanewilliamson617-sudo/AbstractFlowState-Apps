@@ -65,21 +65,68 @@ button{font:inherit;cursor:pointer;border:0}
 .dpad .pad-btn{border-radius:8px}
 .dpad .u{grid-area:1/2}.dpad .l{grid-area:2/1}.dpad .r{grid-area:2/3}.dpad .d{grid-area:3/2}
 .dpad .hub{grid-area:2/2;border:1px solid var(--line);border-radius:50%;margin:12px;background:rgba(255,210,31,.12)}
-/* Phone: big left/right only */
+/* Desktop is keyboard only now: the D-pad stays in the page but is never shown */
+#dpad{display:none!important}
 /* Phone: forward on the left thumb, left/right on the right thumb */
 .lr{display:none;position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));height:92px;z-index:6;pointer-events:none}
 .lr .pad-btn{position:absolute;bottom:0;width:80px;height:80px;border-radius:16px;pointer-events:auto}
 .lr .f{left:max(20px,env(safe-area-inset-left,0px));width:92px;height:92px;border-radius:50%;border-color:rgba(255,210,31,.6);color:var(--signal)}
-.lr .l{right:calc(max(20px,env(safe-area-inset-right,0px)) + 86px)}
-.lr .r{right:max(20px,env(safe-area-inset-right,0px))}
+/* the ◀ ▶ pair sits in one solid strip, so a tap in the gap (or just beside a button) lands on the strip, not the road */
+.lr .lrg{position:absolute;bottom:-8px;right:calc(max(20px,env(safe-area-inset-right,0px)) - 8px);display:flex;gap:6px;padding:8px;pointer-events:auto;touch-action:none}
+.lr .lrg .pad-btn{position:static;width:84px;height:84px}
 .lr .f.on{color:#111}
+.pausebtn{display:none}
 @media (pointer:coarse){
   .dpad{display:none}
   .lr{display:block}
   .hint{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
-  .mute{bottom:auto;top:96px;right:auto;left:50%;transform:translateX(-50%)}
+  .mute{bottom:auto;top:96px;right:auto;left:50%;transform:translateX(4px)}
+  .pausebtn{display:block;transform:translateX(calc(-100% - 4px))}
+  .desk-only{display:none!important}
 }
+/* HUD middle: gas gauge or current challenge goal */
+.mid{flex:1;max-width:240px;min-width:0;align-self:flex-start}
+.mid .lab{display:flex;justify-content:space-between;gap:6px}
+.gauge{height:10px;margin-top:6px;border:1px solid var(--line);background:rgba(255,255,255,.05);overflow:hidden}
+.gauge i{display:block;height:100%;width:100%;background:var(--signal);transform-origin:left;transition:background .2s}
+.gauge.low i{background:var(--danger);animation:blink .5s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+.goal{font-size:11px;line-height:1.35;margin-top:4px;color:var(--ink);letter-spacing:.04em}
+/* menus */
+.overlay{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;align-items:flex-start}
+.overlay>.card{margin:auto}
+.opt{display:grid;gap:6px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.seg button,.alt{background:transparent;color:var(--mute);border:1px solid var(--line);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.14em;padding:10px 6px}
+.seg button[aria-pressed="true"]{background:var(--signal);border-color:var(--signal);color:#111}
+.alt:hover,.seg button:hover{border-color:var(--signal);color:var(--ink)}
+.seg button[aria-pressed="true"]:hover{color:#111}
+.seg button:focus-visible,.alt:focus-visible,.field input:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+.row2{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
+.field{display:grid;gap:6px}
+.field input{font:inherit;font-weight:700;font-size:16px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,255,255,.04);color:var(--ink);border:1px solid var(--line);padding:9px 10px;user-select:text;-webkit-user-select:text}
+.modeinfo{font-size:11.5px;line-height:1.5;color:rgba(243,241,234,.8);border-left:3px solid var(--signal);padding:2px 0 2px 10px}
+.modeinfo b{color:var(--signal)}
+.note{font-size:12px;line-height:1.5;color:var(--signal)}
+.note:empty{display:none}
+.board{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:12px;font-variant-numeric:tabular-nums}
+.board li{display:grid;grid-template-columns:26px 1fr auto 44px;gap:8px;padding:6px 8px;border:1px solid var(--line);align-items:center}
+.board li.me{border-color:var(--signal)}
+.board .rk{color:var(--mute)}.board .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board .sc{font-family:var(--display);font-weight:900;font-size:20px}.board .cn{color:var(--signal);text-align:right}
+.board .empty{grid-template-columns:1fr;color:var(--mute);text-align:center}
+.binds{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;font-size:11px;letter-spacing:.14em}
+.binds .act{color:var(--mute)}
+.binds button{background:rgba(255,255,255,.04);color:var(--ink);border:1px solid var(--line);font-family:var(--mono);font-weight:700;font-size:12px;padding:9px 4px;min-height:38px}
+.binds button.wait{border-color:var(--cool);color:var(--cool);animation:blink .6s steps(2) infinite}
+.binds button.dup{border-color:var(--danger)}
+.warn{font-size:11.5px;line-height:1.5;color:var(--mute);min-height:2.9em}
+.warn.bad{color:var(--danger)}
+@media (max-height:760px){.legend{display:none}h1{font-size:60px}.card .in{gap:12px;padding:18px}}
 @media (max-width:420px){h1{font-size:62px}.big{font-size:32px}}
+/* narrow phones: the gas gauge / goal gets its own full-width row under the score tiles */
+@media (max-width:560px){.hud{flex-wrap:wrap}.mid{order:3;flex:1 1 100%;max-width:none;padding:5px 10px 6px}.mid .gauge{margin-top:4px}.goal{margin-top:3px}}
+@media (pointer:coarse) and (max-width:560px){#game.has-mid .mute{top:156px}}
 @media (prefers-reduced-motion:reduce){.go{transition:none}}
 </style>
 
@@ -92,6 +139,11 @@ button{font:inherit;cursor:pointer;border:0}
       <div class="big" id="hScore">0</div>
       <div class="sub" id="hBest">BEST 0</div>
     </div>
+    <div class="tile mid" id="hMid" hidden>
+      <div class="lab"><span id="hMidLab">GAS</span><span id="hMidVal"></span></div>
+      <div class="gauge" id="hGauge"><i id="hGaugeFill"></i></div>
+      <div class="goal" id="hGoal"></div>
+    </div>
     <div class="tile right">
       <div class="lab">FUEL CANS</div>
       <div class="big coin" id="hCoins">0</div>
@@ -101,6 +153,7 @@ button{font:inherit;cursor:pointer;border:0}
 
   <div class="hint" id="hint"><span id="hintText">ARROWS / WASD TO HOP · TAP = FORWARD · SWIPE TO TURN</span></div>
   <button class="mute" id="muteBtn" type="button">SOUND ON</button>
+  <button class="mute pausebtn" id="pauseBtn" type="button" aria-label="Pause">II PAUSE</button>
 
   <div class="dpad" id="dpad" aria-label="Directional pad">
     <button class="pad-btn u" type="button" data-dir="up" aria-label="Forward"><svg viewBox="0 0 24 24" aria-hidden="true"><path transform="rotate(0 12 12)" d="M12 4l8 10h-5v6H9v-6H4z"/></svg></button>
@@ -111,13 +164,15 @@ button{font:inherit;cursor:pointer;border:0}
   </div>
   <div class="lr" id="lrPad">
     <button class="pad-btn f" id="fwdBtn" type="button" data-dir="up" aria-label="Forward"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 10h-5v6H9v-6H4z"/></svg></button>
-    <button class="pad-btn l" type="button" data-dir="left" aria-label="Left"><svg viewBox="0 0 24 24" aria-hidden="true"><path transform="rotate(-90 12 12)" d="M12 4l8 10h-5v6H9v-6H4z"/></svg></button>
-    <button class="pad-btn r" type="button" data-dir="right" aria-label="Right"><svg viewBox="0 0 24 24" aria-hidden="true"><path transform="rotate(90 12 12)" d="M12 4l8 10h-5v6H9v-6H4z"/></svg></button>
+    <div class="lrg" id="lrGroup">
+      <button class="pad-btn l" type="button" data-dir="left" aria-label="Left"><svg viewBox="0 0 24 24" aria-hidden="true"><path transform="rotate(-90 12 12)" d="M12 4l8 10h-5v6H9v-6H4z"/></svg></button>
+      <button class="pad-btn r" type="button" data-dir="right" aria-label="Right"><svg viewBox="0 0 24 24" aria-hidden="true"><path transform="rotate(90 12 12)" d="M12 4l8 10h-5v6H9v-6H4z"/></svg></button>
+    </div>
   </div>
 
   <div class="overlay" id="startScreen">
     <div class="card">
-      <div class="band"><span>NIGHT SHIFT</span><span>ENDLESS</span></div>
+      <div class="band"><span>NIGHT SHIFT</span><span id="sBand">ENDLESS</span></div>
       <div class="in">
         <h1>BURN-OUT<span>ENDLESS CROSSING</span></h1>
         <div class="rules">
@@ -131,25 +186,74 @@ button{font:inherit;cursor:pointer;border:0}
           <div><i style="background:#1d3a26"></i>MEDIAN · SAFE</div>
           <div><i style="background:#ff3d57"></i>RAIL</div>
         </div>
+        <label class="field"><span class="lab">DRIVER NAME</span><input id="pName" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DRIVER"></label>
+        <div class="opt"><span class="lab">MODE</span>
+          <div class="seg" id="modeSeg"><button type="button" data-v="endless">ENDLESS</button><button type="button" data-v="challenge">CHALLENGE</button><button type="button" data-v="gas">GAS TANK</button></div>
+        </div>
+        <div class="opt"><span class="lab">DIFFICULTY</span>
+          <div class="seg" id="diffSeg"><button type="button" data-v="easy">EASY</button><button type="button" data-v="normal">NORMAL</button><button type="button" data-v="hard">HARD</button></div>
+        </div>
+        <div class="modeinfo" id="modeInfo"></div>
         <button class="go" id="startBtn" type="button">START ENGINE</button>
-        <div class="keys">ENTER / SPACE TO START</div>
+        <div class="row2" id="startRow"><button class="alt" id="boardBtn" type="button">SCOREBOARD</button><button class="alt desk-only" id="ctrlBtn" type="button">CONTROLS</button></div>
+        <div class="keys" id="startKeys">ENTER / SPACE TO START</div>
       </div>
     </div>
   </div>
 
   <div class="overlay" id="overScreen" hidden>
     <div class="card bad">
-      <div class="band"><span>WRECKED</span><span id="oZone">ZONE 1</span></div>
+      <div class="band"><span id="oHead">WRECKED</span><span id="oZone">ZONE 1</span></div>
       <div class="in">
         <h2 id="oTitle">TOTALED.</h2>
         <div class="reason" id="oReason"></div>
+        <div class="note" id="oNote"></div>
         <div class="stats">
           <div><span class="lab">LANES</span><b id="oScore">0</b></div>
           <div><span class="lab">FUEL</span><b id="oCoins" class="coin">0</b></div>
           <div><span class="lab">BEST</span><b id="oBest">0</b></div>
         </div>
         <button class="go" id="retryBtn" type="button">RUN IT BACK</button>
-        <div class="keys">ENTER / SPACE TO RETRY</div>
+        <div class="row2"><button class="alt" id="menuBtn" type="button">MENU</button><button class="alt" id="oBoardBtn" type="button">SCOREBOARD</button></div>
+        <div class="keys" id="overKeys">ENTER / SPACE TO RETRY</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseScreen" hidden>
+    <div class="card">
+      <div class="band"><span>PAUSED</span><span id="pBand">ENDLESS</span></div>
+      <div class="in">
+        <h2>PAUSED.</h2>
+        <button class="go" id="resumeBtn" type="button">RESUME</button>
+        <div class="row2"><button class="alt" id="pRestartBtn" type="button">RESTART</button><button class="alt" id="pMenuBtn" type="button">MENU</button></div>
+        <div class="keys" id="pauseKeys"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="boardScreen" hidden>
+    <div class="card">
+      <div class="band"><span>SCOREBOARD</span><span>TOP 10</span></div>
+      <div class="in">
+        <div class="seg" id="bModeSeg"><button type="button" data-v="endless">ENDLESS</button><button type="button" data-v="challenge">CHALLENGE</button><button type="button" data-v="gas">GAS TANK</button></div>
+        <div class="seg" id="bDiffSeg"><button type="button" data-v="easy">EASY</button><button type="button" data-v="normal">NORMAL</button><button type="button" data-v="hard">HARD</button></div>
+        <ol class="board" id="boardList"></ol>
+        <div class="modeinfo" id="profileInfo"></div>
+        <button class="go" id="boardBack" type="button">BACK</button>
+        <div class="keys">SCORES ARE SAVED ON THIS DEVICE · ESC TO GO BACK</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ctrlScreen" hidden>
+    <div class="card">
+      <div class="band"><span>CONTROLS</span><span>KEYBOARD</span></div>
+      <div class="in">
+        <div class="binds" id="binds"></div>
+        <div class="warn" id="bindMsg"></div>
+        <div class="row2"><button class="alt" id="bindReset" type="button">RESET TO DEFAULT</button><button class="alt" id="bindDone" type="button">DONE</button></div>
+        <div class="keys">CLICK A BOX, THEN PRESS A KEY · ESC CANCELS · DELETE CLEARS</div>
       </div>
     </div>
   </div>
@@ -159,8 +263,50 @@ button{font:inherit;cursor:pointer;border:0}
 (()=>{
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false});
 const $=id=>document.getElementById(id);
-const COLS=9, M=8, LOOP=COLS+2*M;
+const COLS=9, M=8;
+// Each road lane is a ring of cars. Its length (row.loop) is the real total of its cars plus their gaps,
+// at least LOOP_MIN so the ring is wider than the widest screen plus the longest truck on each side.
+const LOOP_MIN=COLS+2*M+6;
+function laneBase(){return camX-M-2;}
 const HOP_T=0.11;
+const isTouch=matchMedia('(pointer:coarse)').matches;
+
+// ---------- difficulty + modes ----------
+// spd: car speed · lanes: extra/fewer lanes per road · gap/gapMin: space between cars · rail: train frequency
+// creep: tow truck speed · can/hop/time/refill: Gas Tank tuning
+const DIFF={
+  easy:  {label:'EASY',  spd:.8, lanes:-1,gap:1.3,gapMin:1.9, rail:.65,creep:.75,can:1.35,hop:1.3,time:.55,refill:30},
+  normal:{label:'NORMAL',spd:1,  lanes:0, gap:1,  gapMin:1.5, rail:1,  creep:1,  can:1,   hop:1.6,time:.8, refill:25},
+  hard:  {label:'HARD',  spd:1.25,lanes:1,gap:.8, gapMin:1.25,rail:1.4,creep:1.3,can:1,   hop:1.9,time:.9, refill:22}
+};
+const MODES={endless:'ENDLESS',challenge:'CHALLENGE',gas:'GAS TANK'};
+const ZONE_AT={2:40,3:100,4:180,5:280};
+const CHALLENGES=[
+  {t:'score',n:15,txt:'Cross 15 lanes'},
+  {t:'cans',n:3,txt:'Collect 3 fuel cans in one run'},
+  {t:'rails',n:2,txt:'Cross 2 train tracks'},
+  {t:'zone',n:2,txt:'Reach zone 2 (Downtown)'},
+  {t:'side',n:30,txt:'Cruise 30 lanes sideways in one run'},
+  {t:'cans',n:10,txt:'Collect 10 fuel cans in one run'},
+  {t:'rails',n:5,txt:'Cross 5 train tracks in one run'},
+  {t:'zone',n:3,txt:'Reach zone 3 (Interchange)'},
+  {t:'score',n:60,diff:'hard',txt:'Reach score 60 on Hard'},
+  {t:'score',n:100,diff:'hard',txt:'Reach score 100 on Hard'},
+  {t:'zone',n:4,txt:'Reach zone 4 (I-85 Corridor)'}
+];
+let mode='endless', dk='normal', D=DIFF.normal;
+
+// ---------- profile + scoreboard (saved on this device) ----------
+function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v&&typeof v==='object'?v:def;}catch(e){return def;}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+const profile=Object.assign({name:'DRIVER',mode:'endless',diff:'normal',best:{},cans:0,runs:0,ch:0},load('burnout-profile',{}));
+if(!MODES[profile.mode])profile.mode='endless';
+if(!DIFF[profile.diff])profile.diff='normal';
+profile.best=profile.best||{};
+try{const old=+localStorage.getItem('crosstown-best')||0;if(old>(profile.best['endless|normal']||0))profile.best['endless|normal']=old;}catch(e){}
+let scores=load('burnout-scores',{});
+function saveProfile(){save('burnout-profile',profile);}
+function boardKey(m,d){return m+'|'+d;}
 
 let W=0,H=0,cell=40,ox=0,dpr=1;
 function resize(){
@@ -192,7 +338,9 @@ function zoneOf(r){
 }
 function grassRow(r,clear){
   const d=diff(r);
-  return {type:'grass',clear,seed:Math.floor(Math.random()*1e6),p:clear?0:(Math.random()<0.6?0.07+d*0.12:0.02),coinP:clear?0:0.04,taken:new Set()};
+  // Gas Tank mode needs more cans (Easy the most) so a careful driver can keep the tank up
+  const cp=mode==='gas'?0.1*D.can:0.04;
+  return {type:'grass',clear,seed:Math.floor(Math.random()*1e6),p:clear?0:(Math.random()<0.6?0.07+d*0.12:0.02),coinP:clear?0:cp,taken:new Set()};
 }
 function obstAt(row,c){
   if(row.type!=='grass'||row.clear)return null;
@@ -209,15 +357,35 @@ function fillLane(row,r){
   let pool=['car','car','car','suv','suv','van'];
   if(row.speed<2.6) pool.push('truck','bus');
   if(d>0.3) pool.push('truck');
-  let x=camX-M+Math.random()*3;
-  while(x<camX+COLS+M-1){
+  const start=laneBase()+Math.random()*3;
+  let x=start;
+  do{
     const k=pool[Math.floor(Math.random()*pool.length)];
     const len=KINDS[k].len;
     row.veh.push({x,len,kind:k,color:VCOL[Math.floor(Math.random()*VCOL.length)]});
-    const gap=Math.max(1.5,(1.8+Math.random()*3.6)-d*1.1);
+    const gap=Math.max(D.gapMin,(1.8+Math.random()*3.6)*D.gap-d*1.1);
     x+=len+gap;
-  }
+  }while(x-start<LOOP_MIN);
+  // the ring length includes the gap after the last car back round to the first one
+  row.loop=x-start;
 }
+// Put every car back inside its lane's ring window. The same edge is used on both sides,
+// and cars only ever move by whole ring lengths, so the spacing between them never changes.
+function wrapLane(row){
+  const b=laneBase(),L=row.loop;
+  for(const v of row.veh){const o=v.x-b;if(o<0||o>=L)v.x=b+((o%L)+L)%L;}
+}
+// Quick check: true if any two cars in this lane touch (counting the wrap-around pair).
+function laneOverlaps(row){
+  const b=laneBase(),L=row.loop;
+  const s=row.veh.map(v=>({o:(((v.x-b)%L)+L)%L,len:v.len})).sort((a,c)=>a.o-c.o);
+  for(let i=0;i<s.length;i++){
+    const a=s[i],n=i+1<s.length?s[i+1].o:s[0].o+L;
+    if(a.o+a.len>n-1e-6)return true;
+  }
+  return false;
+}
+let overlapHits=0;
 function addSegment(){
   const r=rows.length;
   if(r<4){rows.push(grassRow(r,true));return;}
@@ -227,20 +395,20 @@ function addSegment(){
     for(let i=0;i<n;i++) rows.push(grassRow(rows.length,false));
     return;
   }
-  if(r>14 && Math.random()<0.13+d*0.09){
+  if(r>14 && Math.random()<(0.13+d*0.09)*D.rail){
     const n=Math.random()<0.25+d*0.3?2:1;
     for(let i=0;i<n;i++){
-      rows.push({type:'rail',state:'idle',t:1.5+Math.random()*4.5,dir:Math.random()<.5?1:-1,tx:0,speed:24+d*10,len:16,bell:0});
+      rows.push({type:'rail',state:'idle',t:(1.5+Math.random()*4.5)/D.rail,dir:Math.random()<.5?1:-1,tx:0,speed:24+d*10,len:16,bell:0});
     }
     return;
   }
-  const maxL=Math.min(6,2+Math.floor(d*5)+(r>30?1:0));
+  const maxL=Math.max(1,Math.min(6+Math.max(0,D.lanes),2+Math.floor(d*5)+(r>30?1:0)+D.lanes));
   const lanes=1+Math.floor(Math.random()*maxL);
   const split=lanes>=2?Math.ceil(lanes/2):lanes;
   const A=Math.random()<.5?1:-1;
   for(let i=0;i<lanes;i++){
     const rr=rows.length;
-    const row={type:'road',dir:i<split?A:-A,speed:1.3+d*2.4+Math.random()*1.3,band:lanes,li:i};
+    const row={type:'road',dir:i<split?A:-A,speed:(1.3+d*2.4+Math.random()*1.3)*D.spd,band:lanes,li:i};
     if(i>=split && lanes>=2) row.speed+=0.4;
     fillLane(row,rr);
     rows.push(row);
@@ -252,13 +420,16 @@ function getRow(r){if(r<0)return BELOW;while(rows.length<=r)addSegment();return 
 // ---------- state ----------
 let state='title', cam=-3, creep=-3, camX=0, started=false;
 let P, score=0, coins=0, best=0, particles=[], popups=[], deathT=0, deathReason='', deathTitle='', queued=null, shake=0, warnPulse=0;
-try{best=+localStorage.getItem('crosstown-best')||0;}catch(e){}
+// per-run counters (used by Challenge goals and Gas Tank)
+let rails=0, side=0, gas=100, goalsThisRun=0, outOfGas=false, overlapCheckT=0, god=false;
+best=profile.best[boardKey(profile.mode,profile.diff)]||0;
 $('hBest').textContent='BEST '+best;
 
 function reset(){
   camX=0;rows=[];getRow(40);
-  P={col:4,row:1,fc:4,fr:1,t:1,face:0,dead:false,squash:0,bump:0};
+  P={col:4,row:1,fc:4,fr:1,t:1,face:0,dead:false,squash:0,bump:0,quiet:false};
   cam=P.row-3;creep=cam;started=false;score=0;coins=0;particles=[];popups=[];queued=null;shake=0;
+  rails=0;side=0;gas=100;goalsThisRun=0;outOfGas=false;
 }
 reset();
 
@@ -295,26 +466,186 @@ function tryMove(name){
   const tr=getRow(nr);
   if(obstAt(tr,nc)){P.bump=1;beep(90,.06,'square',.04);return;}
   P.fc=P.col;P.fr=P.row;P.col=nc;P.row=nr;P.t=0;started=true;
+  if(dc)side++;
+  if(mode==='gas')gas-=dr>0?D.hop:D.hop*.6;
   beep(dr>0?520:380,.05,'square',.035,dr>0?180:-60);
   $('hint').hidden=true;
 }
-const KEYMAP={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+
+// ---------- keyboard layout (remappable, saved on this device) ----------
+const ACTIONS=[['up','FORWARD'],['down','BACK'],['left','LEFT'],['right','RIGHT'],['pause','PAUSE'],['restart','RESTART']];
+const DEFAULT_KEYS={up:['ArrowUp','KeyW'],down:['ArrowDown','KeyS'],left:['ArrowLeft','KeyA'],right:['ArrowRight','KeyD'],pause:['KeyP','Escape'],restart:['KeyR',null]};
+function loadKeys(){
+  const s=load('burnout-keys',null),k={};
+  for(const [a] of ACTIONS){const v=s&&Array.isArray(s[a])?s[a]:DEFAULT_KEYS[a];k[a]=[v[0]||null,v[1]||null];}
+  return k;
+}
+let keymap=loadKeys(), binding=null;
+function saveKeys(){save('burnout-keys',keymap);}
+function actionOf(code){for(const [a] of ACTIONS)if(code&&keymap[a].includes(code))return a;return null;}
+function actLabel(a){return ACTIONS.find(x=>x[0]===a)[1];}
+const KEY_NAMES={ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Space:'SPACE',Escape:'ESC',Enter:'ENTER',Tab:'TAB',
+  ShiftLeft:'L-SHIFT',ShiftRight:'R-SHIFT',ControlLeft:'L-CTRL',ControlRight:'R-CTRL',AltLeft:'L-ALT',AltRight:'R-ALT',
+  Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',Backslash:'\\'};
+function keyName(c){
+  if(!c)return '—';
+  if(KEY_NAMES[c])return KEY_NAMES[c];
+  if(c.startsWith('Key'))return c.slice(3);
+  if(c.startsWith('Digit'))return c.slice(5);
+  if(c.startsWith('Numpad'))return 'NUM '+c.slice(6).toUpperCase();
+  return c.toUpperCase();
+}
+function keysOf(a){return keymap[a].filter(Boolean).map(keyName).join('/')||'—';}
+function updateKeyText(){
+  if(isTouch){
+    $('hintText').textContent='LEFT THUMB ▲ FORWARD · RIGHT THUMB ◀ ▶ SIDEWAYS · OR SWIPE';
+    $('startKeys').textContent='TAP START ENGINE';
+    $('overKeys').textContent='TAP RUN IT BACK';
+    $('pauseKeys').textContent='';
+    return;
+  }
+  $('hintText').textContent=`${keysOf('up')} FORWARD · ${keysOf('down')} BACK · ${keysOf('left')} ${keysOf('right')} SIDEWAYS · ${keysOf('pause')} PAUSE · ${keysOf('restart')} RESTART`;
+  $('startKeys').textContent='ENTER / SPACE TO START';
+  $('overKeys').textContent='ENTER / SPACE'+(keymap.restart.some(Boolean)?' / '+keysOf('restart'):'')+' TO RETRY';
+  $('pauseKeys').textContent=`${keysOf('pause')} TO RESUME · ${keysOf('restart')} TO RESTART`;
+}
+function renderBinds(msg,bad){
+  const box=$('binds');box.textContent='';
+  for(const [a,l] of ACTIONS){
+    const s=document.createElement('span');s.className='act';s.textContent=l;box.appendChild(s);
+    for(let i=0;i<2;i++){
+      const b=document.createElement('button');b.type='button';
+      const waiting=binding&&binding.a===a&&binding.i===i;
+      b.textContent=waiting?'PRESS A KEY':keyName(keymap[a][i]);
+      if(waiting)b.className='wait';
+      b.dataset.a=a;b.dataset.i=i;
+      b.setAttribute('aria-label',l+' key '+(i+1)+': '+keyName(keymap[a][i]));
+      b.addEventListener('click',()=>{binding={a,i};renderBinds(`Press the key for ${l}. Esc cancels, Delete clears this box.`);});
+      box.appendChild(b);
+    }
+  }
+  const empty=ACTIONS.filter(([a])=>!keymap[a][0]&&!keymap[a][1]).map(x=>x[1]);
+  if(empty.length){msg=(msg?msg+' ':'')+'Warning: '+empty.join(', ')+(empty.length>1?' have':' has')+' no key.';bad=true;}
+  $('bindMsg').textContent=msg||'Click a box, then press the key you want for it.';
+  $('bindMsg').classList.toggle('bad',!!bad);
+  updateKeyText();
+}
+// while waiting for a key, grab it before the game sees it
 window.addEventListener('keydown',e=>{
-  if(KEYMAP[e.code]){e.preventDefault();if(!e.repeat)tryMove(KEYMAP[e.code]);return;}
-  if(e.code==='Space'||e.code==='Enter'){
-    if(state==='title'){e.preventDefault();startGame();}
-    else if(state==='over'){e.preventDefault();startGame();}
-    else if(state==='play'&&e.code==='Space'){e.preventDefault();tryMove('up');}
+  if(!binding)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(e.repeat)return;
+  const {a,i}=binding;binding=null;
+  if(e.code==='Escape'){renderBinds('Cancelled. Nothing changed.');return;}
+  if(e.code==='Backspace'||e.code==='Delete'){keymap[a][i]=null;saveKeys();renderBinds(actLabel(a)+' key '+(i+1)+' cleared.');return;}
+  let msg=actLabel(a)+' is now '+keyName(e.code)+'.',bad=false;
+  const old=keymap[a][i];
+  for(const [b] of ACTIONS)for(let j=0;j<2;j++){
+    if((b!==a||j!==i)&&keymap[b][j]===e.code){
+      // duplicate: warn, and swap so the other action keeps a key
+      if(b===a){keymap[b][j]=null;msg=`${keyName(e.code)} was already ${actLabel(a)}'s other key, so that box is now empty.`;}
+      else{
+        keymap[b][j]=old;
+        msg=`Heads up: ${keyName(e.code)} was already ${actLabel(b)}. It's ${actLabel(a)} now`+(old?`, and ${actLabel(b)} gets ${keyName(old)} instead.`:'.');
+      }
+      bad=true;
+    }
+  }
+  keymap[a][i]=e.code;saveKeys();renderBinds(msg,bad);
+},true);
+$('bindReset').addEventListener('click',()=>{binding=null;keymap=JSON.parse(JSON.stringify(DEFAULT_KEYS));saveKeys();renderBinds('Back to the default keys.');});
+
+// ---------- menus ----------
+const OVERLAYS=['startScreen','overScreen','pauseScreen','boardScreen','ctrlScreen'];
+function show(id){for(const o of OVERLAYS)$(o).hidden=o!==id;}
+let subBack='startScreen';
+function openSub(id){subBack=OVERLAYS.find(o=>!$(o).hidden)||'startScreen';binding=null;show(id);}
+function closeSub(){binding=null;show(subBack);if(subBack==='startScreen')refreshStart();}
+function setSeg(id,v){for(const b of $(id).querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.v===v));}
+function wireSeg(id,fn){$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(b)fn(b.dataset.v);});}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function goalTarget(g){return g.t==='zone'?ZONE_AT[g.n]:g.n;}
+function goalProgress(g){return g.t==='cans'?coins:g.t==='rails'?rails:g.t==='side'?side:score;}
+function refreshStart(){
+  setSeg('modeSeg',profile.mode);setSeg('diffSeg',profile.diff);
+  const dl=DIFF[profile.diff].label, bestHere=profile.best[boardKey(profile.mode,profile.diff)]||0, N=CHALLENGES.length;
+  $('sBand').textContent=MODES[profile.mode]+' · '+dl;
+  let info;
+  if(profile.mode==='endless')info=`<b>ENDLESS</b> · The classic run. Go as far as you can. Best on ${dl}: <b>${bestHere}</b>`;
+  else if(profile.mode==='gas')info=`<b>GAS TANK</b> · Every hop burns fuel and the tank drains slowly. Fuel cans top it up. Empty tank ends the run. Best on ${dl}: <b>${bestHere}</b>`;
+  else{
+    const g=CHALLENGES[profile.ch];
+    info=g?`<b>CHALLENGE ${profile.ch+1}/${N}</b> · ${esc(g.txt)}.`+(g.diff&&g.diff!==profile.diff?` <b>Switch to ${DIFF[g.diff].label} for this one.</b>`:'')
+          :`<b>ALL ${N} CHALLENGES DONE.</b> Nice driving. Runs still count on the scoreboard.`;
+  }
+  $('modeInfo').innerHTML=info;
+  if(document.activeElement!==$('pName'))$('pName').value=profile.name;
+  $('hBest').textContent='BEST '+bestHere;
+  updateKeyText();
+}
+wireSeg('modeSeg',v=>{profile.mode=v;saveProfile();refreshStart();});
+wireSeg('diffSeg',v=>{profile.diff=v;saveProfile();refreshStart();});
+const cleanName=v=>v.replace(/[^\w .\-!?]/g,'').trim().toUpperCase().slice(0,12)||'DRIVER';
+$('pName').addEventListener('input',e=>{profile.name=cleanName(e.target.value);saveProfile();});
+$('pName').addEventListener('change',e=>{profile.name=cleanName(e.target.value);e.target.value=profile.name;saveProfile();});
+
+let bMode='endless',bDiff='normal',lastEntry=0;
+function renderBoard(){
+  setSeg('bModeSeg',bMode);setSeg('bDiffSeg',bDiff);
+  const key=boardKey(bMode,bDiff),list=scores[key]||[],ol=$('boardList');
+  ol.textContent='';
+  if(!list.length){const li=document.createElement('li');li.className='empty';li.textContent='NO RUNS YET ON '+MODES[bMode]+' · '+DIFF[bDiff].label;ol.appendChild(li);}
+  list.forEach((s,i)=>{
+    const li=document.createElement('li');if(s.d===lastEntry)li.className='me';
+    li.innerHTML=`<span class="rk">${i+1}</span><span class="nm">${esc(s.n)}</span><span class="sc">${s.s|0}</span><span class="cn">${s.c|0} F</span>`;
+    ol.appendChild(li);
+  });
+  $('profileInfo').innerHTML=`<b>${esc(profile.name)}</b> · ${profile.runs} run${profile.runs===1?"":"s"} · ${profile.cans} fuel can${profile.cans===1?"":"s"} in total · challenges ${Math.min(profile.ch,CHALLENGES.length)}/${CHALLENGES.length} · best here <b>${profile.best[key]||0}</b>`;
+}
+function openBoard(){bMode=profile.mode;bDiff=profile.diff;renderBoard();openSub('boardScreen');setTimeout(()=>$('boardBack').focus({preventScroll:true}),30);}
+wireSeg('bModeSeg',v=>{bMode=v;renderBoard();});
+wireSeg('bDiffSeg',v=>{bDiff=v;renderBoard();});
+$('boardBtn').addEventListener('click',openBoard);
+$('oBoardBtn').addEventListener('click',openBoard);
+$('boardBack').addEventListener('click',closeSub);
+$('ctrlBtn').addEventListener('click',()=>{openSub('ctrlScreen');renderBinds();});
+$('bindDone').addEventListener('click',closeSub);
+
+// ---------- game keys ----------
+const onButton=e=>e.target&&e.target.tagName==='BUTTON';
+window.addEventListener('keydown',e=>{
+  if(binding)return;
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')){if(e.key==='Enter'||e.key==='Escape')e.target.blur();return;}
+  if(!$('ctrlScreen').hidden||!$('boardScreen').hidden){if(e.code==='Escape'){e.preventDefault();closeSub();}return;}
+  const act=actionOf(e.code);
+  if(state==='play'){
+    if(P.dead)return;
+    if(act==='pause'){e.preventDefault();pauseGame();return;}
+    if(act==='restart'){e.preventDefault();if(!e.repeat)startGame();return;}
+    if(act){e.preventDefault();if(!e.repeat)tryMove(act);return;}
+    if(e.code==='Space'){e.preventDefault();if(!e.repeat)tryMove('up');}
+    return;
+  }
+  if(state==='pause'){
+    if(act==='restart'){e.preventDefault();startGame();return;}
+    if(onButton(e)&&(e.code==='Enter'||e.code==='Space'))return;
+    if(act==='pause'||e.code==='Escape'||e.code==='Enter'||e.code==='Space'){e.preventDefault();resumeGame();}
+    return;
+  }
+  if(state==='title'||state==='over'){
+    if(onButton(e)&&(e.code==='Enter'||e.code==='Space'))return; // the focused button clicks itself
+    if(e.code==='Enter'||e.code==='Space'||(state==='over'&&act==='restart')){e.preventDefault();if(!e.repeat)startGame();}
   }
 });
 let ts=null;
 cv.addEventListener('touchstart',e=>{const t=e.changedTouches[0];ts={x:t.clientX,y:t.clientY};e.preventDefault();},{passive:false});
 cv.addEventListener('touchend',e=>{
   if(!ts)return;const t=e.changedTouches[0],dx=t.clientX-ts.x,dy=t.clientY-ts.y;ts=null;e.preventDefault();
-  if(Math.hypot(dx,dy)<22){tryMove('up');return;}
+  // A plain tap on the road does nothing. Only swipes move the car (tap ▲ to hop forward).
+  if(Math.hypot(dx,dy)<22)return;
   if(Math.abs(dx)>Math.abs(dy))tryMove(dx>0?'right':'left');else tryMove(dy<0?'up':'down');
 },{passive:false});
-cv.addEventListener('mousedown',()=>tryMove('up'));
+// (no click-to-hop on the canvas: desktop is keyboard only)
 
 // on-screen pads: press = one hop, hold = keep hopping
 document.querySelectorAll('.pad-btn').forEach(b=>{
@@ -331,41 +662,104 @@ document.querySelectorAll('.pad-btn').forEach(b=>{
   b.addEventListener('contextmenu',e=>e.preventDefault());
   b.addEventListener('click',e=>{e.preventDefault();b.blur();});
 });
-// light up D-pad when keyboard arrows are used on desktop
-window.addEventListener('keydown',e=>{const d=KEYMAP[e.code];if(!d)return;const b=document.querySelector('#dpad [data-dir="'+d+'"]');if(b)b.classList.add('on');});
-window.addEventListener('keyup',e=>{const d=KEYMAP[e.code];if(!d)return;const b=document.querySelector('#dpad [data-dir="'+d+'"]');if(b)b.classList.remove('on');});
+// the strip around ◀ ▶ swallows taps that miss a button, so they never reach the road
+for(const ev of ['touchstart','touchend','pointerdown'])$('lrGroup').addEventListener(ev,e=>{if(e.target===e.currentTarget)e.preventDefault();},{passive:false});
+// light up D-pad when keyboard keys are used (the D-pad itself is hidden now)
+window.addEventListener('keydown',e=>{const d=actionOf(e.code);if(!d)return;const b=document.querySelector('#dpad [data-dir="'+d+'"]');if(b)b.classList.add('on');});
+window.addEventListener('keyup',e=>{const d=actionOf(e.code);if(!d)return;const b=document.querySelector('#dpad [data-dir="'+d+'"]');if(b)b.classList.remove('on');});
 
 function startGame(){
-  ensureAudio();reset();state='play';
-  $('startScreen').hidden=true;$('overScreen').hidden=true;$('hint').hidden=false;
-  $('hintText').textContent=('ontouchstart' in window)?'LEFT THUMB ▲ FORWARD · RIGHT THUMB ◀ ▶ SIDEWAYS':'ARROW KEYS, WASD OR THE D-PAD · LEFT & RIGHT GO FOREVER';
+  ensureAudio();
+  mode=profile.mode;dk=profile.diff;D=DIFF[dk];
+  reset();state='play';
+  show(null);$('hint').hidden=false;
+  best=profile.best[boardKey(mode,dk)]||0;lastHud='';
+  $('hMid').hidden=mode==='endless';$('game').classList.toggle('has-mid',mode!=='endless');
+  updateKeyText();
 }
+function pauseGame(){
+  if(state!=='play'||P.dead)return;
+  state='pause';$('pBand').textContent=MODES[mode]+' · '+D.label;
+  show('pauseScreen');setTimeout(()=>$('resumeBtn').focus({preventScroll:true}),30);
+}
+function resumeGame(){if(state!=='pause')return;state='play';show(null);last=performance.now();}
+function toMenu(){state='title';$('hMid').hidden=true;$('game').classList.remove('has-mid');show('startScreen');refreshStart();}
 $('startBtn').addEventListener('click',startGame);
 $('retryBtn').addEventListener('click',startGame);
+$('menuBtn').addEventListener('click',toMenu);
+$('resumeBtn').addEventListener('click',resumeGame);
+$('pRestartBtn').addEventListener('click',startGame);
+$('pMenuBtn').addEventListener('click',toMenu);
+$('pauseBtn').addEventListener('click',e=>{e.currentTarget.blur();pauseGame();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame();});
 
-function die(title,reason){
+function die(title,reason,quiet){
   if(P.dead)return;
-  P.dead=true;deathT=0;deathTitle=title;deathReason=reason;shake=14;crashSound();
+  P.dead=true;P.quiet=!!quiet;deathT=0;deathTitle=title;deathReason=reason;
+  if(quiet){beep(220,.25,'sawtooth',.05,-150);setTimeout(()=>beep(110,.4,'sawtooth',.05,-60),230);return;}
+  shake=14;crashSound();
   const px=lerp(P.fc,P.col,P.t)+.5, pr=lerp(P.fr,P.row,P.t)+.5;
   for(let i=0;i<46;i++){
     const a=Math.random()*Math.PI*2,s=1+Math.random()*6;
     particles.push({x:px,y:pr,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.6+Math.random()*.7,max:1.3,c:i%3?'#ffd21f':(i%2?'#ff3d57':'#fff'),sz:2+Math.random()*4});
   }
 }
+// Challenge mode: tick off the current goal (and any after it already met this run)
+function checkGoals(){
+  if(mode!=='challenge')return;
+  let g;
+  while((g=CHALLENGES[profile.ch])&&(!g.diff||g.diff===dk)&&goalProgress(g)>=goalTarget(g)){
+    profile.ch++;goalsThisRun++;saveProfile();
+    popups.push({x:P.col+.5,y:P.row+2,txt:'GOAL '+profile.ch+' DONE!',life:1.8});
+    beep(880,.1,'square',.05);setTimeout(()=>beep(1320,.18,'square',.05,300),110);
+  }
+}
+function finishRun(){
+  state='over';
+  const key=boardKey(mode,dk),prevBest=profile.best[key]||0;
+  if(score>prevBest)profile.best[key]=score;
+  best=profile.best[key]||0;
+  profile.cans+=coins;profile.runs++;saveProfile();
+  if(key==='endless|normal'){try{localStorage.setItem('crosstown-best',best);}catch(e){}}
+  let rank=0;
+  if(score>0){
+    const list=scores[key]||(scores[key]=[]);
+    const entry={n:profile.name,s:score,c:coins,d:Date.now()};
+    list.push(entry);list.sort((a,b)=>b.s-a.s||b.c-a.c||a.d-b.d);
+    if(list.length>10)list.length=10;
+    rank=list.indexOf(entry)+1;lastEntry=rank?entry.d:0;
+    save('burnout-scores',scores);
+  }
+  const notes=[];
+  if(score>prevBest&&prevBest>0)notes.push('NEW BEST!');
+  if(rank)notes.push('SCOREBOARD #'+rank+' ON '+MODES[mode]+' · '+D.label);
+  if(mode==='challenge'){
+    if(goalsThisRun)notes.push(goalsThisRun+(goalsThisRun>1?' GOALS':' GOAL')+' COMPLETE');
+    const g=CHALLENGES[profile.ch];
+    notes.push(g?'NEXT: '+g.txt.toUpperCase()+(g.diff&&g.diff!==dk?' (ON '+DIFF[g.diff].label+')':'')+(!g.diff||g.diff===dk?' · '+Math.min(goalProgress(g),goalTarget(g))+'/'+goalTarget(g)+' THIS RUN':''):'ALL CHALLENGES COMPLETE');
+  }
+  const z=zoneOf(score);
+  $('oHead').textContent=(outOfGas?'STALLED':'WRECKED')+' · '+MODES[mode];
+  $('oTitle').textContent=deathTitle;$('oReason').textContent=deathReason;
+  $('oNote').textContent=notes.join(' · ');
+  $('oScore').textContent=score;$('oCoins').textContent=coins;$('oBest').textContent=best;
+  $('oZone').textContent='ZONE '+z.n+' · '+D.label;
+  show('overScreen');$('hint').hidden=true;
+  setTimeout(()=>$('retryBtn').focus({preventScroll:true}),50);
+}
 function lerp(a,b,t){return a+(b-a)*t;}
 
 // ---------- update ----------
 function update(dt){
   warnPulse+=dt;
+  overlapCheckT-=dt;const checkNow=overlapCheckT<=0;if(checkNow)overlapCheckT=.5;
   const top=Math.ceil(cam+H/cell)+3;
   for(let r=Math.max(0,Math.floor(cam)-2);r<=top;r++){
     const row=getRow(r);
     if(row.type==='road'){
-      for(const v of row.veh){
-        v.x+=row.dir*row.speed*dt;
-        if(v.x>camX+COLS+M)v.x-=LOOP;
-        else if(v.x+v.len<camX-M)v.x+=LOOP;
-      }
+      for(const v of row.veh)v.x+=row.dir*row.speed*dt;
+      wrapLane(row);
+      if(checkNow&&laneOverlaps(row)){overlapHits++;if(overlapHits===1)console.warn('Burn-Out: two cars overlap in row',r);}
     }else if(row.type==='rail'){
       row.t-=dt;
       if(row.state==='idle'&&row.t<=0){row.state='warn';row.t=1.4;}
@@ -374,7 +768,7 @@ function update(dt){
         if(row.t<=0){row.state='pass';row.tx=row.dir>0?camX-row.len-M:camX+COLS+M;}
       }else if(row.state==='pass'){
         row.tx+=row.dir*row.speed*dt;
-        if((row.dir>0&&row.tx>camX+COLS+M)||(row.dir<0&&row.tx+row.len<camX-M)){row.state='idle';row.t=2.5+Math.random()*5;}
+        if((row.dir>0&&row.tx>camX+COLS+M)||(row.dir<0&&row.tx+row.len<camX-M)){row.state='idle';row.t=(2.5+Math.random()*5)/D.rail;}
       }
     }
   }
@@ -386,12 +780,15 @@ function update(dt){
         const row=getRow(P.row);
         if(coinAt(row,P.col)){
           row.taken.add(P.col);coins++;beep(1320,.09,'square',.04,400);
-          popups.push({x:P.col+.5,y:P.row+.5,txt:'+1 FUEL',life:.9});
+          if(mode==='gas')gas=Math.min(100,gas+D.refill);
+          popups.push({x:P.col+.5,y:P.row+.5,txt:mode==='gas'?'+GAS':'+1 FUEL',life:.9});
         }
         if(P.row>score){
+          for(let r=score+1;r<=P.row;r++)if(getRow(r-1).type==='rail')rails++;
           score=P.row;
           if(score%25===0){popups.push({x:P.col+.5,y:P.row+1.5,txt:zoneOf(score).name,life:1.4});}
         }
+        checkGoals();
         if(queued){const q=queued;queued=null;tryMove(q);}
       }
     }
@@ -400,7 +797,7 @@ function update(dt){
     const px=lerp(P.fc,P.col,P.t)+.5;
     const cr=P.t<.5?P.fr:P.row;
     const row=getRow(cr);
-    if(row.type==='road'){
+    if(row.type==='road'&&!god){
       for(const v of row.veh){
         if(px+.3>v.x+.04&&px-.3<v.x+v.len-.04){
           const k=KINDS[v.kind];
@@ -409,12 +806,12 @@ function update(dt){
           break;
         }
       }
-    }else if(row.type==='rail'&&row.state==='pass'){
+    }else if(row.type==='rail'&&row.state==='pass'&&!god){
       if(px+.3>row.tx&&px-.3<row.tx+row.len)die('DERAILED.','The freight train does not brake for anyone. You stopped on the tracks.');
     }
     // camera + tow truck
     if(started){
-      const rate=.34+Math.min(.62,score*.0045);
+      const rate=(.34+Math.min(.62,score*.0045))*D.creep;
       creep+=rate*dt;
       creep=Math.max(creep,P.row-8);
     }
@@ -423,20 +820,17 @@ function update(dt){
     cam+=(target-cam)*Math.min(1,dt*5);
     const tx=lerp(P.fc,P.col,P.t)+.5-COLS/2;
     camX+=(tx-camX)*Math.min(1,dt*6);
-    if(started&&ry<creep-0.55)die('TOWED.','You stalled behind the line and the tow truck hooked your bumper.');
+    if(started&&ry<creep-0.55&&!god)die('TOWED.','You stalled behind the line and the tow truck hooked your bumper.');
+    // Gas Tank: slow drain over time (hops drain in tryMove)
+    if(mode==='gas'&&started&&!P.dead){
+      gas-=D.time*dt;
+      if(gas<=0){gas=0;outOfGas=true;die('OUT OF GAS.',`The tank ran dry after ${score} lanes. Grab fuel cans to keep it topped up.`,true);}
+    }
   }
 
   if(P.dead){
-    deathT+=dt;P.squash=Math.min(1,P.squash+dt*8);
-    if(deathT>1&&state==='play'){
-      state='over';
-      if(score>best){best=score;try{localStorage.setItem('crosstown-best',best);}catch(e){}}
-      $('oTitle').textContent=deathTitle;$('oReason').textContent=deathReason;
-      $('oScore').textContent=score;$('oCoins').textContent=coins;$('oBest').textContent=best;
-      $('oZone').textContent='ZONE '+zoneOf(score).n+' · '+zoneOf(score).name;
-      $('overScreen').hidden=false;$('hint').hidden=true;
-      setTimeout(()=>$('retryBtn').focus({preventScroll:true}),50);
-    }
+    deathT+=dt;if(!P.quiet)P.squash=Math.min(1,P.squash+dt*8);
+    if(deathT>1&&state==='play')finishRun();
   }
   if(state==='title'){cam+=dt*.6;camX+=dt*1.4;}
 
@@ -679,8 +1073,22 @@ let lastHud='';
 function hud(){
   const z=zoneOf(score);
   const blk=Math.floor(Math.abs(P.col-4)/4)*100, side=P.col<4?'W':'E';
-  const s=score+'|'+coins+'|'+z.n+'|'+blk+side;
+  const g=mode==='challenge'?CHALLENGES[profile.ch]:null;
+  const s=score+'|'+coins+'|'+z.n+'|'+blk+side+'|'+mode+'|'+Math.ceil(gas)+'|'+profile.ch+'|'+(g?goalProgress(g):'');
   if(s===lastHud)return;lastHud=s;
+  if(mode==='gas'){
+    $('hMidLab').textContent='GAS';$('hMidVal').textContent=Math.ceil(gas)+'%';
+    $('hGaugeFill').style.transform=`scaleX(${Math.max(0,gas)/100})`;
+    $('hGauge').classList.toggle('low',gas<25);$('hGoal').textContent=gas<25?'LOW FUEL · GRAB A CAN':'';
+  }else if(mode==='challenge'){
+    $('hGauge').classList.remove('low');
+    if(g){
+      const tg=goalTarget(g),ok=!g.diff||g.diff===dk,pr=ok?Math.min(goalProgress(g),tg):0;
+      $('hMidLab').textContent='GOAL '+(profile.ch+1)+'/'+CHALLENGES.length;$('hMidVal').textContent=ok?pr+'/'+tg:'';
+      $('hGaugeFill').style.transform=`scaleX(${pr/tg})`;
+      $('hGoal').textContent=g.txt.toUpperCase()+(ok?'':' · NEEDS '+DIFF[g.diff].label);
+    }else{$('hMidLab').textContent='CHALLENGES';$('hMidVal').textContent='DONE';$('hGaugeFill').style.transform='scaleX(1)';$('hGoal').textContent='ALL COMPLETE';}
+  }
   $('hScore').textContent=score;$('hCoins').textContent=coins;
   $('hBest').textContent='BEST '+Math.max(best,score);
   $('hZone').textContent='ZONE '+z.n+' · '+(blk?blk+' '+side+' BLK':'CENTER')+' · '+z.name;
@@ -704,10 +1112,16 @@ function placeFwd(dt){
 let last=performance.now();
 function frame(now){
   const dt=Math.min(.033,(now-last)/1000);last=now;
-  update(dt);render();hud();
+  if(state!=='pause')update(dt);
+  render();hud();
   requestAnimationFrame(frame);
 }
+refreshStart();
 requestAnimationFrame(frame);
+// test hook (used by the self-test; harmless in normal play)
+window.__BO={get state(){return state},get cam(){return cam},get P(){return P},get rows(){return rows},get camX(){return camX},get gas(){return gas},set gas(v){gas=v},
+  get score(){return score},get coins(){return coins},get mode(){return mode},get D(){return D},get overlapHits(){return overlapHits},
+  set god(v){god=!!v},get god(){return god},tryMove,startGame,laneOverlaps,getRow,coinAt,obstAt,update:dt=>update(dt),profile,get scores(){return scores},get keymap(){return keymap}};
 })();
 </script>
 
