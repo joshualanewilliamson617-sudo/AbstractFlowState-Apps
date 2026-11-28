@@ -1,4 +1,10 @@
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c11">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Draft Line Racer</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -85,6 +91,7 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .tb.pedal{align-content:center;gap:2px}
 .tb.shifted{box-shadow:0 0 0 2px var(--cyan),0 0 24px rgba(56,232,255,.6)}
 .tb.brk{color:var(--red)}
+.tb.drift{color:var(--amber);font-size:16px}
 .tb.paddle{width:56px;height:52px;font-size:24px}
 .paddles{display:flex;flex-direction:column;gap:8px}
 body.touch .hud-br{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));transform:scale(.72);transform-origin:top right}
@@ -166,7 +173,7 @@ body.touch .hud-tr #mini{width:100px;height:100px}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;color:var(--dim)}
 .keys kbd{font-family:var(--mono);font-size:11px;color:var(--ink);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;padding:1px 5px;white-space:nowrap}
 
-.modal{position:fixed;inset:0;z-index:12;display:grid;place-items:center;background:rgba(5,7,11,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;overflow:auto}
+.modal{position:fixed;inset:0;z-index:12;display:grid;place-items:center;background:rgba(5,7,11,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-bottom,0px));overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}
 .card{width:min(420px,100%);box-sizing:border-box;background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px}
 .card h3{margin:0;font-family:var(--display);font-weight:800;font-size:44px;line-height:.9;font-style:italic}
 .card .k{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--cyan)}
@@ -174,6 +181,14 @@ body.touch .hud-tr #mini{width:100px;height:100px}
 .st{border:1px solid var(--line);border-radius:9px;padding:8px 10px}
 .st .v{font-family:var(--display);font-weight:800;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
 .btnrow{display:flex;gap:8px}
+@media (max-height:720px){ /* keep RACE AGAIN on screen: wider, tighter results card */
+  #results .card{width:min(640px,100%);gap:10px;padding:14px 16px}
+  #results .card h3{font-size:34px}
+  #results .stats{grid-template-columns:repeat(4,1fr);gap:6px}
+  #results .st{padding:5px 8px}
+  #results .st .v{font-size:18px}
+}
+@media (max-height:720px) and (max-width:520px){#results .stats{grid-template-columns:repeat(3,1fr)}}
 .btn{flex:1;height:48px;border-radius:10px;border:1px solid var(--line-2);background:transparent;font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.06em}
 .btn.pri{background:var(--cyan);border-color:var(--cyan);color:#031016}
 .medal{display:inline-flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:20px}
@@ -215,8 +230,10 @@ body.touch .hud-tr #mini{width:100px;height:100px}
   <div id="steerZone" aria-label="Steering area: hold and slide side to side"><div id="steerHint">HOLD THE CAR · SLIDE TO STEER</div></div>
   <div class="grp spacer" aria-hidden="true"></div>
   <div class="grp">
-    <div class="tb pedal brk" data-k="brake">BRK<small>2× TAP ▼</small></div>
-    <div class="tb pedal gasp" data-k="gas">GAS<small>2× TAP ▲</small></div>
+    <div class="paddles"><div class="tb paddle" data-k="up" aria-label="Shift up">▲</div><div class="tb paddle" data-k="down" aria-label="Shift down">▼</div></div>
+    <div class="tb pedal brk" data-k="brake">BRK</div>
+    <div class="tb pedal drift" data-k="drift">DRIFT<small>+ GAS</small></div>
+    <div class="tb pedal gasp" data-k="gas">GAS<small>LIFT+TAP ▲</small></div>
   </div>
 </div>
 
@@ -269,9 +286,10 @@ body.touch .hud-tr #mini{width:100px;height:100px}
         <kbd>← → / A D</kbd><span>Steer</span>
         <kbd>E / X</kbd><span>Shift up (shift when the lights turn blue)</span>
         <kbd>Q / Z</kbd><span>Shift down (more engine braking into corners)</span>
-        <kbd>P / Esc</kbd><span>Pause · <kbd>M</kbd> mute · <kbd>R</kbd> restart</span>
-        <kbd>Phone</kbd><span>Hold the car and slide to steer · double-tap GAS to shift up, double-tap BRK to shift down</span>
-        <kbd>Gamepad</kbd><span>Stick steer · RT gas · LT brake · A/RB up · X/LB down</span>
+        <kbd>Shift</kbd><span>Drift: hold it in a bend at speed, keep the slide going to build the drift combo</span>
+        <kbd>P / Esc</kbd><span>Pause · <kbd>M</kbd> mute · <kbd>R</kbd> or <kbd>Enter</kbd> race again</span>
+        <kbd>Phone</kbd><span>Hold the car and slide to steer · hold DRIFT in a bend (it keeps the gas on) · shift up: lift off GAS and tap it again when the revs are high · gears drop by themselves when revs fall · ▲ / ▼ shift too · double-tap BRK to shift down</span>
+        <kbd>Gamepad</kbd><span>Stick steer · RT gas · LT brake · B drift · A/RB up · X/LB down</span>
       </div>
     </div>
   </div>
@@ -704,7 +722,7 @@ function drawCarSprite(type, color, view, opts = {}) {
       g.fillStyle = lightCol; rr(g, x0 + w * 0.01, tl[1] * h + h * 0.012, x1 - x0 - w * 0.02, (tl[3] - tl[1]) * h - h * 0.024, h * 0.015); g.fill();
     }
   };
-  g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.ellipse(w / 2, h * 0.97, w * 0.5, h * 0.05, 0, 0, 7); g.fill();
+  g.save(); g.translate(w / 2, h * 0.97); g.scale(1, 0.12); const shg = g.createRadialGradient(0, 0, 0, 0, 0, w * 0.52); shg.addColorStop(0, 'rgba(0,0,0,.55)'); shg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = shg; g.fillRect(-w * 0.52, -w * 0.52, w * 1.04, w * 1.04); g.restore();
   if (type === 'truck') {
     if (view === 'rear') {
       g.fillStyle = '#e9ecef'; rr(g, w * 0.01, h * 0.02, w * 0.98, h * 0.8, w * 0.02); g.fill();
@@ -734,8 +752,9 @@ function drawCarSprite(type, color, view, opts = {}) {
     if (view !== 'rear') { g.fillStyle = 'rgba(255,255,255,.14)'; poly(g, [w * 0.3, h * (roofTop + 0.06), w * 0.45, h * (roofTop + 0.06), w * 0.36, h * (bodyTop - 0.02), w * 0.24, h * (bodyTop - 0.02)], 'rgba(255,255,255,.13)'); }
   }
   // body
-  g.fillStyle = color; rr(g, w * 0.02, h * bodyTop, w * 0.96, h * (0.86 - bodyTop), w * 0.06); g.fill();
-  g.fillStyle = light; g.fillRect(w * 0.06, h * bodyTop + h * 0.01, w * 0.88, h * 0.025);
+  const bgr = g.createLinearGradient(0, h * bodyTop, 0, h * 0.86); bgr.addColorStop(0, light); bgr.addColorStop(0.35, color); bgr.addColorStop(1, dark);
+  g.fillStyle = bgr; rr(g, w * 0.02, h * bodyTop, w * 0.96, h * (0.86 - bodyTop), w * 0.06); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(w * 0.06, h * bodyTop + h * 0.03, w * 0.88, h * 0.022);
   if (type === 'van') {
     g.fillStyle = view === 'rear' ? glass : '#2b3646'; rr(g, w * 0.1, h * 0.12, w * 0.8, h * 0.3, w * 0.03); g.fill();
     if (view === 'rear') { g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(w * 0.495, h * 0.1, w * 0.01, h * 0.7); }
@@ -757,6 +776,76 @@ function shade(hex, amt) {
   r = Math.round((f - r) * p + r); g = Math.round((f - g) * p + g); b = Math.round((f - b) * p + b);
   return `rgb(${r},${g},${b})`;
 }
+
+/* early-2000s tuner coupe, rear chase view, drawn live so it can steer, roll, squat and slide.
+   Origin = ground at the car's centre; w = width, h = height. o: steer, yaw (-1..1, nose direction), roll, pitch, brake, flame, stripe, spin */
+function drawTuner(g, w, h, col, o = {}) {
+  const X = v => v * w, Y = v => -v * h;
+  const P2 = (p, fill) => { g.beginPath(); g.moveTo(X(p[0]), Y(p[1])); for (let i = 2; i < p.length; i += 2) g.lineTo(X(p[i]), Y(p[i + 1])); g.closePath(); g.fillStyle = fill; g.fill(); };
+  const yaw = clamp(o.yaw || 0, -1, 1), ay = Math.abs(yaw), sd = yaw < 0 ? -1 : 1;
+  const k = 1 - ay * 0.12, fs = -sd * ay * 0.05, fw = ay * 0.2; // rear face squeeze, shift, side-panel width
+  const dark = shade(col, -0.5), mid = shade(col, -0.2), lite = shade(col, 0.45), tyre = '#0d0e11';
+  const stripe = (y0, y1) => { if (!o.stripe) return; g.fillStyle = o.stripe; for (const x of [-0.08, 0.03]) g.fillRect(X(x), Y(y1), X(0.05), (y1 - y0) * h); };
+  // soft shadow
+  g.save(); g.scale(1, 0.18); const sg = g.createRadialGradient(X(fs), 0, 0, X(fs), 0, X(0.6)); sg.addColorStop(0, 'rgba(0,0,0,.6)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.fillRect(X(-0.62), X(-0.62), X(1.24), X(1.24)); g.restore();
+  // front tyres peek out past the rear fenders and turn with the steering
+  for (const s of [-1, 1]) { g.save(); g.translate(X(s * 0.43 * k + fs + yaw * 0.05), Y(0.58)); g.rotate((o.steer || 0) * 0.45); g.fillStyle = tyre; rr(g, -X(0.05), -h * 0.11, X(0.1), h * 0.22, X(0.02)); g.fill(); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(-X(0.03), -h * 0.1, X(0.015), h * 0.2); g.restore(); }
+  // rear tyres with a chrome rim lip
+  for (const s of [-1, 1]) { const cx = s * 0.385 * k + fs; g.fillStyle = tyre; rr(g, X(cx - 0.085), Y(0.3), X(0.17), h * 0.3, X(0.025)); g.fill(); g.fillStyle = '#c9d0d8'; g.beginPath(); g.ellipse(X(cx + s * 0.07), Y(0.09), X(0.018 + (s === sd ? fw * 0.15 : 0)), h * 0.08, 0, 0, 7); g.fill(); }
+  // side panel, side glass and a full wheel with spokes, visible when the car is turned (drifting)
+  if (ay > 0.02) {
+    const e = sd * 0.5 * k + fs, f = e + sd * fw, c0 = sd * 0.37 * k + fs, c1 = sd * 0.27 * k + fs;
+    const fg = g.createLinearGradient(X(e), 0, X(f), 0); fg.addColorStop(0, mid); fg.addColorStop(1, dark);
+    P2([e, 0.12, e, 0.6, f, 0.64, f, 0.2], fg);
+    P2([c0, 0.66, c1, 0.95, c1 + sd * fw * 0.35, 0.93, c0 + sd * fw * 0.5, 0.67], '#22323f');
+    const wx = X(e + sd * fw * 0.45), wy = Y(0.2), rx = X(fw * 0.32) + 1, ry = h * 0.2;
+    g.fillStyle = tyre; g.beginPath(); g.ellipse(wx, wy, rx, ry, 0, 0, 7); g.fill();
+    const rg = g.createLinearGradient(wx, wy - ry, wx, wy + ry); rg.addColorStop(0, '#f2f5f8'); rg.addColorStop(1, '#7c848e');
+    g.fillStyle = rg; g.beginPath(); g.ellipse(wx, wy, rx * 0.66, ry * 0.66, 0, 0, 7); g.fill();
+    g.strokeStyle = '#4a5059'; g.lineWidth = Math.max(1, w * 0.008); g.beginPath();
+    for (let i = 0; i < 5; i++) { const a = (o.spin || 0) + i * 1.2566; g.moveTo(wx, wy); g.lineTo(wx + Math.cos(a) * rx * 0.6, wy + Math.sin(a) * ry * 0.6); } g.stroke();
+  }
+  // rear face: rolls into turns, squats on gas, dives on brakes
+  g.save(); g.translate(X(fs), (o.pitch || 0) * h * 0.035); g.rotate((o.roll || 0) * 0.05); g.scale(k, 1);
+  const bg = g.createLinearGradient(0, Y(0.12), 0, Y(0.62)); bg.addColorStop(0, dark); bg.addColorStop(0.45, col); bg.addColorStop(0.78, lite); bg.addColorStop(1, mid);
+  g.beginPath(); g.moveTo(X(-0.49), Y(0.13)); g.lineTo(X(0.49), Y(0.13)); g.lineTo(X(0.5), Y(0.42)); g.quadraticCurveTo(X(0.49), Y(0.58), X(0.4), Y(0.61)); g.lineTo(X(-0.4), Y(0.61)); g.quadraticCurveTo(X(-0.49), Y(0.58), X(-0.5), Y(0.42)); g.closePath(); g.fillStyle = bg; g.fill();
+  stripe(0.17, 0.61);
+  const hb = g.createLinearGradient(X(-0.5), 0, X(0.5), 0); hb.addColorStop(0, 'rgba(255,255,255,0)'); hb.addColorStop(0.3, 'rgba(255,255,255,.45)'); hb.addColorStop(0.7, 'rgba(255,255,255,.2)'); hb.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = hb; g.fillRect(X(-0.48), Y(0.545), X(0.96), h * 0.03); // highlight band along the shoulder
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(X(-0.47), Y(0.2), X(0.94), h * 0.015);
+  // diffuser with fins, twin chrome exhausts
+  P2([-0.42, 0.04, 0.42, 0.04, 0.46, 0.17, -0.46, 0.17], '#131418');
+  g.strokeStyle = '#2a2c32'; g.lineWidth = Math.max(1, w * 0.008); g.beginPath(); for (const x of [-0.18, -0.06, 0.06, 0.18]) { g.moveTo(X(x), Y(0.05)); g.lineTo(X(x), Y(0.15)); } g.stroke();
+  for (const s of [-1, 1]) {
+    const ex = X(s * 0.31), ey = Y(0.1), er = X(0.04), cg = g.createRadialGradient(ex, ey, 0, ex, ey, er);
+    cg.addColorStop(0, '#0c0c0e'); cg.addColorStop(0.55, '#222'); cg.addColorStop(0.7, '#e4e9ee'); cg.addColorStop(1, '#6d747c');
+    g.fillStyle = cg; g.beginPath(); g.arc(ex, ey, er, 0, 7); g.fill();
+    if (o.flame) { g.fillStyle = '#ffb020'; g.beginPath(); g.ellipse(ex, ey + h * 0.04, er * 0.9, h * 0.09, 0, 0, 7); g.fill(); g.fillStyle = '#7ad8ff'; g.beginPath(); g.ellipse(ex, ey + h * 0.02, er * 0.45, h * 0.045, 0, 0, 7); g.fill(); }
+  }
+  // plate
+  g.fillStyle = '#e9e6d6'; rr(g, X(-0.11), Y(0.34), X(0.22), h * 0.1, X(0.01)); g.fill(); g.fillStyle = '#2a2d33'; g.fillRect(X(-0.07), Y(0.3), X(0.14), h * 0.025);
+  // clear-lens taillights with twin round lamps
+  for (const s of [-1, 1]) {
+    g.fillStyle = '#1a1b20'; rr(g, X(s > 0 ? 0.25 : -0.47), Y(0.51), X(0.22), h * 0.13, X(0.025)); g.fill();
+    for (const lx of [0.31, 0.41]) { const x = X(s * lx), y = Y(0.445); g.fillStyle = o.brake ? '#ff4a5a' : '#a3101c'; g.beginPath(); g.arc(x, y, X(0.036), 0, 7); g.fill(); g.strokeStyle = '#cfd6de'; g.lineWidth = Math.max(1, w * 0.007); g.stroke(); g.fillStyle = o.brake ? '#ffe0e3' : '#ff5a66'; g.beginPath(); g.arc(x, y, X(0.013), 0, 7); g.fill(); }
+    g.fillStyle = 'rgba(230,240,250,.22)'; rr(g, X(s > 0 ? 0.26 : -0.46), Y(0.505), X(0.2), h * 0.035, X(0.015)); g.fill();
+  }
+  // trunk, cabin, tinted rear glass with a reflection, roof
+  P2([-0.4, 0.61, 0.4, 0.61, 0.37, 0.665, -0.37, 0.665], mid); stripe(0.61, 0.665);
+  P2([-0.37, 0.66, 0.37, 0.66, 0.27, 0.965, -0.27, 0.965], dark);
+  const gg = g.createLinearGradient(0, Y(0.92), 0, Y(0.68)); gg.addColorStop(0, '#0b141d'); gg.addColorStop(0.6, '#1d3a48'); gg.addColorStop(1, '#3a6474');
+  P2([-0.31, 0.68, 0.31, 0.68, 0.235, 0.93, -0.235, 0.93], gg);
+  P2([-0.17, 0.69, -0.07, 0.69, 0.04, 0.92, -0.04, 0.92], 'rgba(255,255,255,.16)');
+  P2([-0.02, 0.69, 0.02, 0.69, 0.09, 0.92, 0.07, 0.92], 'rgba(255,255,255,.1)');
+  P2([-0.27, 0.965, 0.27, 0.965, 0.24, 1.0, -0.24, 1.0], lite); stripe(0.965, 1.0);
+  // rear wing on two uprights
+  g.fillStyle = '#16171b'; for (const s of [-1, 1]) g.fillRect(X(s * 0.3 - 0.015), Y(0.76), X(0.03), h * 0.12);
+  P2([-0.48, 0.745, 0.48, 0.745, 0.47, 0.8, -0.47, 0.8], dark);
+  P2([-0.47, 0.8, 0.47, 0.8, 0.46, 0.815, -0.46, 0.815], lite);
+  for (const s of [-1, 1]) P2([s * 0.46, 0.73, s * 0.49, 0.73, s * 0.49, 0.83, s * 0.46, 0.83], '#16171b');
+  g.restore();
+}
+function tunerSprite(col, stripe) { const c = mk(400, 222), g = c.getContext('2d'); g.translate(200, 215); drawTuner(g, 400, 215, col, { stripe }); return c; }
 
 /* bike: drawn live (lean). Rear view of a sport bike with a rider tucked in. w = unit (≈ fairing width / 1.0). */
 const BIKE_TAIL_Y = 0.98; // tail-light height in units of w
@@ -899,7 +988,7 @@ function speedProfile(G, top, brakeMS2, accelMS2) {
 }
 
 let raceToken = 0;
-function newRace(isAttract) {
+function newRace(isAttract, quick) {
   attract = !!isAttract; raceToken++;
   map = MAPS[sel.map]; veh = VEH[sel.veh]; diff = DIFF[attract ? 'normal' : sel.diff];
   trk = buildTrack(map); decorate(trk, map); buildSprites(map, trk.RW);
@@ -920,6 +1009,7 @@ function newRace(isAttract) {
     pos: 0, x: map.two ? 0.5 : 0, kmh: 0, gear: 1, rpm: veh.idle, shiftT: 0, steerV: 0, lean: 0, damage: 0, inv: 0, downT: 0, spinT: 0, slide: 0, off: false,
     draft: 0, prog: 0, score: 0, mult: 1, chain: 0, chainT: 0, passes: 0, near: 0, clean: 0, perfect: 0, crashes: 0, top: 0, dist: 0,
     timeLeft: 0, lap: 0, cpHit: 0, cs: null, cId: -1, flameT: 0, limiter: false, shake: 0, level: 0, levelT: 0, splits: [], finished: false, endReason: '', launch: 0, revFree: 0, thr: 0, brk: 0, offT: 0, overT: 0, botX: undefined, queue: 0, finT: 0, draftPts: 0,
+    dk: 0, dDir: 0, dT: 0, dPts: 0, dm: 1, dIdle: 0, drifts: 0, bestD: 0, yaw: 0, roll: 0, pitch: 0, flash: 0, flashC: '#fff', wasOff: false,
   });
   const L = trk.L;
   let startSeg;
@@ -956,7 +1046,7 @@ function newRace(isAttract) {
       const slot = k; // 0 front
       const z = wrap((L - 4 - slot * 6) * SEG, trk.len);
       const rv = { kind: 'rival', idx: k, name: RIVAL[k].n, color: RIVAL[k].c, type: sel.veh === 'bike' ? 'bike' : 'sport', z, offset: slot % 2 ? 0.42 : -0.42, kmh: 0, skill: lerp(diff.rival[0], diff.rival[1], 1 - k / 5) * (0.99 + rr2() * 0.02), prog: 0, startGap: 4 + slot * 6, finished: false, finT: 0, react: 0.1 + rr2() * 0.35, line: 0, lean: 0, prevRel: undefined, hitT: 0,
-        img: sel.veh === 'bike' ? null : drawCarSprite('sport', RIVAL[k].c, 'rear', { stripe: '#ffffff' }) };
+        img: sel.veh === 'bike' ? null : tunerSprite(RIVAL[k].c, '#ffffff') };
       rivals.push(rv);
     }
     P.x = -0.42; // back of grid
@@ -964,7 +1054,7 @@ function newRace(isAttract) {
   }
   parts = []; weather = []; bgX = 0; raceT = 0;
   if (attract) { state = 'race'; P.kmh = 80; P.gear = 3; }
-  else { state = 'count'; countT = 3.6; }
+  else { state = 'count'; countT = quick ? 2.2 : 3.6; } // "race again" uses a short 2-1-GO count
 }
 const carCache = {};
 function laneOff(l) { return -1 + (2 * l + 1) / map.lanes; }
@@ -980,7 +1070,7 @@ const segAt = z => trk.segs[segIdx(z)];
 const relZ = (z, pz) => { const L = trk.len; let d = wrap(z - pz, L); if (d > L / 2) d -= L; return d; };
 
 /* =================== input =================== */
-const keys = {}; const inp = { gas: 0, brake: 0, steer: 0 }; const touch = {}; const lastTap = {};
+const keys = {}; const inp = { gas: 0, brake: 0, steer: 0, drift: false }; const touch = {}; const lastTap = {};
 let padPrev = {};
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -995,13 +1085,15 @@ addEventListener('keydown', e => {
   if (k === 'm') toggleMute();
   if (k === 'r' && !attract && (state === 'race' || state === 'paused' || state === 'done' || state === 'count')) restart();
   if (k === 'enter' && attract && !menuEl.hidden) startGame();
+  else if (k === 'enter' && !resEl.hidden) restart();
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'race' && !attract) togglePause(true); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'race' && !attract) togglePause(true); });
 
 function readInput(dt) {
-  let gas = (keys['arrowup'] || keys['w'] || touch.gas) ? 1 : 0;
+  let gas = (keys['arrowup'] || keys['w'] || touch.gas || touch.drift) ? 1 : 0;
+  let dr = !!(keys['shift'] || touch.drift);
   let brk = (keys['arrowdown'] || keys['s'] || keys[' '] || touch.brake) ? 1 : 0;
   let st = ((keys['arrowright'] || keys['d'] || touch.right) ? 1 : 0) - ((keys['arrowleft'] || keys['a'] || touch.left) ? 1 : 0);
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -1011,12 +1103,13 @@ function readInput(dt) {
     const rt = gp.buttons[7] ? gp.buttons[7].value : 0, lt = gp.buttons[6] ? gp.buttons[6].value : 0;
     if (rt > 0.05) gas = rt; if (lt > 0.05) brk = lt;
     const b = i => gp.buttons[i] && gp.buttons[i].pressed;
+    if (b(1)) dr = true;
     const up = b(0) || b(5), dn = b(2) || b(4), pz = b(9);
     if (up && !padPrev.up) shift(1); if (dn && !padPrev.dn) shift(-1); if (pz && !padPrev.pz && !attract) togglePause();
     padPrev = { up, dn, pz };
     break;
   }
-  inp.gas = gas; inp.brake = brk;
+  inp.gas = gas; inp.brake = brk; inp.drift = dr;
   // finger steering: drive toward the point under the finger
   if (drag.target !== null && st === 0) { inp.steer = (state === 'race' && P.downT <= 0) ? clamp((drag.target - P.x) * 11, -1, 1) : 0; return; }
   // smooth digital steering
@@ -1025,16 +1118,18 @@ function readInput(dt) {
 }
 document.querySelectorAll('#touch .tb').forEach(el => {
   const k = el.dataset.k;
+  const glow = () => { el.classList.add('shifted'); setTimeout(() => el.classList.remove('shifted'), 220); };
   const on = e => {
     e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} el.classList.add('on'); audioInit();
+    if (k === 'up' || k === 'down') { shift(k === 'up' ? 1 : -1); return; }
     touch[k] = 1;
-    if (k === 'gas' || k === 'brake') { // double tap = shift (gas up, brake down)
-      const now = performance.now();
-      if (now - (lastTap[k] || 0) < 320) { shift(k === 'gas' ? 1 : -1); lastTap[k] = 0; el.classList.add('shifted'); setTimeout(() => el.classList.remove('shifted'), 220); }
-      else lastTap[k] = now;
-    }
+    const now = performance.now();
+    // GAS: lift off and press again within 350 ms, near the top of the gear = shift up (feathering low in the revs does nothing)
+    if (k === 'gas' && veh && now - (lastTap.gasUp || 0) < 350 && P.kmh / veh.gears[P.gear] > 0.85) { const g0 = P.gear; shift(1); if (P.gear !== g0 || P.queue) glow(); }
+    // BRK: double-tap = shift down (kept)
+    if (k === 'brake') { if (now - (lastTap.brake || 0) < 320) { shift(-1); lastTap.brake = 0; glow(); } else lastTap.brake = now; }
   };
-  const off = e => { el.classList.remove('on'); if (k !== 'up' && k !== 'down') touch[k] = 0; };
+  const off = e => { el.classList.remove('on'); if (k === 'gas' && touch.gas) lastTap.gasUp = performance.now(); if (k !== 'up' && k !== 'down') touch[k] = 0; };
   el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('lostpointercapture', off);
 });
 const drag = { id: null, x0: 0, px0: 0, target: null };
@@ -1054,8 +1149,23 @@ zone.addEventListener('pointermove', e => {
 });
 const dragEnd = e => { if (e.pointerId !== drag.id) return; drag.id = null; drag.target = null; };
 zone.addEventListener('pointerup', dragEnd); zone.addEventListener('pointercancel', dragEnd); zone.addEventListener('lostpointercapture', dragEnd);
-const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
-if (isTouch) document.body.classList.add('touch');
+// Device detection: a phone/tablet (finger is the main pointer) starts with touch controls,
+// a computer starts with keyboard. It then follows whatever you actually use:
+// touch the screen -> touch controls appear; press a driving key -> they hide.
+let isTouch = matchMedia('(pointer:coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(hover:hover)').matches);
+function setTouchMode(on) {
+  if (on === isTouch) return;
+  isTouch = on; document.body.classList.toggle('touch', on);
+  if (!hudEl.hidden) touchEl.hidden = !on;
+}
+document.body.classList.toggle('touch', isTouch);
+// iPad/iPhone Safari: no pinch zoom, no double-tap zoom (double-tap BRK included), no page scroll while racing
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => { const now = performance.now(); if (now - lastTouchEnd < 350) e.preventDefault(); lastTouchEnd = now; }, { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1 || !e.target.closest('.sheet-wrap, .modal')) e.preventDefault(); }, { passive: false });
+addEventListener('pointerdown', e => { if (e.pointerType === 'touch') setTouchMode(true); }, true);
+addEventListener('keydown', e => { if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(e.key.toLowerCase())) setTouchMode(false); }, true);
 
 /* =================== gearbox =================== */
 function shift(d) {
@@ -1086,16 +1196,25 @@ function award(pts, text, color) {
   if (text) popup(text, color, '+' + got);
 }
 function breakChain() { P.chain = 0; P.mult = 1; }
+function flash(c) { if (!attract && !matchMedia('(prefers-reduced-motion:reduce)').matches) { P.flash = 1; P.flashC = c; } }
+// drift combo: banks when you straighten out, lost when you hit something
+function endDrift(broken) {
+  if (!(P.dT > 0)) return;
+  if (broken) { if (P.dT > 0.4) { popup('COMBO BROKEN', 'var(--red)', 'drift lost'); sfx.deny(); flash('#ff3b5c'); } }
+  else if (P.dT > 0.6) { P.drifts++; P.bestD = Math.max(P.bestD, P.dT); award(Math.round(P.dPts), 'DRIFT ' + P.dT.toFixed(1) + 's', 'var(--amber)'); sfx.chime(); if (P.dT > 2.5) flash('#ffb020'); }
+  P.dT = 0; P.dPts = 0; P.dm = 1; P.dIdle = 0;
+}
 
 /* =================== crash handling =================== */
 function crash(kind, rel, other) {
   if (P.inv > 0) return;
+  endDrift(true);
   const bike = veh.id === 'bike';
   const dm = diff.dmg / veh.armor;
   P.crashes++; breakChain(); if (P.cs) P.cs.crash = true;
   if (kind === 'scrape') {
     P.damage += 2.5 * dm; P.kmh *= 0.94; P.x += other ? Math.sign(P.x - other.offset) * 0.06 : 0; P.inv = 0.25; P.shake = 6; sfx.scrape();
-    spark(8); popup('SCRAPE', 'var(--amber)');
+    spark(8, other ? Math.sign(other.offset - P.x) : 0); popup('SCRAPE', 'var(--amber)');
   } else if (kind === 'rear') {
     const hard = rel > (bike ? 45 : 70);
     P.damage += Math.min(40, rel * 0.32) * dm; P.shake = 14; sfx.crash(Math.min(1, rel / 120));
@@ -1117,11 +1236,22 @@ function riderDown() {
   P.downT = 2.2; P.kmh = 0; P.inv = 3.6; P.gear = 1; P.shake = 18; popup('RIDER DOWN', 'var(--red)');
   for (let i = 0; i < 30; i++) parts.push({ x: W / 2, y: H - 40, vx: (Math.random() - 0.5) * 500, vy: -Math.random() * 400, life: 0, max: 0.8 + Math.random() * 0.6, c: Math.random() < 0.5 ? '#ffb020' : '#888', r: 3, g: 900 });
 }
-function spark(n) { for (let i = 0; i < n; i++) parts.push({ x: W / 2 + (Math.random() - 0.5) * W * 0.2, y: H - SY * 0.25, vx: (Math.random() - 0.5) * 600, vy: -Math.random() * 380, life: 0, max: 0.35 + Math.random() * 0.4, c: Math.random() < 0.6 ? '#ffd27a' : '#ff6a2a', r: 2.2, g: 1200 }); }
+// bright sparks + small black debris at the contact point (dir: -1 left side, 1 right side, 0 front); capped so phones stay smooth
+function spark(n, dir) {
+  const cap = isTouch ? 30 : 60; let live = 0; for (const p of parts) if (p.fx) live++;
+  n = Math.min(Math.round(n * (isTouch ? 0.6 : 1)), cap - live);
+  const j = Math.random, side = dir || 0, pw = veh.w / CAM_H * W / 2 * (veh.id === 'bike' ? 2 : 1), by = HZ + SY;
+  const x0 = W / 2 + side * pw * 0.5, y0 = by - pw * (side ? 0.22 : 0.5);
+  for (let i = 0; i < n; i++) {
+    const deb = i % 3 === 2;
+    parts.push({ fx: 1, deb, spk: !deb, x: x0 + (j() - 0.5) * pw * (side ? 0.1 : 0.6), y: y0 + (j() - 0.5) * 10, vx: side * 260 + (j() - 0.5) * (deb ? 380 : 620), vy: -100 - j() * (deb ? 300 : 420), life: 0, max: deb ? 0.8 + j() * 0.5 : 0.25 + j() * 0.35, c: deb ? (j() < 0.5 ? '#0b0b0d' : '#2b2c31') : (j() < 0.6 ? '#ffe7a0' : '#ff8a2a'), r: deb ? 2 + j() * 3.5 : 2, g: deb ? 1100 : 800, rot: j() * 6, vr: (j() - 0.5) * 22 });
+  }
+}
 
 /* =================== update =================== */
 function update(dt) {
   clock += dt;
+  if (P.flash > 0) P.flash -= dt * 3;
   readInput(dt);
   if (state === 'paused' || state === 'menu' && !attract) return;
   if (state === 'count') {
@@ -1203,7 +1333,7 @@ function stepPlayer(dt) {
     const rr0 = P.kmh / v.gears[P.gear];
     if (rr0 > 0.95 && P.gear < 6 && thr > 0.2) shift(1);
     else if (P.gear > 1 && P.kmh / v.gears[P.gear - 1] < (brk > 0 ? 0.74 : 0.58)) shift(-1);
-  }
+  } else if (isTouch && !attract && P.shiftT <= 0 && P.gear > 1 && P.kmh / v.gears[P.gear - 1] < (brk > 0 ? 0.74 : 0.5)) shift(-1); // phone manual: gears drop by themselves when the revs fall
   const r = P.kmh / v.gears[P.gear];
   const rTarget = v.idle / v.red + (1 - v.idle / v.red) * Math.min(r, 1.12);
   P.rpm = P.shiftT > 0 ? lerp(P.rpm, rTarget * v.red, 0.25) : rTarget * v.red;
@@ -1223,11 +1353,19 @@ function stepPlayer(dt) {
   const onInside = seg.corner >= 0 && Math.sign(seg.curve) === Math.sign(P.x);
   P.off = Math.abs(P.x) > (onInside ? 1.0 + curbW : 1.0); // the inside curb is usable in bends
   P.onCurb = !P.off && Math.abs(P.x) > 1.0;
+  if (P.off && !P.wasOff && P.kmh > 50) { spark(6, Math.sign(P.x)); sfx.scrape(); P.shake = Math.max(P.shake, 8); endDrift(true); } // clipping the road edge
+  P.wasOff = P.off;
   if (P.onCurb) P.shake = Math.max(P.shake, 2.5);
   let G = v.steer * v.grip * map.grip * diff.assist * (1 - 0.15 * P.damage / 100);
   if (P.off) G *= 0.62;
   if (brk > 0.5 && Math.abs(seg.curve) > 2) G *= 0.93; // braking mid-corner costs a little grip
   const cap = (0.6 + 1.85 * sp) * G;
+  // drift: hold DRIFT at speed in a bend -> the rear lets go, the car slides sideways but holds its line and most of its speed
+  const dDir = Math.abs(seg.curve) > 0.8 ? Math.sign(seg.curve) : Math.abs(st) > 0.3 ? Math.sign(st) : 0;
+  const wantD = inp.drift && !attract && state === 'race' && P.kmh > 60 && dDir !== 0 && !P.off && P.spinT <= 0;
+  if (wantD) P.dDir = dDir;
+  P.dk = clamp(P.dk + (wantD ? dt * 4 : -dt * 3), 0, 1);
+  const dk = P.dk;
   // racing line: swing wide on entry, cut to the inside at the apex -> much less outward push
   let lineK = 1; P.cutNow = 0;
   if (P.cs && Math.abs(seg.curve) > 1) {
@@ -1245,14 +1383,16 @@ function stepPlayer(dt) {
     P.cutNow = Math.min(1, cut * (0.55 + 0.45 * wide));
     P.cs.bestCut = Math.max(P.cs.bestCut || 0, P.cutNow);
   }
-  const push = 0.6 * sp * sp * Math.abs(seg.curve) * lineK * (thr > 0.9 && r > 0.8 ? 1.05 : 1);
+  const push = 0.6 * sp * sp * Math.abs(seg.curve) * lineK * (thr > 0.9 && r > 0.8 ? 1.05 : 1) * (1 - 0.4 * dk);
   let slide = 0;
   if (push > cap * 0.92) slide = clamp((push - cap * 0.92) / (cap * 0.45), 0, 1);
   P.slide = lerp(P.slide, slide, Math.min(1, dt * 10));
   const px0 = P.x;
-  P.x += st * cap * (1 - 0.45 * slide) * dt;
+  P.x += st * cap * (1 - 0.45 * slide) * (1 + 0.5 * dk) * dt;
   P.x -= Math.sign(seg.curve) * push * (1 + 0.7 * slide) * dt;
-  if (slide > 0) acc -= slide * 38;
+  P.x -= (P.dDir || 0) * 0.25 * dk * sp * dt; // the tail steps out a little
+  if (slide > 0) acc -= slide * 38 * (1 - 0.7 * dk);
+  acc -= dk * 6;
   P.vx = lerp(P.vx || 0, (P.x - px0) / dt + Math.sign(seg.curve) * push, Math.min(1, dt * 12)); // steering-driven lateral speed
   // off road
   if (P.off) {
@@ -1267,7 +1407,11 @@ function stepPlayer(dt) {
   if (P.kmh > P.top) P.top = P.kmh;
   // visuals
   P.steerV = lerp(P.steerV, st, Math.min(1, dt * 8));
-  P.lean = lerp(P.lean, clamp(st * 0.35 + seg.curve * sp * 0.07, -0.85, 0.85), Math.min(1, dt * 6));
+  P.lean = lerp(P.lean, clamp(st * 0.35 + seg.curve * sp * 0.07 + dk * (P.dDir || 0) * 0.2, -0.85, 0.85), Math.min(1, dt * 6));
+  P.yaw = lerp(P.yaw, clamp(dk * (P.dDir || 0) * 0.9 + st * 0.15, -1, 1), Math.min(1, dt * 6));   // nose points into the slide
+  P.roll = lerp(P.roll, clamp(st * 0.7 + seg.curve * sp * 0.06, -1, 1), Math.min(1, dt * 5));      // body leans into the turn
+  P.pitch = lerp(P.pitch, (P.shiftT > 0 ? 0 : thr) - brk * 1.3, Math.min(1, dt * 6));            // squat on gas, dive on brakes
+  if (dk > 0.3 && Math.random() < dk * (isTouch ? 0.5 : 0.9)) { const pw = veh.w / CAM_H * W / 2; for (const sx of [-0.38, 0.38]) parts.push({ x: W / 2 + sx * pw, y: HZ + SY - 4, vx: -(P.dDir || 0) * 40 + (Math.random() - 0.5) * 50, vy: -30 - Math.random() * 40, life: 0, max: 0.8, c: 'rgba(230,230,235,.45)', r: 8, g: -12, smoke: true }); }
   if (P.slide > 0.08 && Math.random() < P.slide * 1.2) for (const sx of [-0.3, 0.3]) parts.push({ x: W / 2 + sx * W * 0.25 * (veh.id === 'bike' ? 0.3 : 1), y: H - 10, vx: (Math.random() - 0.5) * 60, vy: -40 - Math.random() * 40, life: 0, max: 0.9, c: 'rgba(220,220,225,.5)', r: 10, g: -10, smoke: true });
   if (P.damage > 60 && Math.random() < 0.25) parts.push({ x: W / 2 + (Math.random() - 0.5) * 30, y: H - SY * 0.32, vx: (Math.random() - 0.5) * 30, vy: -80, life: 0, max: 1.1, c: 'rgba(40,40,44,.55)', r: 9, g: -20, smoke: true });
   // drafting
@@ -1278,6 +1422,12 @@ function stepPlayer(dt) {
   }
   P.draft = clamp(P.draft + (drafting ? dt * 0.75 : -dt * 1.3), 0, 1);
   if (drafting && P.draft > 0.5) { P.draftPts = (P.draftPts || 0) + dt; if (P.draftPts > 1) { P.draftPts = 0; P.score += Math.round(20 * P.mult); } }
+  // drift score builds while the slide is held; the multiplier steps up every 1.2 s
+  if (wantD && dk > 0.5) {
+    P.dT += dt; P.dIdle = 0; P.dPts += dt * P.kmh * 0.5 * P.dm;
+    const m = Math.min(5, 1 + Math.floor(P.dT / 1.2) * 0.5);
+    if (m > P.dm) { P.dm = m; popup('DRIFT ×' + m.toFixed(1), 'var(--amber)'); sfx.tick(m); }
+  } else if (P.dT > 0 && (P.dIdle += dt) > 0.35) endDrift(false);
   // corner tracking
   if (seg.corner !== P.cId) {
     if (P.cs) finishCorner(); P.cs = null;
@@ -1341,6 +1491,7 @@ function collide(seg) {
       if (lat > sumW * 0.6 || Math.abs(rel) < 18) { crash('scrape', rel, c); if (c.kind === 'traffic') c.offset += Math.sign(c.offset - P.x) * 0.04; return; }
       if (d > 0 && rel > 0) { crash('rear', rel, c); P.pos = wrap(c.z - (t.len + plen) / 2 - PZ - 10, trk.len); return; }
       if (d <= 0 && rel < 0) { // hit from behind: shoved forward
+        endDrift(true); spark(10, 0);
         P.damage += Math.min(20, -rel * 0.2) * diff.dmg / veh.armor; P.kmh = Math.max(P.kmh, cs * 0.85); P.inv = 0.7; P.shake = 10; P.crashes++; breakChain(); sfx.crash(0.5); popup('REAR-ENDED', 'var(--red)');
         if (c.kind === 'traffic') { c.speed = P.kmh * 0.85; c.hitT = 0.8; } else c.kmh = P.kmh * 0.9;
         if (P.damage >= 100) { P.damage = 100; endRace('wreck'); }
@@ -1389,7 +1540,7 @@ function updateTraffic(dt) {
     const rel = relZ(car.z, pz);
     if (state === 'race' && !attract && car.prevRel !== undefined && car.prevRel > 0 && rel <= 0 && rel > -4000 && P.downT <= 0) {
       const gap = Math.abs(P.x - car.offset) * RW - (CT[car.type].w + veh.w) / 2;
-      if (gap < 300 && P.kmh > 90) { P.near++; award(car.onc ? 250 : 150, car.onc ? 'ONCOMING MISS' : 'NEAR MISS', 'var(--amber)'); sfx.whoosh(); }
+      if (gap < 300 && P.kmh > 90) { P.near++; award(car.onc ? 250 : 150, car.onc ? 'ONCOMING MISS' : 'NEAR MISS', 'var(--amber)'); sfx.whoosh(); flash('#ffb020'); }
       else if (!car.onc) { P.passes++; award(50, null); }
     }
     car.prevRel = Math.abs(rel) < 6000 ? rel : undefined;
@@ -1437,7 +1588,7 @@ function updateRivals(dt) {
     if (!rv.finished && rv.prog - rv.startGap >= map.laps * L) { rv.finished = true; rv.finT = raceT; }
     // overtakes
     const rel = relZ(rv.z, pz);
-    if (state === 'race' && rv.prevRel !== undefined && rv.prevRel > 0 && rel <= 0 && rel > -3000) { award(200, 'OVERTAKE ' + rv.name, 'var(--cyan)'); sfx.whoosh(); }
+    if (state === 'race' && rv.prevRel !== undefined && rv.prevRel > 0 && rel <= 0 && rel > -3000) { award(200, 'OVERTAKE ' + rv.name, 'var(--cyan)'); sfx.whoosh(); flash('#38e8ff'); }
     rv.prevRel = Math.abs(rel) < 6000 ? rel : undefined;
   }
 }
@@ -1495,7 +1646,7 @@ function endRace(reason) {
   if (state === 'done') return;
   state = 'done'; P.endReason = reason; P.finT = raceT;
   if (P.cs) finishCorner();
-  const tok = raceToken; setTimeout(() => { if (tok === raceToken && state === 'done') showResults(); }, reason === 'finish' ? 1400 : 1100);
+  const tok = raceToken; setTimeout(() => { if (tok === raceToken && state === 'done') showResults(); }, reason === 'finish' ? 900 : 700);
 }
 
 /* =================== rendering =================== */
@@ -1576,6 +1727,7 @@ function render() {
   // speed vignette
   const sp = P.kmh / 300;
   if (sp > 0.75 || P.draft > 0.5) { const a = Math.max((sp - 0.75) * 0.9, P.draft > 0.5 ? (P.draft - 0.5) * 0.5 : 0); const g = ctx.createRadialGradient(W / 2, H * 0.55, H * 0.3, W / 2, H * 0.55, H * 0.95); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, P.draft > 0.5 ? `rgba(20,90,110,${a})` : `rgba(0,0,0,${a})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+  if (P.flash > 0 && !attract) { ctx.globalAlpha = P.flash * 0.16; ctx.fillStyle = P.flashC; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
   if (P.downT > 0 || (P.spinT > 0.6)) { ctx.fillStyle = `rgba(255,40,70,${0.12 + 0.1 * Math.sin(clock * 20)})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
 }
@@ -1593,7 +1745,7 @@ function drawClipped(img, x, y, w, h, clip, alpha, flip) {
 const GLOW = {};
 function glowImg(key) {
   if (GLOW[key]) return GLOW[key];
-  const col = { 'rgba(255,40,50,': [255, 40, 50], 'rgba(255,250,225,': [255, 250, 225], 'rgba(255,170,30,': [255, 170, 30], lamp: [255, 214, 150] }[key] || [255, 255, 255];
+  const col = { 'rgba(255,40,50,': [255, 40, 50], 'rgba(255,250,225,': [255, 250, 225], 'rgba(255,170,30,': [255, 170, 30], 'rgba(56,232,255,': [56, 232, 255], lamp: [255, 214, 150] }[key] || [255, 255, 255];
   const c = mk(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, `rgba(${col},1)`); gr.addColorStop(0.35, `rgba(${col},.45)`); gr.addColorStop(1, `rgba(${col},0)`);
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return (GLOW[key] = c);
@@ -1686,16 +1838,17 @@ function drawPlayer() {
   const t = CT.sport, dw = t.w * sc * W / 2, dh = dw * t.ch / t.cw;
   ctx.save();
   ctx.translate(W / 2, by);
-  const skew = -P.steerV * 0.07 - (P.spinT > 0 ? Math.sin(clock * 18) * 0.3 : 0);
+  const skew = -P.steerV * 0.05 - (P.spinT > 0 ? Math.sin(clock * 18) * 0.3 : 0);
   ctx.transform(1, 0, skew, 1, 0, 0);
   if (P.spinT > 0) ctx.scale(Math.cos(P.spinT * 9) * 0.3 + 0.7, 1);
-  ctx.drawImage(playerImg, -dw / 2, -dh, dw, dh);
-  const tl = t.tail;
-  if (P.brk > 0) { ctx.fillStyle = 'rgba(255,70,80,1)'; ctx.fillRect(-dw / 2 + tl[0] * dw, -dh + tl[1] * dh, (tl[2] - tl[0]) * dw, (tl[3] - tl[1]) * dh); ctx.fillRect(-dw / 2 + (1 - tl[2]) * dw, -dh + tl[1] * dh, (tl[2] - tl[0]) * dw, (tl[3] - tl[1]) * dh); }
-  if (P.flameT > 0) { for (const fx of [-0.3, 0.3]) { ctx.fillStyle = '#ffb020'; ctx.beginPath(); ctx.ellipse(fx * dw, -dh * 0.12, dw * 0.04, dh * 0.08, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#7ad8ff'; ctx.beginPath(); ctx.ellipse(fx * dw, -dh * 0.14, dw * 0.02, dh * 0.04, 0, 0, 7); ctx.fill(); } }
+  drawTuner(ctx, dw, dh, '#2fd6f0', { steer: P.steerV, yaw: P.yaw, roll: P.roll, pitch: P.pitch, brake: P.brk > 0, flame: P.flameT > 0, stripe: '#0b0d12', spin: P.dist * 2 });
   ctx.restore();
-  const ly = by - dh + (tl[1] + tl[3]) / 2 * dh;
-  if (map.night || map.weather || P.brk) { const a = P.brk ? 0.75 : 0.35; lights.push({ x: W / 2 - dw * 0.32, y: ly, r: dw * (P.brk ? 0.3 : 0.18), c: 'rgba(255,40,50,', a }); lights.push({ x: W / 2 + dw * 0.32, y: ly, r: dw * (P.brk ? 0.3 : 0.18), c: 'rgba(255,40,50,', a }); }
+  const ly = by - dh * 0.445, lx = dw * 0.36 * (1 - Math.abs(P.yaw) * 0.12), fx = -Math.sign(P.yaw) * Math.abs(P.yaw) * 0.05 * dw;
+  if (map.night || map.weather || P.brk) { const a = P.brk ? 0.75 : 0.35; for (const s of [-1, 1]) lights.push({ x: W / 2 + fx + s * lx, y: ly, r: dw * (P.brk ? 0.3 : 0.18), c: 'rgba(255,40,50,', a }); }
+  if (map.night > 0.2) { // headlight spill on the road ahead + a little neon underglow
+    for (const s of [-1, 1]) lights.push({ x: W / 2 + s * dw * 0.3, y: by - dh * 1.5, r: dw * 0.55, c: 'rgba(255,250,225,', a: 0.22 });
+    lights.push({ x: W / 2, y: by - 2, r: dw * 0.6, c: 'rgba(56,232,255,', a: 0.35 });
+  }
 }
 
 function drawSky(playerY) {
@@ -1736,10 +1889,12 @@ function drawParticles() {
     const p = parts[i]; p.life += dt; if (p.life > p.max) { parts.splice(i, 1); continue; }
     p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt;
     const a = 1 - p.life / p.max; ctx.globalAlpha = a; ctx.fillStyle = p.c;
+    if (p.deb) { p.rot += p.vr * dt; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-p.r, -p.r * 0.6, p.r * 2, p.r * 1.2); ctx.restore(); continue; }
+    if (p.spk) { ctx.strokeStyle = p.c; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.025, p.y - p.vy * 0.025); ctx.stroke(); continue; }
     ctx.beginPath(); ctx.arc(p.x, p.y, p.smoke ? p.r * (1 + p.life * 2) : p.r, 0, 7); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  if (parts.length > 400) parts.splice(0, parts.length - 400);
+  const pc = isTouch ? 200 : 400; if (parts.length > pc) parts.splice(0, parts.length - pc);
 }
 function drawWeather() {
   if (!map.weather) return;
@@ -1777,7 +1932,7 @@ function hud(force) {
   else if (m === 'race') { const pos = playerPos(); E.modeLbl.textContent = 'Position'; E.modeBig.innerHTML = `${pos}<span style="font-size:.5em;opacity:.6">/6</span>`; E.modeSub.innerHTML = `LAP <b>${Math.min(map.laps, P.lap + 1)}/${map.laps}</b> · ${fmtT(raceT)}`; }
   else { E.modeLbl.textContent = 'Survival'; E.modeBig.textContent = (P.dist / 1000).toFixed(2) + ' km'; E.modeBig.classList.remove('warn'); E.modeSub.innerHTML = `TRAFFIC LV <b>${P.level + 1}</b> · next in ${Math.ceil(25 - P.levelT)}s`; }
   E.score.textContent = Math.floor(P.score).toLocaleString();
-  E.combo.textContent = P.mult > 1 ? '×' + P.mult.toFixed(1) + ' COMBO' : '';
+  E.combo.textContent = P.dT > 0.3 ? 'DRIFT ×' + P.dm.toFixed(1) + ' · ' + Math.round(P.dPts) : P.mult > 1 ? '×' + P.mult.toFixed(1) + ' COMBO' : '';
   E.dmgBar.style.width = P.damage + '%'; E.dmgTxt.textContent = Math.round(P.damage) + '%';
   E.draftBar.style.width = (P.draft * 100) + '%'; E.lvlTxt.textContent = P.draft > 0.5 ? 'IN THE DRAFT' : '';
   E.gear.textContent = P.downT > 0 ? '–' : P.gear; E.gearMode.textContent = sel.auto ? 'AUTO' : 'MANUAL';
@@ -1889,7 +2044,7 @@ function audioFrame() {
   A.lp.frequency.setTargetAtTime(250 + P.thr * 1800 + (P.rpm / veh.red) * 1600, t, 0.03);
   let eg = playing ? (0.06 + P.thr * 0.1) : 0; if (P.limiter) eg *= 0.55 + 0.45 * Math.sin(clock * 70); if (P.shiftT > 0) eg *= 0.4; if (P.downT > 0) eg = 0.02;
   A.eg.gain.setTargetAtTime(eg, t, 0.03);
-  A.squeal.gain.setTargetAtTime(playing ? Math.min(0.3, P.slide * 0.45) : 0, t, 0.05);
+  A.squeal.gain.setTargetAtTime(playing ? Math.min(0.3, Math.max(P.slide * 0.45, (P.dk || 0) * 0.22)) : 0, t, 0.05);
   A.wind.gain.setTargetAtTime(playing ? (P.kmh / 300) * 0.09 : 0, t, 0.1);
   A.rumble.gain.setTargetAtTime(playing && P.kmh > 10 ? (P.off ? 0.5 : (Math.abs(P.x) > 0.93 ? 0.25 : 0)) : 0, t, 0.05);
 }
@@ -1899,6 +2054,7 @@ const sfx = {
   beep(f, d, v) { this.tone(f, d, v, 'square'); },
   shift(d) { this.tone(d > 0 ? 180 : 120, 0.06, 0.12, 'square', d > 0 ? 90 : 220); },
   pop() { this.noise(0.12, 0.5, 'bandpass', 380); this.noise(0.08, 0.3, 'bandpass', 700); },
+  tick(m) { this.tone(500 + m * 140, 0.09, 0.14, 'square', 700 + m * 160); },
   deny() { this.tone(160, 0.18, 0.2, 'square', 120); },
   crash(i) { this.noise(0.5 + i * 0.4, 0.5 + i * 0.4, 'lowpass', 1600, 120); this.tone(90, 0.3, 0.3 * i, 'sawtooth', 40); },
   scrape() { this.noise(0.25, 0.3, 'bandpass', 3000, 1200); },
@@ -1953,7 +2109,7 @@ $('#rideCar').onclick = () => { sel.veh = 'car'; refreshMenu(); newRace(true); }
 $('#rideBike').onclick = () => { sel.veh = 'bike'; refreshMenu(); newRace(true); };
 document.querySelectorAll('#diffSeg button').forEach(b => b.onclick = () => { sel.diff = b.dataset.d; refreshMenu(); });
 document.querySelectorAll('#boxSeg button').forEach(b => b.onclick = () => { sel.auto = b.dataset.b === 'auto'; refreshMenu(); });
-$('#goBtn').onclick = startGame;
+$('#goBtn').onclick = () => startGame(false);
 $('#btnPause').onclick = () => togglePause();
 $('#btnMute').onclick = () => toggleMute();
 $('#resumeBtn').onclick = () => togglePause(false);
@@ -1962,14 +2118,15 @@ $('#quitBtn').onclick = toMenu;
 $('#retryBtn').onclick = restart;
 $('#menuBtn').onclick = toMenu;
 
-function startGame() {
+function startGame(quick) {
   audioInit();
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   menuEl.hidden = true; resEl.hidden = true; pauseEl.hidden = true; hudEl.hidden = false; touchEl.hidden = !isTouch;
-  newRace(false); popEl.innerHTML = ''; hud(true);
+  newRace(false, quick === true); popEl.innerHTML = ''; hud(true);
   drag.id = null; drag.target = null; $('#steerHint').classList.remove('gone');
+  for (const k in touch) touch[k] = 0;
 }
-function restart() { startGame(); }
+function restart() { startGame(true); }
 function toMenu() { pauseEl.hidden = true; resEl.hidden = true; hudEl.hidden = true; touchEl.hidden = true; menuEl.hidden = false; setCenter(''); state = 'menu'; refreshMenu(); newRace(true); }
 function togglePause(force) {
   if (attract || state === 'menu' || state === 'done') return;
@@ -2003,7 +2160,7 @@ function showResults() {
   saveBest(best);
   $('#resKicker').textContent = kicker; $('#resTitle').textContent = title || Math.floor(P.score).toLocaleString() + ' pts';
   $('#resMedal').innerHTML = medalHtml;
-  const st = [['Score', Math.floor(P.score).toLocaleString()], ['Distance', (P.dist / 1000).toFixed(2) + ' km'], ['Top speed', Math.round(P.top) + ' km/h'], ['Time', fmtT(P.finT || raceT)], ['Clean corners', P.clean], ['Perfect exits', P.perfect], ['Cars passed', P.passes], ['Near misses', P.near], ['Crashes', P.crashes], ['Damage', Math.round(P.damage) + '%']];
+  const st = [['Score', Math.floor(P.score).toLocaleString()], ['Distance', (P.dist / 1000).toFixed(2) + ' km'], ['Top speed', Math.round(P.top) + ' km/h'], ['Time', fmtT(P.finT || raceT)], ['Clean corners', P.clean], ['Perfect exits', P.perfect], ['Cars passed', P.passes], ['Near misses', P.near], ['Drifts', P.drifts], ['Longest drift', P.bestD.toFixed(1) + 's'], ['Crashes', P.crashes], ['Damage', Math.round(P.damage) + '%']];
   $('#resStats').innerHTML = st.map(([k, v]) => `<div class="st"><div class="lbl">${k}</div><div class="v">${v}</div></div>`).join('');
   $('#resBest').textContent = better ? 'New personal best!' : prev ? `Best: ${prev.label}` : '';
   resEl.hidden = false; hudEl.hidden = true; touchEl.hidden = true; setCenter('');
